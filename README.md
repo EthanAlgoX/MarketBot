@@ -24,6 +24,7 @@ node dist/index.js agents list
 node dist/index.js agents add analyst --name "Analyst" --default
 node dist/index.js analyze --agent analyst "Analyze AAPL swing"
 ```
+Legacy CLI alias: `tradebot` (prints a deprecation warning).
 If you pass `--agent`, make sure it exists in `marketbot.json` (use `marketbot agents add`).
 
 Config utilities:

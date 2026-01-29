@@ -9,7 +9,8 @@
     "test": "vitest"
   },
   "bin": {
-    "marketbot": "dist/index.js"
+    "marketbot": "dist/index.js",
+    "tradebot": "dist/compat/tradebot.js"
   },
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
