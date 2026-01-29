@@ -1,9 +1,9 @@
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 
-import type { TradeBotConfig } from "../config/types.js";
+import type { MarketBotConfig } from "../config/types.js";
 import { resolveAgentWorkspaceDir } from "../agents/agentScope.js";
+import { resolveManagedSkillsDir } from "./paths.js";
 
 export interface SkillEntry {
   name: string;
@@ -19,7 +19,7 @@ export interface SkillLoadOptions {
 }
 
 export async function loadSkills(
-  config: TradeBotConfig,
+  config: MarketBotConfig,
   agentId: string,
   cwd: string = process.cwd(),
   options: SkillLoadOptions = {},
@@ -42,15 +42,15 @@ export async function loadSkills(
   return entries.slice(0, maxSkills);
 }
 
-export function resolveSkillDirs(config: TradeBotConfig, agentId: string, cwd: string): string[] {
+export function resolveSkillDirs(config: MarketBotConfig, agentId: string, cwd: string): string[] {
   const dirs: string[] = [];
   const workspaceDir = resolveAgentWorkspaceDir(config, agentId, cwd);
   dirs.push(path.join(workspaceDir, "skills"));
 
-  const managed = path.join(os.homedir(), ".tradebot", "skills");
-  dirs.push(managed);
+  dirs.push(resolveManagedSkillsDir(config));
 
-  const envDirs = process.env.TRADEBOT_SKILLS_DIRS?.split(",") ?? [];
+  const envDirs =
+    (process.env.MARKETBOT_SKILLS_DIRS ?? process.env.TRADEBOT_SKILLS_DIRS)?.split(",") ?? [];
   for (const dir of envDirs.map((value) => value.trim()).filter(Boolean)) {
     dirs.push(dir);
   }

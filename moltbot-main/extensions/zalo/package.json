@@ -1,0 +1,33 @@
+{
+  "name": "@moltbot/zalo",
+  "version": "2026.1.29",
+  "type": "module",
+  "description": "Moltbot Zalo channel plugin",
+  "moltbot": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "zalo",
+      "label": "Zalo",
+      "selectionLabel": "Zalo (Bot API)",
+      "docsPath": "/channels/zalo",
+      "docsLabel": "zalo",
+      "blurb": "Vietnam-focused messaging platform with Bot API.",
+      "aliases": [
+        "zl"
+      ],
+      "order": 80,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "npmSpec": "@moltbot/zalo",
+      "localPath": "extensions/zalo",
+      "defaultChoice": "npm"
+    }
+  },
+  "dependencies": {
+    "moltbot": "workspace:*",
+    "undici": "7.19.0"
+  }
+}
