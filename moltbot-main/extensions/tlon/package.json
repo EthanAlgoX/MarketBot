@@ -1,0 +1,30 @@
+{
+  "name": "@moltbot/tlon",
+  "version": "2026.1.29",
+  "type": "module",
+  "description": "Moltbot Tlon/Urbit channel plugin",
+  "moltbot": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "tlon",
+      "label": "Tlon",
+      "selectionLabel": "Tlon (Urbit)",
+      "docsPath": "/channels/tlon",
+      "docsLabel": "tlon",
+      "blurb": "decentralized messaging on Urbit; install the plugin to enable.",
+      "order": 90,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "npmSpec": "@moltbot/tlon",
+      "localPath": "extensions/tlon",
+      "defaultChoice": "npm"
+    }
+  },
+  "dependencies": {
+    "@urbit/aura": "^3.0.0",
+    "@urbit/http-api": "^3.0.0"
+  }
+}

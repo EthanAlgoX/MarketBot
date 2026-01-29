@@ -9,7 +9,7 @@ export const AgentSchema = z
   })
   .passthrough();
 
-export const TradeBotConfigSchema = z
+export const MarketBotConfigSchema = z
   .object({
     agents: z
       .object({
@@ -30,19 +30,43 @@ export const TradeBotConfigSchema = z
         directories: z.array(z.string()).optional(),
         maxCharsPerSkill: z.number().int().positive().optional(),
         maxSkills: z.number().int().positive().optional(),
+        managedDir: z.string().optional(),
+        allowlist: z.array(z.string()).optional(),
+        denylist: z.array(z.string()).optional(),
+        entries: z.record(
+          z.object({
+            enabled: z.boolean().optional(),
+            env: z.record(z.string()).optional(),
+            config: z.record(z.string()).optional(),
+            apiKey: z.string().optional(),
+          }),
+        ).optional(),
+      })
+      .passthrough()
+      .optional(),
+    llm: z
+      .object({
+        provider: z.enum(["mock", "openai-compatible"]).optional(),
+        model: z.string().optional(),
+        baseUrl: z.string().optional(),
+        apiKeyEnv: z.string().optional(),
+        apiKey: z.string().optional(),
+        timeoutMs: z.number().int().positive().optional(),
+        jsonMode: z.boolean().optional(),
+        headers: z.record(z.string()).optional(),
       })
       .passthrough()
       .optional(),
   })
   .passthrough();
 
-export type TradeBotConfigSchemaType = z.infer<typeof TradeBotConfigSchema>;
+export type MarketBotConfigSchemaType = z.infer<typeof MarketBotConfigSchema>;
 
-export function validateConfig(raw: unknown): TradeBotConfigSchemaType {
-  const parsed = TradeBotConfigSchema.safeParse(raw);
+export function validateMarketBotConfig(raw: unknown): MarketBotConfigSchemaType {
+  const parsed = MarketBotConfigSchema.safeParse(raw);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`);
-    throw new Error(`Invalid tradebot.json:\n${issues.join("\n")}`);
+    throw new Error(`Invalid marketbot.json:\n${issues.join("\n")}`);
   }
   return parsed.data;
 }

@@ -1,4 +1,4 @@
-export interface TradeBotConfig {
+export interface MarketBotConfig {
   agents?: {
     defaults?: {
       workspace?: string;
@@ -16,5 +16,27 @@ export interface TradeBotConfig {
     directories?: string[];
     maxCharsPerSkill?: number;
     maxSkills?: number;
+    managedDir?: string;
+    allowlist?: string[];
+    denylist?: string[];
+    entries?: Record<
+      string,
+      {
+        enabled?: boolean;
+        env?: Record<string, string>;
+        config?: Record<string, string>;
+        apiKey?: string;
+      }
+    >;
+  };
+  llm?: {
+    provider?: "mock" | "openai-compatible";
+    model?: string;
+    baseUrl?: string;
+    apiKeyEnv?: string;
+    apiKey?: string;
+    timeoutMs?: number;
+    jsonMode?: boolean;
+    headers?: Record<string, string>;
   };
 }

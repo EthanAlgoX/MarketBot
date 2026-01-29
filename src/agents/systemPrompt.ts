@@ -3,6 +3,7 @@ import { loadConfig } from "../config/io.js";
 import { normalizeAgentId, resolveAgentWorkspaceDir, resolveDefaultAgentId } from "./agentScope.js";
 import { ensureWorkspace, readWorkspaceContext } from "./workspace.js";
 import { loadSkills } from "../skills/registry.js";
+import { buildSkillStatus } from "../skills/status.js";
 
 const cachedPrompts = new Map<string, string>();
 
@@ -21,7 +22,15 @@ export async function getSystemPrompt(options: SystemPromptOptions = {}): Promis
 
   await ensureWorkspace(config, agentId, cwd);
   const workspaceDir = resolveAgentWorkspaceDir(config, agentId, cwd);
-  const skills = await loadSkills(config, agentId, cwd);
+  const statusReport = await buildSkillStatus(config, { agentId, cwd });
+  const eligiblePaths = new Set(
+    statusReport.skills
+      .filter((entry) => entry.eligible && !entry.disabled && !entry.blockedByAllowlist)
+      .map((entry) => entry.filePath),
+  );
+  const skills = (await loadSkills(config, agentId, cwd)).filter((skill) =>
+    eligiblePaths.has(skill.location),
+  );
   const skillsBlock = skills.length
     ? [
         "",
