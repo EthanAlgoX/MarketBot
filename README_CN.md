@@ -54,14 +54,14 @@ npm run build
 
 详细配置请参考 [配置指南](#-配置指南) 章节。
 
-**示例：DeepSeek (推荐/高性价比)**
+**示例：OpenAI (默认)**
 
 ```bash
 # 方式一：环境变量
-export DEEPSEEK_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."
 
 # 方式二：.env 文件
-echo 'DEEPSEEK_API_KEY=sk-...' > .env
+echo 'OPENAI_API_KEY=sk-...' > .env
 ```
 
 ### 3. 运行分析

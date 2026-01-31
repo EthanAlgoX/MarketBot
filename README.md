@@ -54,14 +54,14 @@ npm run build
 
 Detailed configuration can be found in [Configuration](#-configuration) section.
 
-**Example: DeepSeek (Recommended)**
+**Example: OpenAI (Default)**
 
 ```bash
 # Option 1: Environment variable
-export DEEPSEEK_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."
 
 # Option 2: .env file
-echo 'DEEPSEEK_API_KEY=sk-...' > .env
+echo 'OPENAI_API_KEY=sk-...' > .env
 ```
 
 ### 3. Run Analysis
