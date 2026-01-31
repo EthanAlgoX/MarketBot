@@ -90,16 +90,16 @@ pnpm install
 pnpm build
 ```
 
-#### 1. Configure Environment
+#### 1. Configure MarketBot
 
-Create a `.env` file and set your credentials.
+Launch the interactive onboarding wizard to configure your model providers and API keys.
 
 ```bash
-cp .env.example .env
-# Edit .env to add your API keys (e.g., DEEPSEEK_API_KEY) and:
-# MARKETBOT_GATEWAY_TOKEN=marketbot123
-# MARKETBOT_CONFIG_PATH=marketbot.json
+pnpm start -- onboard
 ```
+
+> [!TIP]
+> This will guide you through setting up your AI providers (DeepSeek, OpenAI, etc.) and save the configuration to `marketbot.json`.
 
 #### 2. Start the Gateway
 
@@ -161,28 +161,23 @@ The Terminal UI provides market-focused slash commands:
 
 ---
 
-## Configuration
-
-MarketBot only requires a model/auth provider to start. Once you configure a
-provider, you can launch immediately without any other confirmation steps.
-
-Create a `.env` file based on `.env.example`:
+MarketBot is best configured using the interactive onboarding wizard:
 
 ```bash
-cp .env.example .env
+pnpm start -- onboard
 ```
 
-Key environment variables:
+Alternatively, you can manage providers directly in the TUI using the `/provider` command.
+
+### Environment Variables
+
+While most configuration lives in `marketbot.json`, you can use these environment variables for advanced setup:
 
 | Variable | Description |
 |----------|-------------|
 | `MARKETBOT_GATEWAY_TOKEN` | Secure token for Gateway authentication |
-| `LLM_PROVIDER` | AI provider (openai, anthropic, gemini, etc.) |
-| `OPENAI_API_KEY` | OpenAI API key |
-| `ANTHROPIC_API_KEY` | Anthropic API key |
-| `DEEPSEEK_API_KEY` | DeepSeek API key |
-| `GOOGLE_AI_API_KEY` | Google AI API key |
 | `MARKETBOT_CONFIG_PATH` | Path to config file (default: `~/.marketbot/marketbot.json`) |
+| `MARKETBOT_STATE_DIR` | Directory for sessions, logs, and caches |
 
 ---
 
