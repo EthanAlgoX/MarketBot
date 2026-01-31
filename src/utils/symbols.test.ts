@@ -8,6 +8,11 @@ describe("symbol helpers", () => {
     expect(resolveSymbolFromText("看一下苹果走势")).toBe("AAPL");
   });
 
+  it("resolves common crypto names", () => {
+    expect(resolveSymbolFromText("比特币走势")).toBe("BTC");
+    expect(resolveSymbolFromText("Ethereum price")).toBe("ETH");
+  });
+
   it("resolves explicit tickers", () => {
     expect(resolveSymbolFromText("GOOGL short-term view")).toBe("GOOGL");
   });

@@ -16,6 +16,10 @@ const NAME_TO_SYMBOL: Array<[string, string]> = [
   ["nvidia", "NVDA"],
   ["meta", "META"],
   ["facebook", "META"],
+  ["比特币", "BTC"],
+  ["bitcoin", "BTC"],
+  ["以太坊", "ETH"],
+  ["ethereum", "ETH"],
 ];
 
 const CRYPTO_TO_YAHOO: Record<string, string> = {

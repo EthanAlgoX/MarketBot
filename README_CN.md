@@ -50,12 +50,11 @@ npm run build
 
 ### 2. 配置 API Key
 
-**二选一（推荐 DeepSeek，性价比高）**
+**支持 OpenAI, DeepSeek, Google Gemini, Claude, 通义千问, Moonshot, Ollama**
 
-| 变量 | 说明 | 获取地址 |
-|------|------|---------|
-| `OPENAI_API_KEY` | OpenAI API Key | [platform.openai.com](https://platform.openai.com/) |
-| `DEEPSEEK_API_KEY` | DeepSeek API Key | [platform.deepseek.com](https://platform.deepseek.com/) |
+详细配置请参考 [配置指南](#-配置指南) 章节。
+
+**示例：DeepSeek (推荐/高性价比)**
 
 ```bash
 # 方式一：环境变量

@@ -50,12 +50,11 @@ npm run build
 
 ### 2. Configure API Key
 
-**Choose one (DeepSeek recommended for cost-effectiveness)**
+**Support for OpenAI, DeepSeek, Gemini, Claude, Qwen, Moonshot, Ollama**
 
-| Variable | Description | Get it from |
-|----------|-------------|-------------|
-| `OPENAI_API_KEY` | OpenAI API Key | [platform.openai.com](https://platform.openai.com/) |
-| `DEEPSEEK_API_KEY` | DeepSeek API Key | [platform.deepseek.com](https://platform.deepseek.com/) |
+Detailed configuration can be found in [Configuration](#-configuration) section.
+
+**Example: DeepSeek (Recommended)**
 
 ```bash
 # Option 1: Environment variable
