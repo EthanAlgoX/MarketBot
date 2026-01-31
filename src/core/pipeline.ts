@@ -117,7 +117,9 @@ export async function runMarketBot({
   const fetchMarketData = dataService?.getMarketDataFromIntent ?? getMarketDataFromIntent;
   const resolvedMarketData = await runPhase("market_data", async () => {
     if (marketData) return marketData;
-    return fetchMarketData(intent, dataOptions);
+    // Default to enabling search for richer context unless explicitly disabled
+    const effectiveOptions = { enableSearch: true, ...dataOptions };
+    return fetchMarketData(intent, effectiveOptions);
   });
   const market = await runPhase("interpret", () => runMarketDataInterpreter(provider, resolvedMarketData, systemPrompt));
 

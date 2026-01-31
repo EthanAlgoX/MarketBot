@@ -11,6 +11,15 @@ function webSearchTool(): ToolSpec {
     return {
         name: "web_search",
         description: "Search the web for information using a query. Arguments: query (string)",
+        version: "1.0.0",
+        tags: ["web", "search"],
+        inputSchema: {
+            type: "object",
+            properties: {
+                query: { type: "string" },
+            },
+            required: ["query"],
+        },
         run: async (context: ToolContext): Promise<ToolResult> => {
             let query = "";
 

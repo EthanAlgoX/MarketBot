@@ -11,6 +11,14 @@ function echoTool(): ToolSpec {
   return {
     name: "echo",
     description: "Echo raw arguments",
+    version: "1.0.0",
+    tags: ["util"],
+    inputSchema: {
+      type: "object",
+      properties: {
+        input: { type: "string", description: "Raw input to echo back" },
+      },
+    },
     run: async (context: ToolContext) => ({
       ok: true,
       output: context.rawArgs,
@@ -22,6 +30,15 @@ function httpGetTool(): ToolSpec {
   return {
     name: "http_get",
     description: "Fetch a URL and return the first 4000 chars",
+    version: "1.0.0",
+    tags: ["web", "fetch"],
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "URL to fetch" },
+      },
+      required: ["url"],
+    },
     run: async (context: ToolContext) => {
       const url = context.rawArgs.trim();
       if (!url) {

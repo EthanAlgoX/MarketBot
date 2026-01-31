@@ -25,6 +25,19 @@ function marketFetchTool(): ToolSpec {
   return {
     name: "market_fetch",
     description: "Fetch market data and compute indicators from live sources",
+    version: "1.0.0",
+    tags: ["market", "data"],
+    inputSchema: {
+      type: "object",
+      properties: {
+        asset: { type: "string" },
+        market: { type: "string" },
+        timeframes: { type: "array", items: { type: "string" } },
+        mode: { type: "string", enum: ["auto", "api", "scrape"] },
+        enableSearch: { type: "boolean" },
+      },
+      required: ["asset", "market", "timeframes"],
+    },
     run: async (context: ToolContext): Promise<ToolResult> => {
       const input = requireJson(context);
       const asset = asString(input.asset);
@@ -58,6 +71,15 @@ function indicatorsComputeTool(): ToolSpec {
   return {
     name: "indicators_compute",
     description: "Compute market indicators from OHLCV series",
+    version: "1.0.0",
+    tags: ["market", "analysis"],
+    inputSchema: {
+      type: "object",
+      properties: {
+        series: { type: "array", items: { type: "object" } },
+      },
+      required: ["series"],
+    },
     run: async (context: ToolContext): Promise<ToolResult> => {
       const input = requireJson(context);
       const series = input.series as MarketSeries[] | undefined;
@@ -74,6 +96,17 @@ function reportRenderTool(): ToolSpec {
   return {
     name: "report_render",
     description: "Run MarketBot report generation from provided market data",
+    version: "1.0.0",
+    tags: ["report"],
+    inputSchema: {
+      type: "object",
+      properties: {
+        userQuery: { type: "string" },
+        marketData: { type: "object" },
+        agentId: { type: "string" },
+      },
+      required: ["userQuery", "marketData"],
+    },
     run: async (context: ToolContext): Promise<ToolResult> => {
       const input = requireJson(context);
       const userQuery = asString(input.userQuery);
@@ -100,6 +133,16 @@ function marketSummaryTool(): ToolSpec {
   return {
     name: "market_summary",
     description: "Summarize market data into a concise text summary",
+    version: "1.0.0",
+    tags: ["summary"],
+    inputSchema: {
+      type: "object",
+      properties: {
+        marketData: { type: "object" },
+        asset: { type: "string" },
+      },
+      required: ["marketData"],
+    },
     run: async (context: ToolContext): Promise<ToolResult> => {
       const input = requireJson(context);
       const marketData = input.marketData as MarketDataInput | undefined;

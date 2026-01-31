@@ -6,13 +6,13 @@ import type { Language } from "../utils/language.js";
 
 const REPORT_PROMPT_EN = `You are a market analyst report writer.
 Based on the complete analysis context, generate a professional, concise market report in English.
-Include: Executive Summary, Market Conditions, Risk Assessment, and Recommendations.
+Include: Executive Summary, Market Conditions, News Analysis (if available), Risk Assessment, and Recommendations.
 Use markdown formatting with clear headings and bullet points.
 Do not output JSON, code fences, or metadata—only the report.`;
 
 const REPORT_PROMPT_ZH = `你是一名市场分析报告撰写专家。
 根据完整的分析上下文，生成专业、简洁的中文市场分析报告。
-包含：执行摘要、市场状况、风险评估和建议。
+包含：执行摘要、市场状况、新闻分析（如有）、风险评估和建议。
 使用 markdown 格式，使用清晰的标题和要点列表。
 不要输出 JSON、代码块或元数据——只输出报告正文。`;
 

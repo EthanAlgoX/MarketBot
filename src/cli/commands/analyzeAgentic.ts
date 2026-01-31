@@ -12,16 +12,6 @@ const SYSTEM_PROMPT = `You are MarketBot, an AI-powered market analysis assistan
 
 Your goal is to analyze markets and provide actionable insights to users.
 
-You have access to the following tools:
-- market_fetch: Fetch market data and compute indicators from live sources
-- indicators_compute: Compute market indicators from OHLCV series
-- report_render: Generate a full analysis report
-- market_summary: Create a concise market summary
-- signal_analyze: Generate technical trading signals (Buy/Sell/Hold) based on market data
-- portfolio_add: Add an asset to the portfolio
-- portfolio_remove: Remove an asset from the portfolio
-- portfolio_status: Get current portfolio status
-
 When a user asks for analysis:
 1. First use market_fetch to get the latest market data
 2. Analyze the data and generate insights
@@ -33,6 +23,16 @@ When a user asks about portfolio:
 2. Use portfolio_add/remove to manage assets if requested
 
 Always explain your reasoning and provide specific recommendations when appropriate.`;
+
+function buildToolsBlock(tools: Array<{ name: string; description?: string }>): string {
+    if (tools.length === 0) return "No tools available.";
+    const lines = ["You have access to the following tools:"];
+    for (const tool of tools) {
+        const description = tool.description ? `: ${tool.description}` : "";
+        lines.push(`- ${tool.name}${description}`);
+    }
+    return lines.join("\n");
+}
 
 export interface AgenticAnalyzeOptions {
     query: string;
@@ -73,6 +73,7 @@ export async function runAgenticAnalysis(
         throw new Error("No tools allowed by policy.");
     }
     const bridge = createToolBridge(tools);
+    const systemPrompt = `${SYSTEM_PROMPT}\n\n${buildToolsBlock(tools)}`;
 
     if (verbose) {
         console.log(`\n🤖 Starting agentic analysis...`);
@@ -99,7 +100,7 @@ export async function runAgenticAnalysis(
 
             return toolResult;
         },
-        systemPrompt: SYSTEM_PROMPT,
+        systemPrompt,
         userQuery: query,
         config: {
             maxIterations,

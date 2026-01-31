@@ -41,6 +41,7 @@ export interface MarketDataInput {
     currency?: string;
     market_state?: string;
     price_type?: "regular" | "post" | "pre";
+    news_context?: string[];
 }
 
 // ========== Market Data Interpretation ==========
@@ -54,6 +55,7 @@ export interface MarketDataInterpretation {
         nearest_resistance?: number;
     };
     summary: string;
+    news_analysis?: string;
 }
 
 // ========== Higher Timeframe Bias ==========

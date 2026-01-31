@@ -68,33 +68,88 @@ export async function fetchYahooQuote(symbol: string, timeoutMs?: number): Promi
 
 async function fetchYahooQuoteFromHtml(symbol: string, timeoutMs?: number): Promise<QuoteSnapshot | null> {
   const url = `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`;
-  const response = await fetchWithTimeout(url, { timeout: timeoutMs });
+  const response = await fetchWithTimeout(url, {
+    timeout: timeoutMs,
+    headers: {
+      // Ensure we get the desktop site which definitely has fin-streamer
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+  });
   if (!response.ok) return null;
   const html = await response.text();
 
-  const priceMatch = matchRawNumber(html, ["regularMarketPrice", "currentPrice", "postMarketPrice", "preMarketPrice"]);
-  if (!priceMatch) return null;
+  // Try to find <fin-streamer> tags which are specific to the symbol
+  // Example: <fin-streamer data-symbol="GOOGL" ... data-field="regularMarketPrice" value="175.5">
+  const cleanSymbol = symbol.toUpperCase();
 
-  const { value: price, key: priceKey } = priceMatch;
-  const time = matchNumber(html, ["regularMarketTime", "postMarketTime", "preMarketTime"]);
-  const currency = matchString(html, ["currency"]);
-  const exchange = matchString(html, ["fullExchangeName"]);
-  const marketState = matchString(html, ["marketState"]);
-  const symbolMatch = matchString(html, ["symbol"]) ?? symbol;
+  const extractPrice = (field: string): number | undefined => {
+    // Regex matches: data-symbol="SYMBOL" ... data-field="FIELD" ... value="NUMBER"
+    // Handle attributes in any order
+    const regex = new RegExp(
+      `<fin-streamer[^>]*data-symbol="${cleanSymbol}"[^>]*data-field="${field}"[^>]*value="([0-9.]+)"`,
+      "i"
+    );
+    const match = html.match(regex);
+    if (!match) return undefined;
+    return Number(match[1]);
+  };
 
+  const regularPrice = extractPrice("regularMarketPrice");
+  const postPrice = extractPrice("postMarketPrice");
+  const prePrice = extractPrice("preMarketPrice");
+
+  // Determine effective price
+  let price = regularPrice;
   let priceType: QuoteSnapshot["priceType"] = "regular";
-  if (priceKey === "postMarketPrice") priceType = "post";
-  if (priceKey === "preMarketPrice") priceType = "pre";
+
+  // If regular price is missing, or if pre/post is more relevant? 
+  // Usually we prefer regular, but if market is closed, user might want post. 
+  // For simplicity, prioritize post/pre if regular is missing, or if we want to detect state.
+  // Existing logic prioritized result.regularMarketPrice.
+
+  if (price == null && postPrice != null) {
+    price = postPrice;
+    priceType = "post";
+  }
+  if (price == null && prePrice != null) {
+    price = prePrice;
+    priceType = "pre";
+  }
+
+  // Fallback to strict JSON regex if fin-streamer fails (sometimes Yahoo changes layout)
+  // Fallback to strict JSON regex if fin-streamer fails (sometimes Yahoo changes layout)
+  if (price == null) {
+    // Disabled loose fallback to avoid returning BTC price for irrelevant symbols.
+    console.warn(`[Yahoo] Failed to extract price for ${symbol} via fin-streamer.`);
+    return null;
+    // return fetchYahooQuoteFromHtmlJsonFallback(html, symbol);
+  }
 
   return {
-    symbol: symbolMatch,
+    symbol: cleanSymbol,
     price,
-    currency,
-    exchange,
-    marketState,
-    source: "yahoo-finance-html",
-    timestamp: time ? new Date(time * 1000).toISOString() : undefined,
+    currency: "USD", // fin-streamer doesn't easily show currency, default for now or parse
+    exchange: "Unknown",
+    marketState: "Unknown",
+    source: "yahoo-finance-html(streamer)",
+    timestamp: new Date().toISOString(),
     priceType,
+  };
+}
+
+function fetchYahooQuoteFromHtmlJsonFallback(html: string, symbol: string): QuoteSnapshot | null {
+  // Original JSON regex logic but maybe scoped or just as is for last resort
+  const priceMatch = matchRawNumber(html, ["regularMarketPrice", "currentPrice"]);
+  if (!priceMatch) return null;
+  return {
+    symbol,
+    price: priceMatch.value,
+    currency: matchString(html, ["currency"]),
+    exchange: matchString(html, ["fullExchangeName"]),
+    marketState: matchString(html, ["marketState"]),
+    source: "yahoo-finance-html(fallback)",
+    timestamp: new Date().toISOString(),
+    priceType: "regular"
   };
 }
 
