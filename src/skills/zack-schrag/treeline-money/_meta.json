@@ -1,0 +1,11 @@
+{
+  "owner": "zack-schrag",
+  "slug": "treeline-money",
+  "displayName": "Treeline Money",
+  "latest": {
+    "version": "0.0.4",
+    "publishedAt": 1769731535025,
+    "commit": "https://github.com/clawdbot/skills/commit/62eec49d3e110ede8571ecace44549800e85bf74"
+  },
+  "history": []
+}

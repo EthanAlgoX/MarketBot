@@ -1,0 +1,11 @@
+{
+  "owner": "0xterrybit",
+  "slug": "okx",
+  "displayName": "OKX",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769539949231,
+    "commit": "https://github.com/clawdbot/skills/commit/7103cebf85baba811bd1e577cf56ffd8f06904b4"
+  },
+  "history": []
+}

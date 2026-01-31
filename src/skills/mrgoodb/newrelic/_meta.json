@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "newrelic",
+  "displayName": "Newrelic",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781036542,
+    "commit": "https://github.com/clawdbot/skills/commit/57f619e3e85b97138fab1e00f9c753a6ec1ab6ef"
+  },
+  "history": []
+}

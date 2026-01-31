@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "error-handler-gen",
+  "displayName": "Error Handler Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632444563,
+    "commit": "https://github.com/clawdbot/skills/commit/62e60f6bb244e8cf59a1d0c50be134a1b0895704"
+  },
+  "history": []
+}

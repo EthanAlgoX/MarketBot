@@ -1,0 +1,11 @@
+{
+  "owner": "nickchristensen",
+  "slug": "get-focus-mode",
+  "displayName": "Get Focus Mode",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1768338764637,
+    "commit": "https://github.com/clawdbot/skills/commit/dd5bd7584782b6201bdc1dc4a1d2a1174f1f06c2"
+  },
+  "history": []
+}

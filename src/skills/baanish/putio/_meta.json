@@ -1,0 +1,11 @@
+{
+  "owner": "baanish",
+  "slug": "putio",
+  "displayName": "put.io (kaput CLI)",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769239159526,
+    "commit": "https://github.com/clawdbot/skills/commit/8fcb6cbd00ed3f2c250a844b8430ec304159a0a0"
+  },
+  "history": []
+}

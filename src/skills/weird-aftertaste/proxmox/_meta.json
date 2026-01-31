@@ -1,0 +1,11 @@
+{
+  "owner": "weird-aftertaste",
+  "slug": "proxmox",
+  "displayName": "Proxmox",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769105365621,
+    "commit": "https://github.com/clawdbot/skills/commit/4b062b80323275e0134540e0a9e8deac8f489b2c"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "rohitg00",
+  "slug": "k8-multicluster",
+  "displayName": "Kubernetes Skills",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769433763783,
+    "commit": "https://github.com/clawdbot/skills/commit/1cebdabab5afcbbfb569cc4d3c4efd69f08a4e1b"
+  },
+  "history": []
+}

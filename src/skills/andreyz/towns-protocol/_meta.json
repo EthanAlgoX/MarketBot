@@ -1,0 +1,11 @@
+{
+  "owner": "andreyz",
+  "slug": "towns-protocol",
+  "displayName": "Towns Protocol Skills",
+  "latest": {
+    "version": "2.0.0",
+    "publishedAt": 1768220595344,
+    "commit": "https://github.com/clawdbot/skills/commit/5bb37ecb932de2b699531f1b74f5222d9dc2ccf5"
+  },
+  "history": []
+}

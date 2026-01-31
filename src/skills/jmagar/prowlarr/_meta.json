@@ -1,0 +1,11 @@
+{
+  "owner": "jmagar",
+  "slug": "prowlarr",
+  "displayName": "Prowlarr",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769203129451,
+    "commit": "https://github.com/clawdbot/skills/commit/1719e9aa9fd12d06b55dd26ce205b05785ad7557"
+  },
+  "history": []
+}

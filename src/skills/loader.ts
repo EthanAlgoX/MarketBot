@@ -19,41 +19,65 @@ export interface DynamicSkill {
 export async function discoverSkills(skillsDir: string): Promise<DynamicSkill[]> {
     if (!fs.existsSync(skillsDir)) return [];
 
-    const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
     const skills: DynamicSkill[] = [];
 
-    for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
+    // Helper to process a directory and see if it is a skill
+    const tryLoadSkill = (dirPath: string, id: string): DynamicSkill | null => {
+        const metadataPath = path.join(dirPath, "SKILL.md");
+        const indexPath = path.join(dirPath, "index.ts");
+        const hasMeta = fs.existsSync(metadataPath);
+        const hasIndex = fs.existsSync(indexPath);
 
-        const skillId = entry.name;
-        const skillRoot = path.join(skillsDir, skillId);
-        const metadataPath = path.join(skillRoot, "SKILL.md");
-        const indexPath = path.join(skillRoot, "index.ts");
+        if (!hasMeta && !hasIndex) return null;
 
         const skill: DynamicSkill = {
-            id: skillId,
-            rootDir: skillRoot,
+            id,
+            rootDir: dirPath,
             tools: [],
         };
-
-        if (fs.existsSync(metadataPath)) {
-            skill.metadataPath = metadataPath;
-        }
-
-        if (fs.existsSync(indexPath)) {
+        if (hasMeta) skill.metadataPath = metadataPath;
+        if (hasIndex) {
             skill.indexPath = indexPath;
             try {
                 const mod = jiti(indexPath);
-                // We expect index.ts to export a list of tools or a single tool spec
                 const tools = resolveToolSpecs(mod);
                 skill.tools.push(...tools);
             } catch (err) {
                 console.error(`[skills] Failed to load ${indexPath}:`, err);
             }
         }
+        return skill;
+    };
 
-        if (skill.metadataPath || skill.indexPath) {
-            skills.push(skill);
+    const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (["utils", "common", "types", "node_modules"].includes(entry.name)) continue;
+
+        const rootPath = path.join(skillsDir, entry.name);
+
+        // 1. Check if the directory itself is a skill
+        const directSkill = tryLoadSkill(rootPath, entry.name);
+        if (directSkill) {
+            skills.push(directSkill);
+            continue; // strict: if it's a skill, don't look inside for more skills
+        }
+
+        // 2. Explore one level deeper (for category/username folders)
+        try {
+            const subEntries = fs.readdirSync(rootPath, { withFileTypes: true });
+            for (const sub of subEntries) {
+                if (!sub.isDirectory()) continue;
+                const subPath = path.join(rootPath, sub.name);
+                // ID becomes "parent/child" e.g. "0xadamsu/game-light-tracker"
+                const nestedSkill = tryLoadSkill(subPath, `${entry.name}/${sub.name}`);
+                if (nestedSkill) {
+                    skills.push(nestedSkill);
+                }
+            }
+        } catch (err) {
+            // ignore access errors
         }
     }
 

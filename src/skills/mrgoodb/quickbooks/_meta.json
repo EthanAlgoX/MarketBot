@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "quickbooks",
+  "displayName": "Quickbooks",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780670252,
+    "commit": "https://github.com/clawdbot/skills/commit/82c40caa626cc7efe562d5d1f81e91e678824f91"
+  },
+  "history": []
+}

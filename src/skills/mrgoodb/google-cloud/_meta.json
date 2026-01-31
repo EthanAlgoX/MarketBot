@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "google-cloud",
+  "displayName": "Google Cloud",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781027432,
+    "commit": "https://github.com/clawdbot/skills/commit/49ad0fb7dd894cf68b5f92e53a65aafd8e170833"
+  },
+  "history": []
+}

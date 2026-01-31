@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "ansible",
+  "displayName": "Ansible",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781020135,
+    "commit": "https://github.com/clawdbot/skills/commit/fdf3dc018b02ee194c43881815518bfa288d2142"
+  },
+  "history": []
+}

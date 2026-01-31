@@ -46,6 +46,15 @@ export async function createProviderFromConfigAsync(config: MarketBotConfig): Pr
     });
   }
 
+  if (process.env.KIMICODE_API_KEY) {
+    return new OpenAICompatibleProvider({
+      baseUrl: "https://api.kimi.com/coding/v1",
+      apiKey: process.env.KIMICODE_API_KEY,
+      model: "kimi-for-coding",
+      timeoutMs: 30_000,
+    });
+  }
+
   // Priority 2: OpenAI / Compatible
   if (process.env.OPENAI_API_KEY) {
     return new OpenAICompatibleProvider({

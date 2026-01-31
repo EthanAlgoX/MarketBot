@@ -1,0 +1,17 @@
+{
+  "owner": "pors",
+  "slug": "research",
+  "displayName": "Research",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1768057496952,
+    "commit": "https://github.com/clawdbot/skills/commit/b9f1c4ce50a0e3ec4dbfd6ef965d8cfaa551f81c"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768053419368,
+      "commit": "https://github.com/clawdbot/skills/commit/6d7e74caa5d9e7ef7e6495d07489bee1e0b8a14f"
+    }
+  ]
+}

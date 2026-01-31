@@ -1,0 +1,11 @@
+{
+  "owner": "officialpm",
+  "slug": "apple-media-officialpm",
+  "displayName": "Apple Media",
+  "latest": {
+    "version": "0.1.1",
+    "publishedAt": 1769633104558,
+    "commit": "https://github.com/clawdbot/skills/commit/a63edb49da6df41cdf42429bf1e8f9bd2425ebfd"
+  },
+  "history": []
+}

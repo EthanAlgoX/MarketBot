@@ -1,0 +1,24 @@
+// Burn 10% Coin
+// Burns 10% of value, sends 90% to spender
+// No signature required - anyone can trigger the burn
+
+fn main(
+    my_amount: Int,
+    recipient_puzzle_hash: Bytes32,
+) -> List<Condition> {
+    // Verify our own amount (security)
+    let assert_amount = AssertMyAmount { amount: my_amount };
+    
+    // Calculate 90% (integer math, burns slightly more on odd amounts)
+    let send_amount = (my_amount * 90) / 100;
+    
+    // Create output for recipient (90%)
+    // The remaining 10% has no output = burned
+    let output = CreateCoin {
+        puzzle_hash: recipient_puzzle_hash,
+        amount: send_amount,
+        memos: nil,
+    };
+    
+    [assert_amount, output]
+}

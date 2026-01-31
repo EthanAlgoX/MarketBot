@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "tmux",
+  "displayName": "Tmux",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545387948,
+    "commit": "https://github.com/clawdbot/skills/commit/a478cb3157c77dbad57349caf5557f3fb48fcefb"
+  },
+  "history": []
+}

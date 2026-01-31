@@ -1,0 +1,11 @@
+{
+  "owner": "jordanprater",
+  "slug": "google",
+  "displayName": "Google Search",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769804705010,
+    "commit": "https://github.com/clawdbot/skills/commit/86c643984f73db030d566cd87c3f457d827cdf00"
+  },
+  "history": []
+}

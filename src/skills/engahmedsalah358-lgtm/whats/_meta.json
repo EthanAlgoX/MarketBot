@@ -1,0 +1,11 @@
+{
+  "owner": "engahmedsalah358-lgtm",
+  "slug": "whats",
+  "displayName": "What's app",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769465247198,
+    "commit": "https://github.com/clawdbot/skills/commit/c20b22991901ac3149fe201f2040b0c725256440"
+  },
+  "history": []
+}

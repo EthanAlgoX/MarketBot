@@ -1,0 +1,11 @@
+{
+  "owner": "pedro-valentim",
+  "slug": "stremio-cast",
+  "displayName": "Stremio Casting",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769722293034,
+    "commit": "https://github.com/clawdbot/skills/commit/214b485d32590d26340aa0d3be278fa133f5b7ca"
+  },
+  "history": []
+}

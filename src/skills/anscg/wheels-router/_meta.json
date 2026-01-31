@@ -1,0 +1,11 @@
+{
+  "owner": "anscg",
+  "slug": "wheels-router",
+  "displayName": "Wheels Router",
+  "latest": {
+    "version": "0.5.0",
+    "publishedAt": 1769429842067,
+    "commit": "https://github.com/clawdbot/skills/commit/64a370b2e5cc967a977240b7e8751367c457b534"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "odrobnik",
+  "slug": "codex-account-switcher",
+  "displayName": "Codex Account Switcher",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1768915753673,
+    "commit": "https://github.com/clawdbot/skills/commit/41f1b9d9e04e68f8646a970d579f58b5a45da7d1"
+  },
+  "history": []
+}

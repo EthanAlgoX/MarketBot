@@ -1,0 +1,17 @@
+{
+  "owner": "clawdiaeth",
+  "slug": "x-engagement",
+  "displayName": "X Engagement for AI Agents",
+  "latest": {
+    "version": "2.1.2",
+    "publishedAt": 1769791719984,
+    "commit": "https://github.com/clawdbot/skills/commit/0c84399366950b58f7c4a2d0e9ab9304363d6f8d"
+  },
+  "history": [
+    {
+      "version": "2.0.0",
+      "publishedAt": 1769757186576,
+      "commit": "https://github.com/clawdbot/skills/commit/bb05f53f51142a3ac893134b16357de3b50dc448"
+    }
+  ]
+}

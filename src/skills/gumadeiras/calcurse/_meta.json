@@ -1,0 +1,11 @@
+{
+  "owner": "gumadeiras",
+  "slug": "calcurse",
+  "displayName": "calcurse",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768935736952,
+    "commit": "https://github.com/clawdbot/skills/commit/cf5b76f3bc9fba1dc8f7fdd04d6af71ba7f682d6"
+  },
+  "history": []
+}

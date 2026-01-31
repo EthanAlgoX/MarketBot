@@ -1,0 +1,11 @@
+{
+  "owner": "ttulttul",
+  "slug": "mailchannels",
+  "displayName": "MailChannels Email API",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769756518658,
+    "commit": "https://github.com/clawdbot/skills/commit/fcce3fc219e5c69f9c1a664731cf710109879743"
+  },
+  "history": []
+}

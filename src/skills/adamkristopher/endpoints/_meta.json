@@ -1,0 +1,22 @@
+{
+  "owner": "adamkristopher",
+  "slug": "endpoints",
+  "displayName": "Endpoints",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769661711673,
+    "commit": "https://github.com/clawdbot/skills/commit/4d32d1704551965e4dbbd853df445c68bb59af98"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769738290939,
+      "commit": "https://github.com/clawdbot/skills/commit/dc5b448eeafc51a5ab64f677a8a83a0ad8109749"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769661711673,
+      "commit": "https://github.com/clawdbot/skills/commit/a7c960f38f303d0c1e3de3b69788b8b77a38bb38"
+    }
+  ]
+}

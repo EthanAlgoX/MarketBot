@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "grocery-list",
+  "displayName": "Grocery List & Meal Planner",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768169249346,
+    "commit": "https://github.com/clawdbot/skills/commit/d0e4ba43cea4a1ce826294e94ead5ee8aae09461"
+  },
+  "history": []
+}

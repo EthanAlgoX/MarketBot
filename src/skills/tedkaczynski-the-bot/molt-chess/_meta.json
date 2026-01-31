@@ -1,0 +1,11 @@
+{
+  "owner": "tedkaczynski-the-bot",
+  "slug": "molt-chess",
+  "displayName": "Molt Chess",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769803824966,
+    "commit": "https://github.com/clawdbot/skills/commit/d2896e6b84ba3dedbb669ff782ca84005089a7ad"
+  },
+  "history": []
+}

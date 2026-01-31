@@ -1,0 +1,11 @@
+{
+  "owner": "lirantal",
+  "slug": "skill-railil",
+  "displayName": "Railil",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769189763936,
+    "commit": "https://github.com/clawdbot/skills/commit/08247e446853519d2d819a0c8e55baa304167829"
+  },
+  "history": []
+}

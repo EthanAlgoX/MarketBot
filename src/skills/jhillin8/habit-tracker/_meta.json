@@ -1,0 +1,11 @@
+{
+  "owner": "jhillin8",
+  "slug": "habit-tracker",
+  "displayName": "Habit Tracker",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769326386777,
+    "commit": "https://github.com/clawdbot/skills/commit/53de7d0b143ad771d46d74248274e516510113ce"
+  },
+  "history": []
+}

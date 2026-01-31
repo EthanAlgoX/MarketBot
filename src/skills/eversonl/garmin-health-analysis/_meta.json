@@ -1,0 +1,11 @@
+{
+  "owner": "eversonl",
+  "slug": "garmin-health-analysis",
+  "displayName": "Garmin Health Analysis",
+  "latest": {
+    "version": "1.2.2",
+    "publishedAt": 1769387065409,
+    "commit": "https://github.com/clawdbot/skills/commit/86c2fc32e8c7de2eff4716043682f6d96ad4cb7c"
+  },
+  "history": []
+}

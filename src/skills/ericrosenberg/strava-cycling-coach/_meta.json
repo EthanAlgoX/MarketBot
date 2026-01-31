@@ -1,0 +1,11 @@
+{
+  "owner": "ericrosenberg",
+  "slug": "strava-cycling-coach",
+  "displayName": "Strava Cycling Coach",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769375974972,
+    "commit": "https://github.com/clawdbot/skills/commit/039a16641adf4f4b5af8336cc8bdf40c1c9ea2d5"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "amangarg1999",
+  "slug": "internet-lookup-verifier",
+  "displayName": "Internet Lookup Verifier",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769681765584,
+    "commit": "https://github.com/clawdbot/skills/commit/21215f0d4296b56ddb16e0d514152bcc9ced656a"
+  },
+  "history": []
+}

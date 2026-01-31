@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "ai-deps",
+  "displayName": "Dependency Analyzer",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769665915434,
+    "commit": "https://github.com/clawdbot/skills/commit/ba3647a66e0aee07dc27cf6d4d1ce9373a440dad"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769657643138,
+      "commit": "https://github.com/clawdbot/skills/commit/8411e158ffcdb5970c33ca3ae75122a8c88f4771"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "kcns008",
+  "slug": "kubernetes",
+  "displayName": "Kubernetes",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769436428875,
+    "commit": "https://github.com/clawdbot/skills/commit/da3b24b910a5d3c031eaa57827bb73f8e98c4e48"
+  },
+  "history": []
+}

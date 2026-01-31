@@ -1,0 +1,11 @@
+{
+  "owner": "lijie420461340",
+  "slug": "table-extractor",
+  "displayName": "Table Extractor",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769739800895,
+    "commit": "https://github.com/clawdbot/skills/commit/56867f0e8fa838af54db65b7bdf28d1376513e6c"
+  },
+  "history": []
+}

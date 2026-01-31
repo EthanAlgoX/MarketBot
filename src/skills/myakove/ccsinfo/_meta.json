@@ -1,0 +1,11 @@
+{
+  "owner": "myakove",
+  "slug": "ccsinfo",
+  "displayName": "ccsinfo - Claude Code Session Inspector",
+  "latest": {
+    "version": "0.1.2",
+    "publishedAt": 1769632561250,
+    "commit": "https://github.com/clawdbot/skills/commit/1132d17278203304dcbfef64719196e9610a17ae"
+  },
+  "history": []
+}

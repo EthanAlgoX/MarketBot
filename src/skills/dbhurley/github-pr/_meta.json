@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "github-pr",
+  "displayName": "GitHub PR Tool",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767883381968,
+    "commit": "https://github.com/clawdbot/skills/commit/89ff666275c21a0ec1ec07a315e15dae84b8210a"
+  },
+  "history": []
+}

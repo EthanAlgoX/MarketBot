@@ -1,0 +1,11 @@
+{
+  "owner": "noblepayne",
+  "slug": "tabstack-extractor",
+  "displayName": "Tabstack Extractor",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769834343429,
+    "commit": "https://github.com/clawdbot/skills/commit/048b1b11d36a77d7baa64c5eff7f15a84ed221fe"
+  },
+  "history": []
+}

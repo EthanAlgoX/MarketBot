@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "next-config-gen",
+  "displayName": "Next.js Config Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632673401,
+    "commit": "https://github.com/clawdbot/skills/commit/17056ba87b1e8e5fcde2ebcd16c7127974dd34c3"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "noah-ribaudo",
+  "slug": "craft",
+  "displayName": "Craft Notes",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769274483244,
+    "commit": "https://github.com/clawdbot/skills/commit/dc16cb324eadf0745f2bf2fd9b6b9e3223d4e7e0"
+  },
+  "history": []
+}

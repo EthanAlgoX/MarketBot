@@ -1,0 +1,11 @@
+{
+  "owner": "koba42corp",
+  "slug": "wojak-ink",
+  "displayName": "Wojak.ink - NFT Browser",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769729010188,
+    "commit": "https://github.com/clawdbot/skills/commit/61258f3ddc1ef2a092529d26d8dc20637a3b3b7f"
+  },
+  "history": []
+}

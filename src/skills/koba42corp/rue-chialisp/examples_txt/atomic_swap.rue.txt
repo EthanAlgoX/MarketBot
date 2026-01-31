@@ -1,0 +1,43 @@
+// Atomic Swap Puzzle
+// Trustless exchange: reveal secret to claim, or refund after timeout
+// Used for cross-chain swaps
+
+fn main(
+    sender_pk: PublicKey,
+    recipient_pk: PublicKey,
+    secret_hash: Bytes32,
+    timeout_height: Int,
+    action: Int,  // 0 = claim with secret, 1 = refund
+    secret: Bytes,
+    destination: Bytes32,
+    amount: Int,
+) -> List<Condition> {
+    if action == 0 {
+        // Claim: recipient reveals secret
+        assert sha256(secret) == secret_hash;
+        
+        let sig = AggSigMe {
+            public_key: recipient_pk,
+            message: tree_hash(destination),
+        };
+        let output = CreateCoin {
+            puzzle_hash: destination,
+            amount,
+            memos: nil,
+        };
+        [sig, output]
+    } else {
+        // Refund: sender reclaims after timeout
+        let timeout = AssertHeightAbsolute { height: timeout_height };
+        let sig = AggSigMe {
+            public_key: sender_pk,
+            message: tree_hash(destination),
+        };
+        let output = CreateCoin {
+            puzzle_hash: destination,
+            amount,
+            memos: nil,
+        };
+        [timeout, sig, output]
+    }
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "sjf-ecnu",
+  "slug": "paper-recommendation",
+  "displayName": "Paper Recommendation",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769715250355,
+    "commit": "https://github.com/clawdbot/skills/commit/07b48e445dcb149018a07d0ccbdd259c2b73f10b"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769700172981,
+      "commit": "https://github.com/clawdbot/skills/commit/f415650d92e024b7bcb0df02e3a486e9a77d40bd"
+    }
+  ]
+}

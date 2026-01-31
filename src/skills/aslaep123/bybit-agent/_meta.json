@@ -1,0 +1,11 @@
+{
+  "owner": "aslaep123",
+  "slug": "bybit-agent",
+  "displayName": "Bybit Trading Agent",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769627764973,
+    "commit": "https://github.com/clawdbot/skills/commit/95678050e42cc6aef167e617b746f8590f17a8cd"
+  },
+  "history": []
+}

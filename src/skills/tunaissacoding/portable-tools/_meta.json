@@ -1,0 +1,11 @@
+{
+  "owner": "tunaissacoding",
+  "slug": "portable-tools",
+  "displayName": "Portable Tools",
+  "latest": {
+    "version": "1.2.0",
+    "publishedAt": 1769168100305,
+    "commit": "https://github.com/clawdbot/skills/commit/3c8f98076acc29c1d8325f15ecae7f92ade0453e"
+  },
+  "history": []
+}

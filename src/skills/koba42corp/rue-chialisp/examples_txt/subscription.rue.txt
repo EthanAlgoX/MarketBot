@@ -1,0 +1,56 @@
+// Subscription Puzzle
+// Allows periodic payments to a service provider
+// Owner can cancel anytime, provider can claim once per period
+
+fn main(
+    owner_pk: PublicKey,
+    provider_puzzle_hash: Bytes32,
+    payment_amount: Int,
+    period_blocks: Int,
+    last_payment_height: Int,
+    my_amount: Int,
+    my_puzzle_hash: Bytes32,
+    action: Int,  // 0 = provider claims, 1 = owner cancels
+    owner_destination: Bytes32,
+) -> List<Condition> {
+    let assert_amount = AssertMyAmount { amount: my_amount };
+    
+    if action == 0 {
+        // Provider claims payment
+        let min_height = last_payment_height + period_blocks;
+        let height_check = AssertHeightAbsolute { height: min_height };
+        
+        // Pay provider
+        let payment = CreateCoin {
+            puzzle_hash: provider_puzzle_hash,
+            amount: payment_amount,
+            memos: nil,
+        };
+        
+        // Recreate with updated last_payment_height and reduced balance
+        let remaining = my_amount - payment_amount;
+        if remaining >= payment_amount {
+            let continue_sub = CreateCoin {
+                puzzle_hash: my_puzzle_hash,
+                amount: remaining,
+                memos: nil,
+            };
+            [assert_amount, height_check, payment, continue_sub]
+        } else {
+            // Not enough for another payment, just pay out remainder
+            [assert_amount, height_check, payment]
+        }
+    } else {
+        // Owner cancels - return all funds
+        let sig = AggSigMe {
+            public_key: owner_pk,
+            message: tree_hash(owner_destination),
+        };
+        let refund = CreateCoin {
+            puzzle_hash: owner_destination,
+            amount: my_amount,
+            memos: nil,
+        };
+        [assert_amount, sig, refund]
+    }
+}

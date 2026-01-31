@@ -1,0 +1,11 @@
+{
+  "owner": "cmanfre7",
+  "slug": "web-deploy",
+  "displayName": "Web Deploy",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769625036495,
+    "commit": "https://github.com/clawdbot/skills/commit/44be819b9959b64859acca3255bcfe483730a159"
+  },
+  "history": []
+}

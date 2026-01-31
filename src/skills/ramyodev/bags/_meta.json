@@ -1,0 +1,17 @@
+{
+  "owner": "ramyodev",
+  "slug": "bags",
+  "displayName": "Bags",
+  "latest": {
+    "version": "0.0.5",
+    "publishedAt": 1769848885417,
+    "commit": "https://github.com/clawdbot/skills/commit/d2ee139d1d19acfd05ababaa5130bfc5eda8a714"
+  },
+  "history": [
+    {
+      "version": "0.0.1",
+      "publishedAt": 1769831614314,
+      "commit": "https://github.com/clawdbot/skills/commit/ef20e2434648b69a9bc532ccd97dcbff14e9fcd8"
+    }
+  ]
+}

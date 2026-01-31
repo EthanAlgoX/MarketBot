@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "docs-gen",
+  "displayName": "Documentation Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632426251,
+    "commit": "https://github.com/clawdbot/skills/commit/e0d7b710c659377a5bb01e65ed272ded261b9948"
+  },
+  "history": []
+}

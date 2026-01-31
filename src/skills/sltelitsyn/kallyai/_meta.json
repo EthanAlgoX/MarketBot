@@ -1,0 +1,17 @@
+{
+  "owner": "sltelitsyn",
+  "slug": "kallyai",
+  "displayName": "Clawdbot Skill",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769415940153,
+    "commit": "https://github.com/clawdbot/skills/commit/32b33844ba4cd2977ff61f616e36de2fc7e81e6f"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769364225362,
+      "commit": "https://github.com/clawdbot/skills/commit/42177d6045111ea90742bf548a88cfa73790d310"
+    }
+  ]
+}

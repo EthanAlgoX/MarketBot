@@ -1,0 +1,11 @@
+{
+  "owner": "manish-basargekar",
+  "slug": "clawdbot-macos-build",
+  "displayName": "clawdbot-macos-build",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769362731324,
+    "commit": "https://github.com/clawdbot/skills/commit/63d8d3e71583c599372735eec86b2fd51dcc185b"
+  },
+  "history": []
+}

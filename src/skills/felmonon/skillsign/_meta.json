@@ -1,0 +1,11 @@
+{
+  "owner": "felmonon",
+  "slug": "skillsign",
+  "displayName": "Skillsign — ed25519 Skill Signing",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769833814240,
+    "commit": "https://github.com/clawdbot/skills/commit/f9f559fe9406936809d2837af9c4619f0df92e94"
+  },
+  "history": []
+}

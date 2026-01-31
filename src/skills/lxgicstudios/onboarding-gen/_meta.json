@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "onboarding-gen",
+  "displayName": "Onboarding Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632706843,
+    "commit": "https://github.com/clawdbot/skills/commit/706bc27e650a87fb44a3f31e3b67d46d05830e34"
+  },
+  "history": []
+}

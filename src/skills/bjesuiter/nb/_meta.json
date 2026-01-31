@@ -1,0 +1,17 @@
+{
+  "owner": "bjesuiter",
+  "slug": "nb",
+  "displayName": "Nb",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1768387561278,
+    "commit": "https://github.com/clawdbot/skills/commit/8588a9f4d1461f3873b0b9470ac701618643bc76"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768386018880,
+      "commit": "https://github.com/clawdbot/skills/commit/0b1a2e1d6914359d64d31161eb631094002ea9a5"
+    }
+  ]
+}

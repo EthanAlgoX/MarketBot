@@ -1,0 +1,11 @@
+{
+  "owner": "bilalmohamed187-cpu",
+  "slug": "gcal-pro-calendar",
+  "displayName": "gcal-pro - Google Calendar",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769462698900,
+    "commit": "https://github.com/clawdbot/skills/commit/214f1b679cc1a92ab54a3e97f3626d38c503bb03"
+  },
+  "history": []
+}

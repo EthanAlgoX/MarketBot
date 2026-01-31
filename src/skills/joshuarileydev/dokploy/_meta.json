@@ -1,0 +1,11 @@
+{
+  "owner": "joshuarileydev",
+  "slug": "dokploy",
+  "displayName": "Dokploy",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768668846190,
+    "commit": "https://github.com/clawdbot/skills/commit/dd49cf45db0ba7a35efee15722677931a49e0bb9"
+  },
+  "history": []
+}

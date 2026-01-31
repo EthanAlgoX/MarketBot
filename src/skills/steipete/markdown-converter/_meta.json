@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "markdown-converter",
+  "displayName": "Markdown Converter",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767651965151,
+    "commit": "https://github.com/clawdbot/skills/commit/b61ac0740e9be43f92748b895e746536efc47641"
+  },
+  "history": []
+}

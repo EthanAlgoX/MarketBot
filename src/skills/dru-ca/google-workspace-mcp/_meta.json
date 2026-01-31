@@ -1,0 +1,11 @@
+{
+  "owner": "dru-ca",
+  "slug": "google-workspace-mcp",
+  "displayName": "Google Workspace (No Cloud Console)",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769458839920,
+    "commit": "https://github.com/clawdbot/skills/commit/bb16189a8d33abf5d130f968a89b913945500468"
+  },
+  "history": []
+}

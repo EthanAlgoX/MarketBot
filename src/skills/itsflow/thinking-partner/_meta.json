@@ -1,0 +1,11 @@
+{
+  "owner": "itsflow",
+  "slug": "thinking-partner",
+  "displayName": "Thinking Partner",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769256726202,
+    "commit": "https://github.com/clawdbot/skills/commit/8940465a777b5aa9e1ec8b908a21b32890ebaecd"
+  },
+  "history": []
+}

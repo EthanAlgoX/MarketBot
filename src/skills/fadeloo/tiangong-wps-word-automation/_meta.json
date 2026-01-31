@@ -1,0 +1,11 @@
+{
+  "owner": "fadeloo",
+  "slug": "tiangong-wps-word-automation",
+  "displayName": "Word Automation",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769676339736,
+    "commit": "https://github.com/clawdbot/skills/commit/8a8e4b50fec5316e2a17d71318c89846314b1b01"
+  },
+  "history": []
+}

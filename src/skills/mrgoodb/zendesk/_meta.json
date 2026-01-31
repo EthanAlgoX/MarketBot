@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "zendesk",
+  "displayName": "Zendesk",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780111750,
+    "commit": "https://github.com/clawdbot/skills/commit/d78911a54a0d98507945c383847d67c02d3fe6eb"
+  },
+  "history": []
+}

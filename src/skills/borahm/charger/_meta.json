@@ -1,0 +1,11 @@
+{
+  "owner": "borahm",
+  "slug": "charger",
+  "displayName": "check charger availbility",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769031640103,
+    "commit": "https://github.com/clawdbot/skills/commit/f5851c24badf1176f5f9edac1aa2dbb52e67121a"
+  },
+  "history": []
+}

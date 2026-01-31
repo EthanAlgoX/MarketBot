@@ -1,0 +1,11 @@
+{
+  "owner": "yujesyoga",
+  "slug": "brevo",
+  "displayName": "Brevo",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769647609989,
+    "commit": "https://github.com/clawdbot/skills/commit/79a296303d17edcdfe7759b98ec93ae955446ea4"
+  },
+  "history": []
+}

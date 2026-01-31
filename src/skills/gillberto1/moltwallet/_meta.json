@@ -1,0 +1,11 @@
+{
+  "owner": "gillberto1",
+  "slug": "moltwallet",
+  "displayName": "Molt Wallet",
+  "latest": {
+    "version": "2.7.0",
+    "publishedAt": 1769811440377,
+    "commit": "https://github.com/clawdbot/skills/commit/f3acb76484d95793c2cee2003dca8fbdda85e9fe"
+  },
+  "history": []
+}

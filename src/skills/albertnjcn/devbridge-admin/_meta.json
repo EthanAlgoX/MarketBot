@@ -1,0 +1,11 @@
+{
+  "owner": "albertnjcn",
+  "slug": "devbridge-admin",
+  "displayName": "审核协调器",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769776797875,
+    "commit": "https://github.com/clawdbot/skills/commit/3719bd6244b2ec45b64890fb403423fe3c125488"
+  },
+  "history": []
+}

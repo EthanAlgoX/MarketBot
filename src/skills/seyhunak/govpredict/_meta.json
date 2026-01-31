@@ -1,0 +1,11 @@
+{
+  "owner": "seyhunak",
+  "slug": "govpredict",
+  "displayName": "Smarter Government for UAE and Saudi Arabia",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769457339965,
+    "commit": "https://github.com/clawdbot/skills/commit/2c12f6a4d1ae6dfc80b4267335f74ac275aa883b"
+  },
+  "history": []
+}

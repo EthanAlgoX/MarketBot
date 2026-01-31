@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "bear-notes",
+  "displayName": "Bear Notes",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545298356,
+    "commit": "https://github.com/clawdbot/skills/commit/df83bc7d91bffe865f9be72fa3a8e9f17ccb49db"
+  },
+  "history": []
+}

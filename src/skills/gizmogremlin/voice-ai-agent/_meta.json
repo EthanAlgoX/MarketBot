@@ -1,0 +1,11 @@
+{
+  "owner": "gizmogremlin",
+  "slug": "voice-ai-agent",
+  "displayName": "Voice.ai Agents",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769789008801,
+    "commit": "https://github.com/clawdbot/skills/commit/5ac945b6be243810adc89ebc8bf8e4dc7789dbfa"
+  },
+  "history": []
+}

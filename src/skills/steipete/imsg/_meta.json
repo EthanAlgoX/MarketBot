@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "imsg",
+  "displayName": "Imsg",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545348833,
+    "commit": "https://github.com/clawdbot/skills/commit/957b19651a781515986becc2f6234761592c4b9d"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "bundle-analyzer",
+  "displayName": "Bundle Size Analyzer",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632192767,
+    "commit": "https://github.com/clawdbot/skills/commit/3b4ef40c0fd0f8ae9fe9eaac9ef560631af08d1f"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "gumadeiras",
+  "slug": "parcel-package-tracking",
+  "displayName": "Parcel Package Tracking",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768268054453,
+    "commit": "https://github.com/clawdbot/skills/commit/36e0811cbd563365baaba65759cf1ef8ed55df51"
+  },
+  "history": []
+}

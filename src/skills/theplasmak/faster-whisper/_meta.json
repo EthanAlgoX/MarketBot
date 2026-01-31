@@ -1,0 +1,22 @@
+{
+  "owner": "theplasmak",
+  "slug": "faster-whisper",
+  "displayName": "Faster Whisper",
+  "latest": {
+    "version": "1.0.4",
+    "publishedAt": 1769711541359,
+    "commit": "https://github.com/clawdbot/skills/commit/88049d38ecfcd853377b6a473d8553627379f8a4"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769620549258,
+      "commit": "https://github.com/clawdbot/skills/commit/6c47fbbd5aa04214408f348b3f2c5d7d4c3f318d"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769608154990,
+      "commit": "https://github.com/clawdbot/skills/commit/e72f85936783d2ec2b9545b7a456db7455732294"
+    }
+  ]
+}

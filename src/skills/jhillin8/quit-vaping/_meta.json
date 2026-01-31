@@ -1,0 +1,11 @@
+{
+  "owner": "jhillin8",
+  "slug": "quit-vaping",
+  "displayName": "Quit Vaping",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769326676350,
+    "commit": "https://github.com/clawdbot/skills/commit/db74d9337f71df509af3c78bd0eb1d5b0a880c48"
+  },
+  "history": []
+}

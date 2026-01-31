@@ -1,0 +1,11 @@
+{
+  "owner": "flysheep-ai",
+  "slug": "gaokao-chinese-tutor",
+  "displayName": "gaokao-chinese",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769692347240,
+    "commit": "https://github.com/clawdbot/skills/commit/6a74f8a1b09857014747eb4040e15738d57be831"
+  },
+  "history": []
+}

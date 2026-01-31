@@ -1,0 +1,11 @@
+{
+  "owner": "flysheep-ai",
+  "slug": "gaokao-general-tech-tutor",
+  "displayName": "gaokao-general-tech-tutor",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769692459396,
+    "commit": "https://github.com/clawdbot/skills/commit/06db40baa7031feb6a79af11a31fd874be69f7a5"
+  },
+  "history": []
+}

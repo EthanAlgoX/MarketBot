@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "openhue",
+  "displayName": "Openhue",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545369355,
+    "commit": "https://github.com/clawdbot/skills/commit/7042072b1a19e8756877b1c17c4daee9e6434ddd"
+  },
+  "history": []
+}

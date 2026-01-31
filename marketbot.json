@@ -2,8 +2,8 @@
   "llm": {
     "provider": "openai-compatible",
     "model": "deepseek-chat",
-    "baseUrl": "https://api.moonshot.cn/v1",
-    "apiKeyEnv": "MOONSHOT_API_KEY",
+    "baseUrl": "https://api.deepseek.com/v1",
+    "apiKeyEnv": "DEEPSEEK_API_KEY",
     "apiKey": "sk-kimi-2G1BAoNejh8hHJgpsV9YJlSD337xU5h1thl5fqB1jvJgidV8mIvZkmFSBxOMjYKs",
     "timeoutMs": 60000,
     "jsonMode": true

@@ -1,0 +1,5 @@
+# No external dependencies required for core functionality
+# The skill uses only Python standard library + system tools (openvpn, curl)
+
+# For the examples:
+# requests>=2.25.0

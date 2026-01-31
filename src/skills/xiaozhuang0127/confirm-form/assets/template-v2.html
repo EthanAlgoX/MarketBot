@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>确认表单 - AI助手</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+        h1 { color: #333; border-bottom: 2px solid #007AFF; padding-bottom: 10px; }
+        .meta { color: #666; font-size: 14px; margin-bottom: 20px; }
+        .question {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .question-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+        .question-number {
+            background: #007AFF; color: white; width: 32px; height: 32px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; flex-shrink: 0;
+        }
+        .question-title { margin: 0; color: #333; font-size: 18px; }
+        .section {
+            background: #f8f9fa; border-left: 3px solid #dee2e6;
+            padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0;
+        }
+        .section.context { border-left-color: #6c757d; }
+        .section.uncertainty { border-left-color: #ffc107; background: #fff9e6; }
+        .section.findings { border-left-color: #17a2b8; background: #e8f7fa; }
+        .section.judgment { border-left-color: #28a745; background: #e8f5e9; }
+        .section-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; margin-bottom: 6px; }
+        .section p { margin: 0; color: #333; }
+        .findings-list { margin: 8px 0 0 0; padding-left: 20px; }
+        .findings-list li { margin: 6px 0; color: #333; }
+        .findings-list .source { color: #666; font-size: 13px; }
+        .options { margin-top: 16px; border-top: 1px solid #eee; padding-top: 16px; }
+        .options-label { font-weight: 600; color: #333; margin-bottom: 12px; }
+        .option-item {
+            display: block; padding: 14px 16px; margin: 8px 0;
+            background: #f8f8f8; border: 2px solid transparent;
+            border-radius: 10px; cursor: pointer; transition: all 0.2s;
+        }
+        .option-item:hover { background: #e8f4ff; border-color: #007AFF; }
+        .option-item.selected { background: #e8f4ff; border-color: #007AFF; }
+        .option-item input[type="radio"] { margin-right: 12px; transform: scale(1.2); }
+        .option-label { font-weight: 500; color: #333; }
+        .option-basis { display: block; margin-top: 6px; margin-left: 28px; font-size: 13px; color: #666; }
+        .custom-section { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd; }
+        .custom-input {
+            width: 100%; padding: 12px; border: 1px solid #ddd;
+            border-radius: 8px; font-size: 14px; resize: vertical;
+        }
+        .custom-input:focus { outline: none; border-color: #007AFF; box-shadow: 0 0 0 3px rgba(0,122,255,0.1); }
+        .global-section {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+            border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #ffc107;
+        }
+        .global-section h3 { color: #856404; margin-top: 0; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .btn-group button {
+            padding: 12px 20px; border: 2px solid #ddd; border-radius: 10px;
+            background: white; cursor: pointer; transition: all 0.2s; font-size: 14px;
+        }
+        .btn-group button:hover { background: #007AFF; color: white; border-color: #007AFF; }
+        .btn-group button.active { background: #007AFF; color: white; border-color: #007AFF; }
+        #submitBtn {
+            width: 100%; padding: 18px;
+            background: linear-gradient(135deg, #007AFF 0%, #0056b3 100%);
+            color: white; border: none; border-radius: 12px;
+            font-size: 18px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,122,255,0.3);
+        }
+        #submitBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,122,255,0.4); }
+        #submitBtn:disabled { background: #ccc; transform: none; box-shadow: none; cursor: not-allowed; }
+        #result {
+            display: none;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-radius: 12px; padding: 24px; margin-top: 24px; border: 1px solid #28a745;
+            text-align: center;
+        }
+        #result h3 { color: #155724; margin-top: 0; }
+        #result p { color: #155724; font-size: 16px; }
+        .status { padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; display: none; }
+        .status.loading { background: #cce5ff; color: #004085; display: block; }
+        .status.success { background: #d4edda; color: #155724; display: block; }
+        .status.error { background: #f8d7da; color: #721c24; display: block; }
+    </style>
+</head>
+<body>
+    <h1>📋 AI助手的确认表单</h1>
+    <p class="meta">生成时间：{{TIMESTAMP}} | 共 {{QUESTION_COUNT}} 个问题</p>
+    <p style="color:#666;">我整理了以下问题需要主人确认。填完点提交，我会自动收到通知。</p>
+    
+    <div id="questions"></div>
+    
+    <div class="global-section">
+        <h3>💬 整体反馈</h3>
+        <div class="btn-group">
+            <button type="button" onclick="setGlobalFeedback(this, 'all_ok')">✅ 全部同意我的判断</button>
+            <button type="button" onclick="setGlobalFeedback(this, 'need_more_info')">📄 需要补充材料</button>
+            <button type="button" onclick="setGlobalFeedback(this, 'discuss')">💭 需要讨论</button>
+        </div>
+        <textarea id="globalComment" class="custom-input" rows="3" placeholder="整体意见或补充说明（可选）"></textarea>
+    </div>
+    
+    <button id="submitBtn" onclick="submitForm()">📤 提交并通知AI助手</button>
+    <div id="statusDiv" class="status"></div>
+    
+    <div id="result">
+        <h3>✅ 已提交！</h3>
+        <p>AI助手已收到通知，稍后会回复你。</p>
+        <p style="font-size: 14px; color: #666;">你可以关闭这个页面了。</p>
+    </div>
+
+    <script>
+        const CONFIG = {
+            formId: "{{FORM_ID}}",
+            notifyTopic: "{{NOTIFY_TOPIC}}",
+            questions: {{QUESTIONS_JSON}}
+        };
+        
+        let globalFeedback = null;
+        
+        function initQuestions() {
+            const container = document.getElementById('questions');
+            CONFIG.questions.forEach((q, idx) => {
+                const div = document.createElement('div');
+                div.className = 'question';
+                
+                let findingsHtml = '';
+                if (q.findings && q.findings.length) {
+                    findingsHtml = `
+                        <div class="section findings">
+                            <div class="section-label">🔍 我发现的信息</div>
+                            <ul class="findings-list">
+                                ${q.findings.map(f => `<li><strong>${f.content}</strong><span class="source">— ${f.source}</span></li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                div.innerHTML = `
+                    <div class="question-header">
+                        <div class="question-number">${idx + 1}</div>
+                        <h3 class="question-title">${q.title}</h3>
+                    </div>
+                    ${q.context ? `<div class="section context"><div class="section-label">📖 背景</div><p>${q.context}</p></div>` : ''}
+                    ${q.uncertainty ? `<div class="section uncertainty"><div class="section-label">❓ 我不确定的点</div><p>${q.uncertainty}</p></div>` : ''}
+                    ${findingsHtml}
+                    ${q.judgment ? `<div class="section judgment"><div class="section-label">💭 我的判断</div><p>${q.judgment}</p></div>` : ''}
+                    <div class="options">
+                        <div class="options-label">📋 请选择：</div>
+                        ${q.options.map((opt, optIdx) => `
+                            <label class="option-item" onclick="selectOption(this, ${idx})">
+                                <input type="radio" name="q${idx}" value="${optIdx}">
+                                <span class="option-label">${opt.label}</span>
+                                ${opt.basis ? `<span class="option-basis">${opt.basis}</span>` : ''}
+                            </label>
+                        `).join('')}
+                        <div class="custom-section">
+                            <input type="text" class="custom-input" id="custom${idx}" placeholder="或输入其他意见...">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        function selectOption(label, qIdx) {
+            document.querySelectorAll(`input[name="q${qIdx}"]`).forEach(input => {
+                input.closest('.option-item').classList.remove('selected');
+            });
+            label.classList.add('selected');
+        }
+        
+        function setGlobalFeedback(btn, type) {
+            globalFeedback = type;
+            document.querySelectorAll('.global-section .btn-group button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+        
+        async function submitForm() {
+            const btn = document.getElementById('submitBtn');
+            const statusDiv = document.getElementById('statusDiv');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ 正在提交...';
+            statusDiv.className = 'status loading';
+            statusDiv.textContent = '正在通知AI助手...';
+            
+            const answers = CONFIG.questions.map((q, idx) => {
+                const selected = document.querySelector(`input[name="q${idx}"]:checked`);
+                const custom = document.getElementById(`custom${idx}`).value.trim();
+                return {
+                    question: q.title,
+                    myJudgment: q.judgment || null,
+                    selectedOption: selected ? parseInt(selected.value) : null,
+                    selectedLabel: selected ? q.options[parseInt(selected.value)].label : null,
+                    customAnswer: custom || null,
+                    agreedWithMyJudgment: selected && q.options[parseInt(selected.value)].basis?.includes('我的推荐')
+                };
+            });
+            
+            const result = {
+                formId: CONFIG.formId,
+                timestamp: new Date().toISOString(),
+                globalFeedback: globalFeedback,
+                globalComment: document.getElementById('globalComment').value.trim() || null,
+                summary: {
+                    total: answers.length,
+                    answered: answers.filter(a => a.selectedOption !== null || a.customAnswer).length,
+                    agreedWithAI: answers.filter(a => a.agreedWithMyJudgment).length
+                },
+                answers: answers
+            };
+            
+            try {
+                // 发送到 ntfy.sh
+                const response = await fetch(`https://ntfy.sh/${CONFIG.notifyTopic}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(result)
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ 已通知AI助手！';
+                document.getElementById('result').style.display = 'block';
+                btn.textContent = '✅ 已提交';
+                document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (err) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ 通知失败: ${err.message}，请复制结果手动发送`;
+                btn.disabled = false;
+                btn.textContent = '📤 重试';
+                
+                // 降级：显示结果让用户复制
+                const fallback = document.createElement('div');
+                fallback.innerHTML = `
+                    <details style="margin-top:15px">
+                        <summary>点击复制结果</summary>
+                        <textarea style="width:100%;height:200px;margin-top:10px">${JSON.stringify(result, null, 2)}</textarea>
+                    </details>
+                `;
+                statusDiv.parentNode.insertBefore(fallback, statusDiv.nextSibling);
+            }
+        }
+        
+        initQuestions();
+    </script>
+</body>
+</html>

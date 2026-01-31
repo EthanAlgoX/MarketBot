@@ -1,0 +1,17 @@
+{
+  "owner": "flyfoxci",
+  "slug": "twitter-search-skill",
+  "displayName": "Twitter Search",
+  "latest": {
+    "version": "0.1.2",
+    "publishedAt": 1769599524538,
+    "commit": "https://github.com/clawdbot/skills/commit/7d6a1d55a1a040eae692199040a6879f1393875b"
+  },
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1769597534927,
+      "commit": "https://github.com/clawdbot/skills/commit/62022e0fd71a79ee725251e081d672fa597f79b1"
+    }
+  ]
+}

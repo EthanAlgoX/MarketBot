@@ -1,0 +1,11 @@
+{
+  "owner": "deadlysilent",
+  "slug": "telegram-reaction-prober",
+  "displayName": "Telegram Reaction Prober",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769800919054,
+    "commit": "https://github.com/clawdbot/skills/commit/c4007e3d3a99ef12b4c80c1fbe6ce2a016095bc5"
+  },
+  "history": []
+}

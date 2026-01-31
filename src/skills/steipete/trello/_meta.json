@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "trello",
+  "displayName": "Trello",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545389426,
+    "commit": "https://github.com/clawdbot/skills/commit/9517785b2e54979244394bc0b2f4cdca10a521b2"
+  },
+  "history": []
+}

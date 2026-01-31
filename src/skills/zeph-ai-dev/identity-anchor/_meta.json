@@ -1,0 +1,11 @@
+{
+  "owner": "zeph-ai-dev",
+  "slug": "identity-anchor",
+  "displayName": "Identity Anchor",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769809850560,
+    "commit": "https://github.com/clawdbot/skills/commit/e91aff0ee14d6bbffe7aefed5cde2a0d6c4b1e21"
+  },
+  "history": []
+}

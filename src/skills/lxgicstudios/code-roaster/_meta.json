@@ -1,0 +1,22 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "code-roaster",
+  "displayName": "Code Roaster",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769631719961,
+    "commit": "https://github.com/clawdbot/skills/commit/8204f21a37a923524b3954afb7adec7d7d447f46"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769589373064,
+      "commit": "https://github.com/clawdbot/skills/commit/23f2b0ac30ba9d5bcca7fd8d6e7d8e203380b3c3"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769589138223,
+      "commit": "https://github.com/clawdbot/skills/commit/0906c47c5a40500f532afc8791f0cbda642a06a5"
+    }
+  ]
+}

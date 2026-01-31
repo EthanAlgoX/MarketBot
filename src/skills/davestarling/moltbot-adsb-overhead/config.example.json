@@ -1,0 +1,32 @@
+{
+  "enabled": true,
+  "tz": "Europe/London",
+  "quietHours": {
+    "enabled": false,
+    "start": "23:00",
+    "end": "07:00",
+    "mode": "suppress"
+  },
+  "sbs": {
+    "host": "192.168.1.10",
+    "port": 30003
+  },
+  "home": {
+    "lat": 51.5007,
+    "lon": -0.1246
+  },
+  "radiusKm": 2,
+  "listenSeconds": 6,
+  "cooldownMin": 15,
+  "aircraftJsonUrl": "http://192.168.1.10/tar1090/data/aircraft.json",
+  "photo": {
+    "enabled": true,
+    "size": "large",
+    "cacheHours": 24,
+    "dir": "~/.clawdbot/adsb-overhead/photos"
+  },
+  "notify": {
+    "channel": "whatsapp",
+    "target": "+15555550123"
+  }
+}

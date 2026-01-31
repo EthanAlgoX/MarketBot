@@ -1,0 +1,11 @@
+{
+  "owner": "rhyssullivan",
+  "slug": "answeroverflow",
+  "displayName": "Answer Overflow",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769561820919,
+    "commit": "https://github.com/clawdbot/skills/commit/0f3f27bdd0b1559469d2a37935d5d876b11e2fb6"
+  },
+  "history": []
+}

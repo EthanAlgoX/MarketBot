@@ -1,0 +1,11 @@
+{
+  "owner": "davemorin",
+  "slug": "snow-report",
+  "displayName": "Snow Report",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769052450046,
+    "commit": "https://github.com/clawdbot/skills/commit/dc607057d2e1e618190be18d393f1b981817aa6a"
+  },
+  "history": []
+}

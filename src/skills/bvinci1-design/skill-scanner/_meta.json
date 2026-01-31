@@ -1,0 +1,11 @@
+{
+  "owner": "bvinci1-design",
+  "slug": "skill-scanner",
+  "displayName": "Skill Scanner",
+  "latest": {
+    "version": "0.1.2",
+    "publishedAt": 1769696597407,
+    "commit": "https://github.com/clawdbot/skills/commit/5e14b488247103d74a0dc0b59726982aa067fce2"
+  },
+  "history": []
+}

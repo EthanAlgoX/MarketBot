@@ -1,0 +1,11 @@
+{
+  "owner": "thesethrose",
+  "slug": "reddit-search",
+  "displayName": "Reddit Search",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1768770722551,
+    "commit": "https://github.com/clawdbot/skills/commit/bbb7009f075e1b750d665aa8f15fcf6f053ec98c"
+  },
+  "history": []
+}

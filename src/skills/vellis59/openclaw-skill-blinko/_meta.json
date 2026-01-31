@@ -1,0 +1,11 @@
+{
+  "owner": "vellis59",
+  "slug": "openclaw-skill-blinko",
+  "displayName": "Blinko-notes",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769778368147,
+    "commit": "https://github.com/clawdbot/skills/commit/0d7acb3eee87df92adf99bef1a054444757ffd23"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "sendgrid",
+  "displayName": "Sendgrid",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780099721,
+    "commit": "https://github.com/clawdbot/skills/commit/c156be7f05b67699d32e7ce2d6c0a466706c799d"
+  },
+  "history": []
+}

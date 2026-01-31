@@ -1,0 +1,11 @@
+{
+  "owner": "igorhvr",
+  "slug": "dexter",
+  "displayName": "dexter",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768141574420,
+    "commit": "https://github.com/clawdbot/skills/commit/8f882c3e6a8872213e89f695a4e1e8599452dfcb"
+  },
+  "history": []
+}

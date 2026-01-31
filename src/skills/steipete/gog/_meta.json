@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "gog",
+  "displayName": "Gog",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545346060,
+    "commit": "https://github.com/clawdbot/skills/commit/02cc2220f4430109c2c108788c6539786e551c46"
+  },
+  "history": []
+}

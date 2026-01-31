@@ -1,0 +1,29 @@
+// Singleton Pattern - Coin that recreates itself with same puzzle hash
+// Ensures only one instance exists at a time (uses coin ID assertion)
+
+fn main(
+    my_coin_id: Bytes32,
+    my_puzzle_hash: Bytes32,
+    my_amount: Int,
+    public_key: PublicKey,
+    new_inner_puzzle_hash: Bytes32,
+    new_amount: Int,
+) -> List<Condition> {
+    // Assert our own coin ID (validates parent, puzzle hash, amount)
+    let assert_id = AssertMyCoinId { coin_id: my_coin_id };
+    
+    // Require signature authorizing the transition
+    let agg_sig = AggSigMe {
+        public_key,
+        message: tree_hash((new_inner_puzzle_hash, new_amount)),
+    };
+    
+    // Recreate coin with potentially updated inner state
+    let new_coin = CreateCoin {
+        puzzle_hash: my_puzzle_hash,
+        amount: new_amount,
+        memos: nil,
+    };
+    
+    [assert_id, agg_sig, new_coin]
+}

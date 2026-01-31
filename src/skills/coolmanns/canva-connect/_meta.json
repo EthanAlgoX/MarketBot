@@ -1,0 +1,11 @@
+{
+  "owner": "coolmanns",
+  "slug": "canva-connect",
+  "displayName": "Canva Connect",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769735275413,
+    "commit": "https://github.com/clawdbot/skills/commit/008084a639a398e0546a4778b9324cdad8c24fdf"
+  },
+  "history": []
+}

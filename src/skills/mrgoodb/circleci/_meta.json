@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "circleci",
+  "displayName": "Circleci",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781016580,
+    "commit": "https://github.com/clawdbot/skills/commit/bf2e8c06903f6ddbd622acc4bd6bffff3424973c"
+  },
+  "history": []
+}

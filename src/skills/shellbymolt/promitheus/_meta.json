@@ -1,0 +1,11 @@
+{
+  "owner": "shellbymolt",
+  "slug": "promitheus",
+  "displayName": "Promitheus — Sentience Engine",
+  "latest": {
+    "version": "1.0.3",
+    "publishedAt": 1769840129498,
+    "commit": "https://github.com/clawdbot/skills/commit/30ae499e8d20d8eecd2dc9c55f913b6a2e1dd33d"
+  },
+  "history": []
+}

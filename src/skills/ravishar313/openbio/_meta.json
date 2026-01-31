@@ -1,0 +1,11 @@
+{
+  "owner": "ravishar313",
+  "slug": "openbio",
+  "displayName": "Openbio",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769801985101,
+    "commit": "https://github.com/clawdbot/skills/commit/be8af330c8c22c40aea0dc8074a852c2fff0a61a"
+  },
+  "history": []
+}

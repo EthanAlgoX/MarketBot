@@ -1,0 +1,11 @@
+{
+  "owner": "jhillin8",
+  "slug": "workout-logger",
+  "displayName": "Workout Logger",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769326661008,
+    "commit": "https://github.com/clawdbot/skills/commit/3491c71f56339d37fe0fd7f792db54729cf70b8d"
+  },
+  "history": []
+}

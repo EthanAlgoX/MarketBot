@@ -1,0 +1,240 @@
+{
+  "projectTemplates": {
+    "python-web-api": {
+      "name": "Python Web API",
+      "description": "基于Flask的Python Web API项目模板",
+      "language": "python",
+      "framework": "flask",
+      "database": "postgresql",
+      "features": [
+        "REST API",
+        "JWT认证",
+        "数据库ORM",
+        "单元测试",
+        "Docker支持"
+      ],
+      "files": {
+        "required": [
+          "src/main.py",
+          "requirements.txt",
+          ".env.example",
+          "Dockerfile"
+        ],
+        "optional": [
+          "docker-compose.yml",
+          "Makefile",
+          "README.md"
+        ]
+      },
+      "dependencies": {
+        "core": ["flask", "flask-cors", "sqlalchemy"],
+        "auth": ["pyjwt", "python-dotenv"],
+        "dev": ["pytest", "flake8", "black"]
+      }
+    },
+    "javascript-web-api": {
+      "name": "JavaScript Web API",
+      "description": "基于Express的JavaScript Web API项目模板",
+      "language": "javascript",
+      "framework": "express",
+      "database": "mongodb",
+      "features": [
+        "REST API",
+        "JWT认证",
+        "MongoDB集成",
+        "单元测试",
+        "Docker支持"
+      ],
+      "files": {
+        "required": [
+          "src/index.js",
+          "package.json",
+          ".env.example",
+          "Dockerfile"
+        ],
+        "optional": [
+          "docker-compose.yml",
+          ".eslintrc.js",
+          "README.md"
+        ]
+      },
+      "dependencies": {
+        "core": ["express", "cors", "mongoose"],
+        "auth": ["jsonwebtoken", "bcryptjs"],
+        "dev": ["jest", "eslint", "nodemon"]
+      }
+    },
+    "python-cli": {
+      "name": "Python CLI工具",
+      "description": "Python命令行工具项目模板",
+      "language": "python",
+      "framework": "click",
+      "features": [
+        "命令行界面",
+        "参数解析",
+        "配置文件",
+        "日志记录",
+        "单元测试"
+      ],
+      "files": {
+        "required": [
+          "src/cli.py",
+          "setup.py",
+          "requirements.txt"
+        ]
+      },
+      "dependencies": {
+        "core": ["click", "rich", "pyyaml"],
+        "dev": ["pytest", "black", "mypy"]
+      }
+    },
+    "javascript-library": {
+      "name": "JavaScript库",
+      "description": "JavaScript库项目模板",
+      "language": "javascript",
+      "features": [
+        "模块化设计",
+        "类型定义",
+        "单元测试",
+        "文档生成",
+        "打包发布"
+      ],
+      "files": {
+        "required": [
+          "src/index.js",
+          "package.json",
+          ".eslintrc.js"
+        ]
+      },
+      "dependencies": {
+        "core": [],
+        "dev": ["jest", "eslint", "webpack"]
+      }
+    }
+  },
+  "workflowConfigs": {
+    "project-init": {
+      "steps": [
+        "validate-input",
+        "create-directory",
+        "generate-files",
+        "init-git",
+        "install-dependencies"
+      ],
+      "timeout": 300000,
+      "maxRetries": 2
+    },
+    "code-generation": {
+      "steps": [
+        "analyze-requirements",
+        "design-structure",
+        "generate-code",
+        "validate-code",
+        "commit-changes"
+      ],
+      "timeout": 600000,
+      "maxIterations": 3
+    },
+    "testing": {
+      "steps": [
+        "setup-test-env",
+        "analyze-code",
+        "generate-test-cases",
+        "run-tests",
+        "generate-report"
+      ],
+      "timeout": 480000,
+      "coverageThreshold": 80
+    },
+    "code-review": {
+      "steps": [
+        "collect-changes",
+        "analyze-code",
+        "check-quality",
+        "scan-security",
+        "generate-feedback"
+      ],
+      "timeout": 480000,
+      "severityLevels": ["critical", "high", "medium", "low"]
+    }
+  },
+  "qualityRules": {
+    "complexity": {
+      "maxCyclomatic": 15,
+      "maxCognitive": 20,
+      "maxNesting": 4
+    },
+    "duplication": {
+      "maxDuplicateLines": 10,
+      "maxDuplicatePercentage": 15
+    },
+    "size": {
+      "maxFileLines": 500,
+      "maxFunctionLines": 50,
+      "maxClassLines": 200
+    }
+  },
+  "securityRules": {
+    "injection": true,
+    "xss": true,
+    "csrf": true,
+    "auth": true,
+    "secrets": true
+  },
+  "codingStandards": {
+    "python": {
+      "naming": {
+        "functions": "snake_case",
+        "classes": "PascalCase",
+        "variables": "snake_case",
+        "constants": "UPPER_CASE"
+      },
+      "formatting": {
+        "maxLineLength": 100,
+        "indentSize": 4,
+        "useTabs": false
+      }
+    },
+    "javascript": {
+      "naming": {
+        "functions": "camelCase",
+        "classes": "PascalCase",
+        "variables": "camelCase",
+        "constants": "UPPER_CASE"
+      },
+      "formatting": {
+        "maxLineLength": 100,
+        "indentSize": 2,
+        "useTabs": false
+      }
+    }
+  },
+  "tokenOptimization": {
+    "maxTokensPerStep": 8000,
+    "maxTotalTokens": 50000,
+    "compressionStrategies": [
+      "remove-comments",
+      "minify-output",
+      "batch-operations"
+    ]
+  },
+  "gitConfig": {
+    "defaultBranch": "main",
+    "commitMessageTemplate": "{{type}}: {{description}}",
+    "commitTypes": ["feat", "fix", "docs", "style", "refactor", "test", "chore"],
+    "autoCommit": true,
+    "autoPush": false
+  },
+  "notifications": {
+    "success": true,
+    "failure": true,
+    "completion": true,
+    "channels": ["telegram", "slack", "email"]
+  },
+  "performance": {
+    "maxConcurrentWorkflows": 3,
+    "cacheEnabled": true,
+    "cacheTTL": 3600,
+    "timeoutMultiplier": 1.5
+  }
+}

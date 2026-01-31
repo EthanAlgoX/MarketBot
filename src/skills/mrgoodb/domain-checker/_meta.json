@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "domain-checker",
+  "displayName": "Domain Checker",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769779997462,
+    "commit": "https://github.com/clawdbot/skills/commit/9c166f753de4439f6e3fa951c1615b84700d8462"
+  },
+  "history": []
+}

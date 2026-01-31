@@ -1,0 +1,17 @@
+{
+  "owner": "bjesuiter",
+  "slug": "opencode-acp-control",
+  "displayName": "Opencode Acp Control",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1768165765927,
+    "commit": "https://github.com/clawdbot/skills/commit/1204fca5fb97af9acf2a5f11021bffadd06a365a"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1768164783623,
+      "commit": "https://github.com/clawdbot/skills/commit/156a11a8b64f45a1cd5d6b4d323b85a719c9e417"
+    }
+  ]
+}

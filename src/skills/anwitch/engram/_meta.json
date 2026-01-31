@@ -1,0 +1,11 @@
+{
+  "owner": "anwitch",
+  "slug": "engram",
+  "displayName": "Engram",
+  "latest": {
+    "version": "0.1.2",
+    "publishedAt": 1769759546810,
+    "commit": "https://github.com/clawdbot/skills/commit/181d8d4fa3de7b633f34fba4ef22fc283f41647a"
+  },
+  "history": []
+}

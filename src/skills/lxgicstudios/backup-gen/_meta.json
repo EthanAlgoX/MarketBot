@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "backup-gen",
+  "displayName": "Backup Script Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769626320376,
+    "commit": "https://github.com/clawdbot/skills/commit/67d8a06c0f6c0db27e151febf6111725bc7d7cd8"
+  },
+  "history": []
+}

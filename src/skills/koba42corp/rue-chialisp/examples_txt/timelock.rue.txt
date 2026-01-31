@@ -1,0 +1,19 @@
+// Timelock Puzzle - Coin that can only be spent after a certain block height
+// Uses ASSERT_HEIGHT_ABSOLUTE condition
+
+fn main(
+    public_key: PublicKey,
+    unlock_height: Int,
+    conditions: List<Condition>,
+) -> List<Condition> {
+    // Require minimum block height
+    let height_check = AssertHeightAbsolute { height: unlock_height };
+    
+    // Require signature
+    let agg_sig = AggSigMe {
+        public_key,
+        message: tree_hash(conditions),
+    };
+    
+    [height_check, agg_sig, ...conditions]
+}

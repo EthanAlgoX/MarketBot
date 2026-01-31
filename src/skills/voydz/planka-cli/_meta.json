@@ -1,0 +1,11 @@
+{
+  "owner": "voydz",
+  "slug": "planka-cli",
+  "displayName": "Planka",
+  "latest": {
+    "version": "0.1.1",
+    "publishedAt": 1769503412143,
+    "commit": "https://github.com/clawdbot/skills/commit/30ba42d5e08b579e8339fabbb4592132d2c91977"
+  },
+  "history": []
+}

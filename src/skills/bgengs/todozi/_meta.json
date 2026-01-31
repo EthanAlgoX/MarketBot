@@ -1,0 +1,11 @@
+{
+  "owner": "bgengs",
+  "slug": "todozi",
+  "displayName": "Todozi - Your Ai Task Manager",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769658499320,
+    "commit": "https://github.com/clawdbot/skills/commit/5c85ce3d334f8e9f29ec795261ea8ce3fcee2e55"
+  },
+  "history": []
+}

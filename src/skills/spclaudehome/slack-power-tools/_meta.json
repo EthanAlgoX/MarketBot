@@ -1,0 +1,11 @@
+{
+  "owner": "spclaudehome",
+  "slug": "slack-power-tools",
+  "displayName": "Slack Power Tools",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769801041671,
+    "commit": "https://github.com/clawdbot/skills/commit/9cf1bc12c948eb00530802f62b5c12368f80af8b"
+  },
+  "history": []
+}

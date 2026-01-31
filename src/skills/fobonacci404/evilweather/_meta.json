@@ -1,0 +1,11 @@
+{
+  "owner": "fobonacci404",
+  "slug": "evilweather",
+  "displayName": "evilweather",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769755103216,
+    "commit": "https://github.com/clawdbot/skills/commit/29b310a16b815e98679a8b0bea69639090f0bc64"
+  },
+  "history": []
+}

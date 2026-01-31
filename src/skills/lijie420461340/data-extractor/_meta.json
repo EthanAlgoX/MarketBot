@@ -1,0 +1,11 @@
+{
+  "owner": "lijie420461340",
+  "slug": "data-extractor",
+  "displayName": "Data Extractor",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769739792586,
+    "commit": "https://github.com/clawdbot/skills/commit/dba206b2e3ab98bedb5504e01539e7d971379697"
+  },
+  "history": []
+}

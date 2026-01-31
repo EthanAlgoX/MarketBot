@@ -1,0 +1,11 @@
+{
+  "owner": "xtopher86",
+  "slug": "comfyui-runner",
+  "displayName": "comfyui-runner",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769419595835,
+    "commit": "https://github.com/clawdbot/skills/commit/adcf227b43316e04587463362eddf06e1a28a4ba"
+  },
+  "history": []
+}

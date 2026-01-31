@@ -1,0 +1,11 @@
+{
+  "owner": "steamb23",
+  "slug": "naver-news",
+  "displayName": "Naver news Search",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769699280291,
+    "commit": "https://github.com/clawdbot/skills/commit/4f14c531215d62535989ed556546132cfab9190d"
+  },
+  "history": []
+}

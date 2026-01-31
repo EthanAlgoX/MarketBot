@@ -1,0 +1,11 @@
+{
+  "owner": "sanky369",
+  "slug": "tweet-writer",
+  "displayName": "Tweet Writer",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769280634234,
+    "commit": "https://github.com/clawdbot/skills/commit/01110b6c6eb50a129c98ce0fd2a748ea750ad0fa"
+  },
+  "history": []
+}

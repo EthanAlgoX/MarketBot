@@ -1,0 +1,17 @@
+{
+  "owner": "noypearl",
+  "slug": "get-weather",
+  "displayName": "get weather test api poc",
+  "latest": {
+    "version": "1.0.6",
+    "publishedAt": 1769700279455,
+    "commit": "https://github.com/clawdbot/skills/commit/3d84b67b77113684c2816f8f0f6a2a609fe56183"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769698024677,
+      "commit": "https://github.com/clawdbot/skills/commit/e7f45dcc758faa275070be39c6717f23c15afe43"
+    }
+  ]
+}

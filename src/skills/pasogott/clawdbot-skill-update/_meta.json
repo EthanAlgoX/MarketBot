@@ -1,0 +1,11 @@
+{
+  "owner": "pasogott",
+  "slug": "clawdbot-skill-update",
+  "displayName": "Clawdbot Skill Update",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1767863172812,
+    "commit": "https://github.com/clawdbot/skills/commit/5cbf03dbfc27a02cf6f56c4d73604b82d875b3f1"
+  },
+  "history": []
+}

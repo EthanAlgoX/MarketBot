@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "apollo-io",
+  "displayName": "Apollo.io Sales Intelligence",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769838115255,
+    "commit": "https://github.com/clawdbot/skills/commit/55a526f2f88a84a5702fd7883fd620d4732594bb"
+  },
+  "history": []
+}

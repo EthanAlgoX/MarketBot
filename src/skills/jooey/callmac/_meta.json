@@ -1,0 +1,11 @@
+{
+  "owner": "jooey",
+  "slug": "callmac",
+  "displayName": "Callmac",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769785462907,
+    "commit": "https://github.com/clawdbot/skills/commit/aa1294045c5869595b8e0fd672645e4a68a15b93"
+  },
+  "history": []
+}

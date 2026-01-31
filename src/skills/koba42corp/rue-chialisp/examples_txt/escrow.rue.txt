@@ -1,0 +1,27 @@
+// Escrow Puzzle
+// Funds released to recipient if arbiter approves
+// Or refunded to sender after timeout
+
+fn main(
+    sender_pk: PublicKey,
+    recipient_pk: PublicKey,
+    arbiter_pk: PublicKey,
+    timeout_height: Int,
+    action: Int,  // 0 = release, 1 = refund
+    destination_puzzle_hash: Bytes32,
+    amount: Int,
+) -> List<Condition> {
+    if action == 0 {
+        // Release: arbiter + recipient must sign
+        let sig1 = AggSigMe { public_key: arbiter_pk, message: tree_hash(destination_puzzle_hash) };
+        let sig2 = AggSigMe { public_key: recipient_pk, message: tree_hash(destination_puzzle_hash) };
+        let output = CreateCoin { puzzle_hash: destination_puzzle_hash, amount, memos: nil };
+        [sig1, sig2, output]
+    } else {
+        // Refund: sender signs + timeout passed
+        let timeout = AssertHeightAbsolute { height: timeout_height };
+        let sig = AggSigMe { public_key: sender_pk, message: tree_hash(destination_puzzle_hash) };
+        let output = CreateCoin { puzzle_hash: destination_puzzle_hash, amount, memos: nil };
+        [timeout, sig, output]
+    }
+}

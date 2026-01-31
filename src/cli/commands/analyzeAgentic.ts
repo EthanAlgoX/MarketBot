@@ -64,7 +64,7 @@ export async function runAgenticAnalysis(
     const provider = await createProviderFromConfigAsync(config);
 
     // Create tools and bridge (respect tool policy)
-    const registry = createDefaultToolRegistry();
+    const registry = await createDefaultToolRegistry();
     const allTools = registry.list();
     const agentId = resolveDefaultAgentId(config);
     const policy = resolveToolPolicy(config, agentId);

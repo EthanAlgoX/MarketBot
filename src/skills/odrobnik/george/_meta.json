@@ -1,0 +1,11 @@
+{
+  "owner": "odrobnik",
+  "slug": "george",
+  "displayName": "George (Erste/Sparkasse)",
+  "latest": {
+    "version": "1.0.7",
+    "publishedAt": 1769422703684,
+    "commit": "https://github.com/clawdbot/skills/commit/53b04ff163a62ca33548b1f8c0b5d0a82fb70210"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "schema-writer",
+  "displayName": "Schema Writer",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769590491337,
+    "commit": "https://github.com/clawdbot/skills/commit/b584e99d5e441d39f6d6ae3283e91d1d0f0feb0c"
+  },
+  "history": []
+}

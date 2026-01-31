@@ -1,0 +1,11 @@
+{
+  "owner": "miguelcarranza",
+  "slug": "surfline",
+  "displayName": "Surfline (public)",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769393215682,
+    "commit": "https://github.com/clawdbot/skills/commit/33ce97b3ddd9ef5a7dab4100b8d0d87cb06c59ad"
+  },
+  "history": []
+}

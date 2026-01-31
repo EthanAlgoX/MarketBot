@@ -1,0 +1,37 @@
+{
+  "owner": "tunaissacoding",
+  "slug": "claude-oauth-refresher",
+  "displayName": "Claude Oauth Refresher",
+  "latest": {
+    "version": "1.5.0",
+    "publishedAt": 1769188864066,
+    "commit": "https://github.com/clawdbot/skills/commit/7b6373686c2fac3fe362d4fff4b69e5a41700558"
+  },
+  "history": [
+    {
+      "version": "1.4.0",
+      "publishedAt": 1769178226630,
+      "commit": "https://github.com/clawdbot/skills/commit/6a05f9440cc3d324a57fd659a11c42f956428bdd"
+    },
+    {
+      "version": "1.2.3",
+      "publishedAt": 1769174218794,
+      "commit": "https://github.com/clawdbot/skills/commit/a2eff3554fb86c94750cf728d02fdf05f421c670"
+    },
+    {
+      "version": "1.2.2",
+      "publishedAt": 1769166237835,
+      "commit": "https://github.com/clawdbot/skills/commit/1c379261ce6f200fe8e98717c9c794881af9c9a4"
+    },
+    {
+      "version": "1.1.2",
+      "publishedAt": 1769164168771,
+      "commit": "https://github.com/clawdbot/skills/commit/de612fe2a3d2a5cac6b020d0e438f9e0e574dafd"
+    },
+    {
+      "version": "1.0.4",
+      "publishedAt": 1769138032966,
+      "commit": "https://github.com/clawdbot/skills/commit/5b2c6e503ac9dae936de1da0b1fc6231daeb6018"
+    }
+  ]
+}

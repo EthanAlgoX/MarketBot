@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "index-gen",
+  "displayName": "Index File Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632524816,
+    "commit": "https://github.com/clawdbot/skills/commit/8fd21258cbb68f2b24a05fb4920a707bf7f6f083"
+  },
+  "history": []
+}

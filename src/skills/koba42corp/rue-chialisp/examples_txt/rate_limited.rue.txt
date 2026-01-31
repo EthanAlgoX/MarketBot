@@ -1,0 +1,46 @@
+// Rate-Limited Wallet
+// Can only spend up to max_per_block per block
+// Recreates itself with remaining balance
+
+fn main(
+    my_puzzle_hash: Bytes32,
+    my_amount: Int,
+    owner_pk: PublicKey,
+    max_per_block: Int,
+    spend_amount: Int,
+    recipient_puzzle_hash: Bytes32,
+) -> List<Condition> {
+    // Validate own amount
+    let assert_amount = AssertMyAmount { amount: my_amount };
+    
+    // Enforce rate limit
+    assert spend_amount <= max_per_block;
+    assert spend_amount <= my_amount;
+    
+    // Owner must sign
+    let sig = AggSigMe { 
+        public_key: owner_pk, 
+        message: tree_hash((recipient_puzzle_hash, spend_amount)) 
+    };
+    
+    // Send requested amount
+    let payment = CreateCoin { 
+        puzzle_hash: recipient_puzzle_hash, 
+        amount: spend_amount, 
+        memos: nil 
+    };
+    
+    // Recreate self with remaining balance
+    let remaining = my_amount - spend_amount;
+    
+    if remaining > 0 {
+        let change = CreateCoin { 
+            puzzle_hash: my_puzzle_hash, 
+            amount: remaining, 
+            memos: nil 
+        };
+        [assert_amount, sig, payment, change]
+    } else {
+        [assert_amount, sig, payment]
+    }
+}

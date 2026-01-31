@@ -1,0 +1,11 @@
+{
+  "owner": "didelco",
+  "slug": "pvpc-spain",
+  "displayName": "PVPC España",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769682673316,
+    "commit": "https://github.com/clawdbot/skills/commit/d388463bbd3b51a065bf62165dd7706872b494ef"
+  },
+  "history": []
+}

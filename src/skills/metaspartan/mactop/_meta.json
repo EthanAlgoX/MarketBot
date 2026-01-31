@@ -1,0 +1,11 @@
+{
+  "owner": "metaspartan",
+  "slug": "mactop",
+  "displayName": "mactop",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769397560046,
+    "commit": "https://github.com/clawdbot/skills/commit/2ee61dd28b2767c3a7376a84666059eb21f38c02"
+  },
+  "history": []
+}

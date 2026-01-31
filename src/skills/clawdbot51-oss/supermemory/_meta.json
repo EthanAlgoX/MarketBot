@@ -1,0 +1,11 @@
+{
+  "owner": "clawdbot51-oss",
+  "slug": "supermemory",
+  "displayName": "Supermemory",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769623551710,
+    "commit": "https://github.com/clawdbot/skills/commit/102c9147fe15f7dd0a4d408e299d28c34437dd88"
+  },
+  "history": []
+}

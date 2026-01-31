@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "wrike",
+  "displayName": "Wrike",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780994539,
+    "commit": "https://github.com/clawdbot/skills/commit/f82cb1d3590e806a2a1b6e19c5c3ff4affec610f"
+  },
+  "history": []
+}

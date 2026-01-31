@@ -1,0 +1,17 @@
+{
+  "owner": "sherajdev",
+  "slug": "deploy-agent",
+  "displayName": "C.R.A.B Deploy Agent",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1768834943838,
+    "commit": "https://github.com/clawdbot/skills/commit/32fa9ff5e5e8c026cc88fd2f3b855550f240d10e"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768726668598,
+      "commit": "https://github.com/clawdbot/skills/commit/190ca711677b15669ea64297235cfc2f9816bfb0"
+    }
+  ]
+}

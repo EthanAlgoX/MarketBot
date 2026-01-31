@@ -1,0 +1,17 @@
+{
+  "owner": "c-drew",
+  "slug": "telegram-usage",
+  "displayName": "Telegram Usage Stats",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769306847924,
+    "commit": "https://github.com/clawdbot/skills/commit/278a57e27132bb05f551f55f2969103432f3b24e"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769303885823,
+      "commit": "https://github.com/clawdbot/skills/commit/c661f2c9ff8656659a742c0c07a540ec73ffee08"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "koba42corp",
+  "slug": "autoresponder",
+  "displayName": "iResponder",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769625063137,
+    "commit": "https://github.com/clawdbot/skills/commit/d92f924041aae9bfddd2d864b26afbcfd155742f"
+  },
+  "history": []
+}

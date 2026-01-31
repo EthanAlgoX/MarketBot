@@ -1,0 +1,11 @@
+{
+  "owner": "joehoel",
+  "slug": "trein",
+  "displayName": "Trein",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769367330483,
+    "commit": "https://github.com/clawdbot/skills/commit/ed3f9c2dc07a9a12a551305711f3926ffd94235b"
+  },
+  "history": []
+}

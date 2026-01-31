@@ -1,0 +1,11 @@
+{
+  "owner": "0xterrybit",
+  "slug": "alchemy-pay",
+  "displayName": "Alchemy Pay",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769538038228,
+    "commit": "https://github.com/clawdbot/skills/commit/b8b045b05397192b3628e5979770d72f87752cd1"
+  },
+  "history": []
+}

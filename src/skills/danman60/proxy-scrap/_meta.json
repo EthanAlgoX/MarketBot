@@ -1,0 +1,11 @@
+{
+  "owner": "danman60",
+  "slug": "proxy-scrap",
+  "displayName": "Proxy Scrap",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769709000622,
+    "commit": "https://github.com/clawdbot/skills/commit/0617fac0e5749bd771a722cbd2d54f488dd361bb"
+  },
+  "history": []
+}

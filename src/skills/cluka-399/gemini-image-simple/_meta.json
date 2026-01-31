@@ -1,0 +1,11 @@
+{
+  "owner": "cluka-399",
+  "slug": "gemini-image-simple",
+  "displayName": "Gemini Image Simple",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769804785662,
+    "commit": "https://github.com/clawdbot/skills/commit/4e4d156bb4b2ee284337e16bc409bac17b3f34f5"
+  },
+  "history": []
+}

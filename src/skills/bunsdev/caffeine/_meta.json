@@ -1,0 +1,11 @@
+{
+  "owner": "bunsdev",
+  "slug": "caffeine",
+  "displayName": "Caffeine",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769755539271,
+    "commit": "https://github.com/clawdbot/skills/commit/cf4d645f6d831e0304162aa34dfdd07d63702227"
+  },
+  "history": []
+}

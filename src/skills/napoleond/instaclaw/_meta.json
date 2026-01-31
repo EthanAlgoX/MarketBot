@@ -1,0 +1,11 @@
+{
+  "owner": "napoleond",
+  "slug": "instaclaw",
+  "displayName": "Instaclaw",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769830685649,
+    "commit": "https://github.com/clawdbot/skills/commit/ae564a418e177e3b9902d3e47039faf7da8683ab"
+  },
+  "history": []
+}

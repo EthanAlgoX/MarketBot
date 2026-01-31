@@ -1,0 +1,11 @@
+{
+  "owner": "bryant-ba",
+  "slug": "aliyun-search",
+  "displayName": "aliyun-search",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769746621266,
+    "commit": "https://github.com/clawdbot/skills/commit/97da08b923d85927c5dbd9e7e71ede1c20226cd5"
+  },
+  "history": []
+}

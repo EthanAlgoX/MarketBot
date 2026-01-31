@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "type-gen",
+  "displayName": "Type Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769627699411,
+    "commit": "https://github.com/clawdbot/skills/commit/99f0e76627356f22cf60abc2aab0d16b1b44fd56"
+  },
+  "history": []
+}

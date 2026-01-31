@@ -1,0 +1,17 @@
+{
+  "owner": "aisa-one",
+  "slug": "openclaw-aisa",
+  "displayName": "AIsa Unified API: One Key for All Paid Skills",
+  "latest": {
+    "version": "1.0.4",
+    "publishedAt": 1769839396873,
+    "commit": "https://github.com/clawdbot/skills/commit/0e668f1c2de961bc1021b17118af20b7a93f1857"
+  },
+  "history": [
+    {
+      "version": "1.0.3",
+      "publishedAt": 1769837111577,
+      "commit": "https://github.com/clawdbot/skills/commit/2d69cdc6128196ede77e8a4d5f2a99cbcc8ff9bd"
+    }
+  ]
+}

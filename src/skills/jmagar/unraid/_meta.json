@@ -1,0 +1,17 @@
+{
+  "owner": "jmagar",
+  "slug": "unraid",
+  "displayName": "Unraid",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769203181002,
+    "commit": "https://github.com/clawdbot/skills/commit/a9544f4e037e07c6f69fa5623283c049cfa46b4c"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769150829241,
+      "commit": "https://github.com/clawdbot/skills/commit/24c1f0a31a15c8eb9c6e422981fbfe976bb5b0a0"
+    }
+  ]
+}

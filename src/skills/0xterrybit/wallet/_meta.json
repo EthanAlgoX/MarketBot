@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "wallet",
+  "displayName": "Wallet",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769537587356,
+    "commit": "https://github.com/clawdbot/skills/commit/4979d30c6c2531f52a79c67b7f0aab5e13856cf9"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769513882727,
+      "commit": "https://github.com/clawdbot/skills/commit/70a628614749a7758272b2d670e905205f7877a2"
+    }
+  ]
+}

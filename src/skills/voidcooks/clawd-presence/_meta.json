@@ -1,0 +1,11 @@
+{
+  "owner": "voidcooks",
+  "slug": "clawd-presence",
+  "displayName": "Clawd Presence",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769729015501,
+    "commit": "https://github.com/clawdbot/skills/commit/d0ad5fc421af0081ae540afcb98c4f227bb31982"
+  },
+  "history": []
+}

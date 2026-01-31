@@ -1,0 +1,11 @@
+{
+  "owner": "billyutw",
+  "slug": "web-search",
+  "displayName": "Web Search",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769673454302,
+    "commit": "https://github.com/clawdbot/skills/commit/50bcd1d9a81e6412d476dd0246265f65b7fad58b"
+  },
+  "history": []
+}

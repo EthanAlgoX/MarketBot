@@ -1,0 +1,17 @@
+{
+  "owner": "jmagar",
+  "slug": "unifi",
+  "displayName": "Unifi",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769203188662,
+    "commit": "https://github.com/clawdbot/skills/commit/ca127140f2b8b826f74f592b47872be99ed0e832"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769150816231,
+      "commit": "https://github.com/clawdbot/skills/commit/5d846e90531d46e35762ba8a123768801ac4b969"
+    }
+  ]
+}

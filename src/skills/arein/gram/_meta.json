@@ -1,0 +1,11 @@
+{
+  "owner": "arein",
+  "slug": "gram",
+  "displayName": "Instagram Skill via cyberdrk/gram CLI",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769334631792,
+    "commit": "https://github.com/clawdbot/skills/commit/df3fd685e60e09acd6c5a3e9cff3fee2b39b1c8b"
+  },
+  "history": []
+}

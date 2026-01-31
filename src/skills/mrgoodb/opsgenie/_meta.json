@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "opsgenie",
+  "displayName": "Opsgenie",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781063612,
+    "commit": "https://github.com/clawdbot/skills/commit/dd31ce4ff78b73be22da0b71ca75857bda6223a1"
+  },
+  "history": []
+}

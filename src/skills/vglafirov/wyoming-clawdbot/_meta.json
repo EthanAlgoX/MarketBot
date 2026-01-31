@@ -1,0 +1,11 @@
+{
+  "owner": "vglafirov",
+  "slug": "wyoming-clawdbot",
+  "displayName": "Wyoming Clawdbot",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769456289891,
+    "commit": "https://github.com/clawdbot/skills/commit/834de2b564ad84d0a307241c3154a276e7cbd220"
+  },
+  "history": []
+}

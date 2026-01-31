@@ -1,0 +1,11 @@
+{
+  "owner": "mkrdiop",
+  "slug": "moltbot-docker",
+  "displayName": "MoltDocker",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769624207538,
+    "commit": "https://github.com/clawdbot/skills/commit/fea3a7104620a0c4a829529b9a50e8c540aa24f2"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "spclaudehome",
+  "slug": "aws-security-scanner",
+  "displayName": "AWS Security Scanner",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769800795751,
+    "commit": "https://github.com/clawdbot/skills/commit/ce7af2249590b8a930ed9ddd94d1c46fe0a13c8c"
+  },
+  "history": []
+}

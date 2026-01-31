@@ -1,0 +1,17 @@
+{
+  "owner": "chipagosfinest",
+  "slug": "just-fucking-cancel",
+  "displayName": "Just Fucking Cancel",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769734297872,
+    "commit": "https://github.com/clawdbot/skills/commit/18905b352b3e580ef05af31423dbc413304b6291"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768618453174,
+      "commit": "https://github.com/clawdbot/skills/commit/e0147d69755bf8a81d066089f0b52fd137f8faf2"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "jordanprater",
+  "slug": "multiposting",
+  "displayName": "Multiposting to X, Instagram, YouTube, Tiktok, LinkedIn, Facebook, Threads, Pinterest, Reddit, Bluesky",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769803573176,
+    "commit": "https://github.com/clawdbot/skills/commit/742f2c3716f98c4d4406d4b533e539b6ebddd908"
+  },
+  "history": []
+}

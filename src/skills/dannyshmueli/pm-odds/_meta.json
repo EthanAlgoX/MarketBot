@@ -1,0 +1,11 @@
+{
+  "owner": "dannyshmueli",
+  "slug": "pm-odds",
+  "displayName": "Polymarket Odds",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769515430171,
+    "commit": "https://github.com/clawdbot/skills/commit/5b4281316b7455450cc842209f548b004ad9f153"
+  },
+  "history": []
+}

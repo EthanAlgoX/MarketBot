@@ -1,0 +1,11 @@
+{
+  "owner": "dylanbaker24",
+  "slug": "last30days-lite",
+  "displayName": "Last 30 Days (Lite)",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769411600187,
+    "commit": "https://github.com/clawdbot/skills/commit/cdf72c208530cf5373c2139b22bc172642406274"
+  },
+  "history": []
+}

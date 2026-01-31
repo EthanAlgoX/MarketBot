@@ -1,0 +1,11 @@
+{
+  "owner": "thegovind",
+  "slug": "azd-deployment",
+  "displayName": "Azd Deployment for Azure",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769835675007,
+    "commit": "https://github.com/clawdbot/skills/commit/7e1ffda77af52e053b6530a78260f663c89b804d"
+  },
+  "history": []
+}

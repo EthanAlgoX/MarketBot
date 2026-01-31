@@ -1,0 +1,77 @@
+{
+  "owner": "johntheyoung",
+  "slug": "roadrunner",
+  "displayName": "Roadrunner",
+  "latest": {
+    "version": "0.9.0",
+    "publishedAt": 1768785093396,
+    "commit": "https://github.com/clawdbot/skills/commit/e8104ab6d2a44994c02c72740673da2e996858be"
+  },
+  "history": [
+    {
+      "version": "0.8.0",
+      "publishedAt": 1768754221334,
+      "commit": "https://github.com/clawdbot/skills/commit/be3d041adbe0f13a9986c9d91e4dfd8bd4ebccd4"
+    },
+    {
+      "version": "0.7.3",
+      "publishedAt": 1768702082062,
+      "commit": "https://github.com/clawdbot/skills/commit/80d123d54f8a41aa457ef84c5dca26470e2c1d9a"
+    },
+    {
+      "version": "0.7.1",
+      "publishedAt": 1768636614734,
+      "commit": "https://github.com/clawdbot/skills/commit/eff069580d1b821959bf982147ead4f651be26b7"
+    },
+    {
+      "version": "v0.7.0",
+      "publishedAt": 1768624464732,
+      "commit": "https://github.com/clawdbot/skills/commit/cf3a2c5c43ac3d2b088d7f0f8333ac664719f37a"
+    },
+    {
+      "version": "0.6.2",
+      "publishedAt": 1768621159284,
+      "commit": "https://github.com/clawdbot/skills/commit/8fcddb226d59f7f3b315d7543383c55cbe25ecf6"
+    },
+    {
+      "version": "v0.6.2",
+      "publishedAt": 1768620856252,
+      "commit": "https://github.com/clawdbot/skills/commit/d55d0133127120735226e0e053f7e8ec7239f72b"
+    },
+    {
+      "version": "v0.6.1",
+      "publishedAt": 1768619043736,
+      "commit": "https://github.com/clawdbot/skills/commit/9a5f5ed0083642c50620333f1e13c4bf43774502"
+    },
+    {
+      "version": "0.5.2",
+      "publishedAt": 1768614780909,
+      "commit": "https://github.com/clawdbot/skills/commit/3a20b26f9aa1df9a945f24cdc0fd14db481c7aaf"
+    },
+    {
+      "version": "0.5.1",
+      "publishedAt": 1768612740770,
+      "commit": "https://github.com/clawdbot/skills/commit/04de8513abf5527954646fcd0278d1764524082d"
+    },
+    {
+      "version": "0.4.0",
+      "publishedAt": 1768586611612,
+      "commit": "https://github.com/clawdbot/skills/commit/f434ce40946015bbe182055c9f6c6fc2cf23c18c"
+    },
+    {
+      "version": "0.3.0",
+      "publishedAt": 1768584231541,
+      "commit": "https://github.com/clawdbot/skills/commit/76cd83fae0f1a236df8aa1c50bb5b6d6b02c4c4d"
+    },
+    {
+      "version": "0.1.4",
+      "publishedAt": 1768578196097,
+      "commit": "https://github.com/clawdbot/skills/commit/56b046aa3f8842fd46129b167a168277a4433b28"
+    },
+    {
+      "version": "0.1.0",
+      "publishedAt": 1768571797711,
+      "commit": "https://github.com/clawdbot/skills/commit/db4295440b3f776ba0a0bbc2e665621f4671ec11"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "comment-gen",
+  "displayName": "Code Comment Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632291175,
+    "commit": "https://github.com/clawdbot/skills/commit/11e1efb36aeb322a82a7dc9c3fbfd2b8c4f71a33"
+  },
+  "history": []
+}

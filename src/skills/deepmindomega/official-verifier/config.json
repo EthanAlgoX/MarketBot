@@ -1,0 +1,109 @@
+{
+  "skillId": "official-verifier",
+  "name": "官方项目验证器",
+  "version": "1.0.0",
+  "description": "用于判断网站或项目仓库是否为官方项目，通过多种验证手段并以概率形式返回可信度评估",
+  "author": "Assistant",
+  "license": "MIT",
+  "keywords": [
+    "verification",
+    "official",
+    "authenticity",
+    "trust",
+    "validation"
+  ],
+  "files": [
+    "SKILL.md",
+    "verify.js",
+    "README.md",
+    "config.json"
+  ],
+  "interface": {
+    "functions": [
+      {
+        "name": "verifyOfficialProject",
+        "description": "验证项目是否为官方项目并返回可信度概率",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "projectUrl": {
+              "type": "string",
+              "description": "项目URL（GitHub仓库或网站）"
+            },
+            "starCount": {
+              "type": "number",
+              "description": "GitHub star数量"
+            },
+            "hasOfficialBlog": {
+              "type": "boolean",
+              "description": "是否有官方博客"
+            },
+            "hasDevInfo": {
+              "type": "boolean",
+              "description": "是否有明确的开发者信息"
+            },
+            "devActivityLevel": {
+              "type": "string",
+              "enum": ["high", "medium", "low"],
+              "description": "开发者活跃度"
+            },
+            "hasClearHistory": {
+              "type": "boolean",
+              "description": "项目历史是否清晰"
+            },
+            "hasReasonableChanges": {
+              "type": "boolean",
+              "description": "名称变更是否合理"
+            },
+            "isWellDocumented": {
+              "type": "boolean",
+              "description": "文档是否完善"
+            },
+            "hasHNPosts": {
+              "type": "boolean",
+              "description": "是否有Hacker News报道"
+            },
+            "hasTechMediaCoverage": {
+              "type": "boolean",
+              "description": "是否有技术媒体报道"
+            },
+            "hasCommunityDiscussions": {
+              "type": "boolean",
+              "description": "社区讨论是否活跃"
+            },
+            "recentCommits": {
+              "type": "string",
+              "enum": ["high", "medium", "low"],
+              "description": "最近提交频率"
+            },
+            "issueResponse": {
+              "type": "string",
+              "enum": ["high", "medium", "low"],
+              "description": "Issue响应速度"
+            },
+            "versionUpdates": {
+              "type": "string",
+              "enum": ["high", "medium", "low"],
+              "description": "版本更新频率"
+            },
+            "noSecurityWarnings": {
+              "type": "boolean",
+              "description": "是否无安全警告"
+            },
+            "hasCodeReviews": {
+              "type": "boolean",
+              "description": "是否有代码审查"
+            },
+            "responsiveToSecurityIssues": {
+              "type": "boolean",
+              "description": "是否对安全问题响应及时"
+            }
+          },
+          "required": ["projectUrl"]
+        }
+      }
+    ]
+  },
+  "dependencies": {},
+  "supportedPlatforms": ["linux", "macos", "windows"]
+}

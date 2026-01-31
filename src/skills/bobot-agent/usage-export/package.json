@@ -1,0 +1,28 @@
+{
+  "name": "usage-export",
+  "version": "1.0.0",
+  "description": "Export OpenClaw usage data to CSV for analytics tools like Power BI. Hourly aggregates by activity type, model, and channel.",
+  "author": "Bobot & Marco Russo",
+  "license": "MIT",
+  "homepage": "https://clawdhub.com/skills/usage-export",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marcorus/usage-export"
+  },
+  "keywords": [
+    "openclaw",
+    "analytics",
+    "usage",
+    "csv",
+    "power-bi",
+    "tokens",
+    "cost-tracking"
+  ],
+  "openclaw": {
+    "emoji": "📊",
+    "category": "analytics",
+    "requires": {
+      "bins": ["python3"]
+    }
+  }
+}

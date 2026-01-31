@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "onedrive",
+  "displayName": "Onedrive",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781005657,
+    "commit": "https://github.com/clawdbot/skills/commit/1f8143181552ce593de9b609f5a982c3c6bf62cf"
+  },
+  "history": []
+}

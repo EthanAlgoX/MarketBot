@@ -1,0 +1,11 @@
+{
+  "owner": "nerveband",
+  "slug": "yt-api-cli",
+  "displayName": "YouTube API CLI",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769484803621,
+    "commit": "https://github.com/clawdbot/skills/commit/808cd317649b000eb201f1627e04e797b523e6dc"
+  },
+  "history": []
+}

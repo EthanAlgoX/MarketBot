@@ -1,0 +1,11 @@
+{
+  "owner": "tolibear",
+  "slug": "promptify",
+  "displayName": "Promptify Skill",
+  "latest": {
+    "version": "3.1.0",
+    "publishedAt": 1769725339117,
+    "commit": "https://github.com/clawdbot/skills/commit/20eeec42de80da53b44c3c3e961fae65254ed524"
+  },
+  "history": []
+}

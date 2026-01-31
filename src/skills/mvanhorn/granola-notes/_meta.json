@@ -1,0 +1,11 @@
+{
+  "owner": "mvanhorn",
+  "slug": "granola-notes",
+  "displayName": "Granola Notes",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769057879154,
+    "commit": "https://github.com/clawdbot/skills/commit/f8c1bc4d168cd8c9a444747d33a44400becd772e"
+  },
+  "history": []
+}

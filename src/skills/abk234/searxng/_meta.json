@@ -1,0 +1,11 @@
+{
+  "owner": "abk234",
+  "slug": "searxng",
+  "displayName": "Searxng",
+  "latest": {
+    "version": "1.0.3",
+    "publishedAt": 1769472992634,
+    "commit": "https://github.com/clawdbot/skills/commit/fb63ff21791eb3414fe2359ecb552849b23d075c"
+  },
+  "history": []
+}

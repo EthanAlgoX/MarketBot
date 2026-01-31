@@ -1,0 +1,17 @@
+{
+  "owner": "julianengel",
+  "slug": "r2-upload",
+  "displayName": "Send Me My Files - R2 upload with short lived signed urls",
+  "latest": {
+    "version": "1.0.4",
+    "publishedAt": 1767998221473,
+    "commit": "https://github.com/clawdbot/skills/commit/55e5eaff14eb9360d9d42f0f615942fbf55a986c"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1767997660948,
+      "commit": "https://github.com/clawdbot/skills/commit/805cfab7fcc19b652233a888d7e8669647cb5688"
+    }
+  ]
+}

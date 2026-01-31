@@ -1,0 +1,11 @@
+{
+  "owner": "jrbobbyhansen-pixel",
+  "slug": "memory-setup",
+  "displayName": "Memory Setup",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769568045678,
+    "commit": "https://github.com/clawdbot/skills/commit/b2085c30dd56bf4d68e5645511efa4bbfd3ea8fa"
+  },
+  "history": []
+}

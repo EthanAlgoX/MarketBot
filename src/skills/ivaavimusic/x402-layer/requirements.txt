@@ -1,0 +1,17 @@
+# x402 Layer - Python Dependencies
+# Install: pip install -r requirements.txt
+
+# EVM/Base payments - Required for EIP-712 signing
+eth-account>=0.10.0
+web3>=6.0.0
+
+# HTTP requests
+requests>=2.28.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Solana payments - Optional, only needed for Solana network
+# Uncomment if using Solana:
+# solders>=0.20.0
+# solana>=0.30.0

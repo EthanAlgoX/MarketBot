@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "apple-notes",
+  "displayName": "Apple Notes",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545294031,
+    "commit": "https://github.com/clawdbot/skills/commit/304c7cae47d4cf4b0766041c53fd234344e749f4"
+  },
+  "history": []
+}

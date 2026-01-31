@@ -1,0 +1,17 @@
+{
+  "owner": "jordyvandomselaar",
+  "slug": "sonarr",
+  "displayName": "Sonarr",
+  "latest": {
+    "version": "1.2.0",
+    "publishedAt": 1767862859741,
+    "commit": "https://github.com/clawdbot/skills/commit/bc573f1556e1b9136d38f62f76a50afd23a9eb37"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1767859463440,
+      "commit": "https://github.com/clawdbot/skills/commit/b9b9cc7a07469926d9037dffef757f592481e780"
+    }
+  ]
+}

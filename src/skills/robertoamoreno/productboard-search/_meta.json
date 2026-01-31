@@ -1,0 +1,11 @@
+{
+  "owner": "robertoamoreno",
+  "slug": "productboard-search",
+  "displayName": "Productboard Search",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769839268383,
+    "commit": "https://github.com/clawdbot/skills/commit/e105132f3d7c50b3112974984e9dcf40942e2277"
+  },
+  "history": []
+}

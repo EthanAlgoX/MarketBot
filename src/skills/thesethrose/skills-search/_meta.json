@@ -1,0 +1,11 @@
+{
+  "owner": "thesethrose",
+  "slug": "skills-search",
+  "displayName": "Skills.sh Search",
+  "latest": {
+    "version": "1.0.4",
+    "publishedAt": 1768970984785,
+    "commit": "https://github.com/clawdbot/skills/commit/195d033aa6fa9376f76ada94f42d986396fd82b1"
+  },
+  "history": []
+}

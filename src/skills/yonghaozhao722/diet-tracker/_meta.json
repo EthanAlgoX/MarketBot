@@ -1,0 +1,11 @@
+{
+  "owner": "yonghaozhao722",
+  "slug": "diet-tracker",
+  "displayName": "Diet Tracker",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769499162909,
+    "commit": "https://github.com/clawdbot/skills/commit/c785ae3c394c0ddc6671869933ebb8d141ad3214"
+  },
+  "history": []
+}

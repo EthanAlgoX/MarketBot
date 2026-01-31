@@ -1,0 +1,17 @@
+{
+  "owner": "vincentchan",
+  "slug": "linear-autopilot",
+  "displayName": "Linear Autopilot",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769582642262,
+    "commit": "https://github.com/clawdbot/skills/commit/ee56cba72f9db959f2f89969416f5040c28b1d85"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769555935085,
+      "commit": "https://github.com/clawdbot/skills/commit/1ef5723fa17659405a12987024f22355bc20f94d"
+    }
+  ]
+}

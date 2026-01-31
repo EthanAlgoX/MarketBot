@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "e2e-writer",
+  "displayName": "E2E Test Writer",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769594263154,
+    "commit": "https://github.com/clawdbot/skills/commit/61769f991ef72536b90039ad3ce7bf0c31b2cb37"
+  },
+  "history": []
+}

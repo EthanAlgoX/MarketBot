@@ -1,0 +1,11 @@
+{
+  "owner": "borahm",
+  "slug": "whoop",
+  "displayName": "WHOOP",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769169054224,
+    "commit": "https://github.com/clawdbot/skills/commit/3c294d451a2905d5728c78279f20c9018d7cd00c"
+  },
+  "history": []
+}

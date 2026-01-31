@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clawd Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="agent-profile">
+                <div class="avatar">🤖</div>
+                <h2 class="agent-name">Clawd</h2>
+                <div class="status-indicators">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span class="status-text" id="statusText">Connecting...</span>
+                </div>
+                <div class="status-detail" id="statusDetail"></div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h1>🤖 Clawd Dashboard</h1>
+                    <span class="online-badge" id="onlineBadge">● Online</span>
+                </div>
+                <div class="header-right">
+                    <span class="last-sync" id="lastSync">Last sync: --</span>
+                </div>
+            </header>
+
+            <!-- Kanban Board -->
+            <section class="kanban-board">
+                <div class="kanban-column" data-column="todo">
+                    <div class="column-header">
+                        <span class="column-icon">📋</span>
+                        <h3>To Do</h3>
+                        <span class="task-count" id="todoCount">0</span>
+                    </div>
+                    <div class="task-list" id="todoList"></div>
+                    <button class="add-task-btn" onclick="showAddTask('todo')">+ Add Task</button>
+                </div>
+
+                <div class="kanban-column" data-column="in_progress">
+                    <div class="column-header">
+                        <span class="column-icon">⚡</span>
+                        <h3>In Progress</h3>
+                        <span class="task-count" id="in_progressCount">0</span>
+                    </div>
+                    <div class="task-list" id="in_progressList"></div>
+                    <button class="add-task-btn" onclick="showAddTask('in_progress')">+ Add Task</button>
+                </div>
+
+                <div class="kanban-column" data-column="done">
+                    <div class="column-header">
+                        <span class="column-icon">✅</span>
+                        <h3>Done</h3>
+                        <span class="task-count" id="doneCount">0</span>
+                    </div>
+                    <div class="task-list" id="doneList"></div>
+                </div>
+
+                <div class="kanban-column" data-column="archived">
+                    <div class="column-header">
+                        <span class="column-icon">📦</span>
+                        <h3>Archived</h3>
+                        <span class="task-count" id="archivedCount">0</span>
+                    </div>
+                    <div class="task-list" id="archivedList"></div>
+                </div>
+            </section>
+
+            <!-- Bottom Section -->
+            <section class="bottom-section">
+                <!-- Deliverables -->
+                <div class="deliverables-section">
+                    <h3>📁 Deliverables</h3>
+                    <div class="deliverables-grid" id="deliverablesList"></div>
+                </div>
+
+                <!-- Notes and Action Log -->
+                <div class="notes-log-section">
+                    <div class="notes-panel">
+                        <h3>📝 Notes for Clawd</h3>
+                        <p class="notes-hint">Add tasks here — Clawd checks on every heartbeat</p>
+                        <textarea id="notesContent" placeholder="Drop instructions or information here..."></textarea>
+                        <button class="save-btn" onclick="saveNotes()">Save Notes</button>
+                    </div>
+
+                    <div class="action-log-panel">
+                        <h3>📜 Action Log</h3>
+                        <div class="action-log-list" id="actionLogList"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div class="modal" id="addTaskModal">
+        <div class="modal-content">
+            <h3>Add New Task</h3>
+            <input type="text" id="newTaskTitle" placeholder="Task title..." autofocus>
+            <textarea id="newTaskDesc" placeholder="Description (optional)..."></textarea>
+            <input type="hidden" id="newTaskColumn" value="todo">
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="hideAddTask()">Cancel</button>
+                <button class="confirm-btn" onclick="addTask()">Add Task</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Task Modal -->
+    <div class="modal" id="editTaskModal">
+        <div class="modal-content">
+            <h3>Edit Task</h3>
+            <input type="text" id="editTaskTitle" placeholder="Task title...">
+            <textarea id="editTaskDesc" placeholder="Description..."></textarea>
+            <input type="hidden" id="editTaskId">
+            <input type="hidden" id="editTaskColumn">
+            <div class="modal-buttons">
+                <button class="delete-btn" onclick="deleteTask()">Delete</button>
+                <button class="cancel-btn" onclick="hideEditTask()">Cancel</button>
+                <button class="confirm-btn" onclick="updateTask()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

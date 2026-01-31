@@ -1,0 +1,17 @@
+{
+  "owner": "okikesolutions",
+  "slug": "plan2meal",
+  "displayName": "Plan2Meal",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1768336018814,
+    "commit": "https://github.com/clawdbot/skills/commit/735aa22449a9277188ec49e43e46aa3027ab785f"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768325032489,
+      "commit": "https://github.com/clawdbot/skills/commit/8fb7c39c2b36ff413b5052ef0dac6f0371e6af6d"
+    }
+  ]
+}

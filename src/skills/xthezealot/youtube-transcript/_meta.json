@@ -1,0 +1,11 @@
+{
+  "owner": "xthezealot",
+  "slug": "youtube-transcript",
+  "displayName": "YouTube Transcript",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769532361984,
+    "commit": "https://github.com/clawdbot/skills/commit/4ecfb545ff41bbc6612f7d76463b039ab5c7da65"
+  },
+  "history": []
+}

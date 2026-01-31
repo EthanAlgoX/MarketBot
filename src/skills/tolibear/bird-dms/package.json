@@ -1,0 +1,39 @@
+{
+  "name": "bird-dm",
+  "version": "1.0.0",
+  "description": "DM add-on for bird CLI - read your X/Twitter direct messages",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "bird-dm": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@steipete/bird": "^0.8.0",
+    "commander": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": ["twitter", "x", "dm", "direct-message", "bird", "cli"],
+  "author": "tolibear",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tolibear/bird-dm"
+  }
+}

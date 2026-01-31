@@ -1,0 +1,17 @@
+{
+  "owner": "eesb99",
+  "slug": "rlm",
+  "displayName": "RLM - Recursive Language Models",
+  "latest": {
+    "version": "1.4.0",
+    "publishedAt": 1769361992962,
+    "commit": "https://github.com/clawdbot/skills/commit/353cc8db9cf95d206193a80bab897d11ca9ce27b"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769360513429,
+      "commit": "https://github.com/clawdbot/skills/commit/f13f63281a50e4879b013503debaa7acb6ee0378"
+    }
+  ]
+}

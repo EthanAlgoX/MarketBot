@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "surveymonkey",
+  "displayName": "Surveymonkey",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780677095,
+    "commit": "https://github.com/clawdbot/skills/commit/0e3789521715556b66f2636bfc6342e3184864ba"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "xaif",
+  "slug": "raycast",
+  "displayName": "raycast",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769448185053,
+    "commit": "https://github.com/clawdbot/skills/commit/e0eb4f64fc1083fd06814e62ae3edf7b87200cb0"
+  },
+  "history": []
+}

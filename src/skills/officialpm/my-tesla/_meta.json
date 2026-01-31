@@ -1,0 +1,62 @@
+{
+  "owner": "officialpm",
+  "slug": "my-tesla",
+  "displayName": "My Tesla",
+  "latest": {
+    "version": "0.1.64",
+    "publishedAt": 1769735093493,
+    "commit": "https://github.com/clawdbot/skills/commit/e2965e70e6266eedfcb4860e58b5ae0bce689d56"
+  },
+  "history": [
+    {
+      "version": "0.1.71",
+      "publishedAt": 1769746009581,
+      "commit": "https://github.com/clawdbot/skills/commit/86730cfdc7099cab21c6a781650893a0c8998f36"
+    },
+    {
+      "version": "0.1.70",
+      "publishedAt": 1769744639904,
+      "commit": "https://github.com/clawdbot/skills/commit/bbca446cdfbc30da8b6514486808961342f4fd65"
+    },
+    {
+      "version": "0.1.62",
+      "publishedAt": 1769731513379,
+      "commit": "https://github.com/clawdbot/skills/commit/03a43c5d78cc6f93f487e14e9bad5722c35d5497"
+    },
+    {
+      "version": "0.1.56",
+      "publishedAt": 1769720175078,
+      "commit": "https://github.com/clawdbot/skills/commit/0df707a62b42883bc0eb8b7d8d67a717cc0e55d8"
+    },
+    {
+      "version": "0.1.48",
+      "publishedAt": 1769706644749,
+      "commit": "https://github.com/clawdbot/skills/commit/b91af76f24c546c2c4b576c2fc6ce71fbbd1f73b"
+    },
+    {
+      "version": "0.1.38",
+      "publishedAt": 1769694382977,
+      "commit": "https://github.com/clawdbot/skills/commit/9dcae6347d56aa8e62839a016ee21ec2f5b9611c"
+    },
+    {
+      "version": "0.1.29",
+      "publishedAt": 1769682085359,
+      "commit": "https://github.com/clawdbot/skills/commit/9ae0d933bac14a0ec0c67713f2807795338e99f0"
+    },
+    {
+      "version": "0.1.22",
+      "publishedAt": 1769671331808,
+      "commit": "https://github.com/clawdbot/skills/commit/6f71f0041f62e92746a381c84493e032538c231d"
+    },
+    {
+      "version": "0.1.15",
+      "publishedAt": 1769660366517,
+      "commit": "https://github.com/clawdbot/skills/commit/94544bf26665385f9bc6ca29ccce01d0711aad13"
+    },
+    {
+      "version": "0.1.8",
+      "publishedAt": 1769649566214,
+      "commit": "https://github.com/clawdbot/skills/commit/d24b447491e30f4b95b859dc0b04fc30df6f7e99"
+    }
+  ]
+}

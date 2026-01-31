@@ -1,0 +1,27 @@
+{
+  "owner": "fobonacci404",
+  "slug": "gaokao-history-tutor",
+  "displayName": "gaokao-history-tutor",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769698956513,
+    "commit": "https://github.com/clawdbot/skills/commit/240a414f6fc45475ed043c61cdf561560e8c5ef2"
+  },
+  "history": [
+    {
+      "version": "1.0.3",
+      "publishedAt": 1769758842958,
+      "commit": "https://github.com/clawdbot/skills/commit/4a06736ca37f518243db9a6f44b8141368112daf"
+    },
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769698956513,
+      "commit": "https://github.com/clawdbot/skills/commit/87a8557bb135d1e0e6aef28832ff671c378e0010"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769694742385,
+      "commit": "https://github.com/clawdbot/skills/commit/91a491c73fc2ac76b7647d7807bf48d0d24439aa"
+    }
+  ]
+}

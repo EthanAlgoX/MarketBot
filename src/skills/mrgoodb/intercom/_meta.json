@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "intercom",
+  "displayName": "Intercom",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780130285,
+    "commit": "https://github.com/clawdbot/skills/commit/d768e396264d318e91cb5e21170eb56d5262e065"
+  },
+  "history": []
+}

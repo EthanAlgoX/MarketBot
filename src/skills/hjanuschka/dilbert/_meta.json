@@ -1,0 +1,11 @@
+{
+  "owner": "hjanuschka",
+  "slug": "dilbert",
+  "displayName": "Dilbert",
+  "latest": {
+    "version": "0.0.1",
+    "publishedAt": 1768348202391,
+    "commit": "https://github.com/clawdbot/skills/commit/3146e861e983a06ebf0d4cfe0e14222d66a52414"
+  },
+  "history": []
+}

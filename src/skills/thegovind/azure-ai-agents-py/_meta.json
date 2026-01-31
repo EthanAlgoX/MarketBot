@@ -1,0 +1,11 @@
+{
+  "owner": "thegovind",
+  "slug": "azure-ai-agents-py",
+  "displayName": "Azure Ai Agents Py - Microsoft Foundry",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769835811425,
+    "commit": "https://github.com/clawdbot/skills/commit/0b4465304921412eef96a34b607541155000cd91"
+  },
+  "history": []
+}

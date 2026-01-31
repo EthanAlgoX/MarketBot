@@ -1,0 +1,11 @@
+{
+  "owner": "kowl64",
+  "slug": "n8n-workflow-automation",
+  "displayName": "n8n workflow automation",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768664321187,
+    "commit": "https://github.com/clawdbot/skills/commit/8c011978ed029c3cc3312e66c30a228d5274facc"
+  },
+  "history": []
+}

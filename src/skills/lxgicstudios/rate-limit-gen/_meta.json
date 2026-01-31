@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "rate-limit-gen",
+  "displayName": "Rate Limiter Generator",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769666642697,
+    "commit": "https://github.com/clawdbot/skills/commit/93d1b7727149e8a57628e367f1607564a04f0e0b"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769632779132,
+      "commit": "https://github.com/clawdbot/skills/commit/0e4034796136bd02fe828865377ac5db3f1c0218"
+    }
+  ]
+}

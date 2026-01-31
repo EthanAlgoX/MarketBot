@@ -1,0 +1,11 @@
+{
+  "owner": "terwox",
+  "slug": "skill-evaluator",
+  "displayName": "Skill Evaluator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769851083532,
+    "commit": "https://github.com/clawdbot/skills/commit/f90fba4db27c350b75fa44b2a10da0fb89dc13d7"
+  },
+  "history": []
+}

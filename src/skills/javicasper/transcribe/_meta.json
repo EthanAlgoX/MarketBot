@@ -1,0 +1,11 @@
+{
+  "owner": "javicasper",
+  "slug": "transcribe",
+  "displayName": "Transcribe",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769588020661,
+    "commit": "https://github.com/clawdbot/skills/commit/d7db747768e166f567e3d9c88ca7cbdddddcb51c"
+  },
+  "history": []
+}

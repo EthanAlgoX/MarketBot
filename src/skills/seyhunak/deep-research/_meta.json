@@ -1,0 +1,17 @@
+{
+  "owner": "seyhunak",
+  "slug": "deep-research",
+  "displayName": "Deep Research Agent",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769615567637,
+    "commit": "https://github.com/clawdbot/skills/commit/8ecaec0d290549d79e32fa931f1f66cd5af43f0d"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769540388277,
+      "commit": "https://github.com/clawdbot/skills/commit/96b8c420b5b316e3ffa899a370cc339aa0c046bc"
+    }
+  ]
+}

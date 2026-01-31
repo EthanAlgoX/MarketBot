@@ -1,0 +1,11 @@
+{
+  "owner": "koriyoshi2041",
+  "slug": "moltlist-marketplace",
+  "displayName": "Moltlist Agent Marketplace",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769763238271,
+    "commit": "https://github.com/clawdbot/skills/commit/d6156bb23e748bc272572f897b7e7c8f0e8940e5"
+  },
+  "history": []
+}

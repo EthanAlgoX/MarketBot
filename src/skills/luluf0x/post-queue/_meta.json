@@ -1,0 +1,11 @@
+{
+  "owner": "luluf0x",
+  "slug": "post-queue",
+  "displayName": "Post Queue",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769790894935,
+    "commit": "https://github.com/clawdbot/skills/commit/1f765df98a95fb450c6fd17a47b242e072981f43"
+  },
+  "history": []
+}

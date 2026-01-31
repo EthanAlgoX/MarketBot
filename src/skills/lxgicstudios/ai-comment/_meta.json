@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "ai-comment",
+  "displayName": "Code Comment Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769665521114,
+    "commit": "https://github.com/clawdbot/skills/commit/917a56ca02767db3723f5003368e276dae50c656"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769658259359,
+      "commit": "https://github.com/clawdbot/skills/commit/eb92fe5543c858bffe6905b8869402296de534ec"
+    }
+  ]
+}

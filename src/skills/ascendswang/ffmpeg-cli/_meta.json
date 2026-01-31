@@ -1,0 +1,11 @@
+{
+  "owner": "ascendswang",
+  "slug": "ffmpeg-cli",
+  "displayName": "FFmpeg CLI",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769579607401,
+    "commit": "https://github.com/clawdbot/skills/commit/fd4befa38039836e5b862b52525bc37270b37f02"
+  },
+  "history": []
+}

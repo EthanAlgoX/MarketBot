@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "clearbit",
+  "displayName": "Clearbit",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781096841,
+    "commit": "https://github.com/clawdbot/skills/commit/6945fa1822b67e1ebe8becd423f0df9673fbeabd"
+  },
+  "history": []
+}

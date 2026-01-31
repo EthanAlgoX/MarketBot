@@ -1,0 +1,11 @@
+{
+  "owner": "nerveband",
+  "slug": "drafts",
+  "displayName": "Drafts CLI",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769484534436,
+    "commit": "https://github.com/clawdbot/skills/commit/d53f76c45ad975876d5d66be03eb274a6e0df0c1"
+  },
+  "history": []
+}

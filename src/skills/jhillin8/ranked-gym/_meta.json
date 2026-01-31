@@ -1,0 +1,11 @@
+{
+  "owner": "jhillin8",
+  "slug": "ranked-gym",
+  "displayName": "Ranked Gym",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769326608286,
+    "commit": "https://github.com/clawdbot/skills/commit/20968ae3f9d0b61594bf5a7a9c05ace1be214630"
+  },
+  "history": []
+}

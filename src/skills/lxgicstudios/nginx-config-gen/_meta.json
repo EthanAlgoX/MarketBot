@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "nginx-config-gen",
+  "displayName": "Nginx Config Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632690229,
+    "commit": "https://github.com/clawdbot/skills/commit/78a5bcc5183209c91fb50717f9f6310d2eea762a"
+  },
+  "history": []
+}

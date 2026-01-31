@@ -1,0 +1,11 @@
+{
+  "owner": "shawnhansen",
+  "slug": "voicenotes",
+  "displayName": "Voicenotes",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769301971201,
+    "commit": "https://github.com/clawdbot/skills/commit/3c68f58c3668168d97562cb68caccf2589fb6e42"
+  },
+  "history": []
+}

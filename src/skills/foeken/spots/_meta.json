@@ -1,0 +1,11 @@
+{
+  "owner": "foeken",
+  "slug": "spots",
+  "displayName": "spots",
+  "latest": {
+    "version": "0.2.0",
+    "publishedAt": 1769246948487,
+    "commit": "https://github.com/clawdbot/skills/commit/1df60d2436d02f66b558912808610b6d49f50dba"
+  },
+  "history": []
+}

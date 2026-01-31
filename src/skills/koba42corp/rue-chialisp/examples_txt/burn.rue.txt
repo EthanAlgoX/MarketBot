@@ -1,0 +1,16 @@
+// Burn Puzzle - Coin that destroys itself on spend
+// No outputs created, value is lost forever (burned)
+
+fn main(
+    public_key: PublicKey,
+) -> List<Condition> {
+    // Require signature to authorize the burn
+    let agg_sig = AggSigMe {
+        public_key,
+        message: tree_hash([]),  // Sign empty conditions
+    };
+    
+    // Return only the signature requirement, no CREATE_COIN
+    // This means the coin's value is burned (no outputs)
+    [agg_sig]
+}

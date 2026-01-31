@@ -1,0 +1,11 @@
+{
+  "owner": "itrocker",
+  "slug": "nanobanana-ppt-skills",
+  "displayName": "NanoBanana PPT Skills",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769508616256,
+    "commit": "https://github.com/clawdbot/skills/commit/df2ea5345c58f7b7a413f8603d2c8c8b50735d6d"
+  },
+  "history": []
+}

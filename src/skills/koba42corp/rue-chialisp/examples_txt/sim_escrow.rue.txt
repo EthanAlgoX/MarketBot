@@ -1,0 +1,25 @@
+// Escrow Simulation
+// action=0: release (arbiter approves)
+// action=1: refund (timeout passed)
+
+fn main(
+    timeout_height: Int,
+    action: Int,
+    dest_puzzle_hash: Bytes32,
+    amount: Int,
+) -> List<Condition> {
+    let output = CreateCoin {
+        puzzle_hash: dest_puzzle_hash,
+        amount,
+        memos: nil,
+    };
+    
+    if action == 0 {
+        // Release - no time constraint
+        [output]
+    } else {
+        // Refund - must wait for timeout
+        let wait = AssertHeightAbsolute { height: timeout_height };
+        [wait, output]
+    }
+}

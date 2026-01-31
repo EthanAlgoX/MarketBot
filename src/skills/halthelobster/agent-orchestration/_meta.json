@@ -1,0 +1,17 @@
+{
+  "owner": "halthelobster",
+  "slug": "agent-orchestration",
+  "displayName": "Agent Orchestration",
+  "latest": {
+    "version": "2.1.0",
+    "publishedAt": 1769807046681,
+    "commit": "https://github.com/clawdbot/skills/commit/8c4b0a8f6c1d5a4a34e87436e396f0d6755e198f"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769775366300,
+      "commit": "https://github.com/clawdbot/skills/commit/8daa02b594a6240a40067870271834ae94aad19e"
+    }
+  ]
+}

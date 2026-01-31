@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "activecampaign",
+  "displayName": "ActiveCampaign CRM",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769838080847,
+    "commit": "https://github.com/clawdbot/skills/commit/c121a4c9cac1f0aa6244a03dee5351927600109d"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "makhatib",
+  "slug": "mcp-microsoft365",
+  "displayName": "Microsoft 365 MCP Server",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769428181538,
+    "commit": "https://github.com/clawdbot/skills/commit/877f34e7d7781182ca0ffe66188b82d5e76ec740"
+  },
+  "history": []
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "defi",
+  "displayName": "DeFi",
+  "latest": {
+    "version": "1.1.1",
+    "publishedAt": 1769539860522,
+    "commit": "https://github.com/clawdbot/skills/commit/44db17d74bad080e620bbdb5f3456ba5b11fc7b8"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769513560434,
+      "commit": "https://github.com/clawdbot/skills/commit/0916f5d30a7c04f489a9f8740571fc4c719743e8"
+    }
+  ]
+}

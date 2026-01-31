@@ -1,0 +1,19 @@
+// Block-Locked Coin
+// Can only be spent after block 10,000,000
+// Requires signature from owner to spend
+
+fn main(
+    public_key: PublicKey,
+    conditions: List<Condition>,
+) -> List<Condition> {
+    // Enforce minimum block height
+    let height_lock = AssertHeightAbsolute { height: 10000000 };
+    
+    // Require owner signature on conditions
+    let sig = AggSigMe {
+        public_key,
+        message: tree_hash(conditions),
+    };
+    
+    [height_lock, sig, ...conditions]
+}

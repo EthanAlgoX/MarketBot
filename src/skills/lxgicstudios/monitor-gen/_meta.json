@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "monitor-gen",
+  "displayName": "Monitoring Config Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769626229985,
+    "commit": "https://github.com/clawdbot/skills/commit/1acee25f4f8911467e5681e6e743a16a4a647ad7"
+  },
+  "history": []
+}

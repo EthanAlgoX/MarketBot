@@ -1,0 +1,11 @@
+{
+  "owner": "peterw",
+  "slug": "localrank-agent-skills",
+  "displayName": "LocalRank",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769762324642,
+    "commit": "https://github.com/clawdbot/skills/commit/ed58bd16fdd91a6b2c1645085a7cffcf17af3030"
+  },
+  "history": []
+}

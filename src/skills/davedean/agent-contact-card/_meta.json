@@ -1,0 +1,11 @@
+{
+  "owner": "davedean",
+  "slug": "agent-contact-card",
+  "displayName": "Agent Contact Card",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769760465035,
+    "commit": "https://github.com/clawdbot/skills/commit/743931ebd31042366740d9a7385211a9047fe0b5"
+  },
+  "history": []
+}

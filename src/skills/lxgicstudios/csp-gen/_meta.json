@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "csp-gen",
+  "displayName": "CSP Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769596496152,
+    "commit": "https://github.com/clawdbot/skills/commit/8e0c30f27ef1fb1ce02d1e8266508ed07c593608"
+  },
+  "history": []
+}

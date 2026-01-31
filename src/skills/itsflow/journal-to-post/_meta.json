@@ -1,0 +1,11 @@
+{
+  "owner": "itsflow",
+  "slug": "journal-to-post",
+  "displayName": "Journal to Post",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769256791308,
+    "commit": "https://github.com/clawdbot/skills/commit/f0361a8856e0ea0c81333b7c968421cbb6c3e131"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "alirezarezvani",
+  "slug": "aws-solution-architect",
+  "displayName": "AWS Solution Architect",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769737480802,
+    "commit": "https://github.com/clawdbot/skills/commit/63be3aacec6382c80b5677492e2f10864f55ec62"
+  },
+  "history": []
+}

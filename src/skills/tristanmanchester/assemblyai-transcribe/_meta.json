@@ -1,0 +1,11 @@
+{
+  "owner": "tristanmanchester",
+  "slug": "assemblyai-transcribe",
+  "displayName": "AssemblyAI advanced speech transcription",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768727310149,
+    "commit": "https://github.com/clawdbot/skills/commit/d29022ed2aa9e71f08e9af813cb1b9e404574604"
+  },
+  "history": []
+}

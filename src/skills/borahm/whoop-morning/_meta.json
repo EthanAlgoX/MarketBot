@@ -1,0 +1,11 @@
+{
+  "owner": "borahm",
+  "slug": "whoop-morning",
+  "displayName": "WHOOP Morning",
+  "latest": {
+    "version": "0.1.1",
+    "publishedAt": 1769169068876,
+    "commit": "https://github.com/clawdbot/skills/commit/15d172a2837bdddf9b734a620213af00b693c55d"
+  },
+  "history": []
+}

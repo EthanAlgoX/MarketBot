@@ -1,0 +1,11 @@
+{
+  "owner": "odrobnik",
+  "slug": "codexmonitor",
+  "displayName": "CodexMonitor",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1767975853633,
+    "commit": "https://github.com/clawdbot/skills/commit/16cac8d5c8e9ff96912f63d598086a433e6b2db1"
+  },
+  "history": []
+}

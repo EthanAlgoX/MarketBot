@@ -1,0 +1,11 @@
+{
+  "owner": "maddefientist",
+  "slug": "slopesniper-skill",
+  "displayName": "Slope Sniper",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769608328094,
+    "commit": "https://github.com/clawdbot/skills/commit/bdf2691a096f01bd23439a588db605bf11c9bab8"
+  },
+  "history": []
+}

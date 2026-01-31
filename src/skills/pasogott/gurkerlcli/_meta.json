@@ -1,0 +1,17 @@
+{
+  "owner": "pasogott",
+  "slug": "gurkerlcli",
+  "displayName": "gurkerlcli",
+  "latest": {
+    "version": "0.1.6",
+    "publishedAt": 1768764425635,
+    "commit": "https://github.com/clawdbot/skills/commit/7541191fa333783dd41d239cff09b304812bd346"
+  },
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1767902446857,
+      "commit": "https://github.com/clawdbot/skills/commit/96ab8ff0bdfac39ffe9f32d028542023e7a26fa0"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "zats",
+  "slug": "perplexity",
+  "displayName": "Perplexity",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767791468185,
+    "commit": "https://github.com/clawdbot/skills/commit/be43f6a9ef9bfa709290ccaa008468607295d234"
+  },
+  "history": []
+}

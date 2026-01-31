@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "openai-image-gen",
+  "displayName": "Openai Image Gen",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1767652000401,
+    "commit": "https://github.com/clawdbot/skills/commit/7d7ab072b1dba5097b8652d407359119361158d9"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "tmustier",
+  "slug": "dyson-cli",
+  "displayName": "Dyson Fan Control",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1767700977982,
+    "commit": "https://github.com/clawdbot/skills/commit/3331d29f3fcf6672652f56f0e1711830fe3998bf"
+  },
+  "history": []
+}

@@ -1,0 +1,38 @@
+// Clawback Puzzle
+// Recipient can claim immediately, but sender can claw back within grace period
+
+fn main(
+    sender_pk: PublicKey,
+    recipient_pk: PublicKey,
+    clawback_period: Int,  // blocks after creation
+    my_birth_height: Int,
+    action: Int,  // 0 = recipient claims, 1 = sender clawback
+    destination: Bytes32,
+    amount: Int,
+) -> List<Condition> {
+    let output = CreateCoin {
+        puzzle_hash: destination,
+        amount,
+        memos: nil,
+    };
+    
+    if action == 0 {
+        // Recipient claims - must wait for clawback period to end
+        let safe_height = my_birth_height + clawback_period;
+        let wait = AssertHeightAbsolute { height: safe_height };
+        let sig = AggSigMe {
+            public_key: recipient_pk,
+            message: tree_hash(destination),
+        };
+        [wait, sig, output]
+    } else {
+        // Sender clawback - must be within grace period
+        let deadline = my_birth_height + clawback_period;
+        let before = AssertBeforeHeightAbsolute { height: deadline };
+        let sig = AggSigMe {
+            public_key: sender_pk,
+            message: tree_hash(destination),
+        };
+        [before, sig, output]
+    }
+}

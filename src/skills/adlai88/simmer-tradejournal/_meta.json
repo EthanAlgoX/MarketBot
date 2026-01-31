@@ -1,0 +1,11 @@
+{
+  "owner": "adlai88",
+  "slug": "simmer-tradejournal",
+  "displayName": "Simmer Trade Journal",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769764987880,
+    "commit": "https://github.com/clawdbot/skills/commit/ad13b3155c5b684572596d26f420d8f9b7160b73"
+  },
+  "history": []
+}

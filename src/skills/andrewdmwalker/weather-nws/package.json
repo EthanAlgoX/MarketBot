@@ -1,0 +1,31 @@
+{
+  "name": "weather-nws",
+  "version": "1.0.0",
+  "description": "Reliable US weather data using the National Weather Service API",
+  "main": "weather-nws.js",
+  "keywords": [
+    "weather",
+    "forecast",
+    "nws",
+    "national-weather-service",
+    "alerts",
+    "openclaw",
+    "clawdbot"
+  ],
+  "author": "awalker",
+  "license": "MIT",
+  "openclaw": {
+    "emoji": "🌤️",
+    "requires": {
+      "bins": ["curl", "node"]
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/weather-nws"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/weather-nws/issues"
+  },
+  "homepage": "https://weather.gov"
+}

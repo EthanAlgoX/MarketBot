@@ -1,0 +1,11 @@
+{
+  "owner": "terwox",
+  "slug": "zotero",
+  "displayName": "Zotero",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769851256615,
+    "commit": "https://github.com/clawdbot/skills/commit/ad3e7da4c75bed251a1ace81e4b6c2c969f67097"
+  },
+  "history": []
+}

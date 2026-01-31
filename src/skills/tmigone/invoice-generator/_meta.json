@@ -1,0 +1,11 @@
+{
+  "owner": "tmigone",
+  "slug": "invoice-generator",
+  "displayName": "Invoice Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769105817562,
+    "commit": "https://github.com/clawdbot/skills/commit/8112af0a466dcb160c03a9977dda744c665f0c62"
+  },
+  "history": []
+}

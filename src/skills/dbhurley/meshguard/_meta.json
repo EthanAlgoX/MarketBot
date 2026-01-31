@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "meshguard",
+  "displayName": "MeshGuard",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769396974013,
+    "commit": "https://github.com/clawdbot/skills/commit/17ade0743d8fb1637d2cde5ed3e2ed58fac4d7c5"
+  },
+  "history": []
+}

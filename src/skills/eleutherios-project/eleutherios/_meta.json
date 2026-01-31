@@ -1,0 +1,11 @@
+{
+  "owner": "eleutherios-project",
+  "slug": "eleutherios",
+  "displayName": "Eleutherios",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769784369523,
+    "commit": "https://github.com/clawdbot/skills/commit/f75b22b14367b47ba964a814d103bd013a049143"
+  },
+  "history": []
+}

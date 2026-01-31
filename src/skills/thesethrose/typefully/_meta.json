@@ -1,0 +1,17 @@
+{
+  "owner": "thesethrose",
+  "slug": "typefully",
+  "displayName": "Typefully",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1768679055443,
+    "commit": "https://github.com/clawdbot/skills/commit/d5f92f70fd17982c0d6b563dc3aec8bcfb57f5f3"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768188091439,
+      "commit": "https://github.com/clawdbot/skills/commit/b7abac6992a49f3aba4e8250a5eb7dd6e86d336b"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "crypto-wallet",
+  "displayName": "Crypto Wallet",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769537410538,
+    "commit": "https://github.com/clawdbot/skills/commit/b006972be78a89380986ad3faabfa898ceef2a7a"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769513721850,
+      "commit": "https://github.com/clawdbot/skills/commit/c7eb08870eabf956040b944fca928b41ea02e6a4"
+    }
+  ]
+}

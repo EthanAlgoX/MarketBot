@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "calendly",
+  "displayName": "Calendly Integration",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769838023545,
+    "commit": "https://github.com/clawdbot/skills/commit/35d24a9e967b445f8e3c1f2064e9badd1925af71"
+  },
+  "history": []
+}

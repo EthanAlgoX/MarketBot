@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "model-usage",
+  "displayName": "Model Usage",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767667639455,
+    "commit": "https://github.com/clawdbot/skills/commit/32575e737db4cec331342da01ef029062622a40b"
+  },
+  "history": []
+}

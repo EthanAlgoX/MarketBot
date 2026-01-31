@@ -1,0 +1,11 @@
+{
+  "owner": "am-will",
+  "slug": "llm-council",
+  "displayName": "LLM Council",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768962695659,
+    "commit": "https://github.com/clawdbot/skills/commit/197762a1e81bd1b86992e2666dc7bf431f1734e8"
+  },
+  "history": []
+}

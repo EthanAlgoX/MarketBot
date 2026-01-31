@@ -1,0 +1,11 @@
+{
+  "owner": "jdrhyne",
+  "slug": "gsc",
+  "displayName": "Google Search Console",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768599237278,
+    "commit": "https://github.com/clawdbot/skills/commit/da85682a7190ce2b72e012b57811fd9f2d11a3b1"
+  },
+  "history": []
+}

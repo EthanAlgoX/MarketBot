@@ -1,0 +1,17 @@
+{
+  "owner": "christina-de-martinez",
+  "slug": "resend-skills",
+  "displayName": "Resend Skills",
+  "latest": {
+    "version": "2.0.1",
+    "publishedAt": 1769630388565,
+    "commit": "https://github.com/clawdbot/skills/commit/13e432a1fe5301c2c54886dcb92a4e03c9a12e56"
+  },
+  "history": [
+    {
+      "version": "1.1.0",
+      "publishedAt": 1769565451975,
+      "commit": "https://github.com/clawdbot/skills/commit/d7ab93c2391110e1e63b5b868d1293adcb6b3c02"
+    }
+  ]
+}

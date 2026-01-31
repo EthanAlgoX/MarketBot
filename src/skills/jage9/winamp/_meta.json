@@ -1,0 +1,11 @@
+{
+  "owner": "jage9",
+  "slug": "winamp",
+  "displayName": "Winamp Media Player",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769752597027,
+    "commit": "https://github.com/clawdbot/skills/commit/e7476db808058171516a6025f47402eb4f7909d0"
+  },
+  "history": []
+}

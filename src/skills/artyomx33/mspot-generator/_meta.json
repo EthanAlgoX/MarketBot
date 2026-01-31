@@ -1,0 +1,11 @@
+{
+  "owner": "artyomx33",
+  "slug": "mspot-generator",
+  "displayName": "MSPOT Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769359880039,
+    "commit": "https://github.com/clawdbot/skills/commit/f2a2794a8dc18fd5899206b8141f2183659ec771"
+  },
+  "history": []
+}

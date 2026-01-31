@@ -29,7 +29,7 @@ export async function getSystemPrompt(options: SystemPromptOptions = {}): Promis
   const cached = cachedPrompts.get(cacheKey);
   if (cached) return cached;
 
-  const toolsBlock = buildToolsBlock(config, agentId);
+  const toolsBlock = await buildToolsBlock(config, agentId);
 
   const statusReport = await buildSkillStatus(config, { agentId, cwd });
   const eligiblePaths = new Set(
@@ -71,8 +71,8 @@ export function clearSystemPromptCache() {
   cachedPrompts.clear();
 }
 
-function buildToolsBlock(config: Awaited<ReturnType<typeof loadConfig>>, agentId: string): string {
-  const registry = createDefaultToolRegistry();
+async function buildToolsBlock(config: Awaited<ReturnType<typeof loadConfig>>, agentId: string): Promise<string> {
+  const registry = await createDefaultToolRegistry();
   const tools = registry.list();
   const policy = resolveToolPolicy(config, agentId);
   const allowlist = resolveToolAllowlist(policy, tools.map((tool) => tool.name));

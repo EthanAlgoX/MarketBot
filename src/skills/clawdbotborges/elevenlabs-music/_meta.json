@@ -1,0 +1,11 @@
+{
+  "owner": "clawdbotborges",
+  "slug": "elevenlabs-music",
+  "displayName": "ElevenLabs Music",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769461281579,
+    "commit": "https://github.com/clawdbot/skills/commit/f629b1626d1df09a5efc2f5c09020e8fbc24b70f"
+  },
+  "history": []
+}

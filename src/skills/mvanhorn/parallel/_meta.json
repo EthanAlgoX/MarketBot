@@ -1,0 +1,17 @@
+{
+  "owner": "mvanhorn",
+  "slug": "parallel",
+  "displayName": "Parallel.ai Search",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769355659028,
+    "commit": "https://github.com/clawdbot/skills/commit/ec17e281507845a376d9578f0054bc4cf4572874"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769329821140,
+      "commit": "https://github.com/clawdbot/skills/commit/3396617effa46e30b0cf4b005c7a7b85c092d7c6"
+    }
+  ]
+}

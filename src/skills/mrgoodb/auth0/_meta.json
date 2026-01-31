@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "auth0",
+  "displayName": "Auth0",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781072942,
+    "commit": "https://github.com/clawdbot/skills/commit/e0f5055be43c3f54eee073bb571282179dbf0e4e"
+  },
+  "history": []
+}

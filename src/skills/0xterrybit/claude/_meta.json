@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "claude",
+  "displayName": "Claude",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769540944380,
+    "commit": "https://github.com/clawdbot/skills/commit/ddadfd03876802d4903bdcd669a913e5ffb61c29"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769514736739,
+      "commit": "https://github.com/clawdbot/skills/commit/31b0a89f9c8f4614de5da453ecc363bde7f3828a"
+    }
+  ]
+}

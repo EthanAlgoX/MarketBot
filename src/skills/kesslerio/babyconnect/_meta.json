@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "babyconnect",
+  "displayName": "Baby Connect Logger",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769838239481,
+    "commit": "https://github.com/clawdbot/skills/commit/de7bd33f9d3062d94967662eb46d9a9cbdb61eb4"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "rjnpage",
+  "slug": "rankaj",
+  "displayName": "Rankaj bot",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769710753879,
+    "commit": "https://github.com/clawdbot/skills/commit/72030e838d08b25ae280162ae0e064cf7825915b"
+  },
+  "history": []
+}

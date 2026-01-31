@@ -1,0 +1,11 @@
+{
+  "owner": "mvanhorn",
+  "slug": "xai",
+  "displayName": "xAI / Grok",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769195975976,
+    "commit": "https://github.com/clawdbot/skills/commit/e6f5380a9f4e6665abbbb0c7ecc9116b65025474"
+  },
+  "history": []
+}

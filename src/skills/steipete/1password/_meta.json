@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "1password",
+  "displayName": "1password",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1767814883922,
+    "commit": "https://github.com/clawdbot/skills/commit/d8487c24cee907a6492f21aaa9e3924f71d2823c"
+  },
+  "history": []
+}

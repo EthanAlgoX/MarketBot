@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "core-vitals-fixer",
+  "displayName": "Core Web Vitals Fixer",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769627167458,
+    "commit": "https://github.com/clawdbot/skills/commit/a8bc52b5df9b8feae2407925b274889f30d9f36e"
+  },
+  "history": []
+}

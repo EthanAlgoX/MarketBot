@@ -1,0 +1,11 @@
+{
+  "owner": "morozred",
+  "slug": "chromecast-control",
+  "displayName": "Control Chromecast",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768339500753,
+    "commit": "https://github.com/clawdbot/skills/commit/a112afa8c58aec2f59e056dd32c52f314ed7ddc9"
+  },
+  "history": []
+}

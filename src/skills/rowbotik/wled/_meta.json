@@ -1,0 +1,11 @@
+{
+  "owner": "rowbotik",
+  "slug": "wled",
+  "displayName": "Wled",
+  "latest": {
+    "version": "0.1.1",
+    "publishedAt": 1769789122143,
+    "commit": "https://github.com/clawdbot/skills/commit/4cecf98a6c095d2026f7572383a486fcad8eb45b"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "nano-pdf",
+  "displayName": "Nano Pdf",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545359433,
+    "commit": "https://github.com/clawdbot/skills/commit/d3c8b36bf70bb6c5c14465e49a35908e716154fe"
+  },
+  "history": []
+}

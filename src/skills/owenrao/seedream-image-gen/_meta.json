@@ -1,0 +1,11 @@
+{
+  "owner": "owenrao",
+  "slug": "seedream-image-gen",
+  "displayName": "Seedream4.5 Image Gen",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769761259364,
+    "commit": "https://github.com/clawdbot/skills/commit/d22decbfaaf553a7ac52c572b9468bbd21e542d8"
+  },
+  "history": []
+}

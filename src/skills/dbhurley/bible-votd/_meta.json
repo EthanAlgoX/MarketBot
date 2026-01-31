@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "bible-votd",
+  "displayName": "Bible Verse of the Day",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1767649027081,
+    "commit": "https://github.com/clawdbot/skills/commit/01718774c43544d868d91b8cce70f70c97c3ded4"
+  },
+  "history": []
+}

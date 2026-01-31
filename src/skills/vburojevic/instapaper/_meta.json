@@ -1,0 +1,17 @@
+{
+  "owner": "vburojevic",
+  "slug": "instapaper",
+  "displayName": "Instapaper",
+  "latest": {
+    "version": "0.2.9",
+    "publishedAt": 1768935038098,
+    "commit": "https://github.com/clawdbot/skills/commit/7c6847aa54e62509281e385dc830792ffbd796a4"
+  },
+  "history": [
+    {
+      "version": "0.2.7",
+      "publishedAt": 1768932062082,
+      "commit": "https://github.com/clawdbot/skills/commit/8a353cf0249e1437d85181db60f4471f31a7571f"
+    }
+  ]
+}

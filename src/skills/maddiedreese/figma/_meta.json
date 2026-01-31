@@ -1,0 +1,17 @@
+{
+  "owner": "maddiedreese",
+  "slug": "figma",
+  "displayName": "Figma",
+  "latest": {
+    "version": "2.1.0",
+    "publishedAt": 1769380900543,
+    "commit": "https://github.com/clawdbot/skills/commit/0a8345df4ca573bdfeca848a448befd6e8da8128"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769379615860,
+      "commit": "https://github.com/clawdbot/skills/commit/331654de21051524d16a0c839603a793bd786291"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "jmagar",
+  "slug": "tailscale",
+  "displayName": "Tailscale",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769203171843,
+    "commit": "https://github.com/clawdbot/skills/commit/1ab9bd32016fe47c4279330f94857d194f1ee029"
+  },
+  "history": []
+}

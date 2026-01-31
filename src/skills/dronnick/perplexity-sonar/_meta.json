@@ -1,0 +1,17 @@
+{
+  "owner": "dronnick",
+  "slug": "perplexity-sonar",
+  "displayName": "Perplexity AI Search (Sonar Only)",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769332292176,
+    "commit": "https://github.com/clawdbot/skills/commit/cecc973d2869df5a28c34e411258003939668ab6"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769298817861,
+      "commit": "https://github.com/clawdbot/skills/commit/99ce62e92c52f528bd02310c18d6434dc8f50b5e"
+    }
+  ]
+}

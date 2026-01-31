@@ -1,0 +1,11 @@
+{
+  "owner": "trymoinai-create",
+  "slug": "tweeter",
+  "displayName": "Moin",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769837310093,
+    "commit": "https://github.com/clawdbot/skills/commit/cad832009570429154bfd6000e9be109dd908dc4"
+  },
+  "history": []
+}

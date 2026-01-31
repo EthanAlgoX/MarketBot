@@ -1,0 +1,11 @@
+{
+  "owner": "glitch003",
+  "slug": "agentwallet",
+  "displayName": "Wallet for your agent",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769849819018,
+    "commit": "https://github.com/clawdbot/skills/commit/8c4366b5d0439c568389b51a3571d370032ce3b5"
+  },
+  "history": []
+}

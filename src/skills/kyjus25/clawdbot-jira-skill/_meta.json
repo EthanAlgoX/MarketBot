@@ -1,0 +1,17 @@
+{
+  "owner": "kyjus25",
+  "slug": "clawdbot-jira-skill",
+  "displayName": "Jira",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1768876150052,
+    "commit": "https://github.com/clawdbot/skills/commit/7de00bbd7c0aed8b80e337a74dbdc9760a963864"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768872376260,
+      "commit": "https://github.com/clawdbot/skills/commit/665a944cca0ccf540096c979a7e8d31fc30ad40d"
+    }
+  ]
+}

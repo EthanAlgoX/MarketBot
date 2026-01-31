@@ -1,0 +1,11 @@
+{
+  "owner": "ainekomacx",
+  "slug": "blog-to-kindle",
+  "displayName": "Blog to Kindle",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769567421550,
+    "commit": "https://github.com/clawdbot/skills/commit/eea3c48acf92d265e761de0a88471cf300d9e2cd"
+  },
+  "history": []
+}

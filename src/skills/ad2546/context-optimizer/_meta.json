@@ -1,0 +1,11 @@
+{
+  "owner": "ad2546",
+  "slug": "context-optimizer",
+  "displayName": "Context Optimizer",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769831499415,
+    "commit": "https://github.com/clawdbot/skills/commit/49d87e1370896bdbcc9d650f847d128282c7cb53"
+  },
+  "history": []
+}

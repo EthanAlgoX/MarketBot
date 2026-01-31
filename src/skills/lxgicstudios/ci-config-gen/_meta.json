@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "ci-config-gen",
+  "displayName": "CI Config Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632242691,
+    "commit": "https://github.com/clawdbot/skills/commit/496ef037b156f3e7301652850db185aff0bed823"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "animation-gen",
+  "displayName": "CSS Animation Generator",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769632159153,
+    "commit": "https://github.com/clawdbot/skills/commit/df76ada75dc64d30bb43d677bbbf6ef6555e845f"
+  },
+  "history": []
+}

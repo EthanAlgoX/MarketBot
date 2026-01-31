@@ -1,0 +1,20 @@
+// Simulation-friendly Timelock
+// All params passed at spend time (no currying)
+
+fn main(
+    unlock_height: Int,
+    dest_puzzle_hash: Bytes32,
+    amount: Int,
+) -> List<Condition> {
+    // Must wait until block height
+    let wait = AssertHeightAbsolute { height: unlock_height };
+    
+    // Create the output coin
+    let output = CreateCoin {
+        puzzle_hash: dest_puzzle_hash,
+        amount,
+        memos: nil,
+    };
+    
+    [wait, output]
+}

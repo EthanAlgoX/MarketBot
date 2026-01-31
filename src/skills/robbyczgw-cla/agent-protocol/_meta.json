@@ -1,0 +1,11 @@
+{
+  "owner": "robbyczgw-cla",
+  "slug": "agent-protocol",
+  "displayName": "Agent Protocol",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769661065521,
+    "commit": "https://github.com/clawdbot/skills/commit/afb3595c88681d83811df0ff6d6d74f10611903b"
+  },
+  "history": []
+}

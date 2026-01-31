@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "postgres",
+  "displayName": "PostgreSQL",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769540944232,
+    "commit": "https://github.com/clawdbot/skills/commit/e5a3b3125d3a62da57384a667f6685ac99400cc1"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769537316851,
+      "commit": "https://github.com/clawdbot/skills/commit/1d8f16e5729c8243240273778d3950049a006e6b"
+    }
+  ]
+}

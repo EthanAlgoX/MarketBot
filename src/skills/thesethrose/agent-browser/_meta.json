@@ -1,0 +1,17 @@
+{
+  "owner": "thesethrose",
+  "slug": "agent-browser",
+  "displayName": "Agent Browser",
+  "latest": {
+    "version": "0.2.0",
+    "publishedAt": 1768882342488,
+    "commit": "https://github.com/clawdbot/skills/commit/5a7544fad6eea6b274ba9416cfd9ead1a7dd9adc"
+  },
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1768170466579,
+      "commit": "https://github.com/clawdbot/skills/commit/923f368251e89c8ead4bb9fb5eac165cae31238d"
+    }
+  ]
+}

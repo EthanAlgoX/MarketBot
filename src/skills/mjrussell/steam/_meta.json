@@ -1,0 +1,11 @@
+{
+  "owner": "mjrussell",
+  "slug": "steam",
+  "displayName": "Steam Games CLI",
+  "latest": {
+    "version": "0.4.0",
+    "publishedAt": 1767918634480,
+    "commit": "https://github.com/clawdbot/skills/commit/2848b7a787a81f5ad75893d0592c629d4fd6c680"
+  },
+  "history": []
+}

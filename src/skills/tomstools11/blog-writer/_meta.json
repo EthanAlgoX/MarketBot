@@ -1,0 +1,11 @@
+{
+  "owner": "tomstools11",
+  "slug": "blog-writer",
+  "displayName": "Blog Writer",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769361436760,
+    "commit": "https://github.com/clawdbot/skills/commit/32857829919f8cf5587303c1b96c8c8976745c49"
+  },
+  "history": []
+}

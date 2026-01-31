@@ -1,0 +1,11 @@
+{
+  "owner": "veeramanikandanr48",
+  "slug": "mcp",
+  "displayName": "mcp-builder",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769837400086,
+    "commit": "https://github.com/clawdbot/skills/commit/8080f00d4a93ec4ad030f8ae0411be91b6536745"
+  },
+  "history": []
+}

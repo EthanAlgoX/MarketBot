@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "peekaboo",
+  "displayName": "Peekaboo",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545373660,
+    "commit": "https://github.com/clawdbot/skills/commit/d8f07134b2a7917c856d9733befc9dca74567032"
+  },
+  "history": []
+}

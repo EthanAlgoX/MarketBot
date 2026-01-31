@@ -1,0 +1,11 @@
+{
+  "owner": "koba42corp",
+  "slug": "dexie",
+  "displayName": "Dexie",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769714691336,
+    "commit": "https://github.com/clawdbot/skills/commit/0cf786009ecb70bc3a53d104c28c5c03d1b4cda7"
+  },
+  "history": []
+}

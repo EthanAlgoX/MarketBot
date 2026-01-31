@@ -1,0 +1,11 @@
+{
+  "owner": "savorgbot-exe",
+  "slug": "focus-mode",
+  "displayName": "Focus Mode",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769805392452,
+    "commit": "https://github.com/clawdbot/skills/commit/ebde4b16ac60eb50e24b2252a333536bf39aeed5"
+  },
+  "history": []
+}

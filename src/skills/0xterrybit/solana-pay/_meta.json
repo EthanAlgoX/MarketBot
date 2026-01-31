@@ -1,0 +1,11 @@
+{
+  "owner": "0xterrybit",
+  "slug": "solana-pay",
+  "displayName": "Solana Pay",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769538076324,
+    "commit": "https://github.com/clawdbot/skills/commit/bb4b47303feed12637369ad1a2b4de143a70e92b"
+  },
+  "history": []
+}

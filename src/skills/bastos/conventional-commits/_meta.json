@@ -1,0 +1,17 @@
+{
+  "owner": "bastos",
+  "slug": "conventional-commits",
+  "displayName": "Conventional Commits",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769695599193,
+    "commit": "https://github.com/clawdbot/skills/commit/741700d669af1ea0941e7bb86ba4520ee3d7c312"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768586782976,
+      "commit": "https://github.com/clawdbot/skills/commit/7e6c85d21b650d5dffb1153a48ea86dcf560e84b"
+    }
+  ]
+}

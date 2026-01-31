@@ -1,0 +1,27 @@
+{
+  "owner": "gumadeiras",
+  "slug": "apple-mail-search-safe",
+  "displayName": "apple-mail-search-safe",
+  "latest": {
+    "version": "4.0.0",
+    "publishedAt": 1769425452939,
+    "commit": "https://github.com/clawdbot/skills/commit/7e63505e925b67edf19e39c78fccbc9f8c11bb0a"
+  },
+  "history": [
+    {
+      "version": "2026.1.7",
+      "publishedAt": 1768516491763,
+      "commit": "https://github.com/clawdbot/skills/commit/f471fc8e947f0da9e1343ffa60e702fa302b1358"
+    },
+    {
+      "version": "2026.1.6",
+      "publishedAt": 1768516131776,
+      "commit": "https://github.com/clawdbot/skills/commit/01dcd08d134ad50e8e7961e854ce24e66e3e5291"
+    },
+    {
+      "version": "2026.1.5",
+      "publishedAt": 1768508802009,
+      "commit": "https://github.com/clawdbot/skills/commit/3a440c72c154cdd5ded89711200cb7d04a6b81da"
+    }
+  ]
+}

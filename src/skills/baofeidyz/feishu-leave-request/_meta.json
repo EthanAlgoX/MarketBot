@@ -1,0 +1,11 @@
+{
+  "owner": "baofeidyz",
+  "slug": "feishu-leave-request",
+  "displayName": "Feishu Leave Request",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769705809664,
+    "commit": "https://github.com/clawdbot/skills/commit/8ca8a5ac9aa4ba75e47dd0f345fda8191b5ad84d"
+  },
+  "history": []
+}

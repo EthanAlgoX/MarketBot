@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "naming-gen",
+  "displayName": "Variable Naming Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632673589,
+    "commit": "https://github.com/clawdbot/skills/commit/222c410477bb1e1528dd26c0fee79772a996e418"
+  },
+  "history": []
+}

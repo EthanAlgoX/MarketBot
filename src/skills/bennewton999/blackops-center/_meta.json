@@ -1,0 +1,11 @@
+{
+  "owner": "bennewton999",
+  "slug": "blackops-center",
+  "displayName": "BlackOps Center",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769742095396,
+    "commit": "https://github.com/clawdbot/skills/commit/a5a34366117dae7462ebad4d196aab3d1f1a011f"
+  },
+  "history": []
+}

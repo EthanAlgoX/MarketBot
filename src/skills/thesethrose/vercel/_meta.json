@@ -1,0 +1,11 @@
+{
+  "owner": "thesethrose",
+  "slug": "vercel",
+  "displayName": "Vercel Platform",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1768364797852,
+    "commit": "https://github.com/clawdbot/skills/commit/6dfad3949f65dc3bc22e0c9e00f602c970a1b6d4"
+  },
+  "history": []
+}

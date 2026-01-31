@@ -1,0 +1,11 @@
+{
+  "owner": "mmsneaks11-max",
+  "slug": "ebay-trading-api",
+  "displayName": "eBay Trading API",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769782810232,
+    "commit": "https://github.com/clawdbot/skills/commit/5323aae98f57fdd4740b14cada9e5853c36065c8"
+  },
+  "history": []
+}

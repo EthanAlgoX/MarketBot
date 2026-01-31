@@ -1,0 +1,11 @@
+{
+  "owner": "jhillin8",
+  "slug": "quit-weed",
+  "displayName": "Quit Weed",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769326599402,
+    "commit": "https://github.com/clawdbot/skills/commit/cae2fc1e5fb49d6c6789ecd925d45ee61bb60ae2"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "mvanhorn",
+  "slug": "polymarket",
+  "displayName": "Polymarket",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769068161418,
+    "commit": "https://github.com/clawdbot/skills/commit/3d476d3e8ef4919783453d9b788d86aa7020cbde"
+  },
+  "history": []
+}

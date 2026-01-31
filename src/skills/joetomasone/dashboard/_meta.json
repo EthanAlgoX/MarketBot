@@ -1,0 +1,11 @@
+{
+  "owner": "joetomasone",
+  "slug": "dashboard",
+  "displayName": "Clawd Dashboard",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769743150759,
+    "commit": "https://github.com/clawdbot/skills/commit/2bca09997f66a48811171032c93896133cba4c27"
+  },
+  "history": []
+}

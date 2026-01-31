@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "blockchain-attestation",
+  "displayName": "Blockchain Attestation (EAS)",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769218175544,
+    "commit": "https://github.com/clawdbot/skills/commit/02c994ffb0e23173454ca149786844adefaacb3f"
+  },
+  "history": []
+}

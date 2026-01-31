@@ -1,0 +1,11 @@
+{
+  "owner": "weird-aftertaste",
+  "slug": "komodo",
+  "displayName": "Komodo",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769191109005,
+    "commit": "https://github.com/clawdbot/skills/commit/a60158e4befe567fbda3e66b8a049a1e059d44e8"
+  },
+  "history": []
+}

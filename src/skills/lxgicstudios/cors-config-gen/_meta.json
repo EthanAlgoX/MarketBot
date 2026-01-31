@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "cors-config-gen",
+  "displayName": "CORS Config Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632336756,
+    "commit": "https://github.com/clawdbot/skills/commit/293eccc8ccbf662f632f9c6b6e1ad3d016a9db47"
+  },
+  "history": []
+}

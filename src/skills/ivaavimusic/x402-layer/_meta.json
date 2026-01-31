@@ -1,0 +1,11 @@
+{
+  "owner": "ivaavimusic",
+  "slug": "x402-layer",
+  "displayName": "x402 Singularity Layer",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769772508801,
+    "commit": "https://github.com/clawdbot/skills/commit/13d6fa2f7dc652ac7459c2ce70ee6a941675cb6e"
+  },
+  "history": []
+}

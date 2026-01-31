@@ -1,0 +1,11 @@
+{
+  "owner": "tmigone",
+  "slug": "vikunja-fast",
+  "displayName": "Vikunja Fast",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769105825754,
+    "commit": "https://github.com/clawdbot/skills/commit/a6f079657e56f0350a78296856391408d671d2ad"
+  },
+  "history": []
+}

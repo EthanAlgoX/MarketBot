@@ -1,0 +1,11 @@
+{
+  "owner": "cesarus85",
+  "slug": "ms-onedrive-personal",
+  "displayName": "OneDrive Personal",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769805131866,
+    "commit": "https://github.com/clawdbot/skills/commit/586f01a6eb0dd2e179297503d431c5e01b75f69b"
+  },
+  "history": []
+}

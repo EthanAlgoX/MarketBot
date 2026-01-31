@@ -1,0 +1,11 @@
+{
+  "owner": "mitchellbernstein",
+  "slug": "google-home",
+  "displayName": "Google Home/Nest",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769278384348,
+    "commit": "https://github.com/clawdbot/skills/commit/4c45551b1a5d9ba99a7d473b39992edc1f73a73f"
+  },
+  "history": []
+}

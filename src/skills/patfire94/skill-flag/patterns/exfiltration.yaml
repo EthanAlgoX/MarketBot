@@ -1,0 +1,49 @@
+# Data Exfiltration Patterns
+# Risk: CRITICAL (90-100)
+
+patterns:
+  - name: curl_external
+    regex: "curl\\s+.*https?://(?!localhost|127\\.0\\.0\\.1)"
+    risk: 95
+    description: "curl to external URL - potential data exfiltration"
+    
+  - name: wget_external
+    regex: "wget\\s+.*https?://(?!localhost|127\\.0\\.0\\.1)"
+    risk: 90
+    description: "wget to external URL"
+    
+  - name: requests_post
+    regex: "requests\\.(post|put)\\s*\\("
+    risk: 85
+    description: "Python requests POST/PUT call"
+    
+  - name: fetch_post
+    regex: "fetch\\s*\\(.*method.*POST"
+    risk: 85
+    description: "JavaScript fetch POST"
+    
+  - name: axios_post
+    regex: "axios\\.(post|put)\\s*\\("
+    risk: 85
+    description: "Axios POST/PUT call"
+    
+  - name: base64_curl
+    regex: "base64.*\\|.*curl"
+    risk: 95
+    description: "Base64 encoding piped to curl"
+    
+  - name: exfil_dns
+    regex: "(dig|nslookup|host)\\s+.*\\$"
+    risk: 90
+    description: "DNS exfiltration pattern"
+
+whitelist:
+  - "api.coingecko.com"
+  - "api.binance.com"
+  - "api.github.com"
+  - "api.telegram.org"
+  - "api.openai.com"
+  - "api.anthropic.com"
+  - "api.alternative.me"
+  - "api.hyperliquid.xyz"
+  - "api.kraken.com"

@@ -1,0 +1,22 @@
+{
+  "owner": "clawd21",
+  "slug": "ui-test",
+  "displayName": "UI Test",
+  "latest": {
+    "version": "1.2.1",
+    "publishedAt": 1769726246725,
+    "commit": "https://github.com/clawdbot/skills/commit/0686aeca01830780e38398616a44699ff2279e19"
+  },
+  "history": [
+    {
+      "version": "1.4.0",
+      "publishedAt": 1769756815489,
+      "commit": "https://github.com/clawdbot/skills/commit/5e04712962b246580185d38134210360b93620f2"
+    },
+    {
+      "version": "1.2.1",
+      "publishedAt": 1769726246725,
+      "commit": "https://github.com/clawdbot/skills/commit/3572dee022022096ae4fc11d55c661a08dd7c929"
+    }
+  ]
+}

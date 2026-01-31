@@ -1,0 +1,11 @@
+{
+  "owner": "i-mw",
+  "slug": "cron-mastery",
+  "displayName": "Cron Mastery",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769830399869,
+    "commit": "https://github.com/clawdbot/skills/commit/d3519aae0d06dd08ec970b08fc8ed58646d9d90f"
+  },
+  "history": []
+}

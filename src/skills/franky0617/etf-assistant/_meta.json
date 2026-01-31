@@ -1,0 +1,11 @@
+{
+  "owner": "franky0617",
+  "slug": "etf-assistant",
+  "displayName": "ETF投资助理",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769731937946,
+    "commit": "https://github.com/clawdbot/skills/commit/ed6a6e6c599168a2eaea25c76d660c59e09daae4"
+  },
+  "history": []
+}

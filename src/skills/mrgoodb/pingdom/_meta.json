@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "pingdom",
+  "displayName": "Pingdom",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781069816,
+    "commit": "https://github.com/clawdbot/skills/commit/bf87f7addfb77bacfbde1df2ad70d05015d4d880"
+  },
+  "history": []
+}

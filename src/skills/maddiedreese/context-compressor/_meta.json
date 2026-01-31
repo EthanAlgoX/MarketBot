@@ -1,0 +1,11 @@
+{
+  "owner": "maddiedreese",
+  "slug": "context-compressor",
+  "displayName": "Context Compressor",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769473991551,
+    "commit": "https://github.com/clawdbot/skills/commit/3f0fc85efcbed902fe4af25754128af02b433d36"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "macstenk",
+  "slug": "skill-exporter",
+  "displayName": "Skill Exporter",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769848502212,
+    "commit": "https://github.com/clawdbot/skills/commit/befc0f4e504e8aa36aa8045af9f60240ec21a5b1"
+  },
+  "history": []
+}

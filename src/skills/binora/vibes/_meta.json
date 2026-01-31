@@ -1,0 +1,11 @@
+{
+  "owner": "binora",
+  "slug": "vibes",
+  "displayName": "vibes",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769844421734,
+    "commit": "https://github.com/clawdbot/skills/commit/12b49699c3d5f651789d83d87376afb7c029fa3e"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "kylehowells",
+  "slug": "parakeet-mlx",
+  "displayName": "Transcribe Audio with Parakeet MLX",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768304799849,
+    "commit": "https://github.com/clawdbot/skills/commit/195285cf4b39b75fb4a7d10dd0eaccf7124524dc"
+  },
+  "history": []
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "1inch",
+  "displayName": "1inch",
+  "latest": {
+    "version": "2.0.0",
+    "publishedAt": 1769539717719,
+    "commit": "https://github.com/clawdbot/skills/commit/96b3beb1d597d35dff7c84186947131dbe76d12e"
+  },
+  "history": [
+    {
+      "version": "1.2.0",
+      "publishedAt": 1769539678501,
+      "commit": "https://github.com/clawdbot/skills/commit/fd43386d877952982f23beda7b9a3a618dec75b0"
+    }
+  ]
+}

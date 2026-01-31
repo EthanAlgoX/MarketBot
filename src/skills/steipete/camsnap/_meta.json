@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "camsnap",
+  "displayName": "Camsnap",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545306244,
+    "commit": "https://github.com/clawdbot/skills/commit/ac0dd577f17041abe09fc194d6a703dc47a78883"
+  },
+  "history": []
+}

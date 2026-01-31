@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "typeform",
+  "displayName": "Typeform",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780119300,
+    "commit": "https://github.com/clawdbot/skills/commit/525e47005361a56e4d0af25f4b516f77e8ecb650"
+  },
+  "history": []
+}

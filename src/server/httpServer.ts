@@ -204,7 +204,7 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
           return sendJson(res, 400, { ok: false, error: "Missing tool name" });
         }
 
-        const registry = createDefaultToolRegistry();
+        const registry = await createDefaultToolRegistry();
         const tool = registry.get(toolName);
         if (!tool) {
           return sendJson(res, 404, { ok: false, error: `Tool not found: ${toolName}` });

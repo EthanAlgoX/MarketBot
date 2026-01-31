@@ -1,0 +1,11 @@
+{
+  "owner": "sebastian-buitrag0",
+  "slug": "telegram-bot",
+  "displayName": "Telegram Bot Builder",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769714362774,
+    "commit": "https://github.com/clawdbot/skills/commit/b1212d12835768458c4d8ccebc3ac2c40bed4016"
+  },
+  "history": []
+}

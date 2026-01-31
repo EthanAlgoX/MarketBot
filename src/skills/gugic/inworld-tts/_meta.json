@@ -1,0 +1,11 @@
+{
+  "owner": "gugic",
+  "slug": "inworld-tts",
+  "displayName": "Inworld TTS",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769800640151,
+    "commit": "https://github.com/clawdbot/skills/commit/c735f3df8252f5111ba6c55eebd4c55b6e3a00a0"
+  },
+  "history": []
+}

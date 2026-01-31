@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "telegram",
+  "displayName": "Telegram",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769779673175,
+    "commit": "https://github.com/clawdbot/skills/commit/5fa9b15837475f2746a983015023cb83b99a02e4"
+  },
+  "history": []
+}

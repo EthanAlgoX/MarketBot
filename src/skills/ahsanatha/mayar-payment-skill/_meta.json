@@ -1,0 +1,11 @@
+{
+  "owner": "ahsanatha",
+  "slug": "mayar-payment-skill",
+  "displayName": "Mayar.id Payment",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769838499418,
+    "commit": "https://github.com/clawdbot/skills/commit/89e9b25cb8eebe3293a3d35a648c770dab08d70d"
+  },
+  "history": []
+}
