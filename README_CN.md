@@ -349,6 +349,17 @@ MarketBot/
 - [x] 通义千问
 - [ ] 本地模型 (Ollama)
 
+## 架构设计
+
+MarketBot 基于 **Agentic Architecture (代理架构)** 构建，旨在实现自主决策，其设计理念与 [Moltbot](https://github.com/moltbot/moltbot) 保持一致。
+
+- **Agent Core (核心代理)**: 使用自主循环 (`src/core/agentLoop.ts`) 来分析用户意图、规划工具使用并执行步骤。
+- **Tools System (工具系统)**: 定义了一等公民工具 (`src/tools`)，代理可以自主选择和调用（例如 `market_fetch`, `indicators_compute`）。
+- **Flexible Providers (灵活的提供商)**: 支持可插拔的 LLM 后端（OpenAI 兼容, Mock）。
+- **Multi-Interface (多接口)**: 支持 CLI 和 Web 仪表板访问。
+
+> **注意**: 就像 Moltbot 一样，MarketBot 被设计为在行动前进行“思考”，自主决定满足您市场分析需求的最佳方式。
+
 ### 📊 数据源
 
 - [x] Yahoo Finance

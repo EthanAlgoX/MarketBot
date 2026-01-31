@@ -223,6 +223,17 @@ graph TD
 | **ReportGenerator** | Generate pro report | Markdown Report |
 | **WebDataAnalyzer** | Web search + analysis | search results, report |
 
+## Architecture
+
+MarketBot is built on a **Agentic Architecture** designed for autonomous decision making, consistent with the design principles of [Moltbot](https://github.com/moltbot/moltbot).
+
+- **Agent Core**: Uses an autonomous loop (`src/core/agentLoop.ts`) to analyze user intent, plan tool usage, and execute steps.
+- **Tools System**: First-class tool definitions (`src/tools`) that the agent can autonomously select and invoke (e.g., `market_fetch`, `indicators_compute`).
+- **Flexible Providers**: Supports pluggable LLM backends (OpenAI Compatible, Mock).
+- **Multi-Interface**: Accessible via CLI and Web Dashboard.
+
+> **Note**: Like Moltbot, MarketBot is designed to "think" before it acts, autonomously deciding the best way to fulfill your market analysis requests.
+
 ## 🧰 Default Skills
 
 Default skills are preloaded under `src/skills`:
