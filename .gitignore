@@ -25,6 +25,7 @@ Thumbs.db
 
 # Reference projects - DO NOT UPLOAD
 moltbot-main/
+moltbot/
 
 # Cache
 .cache/
