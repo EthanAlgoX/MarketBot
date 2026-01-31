@@ -7,14 +7,12 @@ read_when:
 
 > *"EXFOLIATE! EXFOLIATE!"* — A space lobster, probably
 
-
 <p align="center">
     <picture>
         <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/marketbot/marketbot/main/docs/assets/marketbot-logo-text-dark.png" />
         <img src="https://raw.githubusercontent.com/marketbot/marketbot/main/docs/assets/marketbot-logo-text.png" alt="MarketBot" width="500" />
     </picture>
 </p>
-
 
 <p align="center">
   <strong>Any OS + WhatsApp/Telegram/Discord/iMessage gateway for AI agents (Pi).</strong><br />
@@ -36,7 +34,7 @@ MarketBot also powers the MarketBot assistant.
 
 - **New install from zero:** [Getting Started](/start/getting-started)
 - **Guided setup (recommended):** [Wizard](/start/wizard) (`marketbot onboard`)
-- **Open the dashboard (local Gateway):** http://127.0.0.1:18789/ (or http://localhost:18789/)
+- **Open the dashboard (local Gateway):** <http://127.0.0.1:18789/> (or <http://localhost:18789/>)
 
 If the Gateway is running on the same computer, that link opens the browser Control UI
 immediately. If it fails, start the Gateway first: `marketbot gateway`.
@@ -44,7 +42,7 @@ immediately. If it fails, start the Gateway first: `marketbot gateway`.
 ## Dashboard (browser Control UI)
 
 The dashboard is the browser Control UI for chat, config, nodes, sessions, and more.
-Local default: http://127.0.0.1:18789/
+Local default: <http://127.0.0.1:18789/>
 Remote access: [Web surfaces](/web) and [Tailscale](/gateway/tailscale)
 
 <p align="center">
@@ -114,14 +112,14 @@ Runtime requirement: **Node ≥ 22**.
 npm install -g marketbot@latest
 # or: pnpm add -g marketbot@latest
 
-# Onboard + install the service (launchd/systemd user service)
+# Recommended: run the onboarding wizard first
 marketbot onboard --install-daemon
 
 # Pair WhatsApp Web (shows QR)
 marketbot channels login
 
-# Gateway runs via the service after onboarding; manual run is still possible:
-marketbot gateway --port 18789
+# Manual run (foreground):
+pnpm start -- gateway
 ```
 
 Switching between npm and git installs later is easy: install the other flavor and run `marketbot doctor` to update the gateway service entrypoint.
@@ -237,8 +235,8 @@ Example:
 
 ## Core Contributors
 
-- **Maxim Vovshin** (@Hyaxia, 36747317+Hyaxia@users.noreply.github.com) — Blogwatcher skill
-- **Nacho Iacovino** (@nachoiacovino, nacho.iacovino@gmail.com) — Location parsing (Telegram + WhatsApp)
+- **Maxim Vovshin** (@Hyaxia, <36747317+Hyaxia@users.noreply.github.com>) — Blogwatcher skill
+- **Nacho Iacovino** (@nachoiacovino, <nacho.iacovino@gmail.com>) — Location parsing (Telegram + WhatsApp)
 
 ## License
 
