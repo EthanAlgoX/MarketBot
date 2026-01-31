@@ -90,17 +90,38 @@ pnpm install
 pnpm build
 ```
 
-### Launch
+#### 1. Configure Environment
+
+Create a `.env` file and set your credentials.
 
 ```bash
-# Interactive Terminal UI
+cp .env.example .env
+# Edit .env to add your API keys and a Gateway Token:
+# MARKETBOT_GATEWAY_TOKEN=marketbot123
+```
+
+#### 2. Start the Gateway
+
+The Gateway manages your sessions and model connections. **You must leave this process running.**
+
+```bash
+pnpm start -- gateway
+```
+
+#### 3. Connect via TUI
+
+Open a **new terminal window or tab**, and connect to your gateway. It will automatically use the token from your `.env`.
+
+```bash
 pnpm tui
+```
 
-# Start as Daemon
-pnpm daemon start
+#### 3. One-off Analysis
 
-# Run CLI Commands
-pnpm cli --help
+Run structured analysis directly from the CLI.
+
+```bash
+pnpm start -- analyze --asset BTC --timeframe 1h
 ```
 
 ---
@@ -154,9 +175,11 @@ Key environment variables:
 
 | Variable | Description |
 |----------|-------------|
+| `MARKETBOT_GATEWAY_TOKEN` | Secure token for Gateway authentication |
 | `LLM_PROVIDER` | AI provider (openai, anthropic, gemini, etc.) |
 | `OPENAI_API_KEY` | OpenAI API key |
 | `ANTHROPIC_API_KEY` | Anthropic API key |
+| `DEEPSEEK_API_KEY` | DeepSeek API key |
 | `GOOGLE_AI_API_KEY` | Google AI API key |
 
 ---
@@ -176,10 +199,10 @@ MarketBot supports 55+ extensible skills:
 
 ```bash
 # List available skills
-pnpm cli skills list
+pnpm start -- skills list
 
 # Install a skill
-pnpm cli skills install <skill-name>
+pnpm start -- skills install <skill-name>
 ```
 
 ---
@@ -195,7 +218,7 @@ docker-compose up -d
 ### Systemd (Linux)
 
 ```bash
-pnpm cli daemon install
+pnpm start -- gateway install
 sudo systemctl enable marketbot
 sudo systemctl start marketbot
 ```
