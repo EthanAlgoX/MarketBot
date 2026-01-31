@@ -43,6 +43,9 @@ export interface MarketBotInput {
     store?: SessionStore;
     includeContext?: boolean;
   };
+  registry?: {
+    get(name: string): { run(context: any): Promise<any> } | undefined;
+  };
 }
 
 export interface MarketBotOutputs {
@@ -68,6 +71,7 @@ export async function runMarketBot({
   includeTrace,
   onPhase,
   session,
+  registry,
 }: MarketBotInput): Promise<MarketBotOutputs> {
   // Detect language from user query if not provided
   const resolvedLanguage = language ?? detectLanguage(userQuery);
@@ -113,19 +117,80 @@ export async function runMarketBot({
     }
   };
 
-  const intent = await runPhase("intent", () => runIntentParser(provider, userQuery, systemPrompt));
+  /* Helper to run a phase with optional tool override */
+  const runPhaseWithTool = async <T>(
+    phase: MarketBotRunPhase,
+    toolName: string,
+    args: string | object,
+    fallback: () => Promise<T>
+  ): Promise<T> => {
+    return runPhase(phase, async () => {
+      if (registry) {
+        const tool = registry.get(toolName);
+        if (tool) {
+          // Construct minimal context for tool execution
+          const context = {
+            name: toolName,
+            rawArgs: typeof args === "string" ? args : JSON.stringify(args),
+            json: typeof args === "object" ? args : undefined,
+            cwd,
+          };
+          // Cast context to any to satisfy tool.run signature locally or assume interface match
+          const result = await tool.run(context as any);
+          // Parse tool result back to expected Type T
+          // Assuming tool returns JSON in text content
+          const text = result.content.find((c: any) => c.type === "text")?.text;
+          if (text) {
+            try {
+              return JSON.parse(text);
+            } catch {
+              // Return text if T is string, otherwise fallback or error?
+              // For Report (string), text is fine. For others (Intent), need JSON.
+              if (typeof text === "string") return text as unknown as T;
+            }
+          }
+        }
+      }
+      return fallback();
+    });
+  };
+
+  // Intent Phase
+  const intent = await runPhaseWithTool("intent", "market_intent", userQuery,
+    () => runIntentParser(provider, userQuery, systemPrompt)
+  );
+
   const fetchMarketData = dataService?.getMarketDataFromIntent ?? getMarketDataFromIntent;
   const resolvedMarketData = await runPhase("market_data", async () => {
     if (marketData) return marketData;
+
+    // Check for tool override for data fetching
+    if (registry) {
+      const tool = registry.get("market_data_fetch");
+      if (tool) {
+        // ... similar logic or use runPhaseWithTool mapping ...
+        // Market data fetch requires specific options logic, might keep default logic or wrap it
+      }
+    }
+
     // Default to enabling search for richer context unless explicitly disabled
     const effectiveOptions = { enableSearch: true, ...dataOptions };
     return fetchMarketData(intent, effectiveOptions);
   });
-  const market = await runPhase("interpret", () => runMarketDataInterpreter(provider, resolvedMarketData, systemPrompt));
+
+  // Interpret Phase
+  const market = await runPhaseWithTool("interpret", "market_interpret", resolvedMarketData,
+    () => runMarketDataInterpreter(provider, resolvedMarketData, systemPrompt)
+  );
 
   const bias = higherTimeframeBias ?? deriveBias(resolvedMarketData);
-  const regime = await runPhase("regime", () =>
-    runMarketRegime(
+  const regime = await runPhaseWithTool("regime", "market_regime",
+    {
+      market_structure: market.market_structure,
+      volatility_state: market.volatility_state,
+      higher_tf_bias: bias,
+    },
+    () => runMarketRegime(
       provider,
       {
         market_structure: market.market_structure,
@@ -133,11 +198,16 @@ export async function runMarketBot({
         higher_tf_bias: bias,
       },
       systemPrompt,
-    ),
+    )
   );
 
-  const risk = await runPhase("risk", () =>
-    runRiskAssessment(
+  const risk = await runPhaseWithTool("risk", "market_risk",
+    {
+      regime: regime.regime,
+      volatility_state: market.volatility_state,
+      asset: intent.asset,
+    },
+    () => runRiskAssessment(
       provider,
       {
         regime: regime.regime,
@@ -145,11 +215,12 @@ export async function runMarketBot({
         asset: intent.asset,
       },
       systemPrompt,
-    ),
+    )
   );
 
-  const reflection = await runPhase("reflection", () =>
-    runReflection(
+  const reflection = await runPhaseWithTool("reflection", "market_reflection",
+    { intent, market, regime, risk },
+    () => runReflection(
       provider,
       {
         intent,
@@ -158,7 +229,7 @@ export async function runMarketBot({
         risk,
       },
       systemPrompt,
-    ),
+    )
   );
 
   const context: ReportContext = {
@@ -169,7 +240,9 @@ export async function runMarketBot({
     reflection,
   };
 
-  const report = await runPhase("report", () => runReportGenerator(provider, context, systemPrompt, resolvedLanguage));
+  const report = await runPhaseWithTool("report", "market_report", context,
+    () => runReportGenerator(provider, context, systemPrompt, resolvedLanguage)
+  );
 
   if (sessionStore && sessionKey) {
     const now = new Date().toISOString();

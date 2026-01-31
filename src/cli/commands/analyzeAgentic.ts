@@ -7,6 +7,7 @@ import { runAgentLoop } from "../../core/agentLoop.js";
 import { createDefaultToolRegistry } from "../../tools/registry.js";
 import { createToolBridge } from "../../tools/toolBridge.js";
 import { resolveToolAllowlist, resolveToolPolicy } from "../../tools/policy.js";
+import { resolveDefaultAgentId } from "../../agents/agentScope.js";
 
 const SYSTEM_PROMPT = `You are MarketBot, an AI-powered market analysis assistant.
 
@@ -65,14 +66,15 @@ export async function runAgenticAnalysis(
     // Create tools and bridge (respect tool policy)
     const registry = createDefaultToolRegistry();
     const allTools = registry.list();
-    const policy = resolveToolPolicy(config);
+    const agentId = resolveDefaultAgentId(config);
+    const policy = resolveToolPolicy(config, agentId);
     const allowlist = resolveToolAllowlist(policy, allTools.map((tool) => tool.name));
     const allowSet = new Set(allowlist.map((name) => name.toLowerCase()));
     const tools = allTools.filter((tool) => allowSet.has(tool.name.toLowerCase()));
     if (tools.length === 0) {
         throw new Error("No tools allowed by policy.");
     }
-    const bridge = createToolBridge(tools);
+    const bridge = createToolBridge(tools, { cwd: process.cwd(), env: process.env, agentId });
     const systemPrompt = `${SYSTEM_PROMPT}\n\n${buildToolsBlock(tools)}`;
 
     if (verbose) {

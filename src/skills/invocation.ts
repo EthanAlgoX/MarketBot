@@ -3,6 +3,7 @@ import type { ToolRegistry } from "../tools/registry.js";
 import type { ToolResult } from "../tools/types.js";
 import { buildToolContext } from "../tools/context.js";
 import { isToolAllowed, resolveToolPolicy } from "../tools/policy.js";
+import { appendToolLog } from "../tools/toolLogging.js";
 import { buildSkillStatus, type SkillStatusEntry } from "./status.js";
 
 export interface RunSkillCommandOptions {
@@ -64,8 +65,28 @@ export async function runSkillCommand(
     throw new Error(`Tool not allowed by policy: ${tool.name}`);
   }
 
-  const context = buildToolContext(options.rawArgs, options.cwd);
-  return tool.run(context);
+  const context = buildToolContext(options.rawArgs, options.cwd, options.agentId);
+  const startedAt = Date.now();
+  try {
+    const result = await tool.run(context);
+    await appendToolLog({
+      name: tool.name,
+      ok: result.ok,
+      durationMs: Date.now() - startedAt,
+      input: options.rawArgs,
+      output: result.output,
+    }, context);
+    return result;
+  } catch (err) {
+    await appendToolLog({
+      name: tool.name,
+      ok: false,
+      durationMs: Date.now() - startedAt,
+      input: options.rawArgs,
+      error: err instanceof Error ? err.message : String(err),
+    }, context);
+    throw err;
+  }
 }
 
 function resolveSkill(
@@ -77,4 +98,3 @@ function resolveSkill(
     (skill) => skill.name.toLowerCase() === normalized || skill.skillKey.toLowerCase() === normalized,
   );
 }
-

@@ -38,6 +38,17 @@ function portfolioAddTool(): ToolSpec {
     return {
         name: "portfolio_add",
         description: "Add an asset to the portfolio",
+        version: "1.0.0",
+        tags: ["portfolio"],
+        inputSchema: {
+            type: "object",
+            properties: {
+                asset: { type: "string" },
+                amount: { type: "number" },
+                price: { type: "number" },
+            },
+            required: ["asset", "amount", "price"],
+        },
         run: async (context: any): Promise<ToolResult> => {
             const args = (context.json || {}) as PortfolioAddArgs;
             const portfolio = await loadPortfolio();
@@ -64,6 +75,16 @@ function portfolioRemoveTool(): ToolSpec {
     return {
         name: "portfolio_remove",
         description: "Remove an asset from the portfolio",
+        version: "1.0.0",
+        tags: ["portfolio"],
+        inputSchema: {
+            type: "object",
+            properties: {
+                asset: { type: "string" },
+                amount: { type: "number" },
+            },
+            required: ["asset", "amount"],
+        },
         run: async (context: any): Promise<ToolResult> => {
             const args = (context.json || {}) as PortfolioRemoveArgs;
             const portfolio = await loadPortfolio();
@@ -87,6 +108,8 @@ function portfolioStatusTool(): ToolSpec {
     return {
         name: "portfolio_status",
         description: "Get current portfolio status",
+        version: "1.0.0",
+        tags: ["portfolio"],
         run: async (context: any): Promise<ToolResult> => {
             const portfolio = await loadPortfolio();
             // In a real app, we would fetch current prices here to calc PnL

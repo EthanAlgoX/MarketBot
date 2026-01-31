@@ -14,6 +14,16 @@ function signalAnalyzeTool(): ToolSpec {
     return {
         name: "signal_analyze",
         description: "Generate technical trading signals (Buy/Sell/Hold) based on market data",
+        version: "1.0.0",
+        tags: ["signal", "analysis"],
+        inputSchema: {
+            type: "object",
+            properties: {
+                asset: { type: "string" },
+                timeframe: { type: "string" },
+            },
+            required: ["asset"],
+        },
         run: async (context: any): Promise<ToolResult> => {
             const args = (context.json || {}) as SignalAnalyzeArgs;
             const { asset, timeframe = "1d" } = args;

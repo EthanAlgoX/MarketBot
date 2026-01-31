@@ -4,6 +4,7 @@ import type { CliDeps } from "../deps.js";
 import { loadConfig } from "../../config/io.js";
 import { resolveAgentConfig, resolveDefaultAgentId } from "../../agents/agentScope.js";
 import { SessionStore } from "../../session/store.js";
+import { createDefaultToolRegistry } from "../../tools/registry.js";
 
 export type AnalyzeCommandOptions = {
   query?: string;
@@ -69,6 +70,7 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
         includeContext: config.sessions?.includeContext,
       }
       : undefined,
+    registry: createDefaultToolRegistry(),
   });
 
   if (opts.json) {

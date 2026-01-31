@@ -12,7 +12,7 @@ export type ToolPolicyConfig = {
 
 export const TOOL_PROFILES: Record<ToolProfileId, string[]> = {
   minimal: [],
-  analysis: ["market_fetch", "indicators_compute", "market_summary", "report_render"],
+  analysis: ["market_fetch", "indicators_compute", "market_summary", "report_render", "web_search"],
   full: [
     "echo",
     "http_get",
