@@ -20,7 +20,7 @@ export async function getMarketDataFromIntent(
     intent: IntentParsingOutput,
     options?: MarketDataServiceOptions
 ): Promise<MarketDataInput> {
-    const mode = options?.mode ?? "mock";
+    const mode = options?.mode ?? "auto";
 
     switch (mode) {
         case "mock":

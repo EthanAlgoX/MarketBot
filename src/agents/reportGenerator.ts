@@ -6,7 +6,8 @@ import type { ReportContext } from "../core/types.js";
 const REPORT_PROMPT = `You are a market analyst report writer.
 Based on the complete analysis context, generate a professional, concise market report.
 Include: Executive Summary, Market Conditions, Risk Assessment, and Recommendations.
-Use markdown formatting.`;
+Use markdown formatting with clear headings and bullet points.
+Do not output JSON, code fences, or metadata—only the report.`;
 
 /**
  * Generate a human-readable market analysis report.
@@ -16,20 +17,35 @@ export async function runReportGenerator(
     context: ReportContext,
     systemPrompt?: string
 ): Promise<string> {
+    const combinedSystemPrompt = systemPrompt
+        ? `${systemPrompt}\n\n${REPORT_PROMPT}`
+        : REPORT_PROMPT;
     const messages: LLMMessage[] = [
-        { role: "system", content: systemPrompt ?? REPORT_PROMPT },
+        { role: "system", content: combinedSystemPrompt },
         { role: "user", content: `Generate report for: ${JSON.stringify(context)}` },
     ];
 
     const response = await provider.chat(messages);
+    const content = response.content.trim();
 
     // Check if response looks like a valid report
-    if (response.content.includes("#") || response.content.length > 200) {
+    if (!isLikelyJson(content) && hasMarkdownHeading(content)) {
         return response.content;
     }
 
     // Fallback to template-based report
     return generateReportFallback(context);
+}
+
+function isLikelyJson(content: string): boolean {
+    if (!content) return false;
+    if (content.startsWith("{") || content.startsWith("[")) return true;
+    if (/^```(?:json)?/i.test(content)) return true;
+    return false;
+}
+
+function hasMarkdownHeading(content: string): boolean {
+    return /^#{1,3}\s+\S+/m.test(content);
 }
 
 function generateReportFallback(context: ReportContext): string {

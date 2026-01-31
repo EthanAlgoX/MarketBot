@@ -6,6 +6,7 @@ import { loadConfig } from "../../config/io.js";
 import { resolveAgentConfig, resolveDefaultAgentId } from "../../agents/agentScope.js";
 import { SessionStore } from "../../session/store.js";
 import { runMarketBot } from "../../core/pipeline.js";
+import type { MarketBotRunPhase, MarketBotRunPhaseEvent } from "../../core/types.js";
 import { getCredentials } from "../../core/auth/oauth.js";
 
 export type TuiOptions = {
@@ -710,12 +711,38 @@ async function runAnalysis(
     })
     : undefined;
 
+  let resolvedAsset: string | undefined;
+  const onPhase = state.json ? undefined : (event: MarketBotRunPhaseEvent) => {
+    if (event.status === "start") {
+      const target = resolvedAsset || query;
+      console.log(`🧭 正在调用 ${phaseToolName(event.phase)} 工具来分析 ${target}`);
+      return;
+    }
+    if (event.status === "end") {
+      if (event.phase === "intent") {
+        const detail = event.detail as { asset?: string } | undefined;
+        if (detail?.asset) resolvedAsset = detail.asset;
+      }
+      const summary = formatPhaseSummary(event.phase, event.detail);
+      if (summary) {
+        console.log(`✅ 结论是 ${summary}`);
+      } else {
+        console.log(`✅ ${phaseToolName(event.phase)} 完成`);
+      }
+      return;
+    }
+    if (event.status === "error") {
+      console.error(`❌ ${phaseToolName(event.phase)} 失败: ${event.error ?? "未知错误"}`);
+    }
+  };
+
   const outputs = await runMarketBot({
     userQuery: query,
     dataOptions,
     agentId: agentId,
     dataService: { getMarketDataFromIntent: deps.getMarketDataFromIntent },
     provider,
+    onPhase,
     session: sessionStore
       ? {
         key: sessionKey,
@@ -729,6 +756,265 @@ async function runAnalysis(
     return JSON.stringify(outputs, null, 2);
   }
   return outputs.report;
+}
+
+function phaseToolName(phase: MarketBotRunPhase): string {
+  const map: Record<MarketBotRunPhase, string> = {
+    intent: "意图解析",
+    market_data: "行情获取",
+    interpret: "数据解读",
+    regime: "市场结构判断",
+    risk: "风险评估",
+    reflection: "复盘校验",
+    report: "报告生成",
+  };
+  return map[phase] ?? phase;
+}
+
+function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown): string | null {
+  if (!detail) {
+    if (phase === "report") return "报告生成完成";
+    return null;
+  }
+
+  switch (phase) {
+    case "intent": {
+      const intent = detail as {
+        asset?: string;
+        market?: string;
+        analysis_goal?: string;
+        timeframes?: string[];
+      };
+      const asset = intent.asset ?? "未知资产";
+      const market = formatMarket(intent.market);
+      const goal = formatGoal(intent.analysis_goal);
+      const frames = intent.timeframes?.length ? intent.timeframes.join(", ") : "默认周期";
+      return `资产 ${asset}，市场 ${market}，目标 ${goal}，周期 ${frames}`;
+    }
+    case "market_data": {
+      const marketData = detail as {
+        current_price?: number;
+        price_structure?: { support_levels?: number[]; resistance_levels?: number[] };
+      };
+      const price = typeof marketData.current_price === "number" ? marketData.current_price : undefined;
+      const support = marketData.price_structure?.support_levels?.[0];
+      const resistance = marketData.price_structure?.resistance_levels?.[0];
+      const parts = [];
+      if (price !== undefined) parts.push(`最新价 ${formatNumber(price)}`);
+      if (support !== undefined) parts.push(`支撑 ${formatNumber(support)}`);
+      if (resistance !== undefined) parts.push(`阻力 ${formatNumber(resistance)}`);
+      return parts.length ? parts.join("，") : "行情数据已获取";
+    }
+    case "interpret": {
+      const interpret = detail as {
+        market_structure?: string;
+        volatility_state?: string;
+        momentum?: string;
+      };
+      const structure = formatStructure(interpret.market_structure);
+      const volatility = formatVolatility(interpret.volatility_state);
+      const momentum = formatMomentum(interpret.momentum);
+      return `结构 ${structure}，动量 ${momentum}，波动 ${volatility}`;
+    }
+    case "regime": {
+      const regime = detail as {
+        regime?: string;
+        recommended_strategy?: string;
+        confidence?: number;
+      };
+      const conf = typeof regime.confidence === "number" ? `${Math.round(regime.confidence * 100)}%` : "未知";
+      return `状态 ${formatRegime(regime.regime)}，策略 ${formatStrategy(regime.recommended_strategy)}，置信 ${conf}`;
+    }
+    case "risk": {
+      const risk = detail as {
+        risk_level?: string;
+        position_size_recommendation?: string;
+        stop_loss_suggestion?: string;
+      };
+      return `风险 ${formatRisk(risk.risk_level)}，仓位 ${formatPosition(risk.position_size_recommendation)}，止损 ${formatStop(risk.stop_loss_suggestion)}`;
+    }
+    case "reflection": {
+      const reflection = detail as {
+        confidence_score?: number;
+        recommendation_strength?: string;
+      };
+      const conf = typeof reflection.confidence_score === "number" ? `${Math.round(reflection.confidence_score * 100)}%` : "未知";
+      return `强度 ${formatStrength(reflection.recommendation_strength)}，置信 ${conf}`;
+    }
+    case "report":
+      return "报告生成完成";
+    default:
+      return null;
+  }
+}
+
+function formatNumber(value: number): string {
+  return Number.isFinite(value) ? value.toFixed(2) : String(value);
+}
+
+function formatMarket(value?: string): string {
+  switch (value) {
+    case "stocks":
+      return "股票";
+    case "crypto":
+      return "加密";
+    case "forex":
+      return "外汇";
+    case "commodities":
+      return "大宗";
+    case "futures":
+      return "期货";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatGoal(value?: string): string {
+  switch (value) {
+    case "general_analysis":
+      return "综合分析";
+    case "risk_check":
+      return "风险检查";
+    case "entry_signal":
+      return "入场信号";
+    case "exit_signal":
+      return "出场信号";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatStructure(value?: string): string {
+  switch (value) {
+    case "trending_up":
+      return "上行趋势";
+    case "trending_down":
+      return "下行趋势";
+    case "ranging":
+      return "区间震荡";
+    case "volatile":
+      return "高波动";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatVolatility(value?: string): string {
+  switch (value) {
+    case "high":
+      return "高";
+    case "medium":
+      return "中";
+    case "low":
+      return "低";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatMomentum(value?: string): string {
+  switch (value) {
+    case "strong_bullish":
+      return "强多";
+    case "bullish":
+      return "偏多";
+    case "neutral":
+      return "中性";
+    case "bearish":
+      return "偏空";
+    case "strong_bearish":
+      return "强空";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatRegime(value?: string): string {
+  switch (value) {
+    case "bull_trend":
+      return "牛市趋势";
+    case "bear_trend":
+      return "熊市趋势";
+    case "accumulation":
+      return "吸筹";
+    case "distribution":
+      return "派发";
+    case "choppy":
+      return "震荡";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatStrategy(value?: string): string {
+  switch (value) {
+    case "trend_following":
+      return "趋势跟随";
+    case "mean_reversion":
+      return "均值回归";
+    case "wait":
+      return "观望";
+    case "hedge":
+      return "对冲";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatRisk(value?: string): string {
+  switch (value) {
+    case "low":
+      return "低";
+    case "medium":
+      return "中";
+    case "high":
+      return "高";
+    case "extreme":
+      return "极高";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatPosition(value?: string): string {
+  switch (value) {
+    case "full":
+      return "满仓";
+    case "half":
+      return "半仓";
+    case "quarter":
+      return "四分之一仓";
+    case "none":
+      return "空仓";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatStop(value?: string): string {
+  switch (value) {
+    case "tight":
+      return "紧";
+    case "normal":
+      return "常规";
+    case "wide":
+      return "宽";
+    default:
+      return value ?? "未知";
+  }
+}
+
+function formatStrength(value?: string): string {
+  switch (value) {
+    case "strong":
+      return "强";
+    case "moderate":
+      return "中";
+    case "weak":
+      return "弱";
+    default:
+      return value ?? "未知";
+  }
 }
 
 function parseMode(value?: string): "mock" | "auto" | "api" | "scrape" | undefined {
