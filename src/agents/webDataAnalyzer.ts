@@ -49,7 +49,7 @@ export async function runWebDataAnalyzer(
     const searchResults: WebSearchResult[] = [];
     const fetchedPages: WebFetchResult[] = [];
 
-    const resolvedSymbol = input.asset ?? resolveSymbolFromText(input.query);
+    const resolvedSymbol = resolveSymbolFromText(input.asset ?? "") ?? resolveSymbolFromText(input.query);
     let priceSnapshot;
     if (resolvedSymbol && config?.enableQuoteSnapshot !== false) {
         try {
