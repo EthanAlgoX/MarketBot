@@ -96,8 +96,9 @@ Create a `.env` file and set your credentials.
 
 ```bash
 cp .env.example .env
-# Edit .env to add your API keys and a Gateway Token:
+# Edit .env to add your API keys (e.g., DEEPSEEK_API_KEY) and:
 # MARKETBOT_GATEWAY_TOKEN=marketbot123
+# MARKETBOT_CONFIG_PATH=marketbot.json
 ```
 
 #### 2. Start the Gateway
@@ -181,6 +182,7 @@ Key environment variables:
 | `ANTHROPIC_API_KEY` | Anthropic API key |
 | `DEEPSEEK_API_KEY` | DeepSeek API key |
 | `GOOGLE_AI_API_KEY` | Google AI API key |
+| `MARKETBOT_CONFIG_PATH` | Path to config file (default: `~/.marketbot/marketbot.json`) |
 
 ---
 
