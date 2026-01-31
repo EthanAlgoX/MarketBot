@@ -6,10 +6,8 @@ import { fileURLToPath } from "node:url";
 import { buildProgram } from "./cli/program.js";
 
 export { runMarketBot } from "./core/pipeline.js";
-export { MockProvider } from "./core/llm.js";
 export { createProviderFromConfig } from "./core/providers/registry.js";
 export type * from "./core/types.js";
-export { mockMarketData } from "./data/mockMarketData.js";
 export { getMarketDataFromIntent } from "./data/marketDataService.js";
 export { loadDataConfig } from "./data/config.js";
 export { createDefaultDeps } from "./cli/deps.js";

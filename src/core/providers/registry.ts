@@ -1,16 +1,11 @@
 import type { MarketBotConfig } from "../../config/types.js";
 import type { LLMProvider } from "../llm.js";
-import { MockProvider } from "../llm.js";
 import { OpenAICompatibleProvider } from "./openaiCompatible.js";
 
 import { getCredentials } from "../auth/oauth.js";
 
 export async function createProviderFromConfigAsync(config: MarketBotConfig): Promise<LLMProvider> {
   const llm = config.llm ?? {};
-
-  if (llm.provider === "mock") {
-    return new MockProvider();
-  }
 
   // 1. If provider is explicitly configured (from TUI or config), use it FIRST
   // This ensures TUI provider selection takes priority
@@ -61,8 +56,7 @@ export async function createProviderFromConfigAsync(config: MarketBotConfig): Pr
     });
   }
 
-  // 3. Fallback to Mock
-  return new MockProvider();
+  throw new Error("No LLM credentials found. Configure OAuth or an API key first.");
 }
 
 /** @deprecated Use createProviderFromConfigAsync instead */

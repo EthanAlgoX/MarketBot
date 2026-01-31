@@ -12,7 +12,6 @@ import { getCredentials } from "../../core/auth/oauth.js";
 export type TuiOptions = {
   json?: boolean;
   live?: boolean;
-  mock?: boolean;
   mode?: string;
   search?: boolean;
   scrape?: boolean;
@@ -23,7 +22,7 @@ export type TuiOptions = {
 
 const TUI_COMMANDS = [
   "/help", "/exit", "/quit", "/options", "/history", "/use", "/last",
-  "/json", "/mode", "/search", "/scrape", "/live", "/mock",
+  "/json", "/mode", "/search", "/scrape", "/live",
   "/agent", "/session", "/models", "/model", "/provider",
 ];
 
@@ -42,7 +41,6 @@ const COMMAND_MENU_CHOICES = [
   { name: "/model      - Set model", value: "/model" },
   { name: "/provider   - Set LLM provider", value: "/provider" },
   { name: "/mode       - Set data mode", value: "/mode" },
-  { name: "/mock       - Toggle mock mode", value: "/mock toggle" },
   { name: "/json       - Toggle JSON output", value: "/json toggle" },
   { name: "/history    - Show history", value: "/history" },
   { name: "/last       - Re-run last query", value: "/last" },
@@ -193,7 +191,6 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
   const state = {
     json: Boolean(opts.json),
     live: Boolean(opts.live),
-    mock: Boolean(opts.mock),
     mode: opts.mode,
     search: Boolean(opts.search),
     scrape: Boolean(opts.scrape),
@@ -389,7 +386,6 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
 function handleCommand(input: string, state: {
   json: boolean;
   live: boolean;
-  mock: boolean;
   mode?: string;
   search: boolean;
   scrape: boolean;
@@ -417,11 +413,10 @@ function handleCommand(input: string, state: {
           "/use <n>              Re-run a history entry",
           "/last                 Re-run the most recent query",
           "/json on|off|toggle   Toggle JSON output",
-          "/mode <mock|auto|api|scrape|none>",
+          "/mode <auto|api|scrape|none>",
           "/search on|off|toggle",
           "/scrape on|off|toggle",
           "/live on|off|toggle",
-          "/mock on|off|toggle",
           "/agent <id|clear>",
           "/session <key|clear>",
           "/models [filter]",
@@ -437,7 +432,6 @@ function handleCommand(input: string, state: {
           `search: ${state.search}`,
           `scrape: ${state.scrape}`,
           `live: ${state.live}`,
-          `mock: ${state.mock}`,
           `agent: ${state.agentId ?? "default"}`,
           `session: ${state.sessionKey ?? "auto"}`,
           `model: ${state.llmModel ?? "default"}`,
@@ -468,16 +462,16 @@ function handleCommand(input: string, state: {
       state.json = toggleFlag(state.json, arg);
       return { message: `json: ${state.json}` };
     case "mode":
-      if (!arg) return { message: "Usage: /mode <mock|auto|api|scrape|none>" };
+      if (!arg) return { message: "Usage: /mode <auto|api|scrape|none>" };
       if (arg === "none") {
         state.mode = undefined;
         return { message: "mode: none" };
       }
-      if (["mock", "auto", "api", "scrape"].includes(arg)) {
+      if (["auto", "api", "scrape"].includes(arg)) {
         state.mode = arg;
         return { message: `mode: ${arg}` };
       }
-      return { message: "Invalid mode. Use mock|auto|api|scrape|none." };
+      return { message: "Invalid mode. Use auto|api|scrape|none." };
     case "search":
       state.search = toggleFlag(state.search, arg);
       return { message: `search: ${state.search}` };
@@ -487,9 +481,6 @@ function handleCommand(input: string, state: {
     case "live":
       state.live = toggleFlag(state.live, arg);
       return { message: `live: ${state.live}` };
-    case "mock":
-      state.mock = toggleFlag(state.mock, arg);
-      return { message: `mock: ${state.mock}` };
     case "agent":
       if (!arg) return { message: "Usage: /agent <id|clear>" };
       if (arg === "clear") {
@@ -559,7 +550,6 @@ async function runQuery(
   state: {
     json: boolean;
     live: boolean;
-    mock: boolean;
     mode?: string;
     search: boolean;
     scrape: boolean;
@@ -582,9 +572,6 @@ async function runQuery(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`Error: ${msg}`);
-    if (msg.includes("insufficient_quota") || msg.includes("429")) {
-      console.log("\nTip: Limit exceeded? Try switching to mock mode by typing:\n  /mode mock\n");
-    }
   }
 }
 
@@ -593,7 +580,6 @@ async function runAnalysis(
   state: {
     json: boolean;
     live: boolean;
-    mock: boolean;
     mode?: string;
     search: boolean;
     scrape: boolean;
@@ -606,7 +592,7 @@ async function runAnalysis(
   deps: ReturnType<typeof createDefaultDeps>,
 ): Promise<string> {
   const mode = parseMode(
-    state.mode ?? (state.scrape ? "scrape" : state.live ? "auto" : state.mock ? "mock" : undefined),
+    state.mode ?? (state.scrape ? "scrape" : state.live ? "auto" : undefined),
   );
   const enableSearch = state.search || state.scrape ? true : undefined;
   const dataOptions = mode || enableSearch ? { mode, enableSearch } : undefined;
@@ -626,13 +612,8 @@ async function runAnalysis(
     }
   }
 
-  if (state.mock) {
-    if (!config.llm) config.llm = {};
-    config.llm.provider = "mock";
-  }
-
   // Apply TUI provider and API key selection
-  if (state.llmProvider && !state.mock) {
+  if (state.llmProvider) {
     if (!config.llm) config.llm = {};
     const sessionKey = state.apiKeys[state.llmProvider];
 
@@ -698,6 +679,9 @@ async function runAnalysis(
     }
   }
 
+  // Detect language from query
+  const lang = detectLanguage(query);
+
   const provider = await deps.createProviderAsync(config);
   const sessionEnabled = config.sessions?.enabled !== false;
   const sessionKey = state.sessionKey?.trim() || `agent:${agentId}:main`;
@@ -715,7 +699,11 @@ async function runAnalysis(
   const onPhase = state.json ? undefined : (event: MarketBotRunPhaseEvent) => {
     if (event.status === "start") {
       const target = resolvedAsset || query;
-      console.log(`🧭 正在调用 ${phaseToolName(event.phase)} 工具来分析 ${target}`);
+      const toolName = phaseToolName(event.phase, lang);
+      const msg = lang === "en"
+        ? `🧭 Calling ${toolName} to analyze ${target}`
+        : `🧭 正在调用 ${toolName} 工具来分析 ${target}`;
+      console.log(msg);
       return;
     }
     if (event.status === "end") {
@@ -723,21 +711,27 @@ async function runAnalysis(
         const detail = event.detail as { asset?: string } | undefined;
         if (detail?.asset) resolvedAsset = detail.asset;
       }
-      const summary = formatPhaseSummary(event.phase, event.detail);
+      const summary = formatPhaseSummary(event.phase, event.detail, lang);
       if (summary) {
-        console.log(`✅ 结论是 ${summary}`);
+        const prefix = lang === "en" ? "✅ Result: " : "✅ 结论是 ";
+        console.log(`${prefix}${summary}`);
       } else {
-        console.log(`✅ ${phaseToolName(event.phase)} 完成`);
+        const toolName = phaseToolName(event.phase, lang);
+        const suffix = lang === "en" ? " Complete" : " 完成";
+        console.log(`✅ ${toolName}${suffix}`);
       }
       return;
     }
     if (event.status === "error") {
-      console.error(`❌ ${phaseToolName(event.phase)} 失败: ${event.error ?? "未知错误"}`);
+      const toolName = phaseToolName(event.phase, lang);
+      const prefix = lang === "en" ? "❌ Failed: " : "❌ 失败: ";
+      console.error(`${prefix}${toolName} ${event.error ?? "Unknown Error"}`);
     }
   };
 
   const outputs = await runMarketBot({
     userQuery: query,
+    language: lang,
     dataOptions,
     agentId: agentId,
     dataService: { getMarketDataFromIntent: deps.getMarketDataFromIntent },
@@ -758,24 +752,71 @@ async function runAnalysis(
   return outputs.report;
 }
 
-function phaseToolName(phase: MarketBotRunPhase): string {
-  const map: Record<MarketBotRunPhase, string> = {
-    intent: "意图解析",
-    market_data: "行情获取",
-    interpret: "数据解读",
-    regime: "市场结构判断",
-    risk: "风险评估",
-    reflection: "复盘校验",
-    report: "报告生成",
-  };
-  return map[phase] ?? phase;
+import { detectLanguage, type Language } from "../../utils/language.js";
+
+// ... existing imports ...
+
+// Helper to get tool name based on language
+function phaseToolName(phase: MarketBotRunPhase, lang: Language): string {
+  if (lang === "en") {
+    const map: Record<MarketBotRunPhase, string> = {
+      intent: "Intent Parser",
+      market_data: "Market Data Fetcher",
+      interpret: "Data Interpreter",
+      regime: "Regime Classifier",
+      risk: "Risk Assessment",
+      reflection: "Reflection/Review",
+      report: "Report Generator",
+    };
+    return map[phase] ?? phase;
+  } else {
+    const map: Record<MarketBotRunPhase, string> = {
+      intent: "意图解析",
+      market_data: "行情获取",
+      interpret: "数据解读",
+      regime: "市场结构判断",
+      risk: "风险评估",
+      reflection: "复盘校验",
+      report: "报告生成",
+    };
+    return map[phase] ?? phase;
+  }
 }
 
-function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown): string | null {
+// Helper to format phase summary based on language
+function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown, lang: Language): string | null {
   if (!detail) {
-    if (phase === "report") return "报告生成完成";
+    if (phase === "report") return lang === "en" ? "Report Generation Complete" : "报告生成完成";
     return null;
   }
+
+  // Common formatters
+  const fmtNum = (v: number) => Number.isFinite(v) ? v.toFixed(2) : String(v);
+  const fmtPct = (v: number) => Number.isFinite(v) ? `${Math.round(v * 100)}%` : (lang === "en" ? "Unknown" : "未知");
+
+  // Localized strings
+  const t = {
+    unknown: lang === "en" ? "Unknown" : "未知",
+    asset: lang === "en" ? "Asset" : "资产",
+    market: lang === "en" ? "Market" : "市场",
+    goal: lang === "en" ? "Goal" : "目标",
+    cycle: lang === "en" ? "Cycle" : "周期",
+    defaultCycle: lang === "en" ? "Default" : "默认周期",
+    price: lang === "en" ? "Price" : "最新价",
+    support: lang === "en" ? "Support" : "支撑",
+    resistance: lang === "en" ? "Resistance" : "阻力",
+    fetched: lang === "en" ? "Data Fetched" : "行情数据已获取",
+    structure: lang === "en" ? "Structure" : "结构",
+    momentum: lang === "en" ? "Momentum" : "动量",
+    volatility: lang === "en" ? "Volatility" : "波动",
+    status: lang === "en" ? "Status" : "状态",
+    strategy: lang === "en" ? "Strategy" : "策略",
+    confidence: lang === "en" ? "Confidence" : "置信",
+    risk: lang === "en" ? "Risk" : "风险",
+    position: lang === "en" ? "Position" : "仓位",
+    stop: lang === "en" ? "Stop" : "止损",
+    strength: lang === "en" ? "Strength" : "强度",
+  };
 
   switch (phase) {
     case "intent": {
@@ -785,11 +826,13 @@ function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown): string |
         analysis_goal?: string;
         timeframes?: string[];
       };
-      const asset = intent.asset ?? "未知资产";
-      const market = formatMarket(intent.market);
-      const goal = formatGoal(intent.analysis_goal);
-      const frames = intent.timeframes?.length ? intent.timeframes.join(", ") : "默认周期";
-      return `资产 ${asset}，市场 ${market}，目标 ${goal}，周期 ${frames}`;
+      const asset = intent.asset ?? t.unknown;
+      const market = formatMarket(intent.market, lang);
+      const goal = formatGoal(intent.analysis_goal, lang);
+      const frames = intent.timeframes?.length ? intent.timeframes.join(", ") : t.defaultCycle;
+      return lang === "en"
+        ? `${t.asset}: ${asset}, ${t.market}: ${market}, ${t.goal}: ${goal}, ${t.cycle}: ${frames}`
+        : `${t.asset} ${asset}，${t.market} ${market}，${t.goal} ${goal}，${t.cycle} ${frames}`;
     }
     case "market_data": {
       const marketData = detail as {
@@ -800,10 +843,10 @@ function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown): string |
       const support = marketData.price_structure?.support_levels?.[0];
       const resistance = marketData.price_structure?.resistance_levels?.[0];
       const parts = [];
-      if (price !== undefined) parts.push(`最新价 ${formatNumber(price)}`);
-      if (support !== undefined) parts.push(`支撑 ${formatNumber(support)}`);
-      if (resistance !== undefined) parts.push(`阻力 ${formatNumber(resistance)}`);
-      return parts.length ? parts.join("，") : "行情数据已获取";
+      if (price !== undefined) parts.push(`${t.price} ${fmtNum(price)}`);
+      if (support !== undefined) parts.push(`${t.support} ${fmtNum(support)}`);
+      if (resistance !== undefined) parts.push(`${t.resistance} ${fmtNum(resistance)}`);
+      return parts.length ? parts.join(lang === "en" ? ", " : "，") : t.fetched;
     }
     case "interpret": {
       const interpret = detail as {
@@ -811,10 +854,12 @@ function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown): string |
         volatility_state?: string;
         momentum?: string;
       };
-      const structure = formatStructure(interpret.market_structure);
-      const volatility = formatVolatility(interpret.volatility_state);
-      const momentum = formatMomentum(interpret.momentum);
-      return `结构 ${structure}，动量 ${momentum}，波动 ${volatility}`;
+      const structure = formatStructure(interpret.market_structure, lang);
+      const volatility = formatVolatility(interpret.volatility_state, lang);
+      const momentum = formatMomentum(interpret.momentum, lang);
+      return lang === "en"
+        ? `${t.structure}: ${structure}, ${t.momentum}: ${momentum}, ${t.volatility}: ${volatility}`
+        : `${t.structure} ${structure}，${t.momentum} ${momentum}，${t.volatility} ${volatility}`;
     }
     case "regime": {
       const regime = detail as {
@@ -822,8 +867,9 @@ function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown): string |
         recommended_strategy?: string;
         confidence?: number;
       };
-      const conf = typeof regime.confidence === "number" ? `${Math.round(regime.confidence * 100)}%` : "未知";
-      return `状态 ${formatRegime(regime.regime)}，策略 ${formatStrategy(regime.recommended_strategy)}，置信 ${conf}`;
+      return lang === "en"
+        ? `${t.status}: ${formatRegime(regime.regime, lang)}, ${t.strategy}: ${formatStrategy(regime.recommended_strategy, lang)}, ${t.confidence}: ${fmtPct(regime.confidence ?? 0)}`
+        : `${t.status} ${formatRegime(regime.regime, lang)}，${t.strategy} ${formatStrategy(regime.recommended_strategy, lang)}，${t.confidence} ${fmtPct(regime.confidence ?? 0)}`;
     }
     case "risk": {
       const risk = detail as {
@@ -831,200 +877,144 @@ function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown): string |
         position_size_recommendation?: string;
         stop_loss_suggestion?: string;
       };
-      return `风险 ${formatRisk(risk.risk_level)}，仓位 ${formatPosition(risk.position_size_recommendation)}，止损 ${formatStop(risk.stop_loss_suggestion)}`;
+      return lang === "en"
+        ? `${t.risk}: ${formatRisk(risk.risk_level, lang)}, ${t.position}: ${formatPosition(risk.position_size_recommendation, lang)}, ${t.stop}: ${formatStop(risk.stop_loss_suggestion, lang)}`
+        : `${t.risk} ${formatRisk(risk.risk_level, lang)}，${t.position} ${formatPosition(risk.position_size_recommendation, lang)}，${t.stop} ${formatStop(risk.stop_loss_suggestion, lang)}`;
     }
     case "reflection": {
       const reflection = detail as {
         confidence_score?: number;
         recommendation_strength?: string;
       };
-      const conf = typeof reflection.confidence_score === "number" ? `${Math.round(reflection.confidence_score * 100)}%` : "未知";
-      return `强度 ${formatStrength(reflection.recommendation_strength)}，置信 ${conf}`;
+      return lang === "en"
+        ? `${t.strength}: ${formatStrength(reflection.recommendation_strength, lang)}, ${t.confidence}: ${fmtPct(reflection.confidence_score ?? 0)}`
+        : `${t.strength} ${formatStrength(reflection.recommendation_strength, lang)}，${t.confidence} ${fmtPct(reflection.confidence_score ?? 0)}`;
     }
     case "report":
-      return "报告生成完成";
+      return lang === "en" ? "Report Generation Complete" : "报告生成完成";
     default:
       return null;
   }
 }
 
-function formatNumber(value: number): string {
-  return Number.isFinite(value) ? value.toFixed(2) : String(value);
+// Value Formatters (Bilingual)
+function formatMarket(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    stocks: { en: "Stocks", zh: "股票" },
+    crypto: { en: "Crypto", zh: "加密" },
+    forex: { en: "Forex", zh: "外汇" },
+    commodities: { en: "Commodities", zh: "大宗" },
+    futures: { en: "Futures", zh: "期货" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatMarket(value?: string): string {
-  switch (value) {
-    case "stocks":
-      return "股票";
-    case "crypto":
-      return "加密";
-    case "forex":
-      return "外汇";
-    case "commodities":
-      return "大宗";
-    case "futures":
-      return "期货";
-    default:
-      return value ?? "未知";
-  }
+function formatGoal(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    general_analysis: { en: "General Analysis", zh: "综合分析" },
+    risk_check: { en: "Risk Check", zh: "风险检查" },
+    entry_signal: { en: "Entry Signal", zh: "入场信号" },
+    exit_signal: { en: "Exit Signal", zh: "出场信号" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatGoal(value?: string): string {
-  switch (value) {
-    case "general_analysis":
-      return "综合分析";
-    case "risk_check":
-      return "风险检查";
-    case "entry_signal":
-      return "入场信号";
-    case "exit_signal":
-      return "出场信号";
-    default:
-      return value ?? "未知";
-  }
+function formatStructure(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    trending_up: { en: "Trending Up", zh: "上行趋势" },
+    trending_down: { en: "Trending Down", zh: "下行趋势" },
+    ranging: { en: "Ranging", zh: "区间震荡" },
+    volatile: { en: "Volatile", zh: "高波动" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatStructure(value?: string): string {
-  switch (value) {
-    case "trending_up":
-      return "上行趋势";
-    case "trending_down":
-      return "下行趋势";
-    case "ranging":
-      return "区间震荡";
-    case "volatile":
-      return "高波动";
-    default:
-      return value ?? "未知";
-  }
+function formatVolatility(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    high: { en: "High", zh: "高" },
+    medium: { en: "Medium", zh: "中" },
+    low: { en: "Low", zh: "低" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatVolatility(value?: string): string {
-  switch (value) {
-    case "high":
-      return "高";
-    case "medium":
-      return "中";
-    case "low":
-      return "低";
-    default:
-      return value ?? "未知";
-  }
+function formatMomentum(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    strong_bullish: { en: "Strong Bullish", zh: "强多" },
+    bullish: { en: "Bullish", zh: "偏多" },
+    neutral: { en: "Neutral", zh: "中性" },
+    bearish: { en: "Bearish", zh: "偏空" },
+    strong_bearish: { en: "Strong Bearish", zh: "强空" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatMomentum(value?: string): string {
-  switch (value) {
-    case "strong_bullish":
-      return "强多";
-    case "bullish":
-      return "偏多";
-    case "neutral":
-      return "中性";
-    case "bearish":
-      return "偏空";
-    case "strong_bearish":
-      return "强空";
-    default:
-      return value ?? "未知";
-  }
+function formatRegime(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    bull_trend: { en: "Bull Trend", zh: "牛市趋势" },
+    bear_trend: { en: "Bear Trend", zh: "熊市趋势" },
+    accumulation: { en: "Accumulation", zh: "吸筹" },
+    distribution: { en: "Distribution", zh: "派发" },
+    choppy: { en: "Choppy", zh: "震荡" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatRegime(value?: string): string {
-  switch (value) {
-    case "bull_trend":
-      return "牛市趋势";
-    case "bear_trend":
-      return "熊市趋势";
-    case "accumulation":
-      return "吸筹";
-    case "distribution":
-      return "派发";
-    case "choppy":
-      return "震荡";
-    default:
-      return value ?? "未知";
-  }
+function formatStrategy(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    trend_following: { en: "Trend Following", zh: "趋势跟随" },
+    mean_reversion: { en: "Mean Reversion", zh: "均值回归" },
+    wait: { en: "Wait", zh: "观望" },
+    hedge: { en: "Hedge", zh: "对冲" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatStrategy(value?: string): string {
-  switch (value) {
-    case "trend_following":
-      return "趋势跟随";
-    case "mean_reversion":
-      return "均值回归";
-    case "wait":
-      return "观望";
-    case "hedge":
-      return "对冲";
-    default:
-      return value ?? "未知";
-  }
+function formatRisk(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    low: { en: "Low", zh: "低" },
+    medium: { en: "Medium", zh: "中" },
+    high: { en: "High", zh: "高" },
+    extreme: { en: "Extreme", zh: "极高" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatRisk(value?: string): string {
-  switch (value) {
-    case "low":
-      return "低";
-    case "medium":
-      return "中";
-    case "high":
-      return "高";
-    case "extreme":
-      return "极高";
-    default:
-      return value ?? "未知";
-  }
+function formatPosition(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    full: { en: "Full", zh: "满仓" },
+    half: { en: "Half", zh: "半仓" },
+    quarter: { en: "Quarter", zh: "四分之一仓" },
+    none: { en: "None", zh: "空仓" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatPosition(value?: string): string {
-  switch (value) {
-    case "full":
-      return "满仓";
-    case "half":
-      return "半仓";
-    case "quarter":
-      return "四分之一仓";
-    case "none":
-      return "空仓";
-    default:
-      return value ?? "未知";
-  }
+function formatStop(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    tight: { en: "Tight", zh: "紧" },
+    normal: { en: "Normal", zh: "常规" },
+    wide: { en: "Wide", zh: "宽" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatStop(value?: string): string {
-  switch (value) {
-    case "tight":
-      return "紧";
-    case "normal":
-      return "常规";
-    case "wide":
-      return "宽";
-    default:
-      return value ?? "未知";
-  }
+function formatStrength(value: string | undefined, lang: Language): string {
+  const map: Record<string, { en: string, zh: string }> = {
+    strong: { en: "Strong", zh: "强" },
+    moderate: { en: "Moderate", zh: "中" },
+    weak: { en: "Weak", zh: "弱" }
+  };
+  return map[value || ""]?.[lang] || (value ?? (lang === "en" ? "Unknown" : "未知"));
 }
 
-function formatStrength(value?: string): string {
-  switch (value) {
-    case "strong":
-      return "强";
-    case "moderate":
-      return "中";
-    case "weak":
-      return "弱";
-    default:
-      return value ?? "未知";
-  }
-}
-
-function parseMode(value?: string): "mock" | "auto" | "api" | "scrape" | undefined {
+function parseMode(value?: string): "auto" | "api" | "scrape" | undefined {
   if (!value) return undefined;
-  if (value === "mock" || value === "auto" || value === "api" || value === "scrape") return value;
+  if (value === "auto" || value === "api" || value === "scrape") return value;
   return undefined;
 }
 
 type ModelListContext =
-  | { kind: "mock" }
   | { kind: "error"; message: string }
   | {
     kind: "openai-compatible";
@@ -1036,7 +1026,6 @@ type ModelListContext =
 
 async function openModelSelector(
   state: {
-    mock: boolean;
     llmModel?: string;
     llmProvider?: string;
   },
@@ -1045,9 +1034,6 @@ async function openModelSelector(
 ): Promise<string | undefined> {
   const config = await loadConfig(process.cwd(), { validate: true });
   const context = await resolveModelListContext(config, state);
-  if (context.kind === "mock") {
-    return "Mock provider has no models to list.";
-  }
   if (context.kind === "error") {
     return context.message;
   }
@@ -1177,13 +1163,9 @@ function extractModelIds(payload: Record<string, unknown>): string[] {
 
 async function resolveModelListContext(
   config: Awaited<ReturnType<typeof loadConfig>>,
-  state: { mock: boolean; llmProvider?: string; apiKeys?: Record<string, string> },
+  state: { llmProvider?: string; apiKeys?: Record<string, string> },
 ): Promise<ModelListContext> {
   const llm = config.llm ?? {};
-
-  if (state.mock || llm.provider === "mock") {
-    return { kind: "mock" };
-  }
 
   // Check explicit provider selection first
   if (state.llmProvider === "openai") {

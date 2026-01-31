@@ -9,7 +9,6 @@ export type AnalyzeCommandOptions = {
   query?: string;
   json?: boolean;
   live?: boolean;
-  mock?: boolean;
   mode?: string;
   search?: boolean;
   scrape?: boolean;
@@ -27,7 +26,7 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
   }
 
   const mode = parseMode(
-    opts.mode ?? (opts.scrape ? "scrape" : opts.live ? "auto" : opts.mock ? "mock" : undefined),
+    opts.mode ?? (opts.scrape ? "scrape" : opts.live ? "auto" : undefined),
   );
   const enableSearch = opts.search || opts.scrape ? true : undefined;
   const dataOptions = mode || enableSearch ? { mode, enableSearch } : undefined;
@@ -41,12 +40,6 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
     if (config.agents?.list && !entry) {
       throw new Error(`Unknown agent \"${opts.agentId}\". Run \"marketbot agents add ${opts.agentId}\" first.`);
     }
-  }
-
-  // Force mock provider if --mock is specified
-  if (opts.mock) {
-    if (!config.llm) config.llm = {};
-    config.llm.provider = "mock";
   }
 
   const provider = await deps.createProviderAsync(config);
@@ -86,8 +79,8 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
   console.log(outputs.report);
 }
 
-function parseMode(value?: string): "mock" | "auto" | "api" | "scrape" | undefined {
+function parseMode(value?: string): "auto" | "api" | "scrape" | undefined {
   if (!value) return undefined;
-  if (value === "mock" || value === "auto" || value === "api" || value === "scrape") return value;
+  if (value === "auto" || value === "api" || value === "scrape") return value;
   return undefined;
 }

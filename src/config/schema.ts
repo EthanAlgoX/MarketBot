@@ -81,7 +81,7 @@ export const MarketBotConfigSchema = z
       .optional(),
     llm: z
       .object({
-        provider: z.enum(["mock", "openai-compatible"]).optional(),
+        provider: z.enum(["openai-compatible"]).optional(),
         model: z.string().optional(),
         baseUrl: z.string().optional(),
         apiKeyEnv: z.string().optional(),
