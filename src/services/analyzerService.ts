@@ -1,7 +1,7 @@
 // Analyzer Service - Unified entry for CLI/HTTP/Bot
 
 import { loadConfig } from "../config/io.js";
-import { createProviderFromConfig } from "../core/providers/registry.js";
+import { createProviderFromConfigAsync } from "../core/providers/registry.js";
 import { StockAnalysisPipeline, PipelineResult, PipelineStage } from "../pipeline/index.js";
 import { NotificationService } from "../notification/service.js";
 import { resolveSymbolFromText } from "../utils/symbols.js";
@@ -36,7 +36,7 @@ export class AnalyzerService {
      */
     async init(): Promise<void> {
         const config = await loadConfig();
-        const provider = createProviderFromConfig(config);
+        const provider = await createProviderFromConfigAsync(config);
 
         // Initialize notification service
         this.notificationService = new NotificationService(config.notification);

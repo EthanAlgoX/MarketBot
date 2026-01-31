@@ -1,7 +1,7 @@
 import http from "node:http";
 
 import { loadConfig } from "../config/io.js";
-import { createProviderFromConfig } from "../core/providers/registry.js";
+import { createProviderFromConfigAsync } from "../core/providers/registry.js";
 import { runMarketBot } from "../core/pipeline.js";
 import { getMarketDataFromIntent, type MarketDataServiceOptions } from "../data/marketDataService.js";
 import { resolveDefaultAgentId } from "../agents/agentScope.js";
@@ -36,7 +36,7 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
         }
 
         const config = await loadConfig(process.cwd(), { validate: true });
-        const provider = createProviderFromConfig(config);
+        const provider = await createProviderFromConfigAsync(config);
         const agentId = (body.agentId as string | undefined)?.trim() || resolveDefaultAgentId(config);
 
         const dataOptions = resolveDataOptions(body);
