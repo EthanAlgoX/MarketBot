@@ -13,6 +13,7 @@
     "tradebot": "dist/compat/tradebot.js"
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.2.0",
     "@mozilla/readability": "^0.6.0",
     "cheerio": "^1.0.0-rc.12",
     "commander": "^12.1.0",
