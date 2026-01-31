@@ -32,3 +32,14 @@ export interface DataProviderConfig {
     apiKey?: string;
     baseUrl?: string;
 }
+
+export interface QuoteSnapshot {
+    symbol: string;
+    price: number;
+    currency?: string;
+    timestamp?: string;
+    source: string;
+    exchange?: string;
+    marketState?: string;
+    priceType?: "regular" | "post" | "pre";
+}
