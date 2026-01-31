@@ -2,7 +2,7 @@ import type { MarketBotConfig } from "../config/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { ToolResult } from "../tools/types.js";
 import { buildToolContext } from "../tools/context.js";
-import { isToolAllowed } from "../tools/policy.js";
+import { isToolAllowed, resolveToolPolicy } from "../tools/policy.js";
 import { buildSkillStatus, type SkillStatusEntry } from "./status.js";
 
 export interface RunSkillCommandOptions {
@@ -59,7 +59,8 @@ export async function runSkillCommand(
   }
 
   const allTools = options.registry.list().map((entry) => entry.name);
-  if (!isToolAllowed(tool.name, config.tools, allTools)) {
+  const policy = resolveToolPolicy(config, options.agentId);
+  if (!isToolAllowed(tool.name, policy, allTools)) {
     throw new Error(`Tool not allowed by policy: ${tool.name}`);
   }
 

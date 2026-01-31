@@ -14,6 +14,7 @@ import {
 } from "../commands/skills.js";
 import { toolsInfoCommand, toolsListCommand, toolsRunCommand } from "../commands/tools.js";
 import { setupCommand } from "../commands/setup.js";
+import { serverCommand } from "../commands/server.js";
 import { createDefaultDeps } from "./deps.js";
 
 export function buildProgram() {
@@ -34,6 +35,7 @@ export function buildProgram() {
     .option("--search", "Enable web search + scrape fallback", false)
     .option("--scrape", "Force scrape mode + enable web search", false)
     .option("--agent <id>", "Agent id (maps to workspace)")
+    .option("--session <key>", "Override session key")
     .action(async (query: string | undefined, opts) => {
       const deps = createDefaultDeps();
       await analyzeCommand(
@@ -46,6 +48,7 @@ export function buildProgram() {
           search: Boolean(opts.search),
           scrape: Boolean(opts.scrape),
           agentId: opts.agent,
+          sessionKey: opts.session,
         },
         deps,
       );
@@ -69,6 +72,16 @@ export function buildProgram() {
     .description("Initialize MarketBot workspace and config")
     .action(async () => {
       await setupCommand();
+    });
+
+  program
+    .command("server")
+    .description("Start MarketBot HTTP gateway")
+    .option("--host <host>", "Bind host")
+    .option("--port <port>", "Bind port")
+    .action(async (opts) => {
+      const port = opts.port ? Number(opts.port) : undefined;
+      await serverCommand({ host: opts.host, port });
     });
 
 
@@ -128,6 +141,7 @@ export function buildProgram() {
     .description("List available skills")
     .option("--json", "Output JSON", false)
     .option("--agent <id>", "Agent id (maps to workspace)")
+    .option("--session <key>", "Override session key")
     .action(async (opts) => {
       await skillsListCommand({ json: Boolean(opts.json), agentId: opts.agent });
     });
@@ -139,12 +153,14 @@ export function buildProgram() {
     .option("--eligible", "Only show eligible skills", false)
     .option("--verbose", "Show missing requirements and paths", false)
     .option("--agent <id>", "Agent id (maps to workspace)")
+    .option("--session <key>", "Override session key")
     .action(async (opts) => {
       await skillsCheckCommand({
         json: Boolean(opts.json),
         eligible: Boolean(opts.eligible),
         verbose: Boolean(opts.verbose),
         agentId: opts.agent,
+          sessionKey: opts.session,
       });
     });
 
@@ -153,11 +169,13 @@ export function buildProgram() {
     .description("Show details about a skill")
     .option("--json", "Output JSON", false)
     .option("--agent <id>", "Agent id (maps to workspace)")
+    .option("--session <key>", "Override session key")
     .action(async (name: string, opts) => {
       await skillsInfoCommand({
         name,
         json: Boolean(opts.json),
         agentId: opts.agent,
+          sessionKey: opts.session,
       });
     });
 
@@ -174,6 +192,7 @@ export function buildProgram() {
         name: opts.name,
         scope: opts.scope === "workspace" ? "workspace" : "managed",
         agentId: opts.agent,
+          sessionKey: opts.session,
         force: Boolean(opts.force),
       });
     });
@@ -188,6 +207,7 @@ export function buildProgram() {
         name,
         scope: opts.scope === "workspace" ? "workspace" : "managed",
         agentId: opts.agent,
+          sessionKey: opts.session,
       });
     });
 
@@ -195,10 +215,12 @@ export function buildProgram() {
     .command("sync")
     .description("Sync managed skills into the workspace")
     .option("--agent <id>", "Agent id (maps to workspace)")
+    .option("--session <key>", "Override session key")
     .option("--remove-extra", "Remove skills not in managed dir", false)
     .action(async (opts) => {
       await skillsSyncCommand({
         agentId: opts.agent,
+          sessionKey: opts.session,
         removeExtra: Boolean(opts.removeExtra),
       });
     });
@@ -208,6 +230,7 @@ export function buildProgram() {
     .description("Run a skill command with a tool dispatch")
     .option("--json", "Output JSON", false)
     .option("--agent <id>", "Agent id (maps to workspace)")
+    .option("--session <key>", "Override session key")
     .action(async (skill: string, command: string, args: string[], opts) => {
       await skillsRunCommand({
         skill,
@@ -215,6 +238,7 @@ export function buildProgram() {
         args,
         json: Boolean(opts.json),
         agentId: opts.agent,
+          sessionKey: opts.session,
       });
     });
 
@@ -226,24 +250,27 @@ export function buildProgram() {
     .command("list")
     .description("List available tools")
     .option("--json", "Output JSON", false)
+    .option("--agent <id>", "Agent id (maps to tool policy)")
     .action(async (opts) => {
-      await toolsListCommand({ json: Boolean(opts.json) });
+      await toolsListCommand({ json: Boolean(opts.json), agentId: opts.agent });
     });
 
   tools
     .command("info <name>")
     .description("Show details about a tool")
     .option("--json", "Output JSON", false)
+    .option("--agent <id>", "Agent id (maps to tool policy)")
     .action(async (name: string, opts) => {
-      await toolsInfoCommand({ name, json: Boolean(opts.json) });
+      await toolsInfoCommand({ name, json: Boolean(opts.json), agentId: opts.agent });
     });
 
   tools
     .command("run <name> [args...]")
     .description("Run a tool by name")
     .option("--json", "Output JSON", false)
+    .option("--agent <id>", "Agent id (maps to tool policy)")
     .action(async (name: string, args: string[], opts) => {
-      await toolsRunCommand({ name, args, json: Boolean(opts.json) });
+      await toolsRunCommand({ name, args, json: Boolean(opts.json), agentId: opts.agent });
     });
 
   return program;

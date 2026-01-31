@@ -1,13 +1,14 @@
 import { buildToolContext } from "../tools/context.js";
 import { createDefaultToolRegistry } from "../tools/registry.js";
 import { loadConfig } from "../config/io.js";
-import { isToolAllowed, resolveToolAllowlist } from "../tools/policy.js";
+import { isToolAllowed, resolveToolAllowlist, resolveToolPolicy } from "../tools/policy.js";
 
-export async function toolsListCommand(opts: { json?: boolean } = {}): Promise<void> {
+export async function toolsListCommand(opts: { json?: boolean; agentId?: string } = {}): Promise<void> {
   const registry = createDefaultToolRegistry();
   const config = await loadConfig();
   const allTools = registry.list();
-  const allowed = filterAllowedTools(allTools, config.tools);
+  const policy = resolveToolPolicy(config, opts.agentId);
+  const allowed = filterAllowedTools(allTools, policy);
 
   if (opts.json) {
     console.log(
@@ -29,7 +30,7 @@ export async function toolsListCommand(opts: { json?: boolean } = {}): Promise<v
   }
 }
 
-export async function toolsInfoCommand(opts: { name: string; json?: boolean }): Promise<void> {
+export async function toolsInfoCommand(opts: { name: string; json?: boolean; agentId?: string }): Promise<void> {
   const registry = createDefaultToolRegistry();
   const config = await loadConfig();
   const tool = registry.get(opts.name);
@@ -44,7 +45,8 @@ export async function toolsInfoCommand(opts: { name: string; json?: boolean }): 
   }
 
   const allTools = registry.list().map((entry) => entry.name);
-  if (!isToolAllowed(tool.name, config.tools, allTools)) {
+  const policy = resolveToolPolicy(config, opts.agentId);
+  if (!isToolAllowed(tool.name, policy, allTools)) {
     const message = `Tool not allowed by policy: ${tool.name}`;
     if (opts.json) {
       console.log(JSON.stringify({ error: message }, null, 2));
@@ -63,7 +65,7 @@ export async function toolsInfoCommand(opts: { name: string; json?: boolean }): 
   if (tool.description) console.log(tool.description);
 }
 
-export async function toolsRunCommand(opts: { name: string; args: string[]; json?: boolean }): Promise<void> {
+export async function toolsRunCommand(opts: { name: string; args: string[]; json?: boolean; agentId?: string }): Promise<void> {
   const registry = createDefaultToolRegistry();
   const config = await loadConfig();
   const tool = registry.get(opts.name);
@@ -72,7 +74,8 @@ export async function toolsRunCommand(opts: { name: string; args: string[]; json
   }
 
   const allTools = registry.list().map((entry) => entry.name);
-  if (!isToolAllowed(tool.name, config.tools, allTools)) {
+  const policy = resolveToolPolicy(config, opts.agentId);
+  if (!isToolAllowed(tool.name, policy, allTools)) {
     throw new Error(`Tool not allowed by policy: ${tool.name}`);
   }
 

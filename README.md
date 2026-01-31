@@ -101,6 +101,13 @@ node dist/index.js tools info market_fetch
 node dist/index.js tools run echo "hello"
 ```
 
+HTTP gateway:
+
+```bash
+node dist/index.js server --port 8787
+curl -X POST http://127.0.0.1:8787/analyze   -H "Content-Type: application/json"   -d '{"query":"Analyze BTC short-term"}'
+```
+
 Sample `marketbot.json`:
 
 ```json
@@ -125,6 +132,10 @@ Sample `marketbot.json`:
   },
   "tools": {
     "profile": "analysis"
+  },
+  "sessions": {
+    "enabled": true,
+    "maxEntries": 20
   }
 }
 ```
@@ -164,8 +175,11 @@ Environment variables:
 - Managed skills dir can be overridden with `MARKETBOT_MANAGED_SKILLS_DIR` or `skills.managedDir`
 - Skills can be allowlisted/denylisted in `marketbot.json` via `skills.allowlist` / `skills.denylist`
 - Tools can be allowlisted via `tools.profile` or `tools.allow` / `tools.deny`
+- Per-agent tool overrides: `agents.list[].tools`
 - Tool profiles: `minimal`, `analysis`, `full`
 - Skills watcher can be toggled via `skills.watch` (default: true) and `skills.watchDebounceMs`
+- Sessions can be tuned via `sessions.*` (storage dir + limits + includeContext)
+- HTTP server config: `server.host` / `server.port` or env `MARKETBOT_SERVER_HOST` / `MARKETBOT_SERVER_PORT`
 
 Skill metadata (in SKILL.md front-matter):
 
