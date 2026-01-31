@@ -100,16 +100,25 @@ export function createEditorSubmitHandler(params: {
 export async function runTui(opts: TuiOptions) {
   const config = loadConfig();
 
-  // Helper to check if a provider has a valid key configured in env
-  const checkProviderConfigured = (provider?: string): boolean => {
+  // Helper to check if a provider has a valid key configured in env or config
+  const checkProviderConfiguredAtStart = (provider?: string): boolean => {
     if (!provider) return false;
     const p = provider.toLowerCase();
+
+    // Check initial config first
+    if (config.models?.providers) {
+      const provCfg = config.models.providers[p] as any;
+      if (provCfg?.apiKey && !provCfg.apiKey.includes("placeholder")) {
+        return true;
+      }
+    }
+
     let key = "";
     if (p.includes("deepseek")) key = process.env.DEEPSEEK_API_KEY ?? "";
     else if (p.includes("openai")) key = process.env.OPENAI_API_KEY ?? "";
     else if (p.includes("anthropic")) key = process.env.ANTHROPIC_API_KEY ?? "";
     else if (p.includes("gemini")) key = process.env.GEMINI_API_KEY ?? "";
-    else return true; // Assume unknown providers are configured (or we can't check)
+    else return true;
 
     if (!key || key.includes("placeholder") || key === "") return false;
     return true;
@@ -817,9 +826,9 @@ export async function runTui(opts: TuiOptions) {
 
       // Check if model is set, otherwise prompt for provider
       // Also prompt if the current provider appears unconfigured (placeholder/missing key)
-      if (!sessionInfo.model || !checkProviderConfigured(sessionInfo.modelProvider)) {
+      if (!sessionInfo.model || !checkProviderConfiguredAtStart(sessionInfo.modelProvider)) {
         // Add a small system message to explain why
-        if (sessionInfo.model && !checkProviderConfigured(sessionInfo.modelProvider)) {
+        if (sessionInfo.model && !checkProviderConfiguredAtStart(sessionInfo.modelProvider)) {
           chatLog.addSystem(`⚠️  Provider '${sessionInfo.modelProvider}' key missing or invalid.`);
         }
         void openProviderSelector();
