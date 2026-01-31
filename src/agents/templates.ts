@@ -9,7 +9,7 @@ function loadDefault(filename: string, fallback: string): string {
     try {
         return fs.readFileSync(path.join(DEFAULTS_DIR, filename), "utf-8");
     } catch (err) {
-        console.warn(`[Config] Failed to load default ${filename}, using fallback.`);
+        // console.warn(`[Config] Failed to load default ${filename}, using fallback.`);
         return fallback;
     }
 }

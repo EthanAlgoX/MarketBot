@@ -171,7 +171,7 @@ export function renderGuiPage(options: GuiPageOptions): string {
         font-weight: 600;
         color: var(--muted);
       }
-      input[type="text"], select {
+      input[type="text"], input[type="password"], select, textarea {
         border: 1px solid var(--border);
         border-radius: 12px;
         padding: 10px 12px;
@@ -181,10 +181,17 @@ export function renderGuiPage(options: GuiPageOptions): string {
         font-family: var(--sans);
       }
       body[data-theme="dark"] input[type="text"],
-      body[data-theme="dark"] select {
+      body[data-theme="dark"] input[type="password"],
+      body[data-theme="dark"] select,
+      body[data-theme="dark"] textarea {
         background: #0b1220;
         border-color: rgba(148, 163, 184, 0.3);
         color: #e2e8f0;
+      }
+      textarea {
+        min-height: 68px;
+        resize: vertical;
+        font-family: var(--mono);
       }
       input[type="text"].query {
         flex: 1 1 420px;
@@ -305,6 +312,12 @@ export function renderGuiPage(options: GuiPageOptions): string {
       }
       .option-grid .action-row {
         grid-column: 1 / -1;
+      }
+      .full-row {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
       }
       .key-row {
         display: flex;
@@ -514,6 +527,16 @@ export function renderGuiPage(options: GuiPageOptions): string {
 
           <div class="section-title" style="margin-top:18px;">LLM</div>
           <div class="option-grid">
+            <label class="chip" for="llmPreset">Preset</label>
+            <select id="llmPreset">
+              <option value="">custom</option>
+              <option value="openai">OpenAI API</option>
+              <option value="openai-oauth">ChatGPT Subscription (OAuth)</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="groq">Groq</option>
+              <option value="mistral">Mistral</option>
+            </select>
             <label class="chip" for="llmProvider">Provider</label>
             <select id="llmProvider">
               <option value="">auto</option>
@@ -533,6 +556,12 @@ export function renderGuiPage(options: GuiPageOptions): string {
           <div class="key-row" style="margin-top:10px;">
             <input id="llmApiKey" type="password" placeholder="API key (not stored)" />
             <button id="toggleApiKey" class="btn ghost" type="button">Show</button>
+          </div>
+          <div class="option-grid" style="margin-top:10px;">
+            <div class="full-row">
+              <label class="chip" for="llmHeaders">Headers (JSON)</label>
+              <textarea id="llmHeaders" placeholder='{"HTTP-Referer":"","X-Title":"MarketBot"}'></textarea>
+            </div>
           </div>
           <div class="option-grid" style="margin-top:12px;">
             <div class="meta-card" style="grid-column: 1 / -1;">
@@ -571,6 +600,7 @@ export function renderGuiPage(options: GuiPageOptions): string {
       const downloadBtn = document.getElementById("download");
       const themeSelect = document.getElementById("theme");
       const snapshot = document.getElementById("snapshot");
+      const llmPreset = document.getElementById("llmPreset");
       const llmProvider = document.getElementById("llmProvider");
       const llmModel = document.getElementById("llmModel");
       const llmBaseUrl = document.getElementById("llmBaseUrl");
@@ -578,12 +608,63 @@ export function renderGuiPage(options: GuiPageOptions): string {
       const llmTimeout = document.getElementById("llmTimeout");
       const llmJsonMode = document.getElementById("llmJsonMode");
       const llmApiKey = document.getElementById("llmApiKey");
+      const llmHeaders = document.getElementById("llmHeaders");
       const toggleApiKey = document.getElementById("toggleApiKey");
       const openAiStatus = document.getElementById("openAiStatus");
       const openAiLogin = document.getElementById("openAiLogin");
       const openAiLogout = document.getElementById("openAiLogout");
 
       const STORAGE_KEY = "marketbot.gui.v1";
+      const LLM_PRESETS = {
+        "openai": {
+          provider: "openai-compatible",
+          model: "gpt-4o-mini",
+          baseUrl: "https://api.openai.com/v1",
+          apiKeyEnv: "OPENAI_API_KEY",
+          headers: "",
+          note: "Preset applied: OpenAI API.",
+        },
+        "openai-oauth": {
+          provider: "",
+          model: "gpt-4o-mini",
+          baseUrl: "",
+          apiKeyEnv: "",
+          headers: "",
+          note: "Use OpenAI OAuth sign-in above; no API key needed.",
+        },
+        "gemini": {
+          provider: "openai-compatible",
+          model: "gemini-2.0-flash",
+          baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+          apiKeyEnv: "GEMINI_API_KEY",
+          headers: "",
+          note: "Preset applied: Gemini (OpenAI-compatible endpoint).",
+        },
+        "openrouter": {
+          provider: "openai-compatible",
+          model: "openai/gpt-4o-mini",
+          baseUrl: "https://openrouter.ai/api/v1",
+          apiKeyEnv: "OPENROUTER_API_KEY",
+          headers: "{\"HTTP-Referer\":\"\",\"X-Title\":\"MarketBot\"}",
+          note: "Preset applied: OpenRouter. Optional headers can be filled in.",
+        },
+        "groq": {
+          provider: "openai-compatible",
+          model: "llama-3.1-8b-instant",
+          baseUrl: "https://api.groq.com/openai/v1",
+          apiKeyEnv: "GROQ_API_KEY",
+          headers: "",
+          note: "Preset applied: Groq.",
+        },
+        "mistral": {
+          provider: "openai-compatible",
+          model: "mistral-small-latest",
+          baseUrl: "https://api.mistral.ai/v1",
+          apiKeyEnv: "MISTRAL_API_KEY",
+          headers: "",
+          note: "Preset applied: Mistral.",
+        },
+      };
 
       function loadState() {
         try {
@@ -610,12 +691,14 @@ export function renderGuiPage(options: GuiPageOptions): string {
         sessionKeyInput.value = settings.sessionKey || "";
         themeSelect.value = settings.theme || "light";
         document.body.dataset.theme = themeSelect.value;
+        llmPreset.value = settings.llmPreset || "";
         llmProvider.value = settings.llmProvider || "";
         llmModel.value = settings.llmModel || "";
         llmBaseUrl.value = settings.llmBaseUrl || "";
         llmApiKeyEnv.value = settings.llmApiKeyEnv || "";
         llmTimeout.value = settings.llmTimeout || "";
         llmJsonMode.checked = Boolean(settings.llmJsonMode);
+        llmHeaders.value = settings.llmHeaders || "";
         if (settings.llmApiKey) {
           llmApiKey.value = settings.llmApiKey;
         }
@@ -633,14 +716,31 @@ export function renderGuiPage(options: GuiPageOptions): string {
           agentId: agentIdInput.value.trim(),
           sessionKey: sessionKeyInput.value.trim(),
           theme: themeSelect.value,
+          llmPreset: llmPreset.value,
           llmProvider: llmProvider.value,
           llmModel: llmModel.value.trim(),
           llmBaseUrl: llmBaseUrl.value.trim(),
           llmApiKeyEnv: llmApiKeyEnv.value.trim(),
           llmTimeout: llmTimeout.value.trim(),
           llmJsonMode: llmJsonMode.checked,
+          llmHeaders: llmHeaders.value.trim(),
           llmApiKey: includeSecrets ? llmApiKey.value.trim() : "",
         };
+      }
+
+      function applyPreset(presetId) {
+        const preset = LLM_PRESETS[presetId];
+        if (!preset) return;
+        llmProvider.value = preset.provider || "";
+        llmModel.value = preset.model || "";
+        llmBaseUrl.value = preset.baseUrl || "";
+        llmApiKeyEnv.value = preset.apiKeyEnv || "";
+        llmHeaders.value = preset.headers || "";
+        llmJsonMode.checked = false;
+        llmApiKey.value = "";
+        if (preset.note) {
+          status.textContent = preset.note;
+        }
       }
 
       function renderHistory(history) {
@@ -703,8 +803,13 @@ export function renderGuiPage(options: GuiPageOptions): string {
         if (settings.scrape) payload.scrape = true;
         if (settings.trace) payload.includeTrace = true;
         if (settings.mockLlm) payload.mockLlm = true;
-        const llmPayload = buildLlmPayload(settings);
-        if (llmPayload) payload.llm = llmPayload;
+        const llmBuild = buildLlmPayload(settings);
+        if (llmBuild.error) {
+          status.textContent = llmBuild.error;
+          runBtn.disabled = false;
+          return;
+        }
+        if (llmBuild.payload) payload.llm = llmBuild.payload;
         if (settings.agentId) payload.agentId = settings.agentId;
         if (settings.sessionKey) payload.sessionKey = settings.sessionKey;
 
@@ -799,6 +904,9 @@ export function renderGuiPage(options: GuiPageOptions): string {
       });
       themeSelect.addEventListener("change", () => {
         document.body.dataset.theme = themeSelect.value;
+      });
+      llmPreset.addEventListener("change", () => {
+        applyPreset(llmPreset.value);
       });
       toggleApiKey.addEventListener("click", () => {
         const isHidden = llmApiKey.type === "password";
@@ -919,11 +1027,29 @@ export function renderGuiPage(options: GuiPageOptions): string {
         if (settings.llmApiKeyEnv) llm.apiKeyEnv = settings.llmApiKeyEnv;
         if (settings.llmApiKey) llm.apiKey = settings.llmApiKey;
         if (settings.llmJsonMode) llm.jsonMode = true;
+        if (settings.llmHeaders) {
+          try {
+            const parsed = JSON.parse(settings.llmHeaders);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+              return { error: "Invalid LLM headers JSON." };
+            }
+            const headers = {};
+            for (const [key, value] of Object.entries(parsed)) {
+              if (typeof value !== "string") {
+                return { error: "LLM headers must be a JSON object of string values." };
+              }
+              headers[key] = value;
+            }
+            if (Object.keys(headers).length) llm.headers = headers;
+          } catch {
+            return { error: "Invalid LLM headers JSON." };
+          }
+        }
         if (settings.llmTimeout) {
           const parsed = Number(settings.llmTimeout);
           if (Number.isFinite(parsed)) llm.timeoutMs = parsed;
         }
-        return Object.keys(llm).length ? llm : null;
+        return { payload: Object.keys(llm).length ? llm : null };
       }
     </script>
   </body>
