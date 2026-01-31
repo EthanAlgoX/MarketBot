@@ -2,6 +2,7 @@
 
 import type { LLMProvider, LLMMessage } from "../core/llm.js";
 import type { ReflectionInput, ReflectionOutput } from "../core/types.js";
+import { tryParseJson } from "./jsonUtils.js";
 
 const REFLECTION_PROMPT = `You are a reflection analyst who reviews market analysis.
 Based on the intent, market interpretation, regime, and risk assessment:
@@ -21,19 +22,17 @@ export async function runReflection(
     input: ReflectionInput,
     systemPrompt?: string
 ): Promise<ReflectionOutput> {
+    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${REFLECTION_PROMPT}` : REFLECTION_PROMPT;
     const messages: LLMMessage[] = [
-        { role: "system", content: systemPrompt ?? REFLECTION_PROMPT },
+        { role: "system", content: combinedPrompt },
         { role: "user", content: `Reflect on this analysis: ${JSON.stringify(input)}` },
     ];
 
     const response = await provider.chat(messages);
 
-    try {
-        const parsed = JSON.parse(response.content) as ReflectionOutput;
-        return validateReflection(parsed);
-    } catch {
-        return reflectFallback(input);
-    }
+    const parsed = tryParseJson<Partial<ReflectionOutput>>(response.content);
+    if (parsed) return validateReflection(parsed);
+    return reflectFallback(input);
 }
 
 function validateReflection(parsed: Partial<ReflectionOutput>): ReflectionOutput {

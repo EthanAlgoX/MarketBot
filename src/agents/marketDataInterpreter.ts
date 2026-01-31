@@ -2,6 +2,7 @@
 
 import type { LLMProvider, LLMMessage } from "../core/llm.js";
 import type { MarketDataInput, MarketDataInterpretation } from "../core/types.js";
+import { tryParseJson } from "./jsonUtils.js";
 
 const INTERPRETER_PROMPT = `You are a market data interpreter.
 Analyze the provided market data and produce:
@@ -21,20 +22,17 @@ export async function runMarketDataInterpreter(
     marketData: MarketDataInput,
     systemPrompt?: string
 ): Promise<MarketDataInterpretation> {
+    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${INTERPRETER_PROMPT}` : INTERPRETER_PROMPT;
     const messages: LLMMessage[] = [
-        { role: "system", content: systemPrompt ?? INTERPRETER_PROMPT },
+        { role: "system", content: combinedPrompt },
         { role: "user", content: `Interpret this market data: ${JSON.stringify(marketData)}` },
     ];
 
     const response = await provider.chat(messages);
 
-    try {
-        const parsed = JSON.parse(response.content) as MarketDataInterpretation;
-        return validateInterpretation(parsed);
-    } catch {
-        // Fallback to rule-based interpretation
-        return interpretFallback(marketData);
-    }
+    const parsed = tryParseJson<Partial<MarketDataInterpretation>>(response.content);
+    if (parsed) return validateInterpretation(parsed);
+    return interpretFallback(marketData);
 }
 
 function validateInterpretation(parsed: Partial<MarketDataInterpretation>): MarketDataInterpretation {

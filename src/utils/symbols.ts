@@ -55,6 +55,7 @@ export function resolveSymbolFromText(text: string): string | undefined {
 export function normalizeYahooSymbol(symbol: string): string {
   const upper = symbol.trim().toUpperCase();
   if (!upper) return upper;
+  if (upper.includes(".")) return upper.replace(/\./g, "-");
   if (CRYPTO_TO_YAHOO[upper]) return CRYPTO_TO_YAHOO[upper];
   if (upper.includes("-") || upper.includes("=") || upper.includes("^")) return upper;
   if (/^[A-Z]{6}$/.test(upper)) {

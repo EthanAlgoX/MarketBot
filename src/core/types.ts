@@ -36,6 +36,11 @@ export interface MarketDataInput {
     indicators: Indicators;
     current_price?: number;
     timestamp?: string;
+    source?: string;
+    exchange?: string;
+    currency?: string;
+    market_state?: string;
+    price_type?: "regular" | "post" | "pre";
 }
 
 // ========== Market Data Interpretation ==========

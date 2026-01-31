@@ -9,6 +9,8 @@ import { runMarketBot } from "../../core/pipeline.js";
 import type { MarketBotRunPhase, MarketBotRunPhaseEvent } from "../../core/types.js";
 import { getCredentials } from "../../core/auth/oauth.js";
 import type { MarketBotConfig } from "../../config/types.js";
+import { createDefaultToolRegistry } from "../../tools/registry.js";
+import { resolveToolAllowlist, resolveToolPolicy } from "../../tools/policy.js";
 
 export type TuiOptions = {
   json?: boolean;
@@ -23,7 +25,7 @@ export type TuiOptions = {
 
 const TUI_COMMANDS = [
   "/help", "/exit", "/quit", "/options", "/history", "/use", "/last",
-  "/json", "/mode", "/search", "/scrape", "/live",
+  "/json", "/mode", "/search", "/scrape", "/live", "/tools",
   "/agent", "/session", "/models", "/model", "/provider",
 ];
 
@@ -38,6 +40,7 @@ function tuiCompleter(line: string): [string[], string] {
 const COMMAND_MENU_CHOICES = [
   { name: "/help       - Show help", value: "/help" },
   { name: "/options    - Show current options", value: "/options" },
+  { name: "/tools      - List available tools", value: "/tools" },
   { name: "/models     - List available models", value: "/models" },
   { name: "/model      - Set model", value: "/model" },
   { name: "/provider   - Set LLM provider", value: "/provider" },
@@ -901,6 +904,9 @@ function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown, lang: Lan
       const marketData = detail as {
         current_price?: number;
         price_structure?: { support_levels?: number[]; resistance_levels?: number[] };
+        source?: string;
+        price_type?: string;
+        timestamp?: string;
       };
       const price = typeof marketData.current_price === "number" ? marketData.current_price : undefined;
       const support = marketData.price_structure?.support_levels?.[0];
@@ -909,6 +915,13 @@ function formatPhaseSummary(phase: MarketBotRunPhase, detail: unknown, lang: Lan
       if (price !== undefined) parts.push(`${t.price} ${fmtNum(price)}`);
       if (support !== undefined) parts.push(`${t.support} ${fmtNum(support)}`);
       if (resistance !== undefined) parts.push(`${t.resistance} ${fmtNum(resistance)}`);
+      if (marketData.source) {
+        const sourceText = marketData.price_type ? `${marketData.source}(${marketData.price_type})` : marketData.source;
+        parts.push(`${lang === "en" ? "Source" : "来源"} ${sourceText}`);
+      }
+      if (marketData.timestamp) {
+        parts.push(`${lang === "en" ? "Time" : "时间"} ${marketData.timestamp}`);
+      }
       return parts.length ? parts.join(lang === "en" ? ", " : "，") : t.fetched;
     }
     case "interpret": {
