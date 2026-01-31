@@ -55,6 +55,19 @@ async function fetchFromApi(
 ): Promise<MarketDataInput> {
     const resolvedAsset = resolveSymbolFromText(intent.asset) ?? intent.asset;
     const snapshot = await fetchQuoteSnapshot(resolvedAsset);
+
+    let newsContext: string[] = [];
+    if (options?.enableSearch) {
+        try {
+            const news = await searchMarketInfo(resolvedAsset, "latest news and market sentiment");
+            if (news.content) {
+                newsContext = [news.content];
+            }
+        } catch (e) {
+            console.warn(`News fetch failed for ${resolvedAsset}:`, e);
+        }
+    }
+
     if (!snapshot) {
         // Fallback if quote unavailable (e.g. rate limit 429 or disabled)
         // Return empty structure to allow pipeline to proceed (e.g. for news/sentiment analysis)
@@ -62,6 +75,7 @@ async function fetchFromApi(
             price_structure: {
                 trend_1h: "range",
                 trend_4h: "range",
+                trend_1d: "range",
                 support_levels: [],
                 resistance_levels: [],
             },
@@ -69,23 +83,21 @@ async function fetchFromApi(
                 ema_alignment: "neutral",
                 atr_change: "stable",
                 volume_state: "stable",
+                rsi_1h: 50,
+                rsi_4h: 50,
+                macd_signal: "neutral",
+                bollinger_position: "middle",
             },
+            current_price: 0,
             timestamp: new Date().toISOString(),
+            news_context: newsContext,
         };
     }
 
     const baseData = buildBaselineMarketData(snapshot.price);
     const result = applySnapshotToMarketData(baseData, snapshot);
-
-    if (options?.enableSearch) {
-        try {
-            const news = await searchMarketInfo(resolvedAsset, "latest news and market sentiment");
-            if (news.content) {
-                result.news_context = [news.content];
-            }
-        } catch (e) {
-            console.warn(`News fetch failed for ${resolvedAsset}:`, e);
-        }
+    if (newsContext.length > 0) {
+        result.news_context = newsContext;
     }
 
     return result;
