@@ -138,6 +138,15 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
     { name: "settings", description: "Open settings" },
     { name: "exit", description: "Exit the TUI" },
     { name: "quit", description: "Exit the TUI" },
+    // Market Analysis Commands
+    { name: "analyze", description: "📊 Quick market analysis for a symbol" },
+    { name: "watch", description: "👁️ Add symbol to watchlist" },
+    { name: "watchlist", description: "📋 Show current watchlist" },
+    { name: "portfolio", description: "💼 Portfolio overview" },
+    { name: "news", description: "📰 Recent market news" },
+    { name: "alerts", description: "🔔 View price alerts" },
+    { name: "technicals", description: "📈 Technical analysis summary" },
+    { name: "sentiment", description: "🎯 Market sentiment analysis" },
   ];
 
   const seen = new Set(commands.map((command) => command.name));
@@ -160,23 +169,29 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
 export function helpText(options: SlashCommandOptions = {}): string {
   const thinkLevels = formatThinkingLevels(options.provider, options.model, "|");
   return [
-    "Slash commands:",
-    "/help",
-    "/commands",
-    "/status",
-    "/agent <id> (or /agents)",
-    "/session <key> (or /sessions)",
-    "/model <provider/model> (or /models)",
+    "━━━ System Commands ━━━",
+    "/help              Show this help",
+    "/status            Gateway status summary",
+    "/agent <id>        Switch agent",
+    "/session <key>     Switch session",
+    "/model <name>      Set model",
     `/think <${thinkLevels}>`,
     "/verbose <on|off>",
     "/reasoning <on|off>",
-    "/usage <off|tokens|full>",
     "/elevated <on|off|ask|full>",
-    "/elev <on|off|ask|full>",
-    "/activation <mention|always>",
-    "/new or /reset",
-    "/abort",
-    "/settings",
-    "/exit",
-  ].join("\n");
+    "/new or /reset     Reset session",
+    "/abort             Abort active run",
+    "/settings          Open settings",
+    "/exit              Exit TUI",
+    "",
+    "━━━ Market Analysis ━━━",
+    "/analyze <symbol>  Quick analysis (e.g., /analyze NVDA)",
+    "/watch <symbol>    Add to watchlist",
+    "/watchlist         Show watchlist",
+    "/portfolio         Portfolio overview",
+    "/news              Recent market news",
+    "/alerts            Price alerts",
+    "/technicals        Technical summary",
+    "/sentiment         Sentiment analysis",
+  ].join("\\n");
 }

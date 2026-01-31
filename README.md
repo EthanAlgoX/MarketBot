@@ -22,29 +22,34 @@ research. The focus is actionable market intelligence: structured analysis,
 clear risk/invalidation levels, and reproducible workflows.
 
 ### 1) Gateway-first control plane
+
 - The Gateway is the central WebSocket server for sessions, routing, and tool
   execution.
 - CLI, TUI, and Web UI connect to the Gateway, or run embedded locally with
   `--local` for single-machine use.
 
 ### 2) Analysis engine (agents + models)
+
 - Agents orchestrate model calls, enforce prompts, and structure outputs for
   trading analysis.
 - Model providers and fallbacks are configured per agent, so you can mix
   research models and execution models.
 
 ### 3) Tools and skills (market advantage)
+
 - Tools enable web search/fetch, browser automation, memory, and data parsing.
 - Skills encapsulate repeatable market workflows (reports, risk checklists,
   catalyst tracking).
 
 ### 4) Channels and nodes
+
 - Multi-channel messaging for alerts and delivery (Telegram, Slack, Discord,
   WhatsApp, Signal, iMessage, Web).
 - Nodes (macOS/iOS/Android/headless) provide device-level capabilities such as
   canvas, camera, screen, or location.
 
 ### 5) Persistence and configuration
+
 - State lives under `~/.marketbot` (sessions, logs, caches).
 - Config is JSON5 and can be set via `MARKETBOT_CONFIG_PATH` or
   `~/.marketbot/marketbot.json`.
@@ -96,6 +101,40 @@ pnpm daemon start
 
 # Run CLI Commands
 pnpm cli --help
+```
+
+---
+
+## TUI Commands
+
+The Terminal UI provides market-focused slash commands:
+
+### System Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all commands |
+| `/status` | Gateway status |
+| `/model <name>` | Switch model |
+| `/agent <id>` | Switch agent |
+| `/session <key>` | Switch session |
+
+### Market Analysis
+
+| Command | Description |
+|---------|-------------|
+| `/analyze <symbol>` | Quick market analysis with catalysts |
+| `/technicals <symbol>` | Technical analysis (RSI, MACD, S/R) |
+| `/sentiment [symbol]` | Sentiment analysis |
+| `/news [symbol]` | Latest market news |
+| `/portfolio` | Portfolio overview |
+| `/watch <symbol>` | Add to watchlist |
+
+**Example:**
+
+```bash
+/analyze NVDA
+/technicals SPY
 ```
 
 ---
