@@ -193,6 +193,16 @@ export function formatAnalysisReport(analysis: WebAnalysisOutput): string {
     lines.push("---\n");
     lines.push(`📅 **${analysis.generatedAt}** | *AI Stock Trading Snapshot*\n`);
 
+    if (analysis.priceSnapshot) {
+        const snapshot = analysis.priceSnapshot;
+        const currency = snapshot.currency ? ` ${snapshot.currency}` : "";
+        const priceType = snapshot.priceType ? ` (${snapshot.priceType})` : "";
+        const timestamp = snapshot.timestamp ? ` @ ${snapshot.timestamp}` : "";
+        lines.push(`💵 **当前价格**: ${snapshot.price}${currency}${priceType} | ${snapshot.symbol} | ${snapshot.source}${timestamp}`);
+        lines.push("");
+    }
+
+
     // === DECISION BLOCK (25%) ===
     lines.push("## 🟦 核心结论\n");
 
