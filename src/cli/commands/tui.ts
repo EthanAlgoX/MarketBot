@@ -19,8 +19,26 @@ export type TuiOptions = {
   llmModel?: string;
 };
 
+const TUI_COMMANDS = [
+  "/help", "/exit", "/quit", "/options", "/history", "/use", "/last",
+  "/json", "/mode", "/search", "/scrape", "/live", "/mock",
+  "/agent", "/session", "/models", "/model", "/provider",
+];
+
+function tuiCompleter(line: string): [string[], string] {
+  if (!line.startsWith("/")) {
+    return [[], line];
+  }
+  const hits = TUI_COMMANDS.filter((cmd) => cmd.startsWith(line));
+  return [hits.length ? hits : TUI_COMMANDS, line];
+}
+
 export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
-  const rl = readline.createInterface({ input, output });
+  const rl = readline.createInterface({
+    input,
+    output,
+    completer: tuiCompleter,
+  });
   const deps = createDefaultDeps();
 
   const state = {
@@ -32,7 +50,8 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
     scrape: Boolean(opts.scrape),
     agentId: opts.agentId,
     sessionKey: opts.sessionKey,
-    llmModel: undefined,
+    llmModel: undefined as string | undefined,
+    llmProvider: undefined as string | undefined,
     history: [] as string[],
   };
 
@@ -89,6 +108,7 @@ function handleCommand(input: string, state: {
   agentId?: string;
   sessionKey?: string;
   llmModel?: string;
+  llmProvider?: string;
   history: string[];
 }): { exit?: boolean; message?: string; runQuery?: string; action?: "models"; filter?: string } {
   const [command, ...args] = input.slice(1).split(/\s+/);
@@ -117,7 +137,8 @@ function handleCommand(input: string, state: {
           "/agent <id|clear>",
           "/session <key|clear>",
           "/models [filter]",
-          "/model <id|clear|list>",
+          "/model <id|clear|status|list>",
+          "/provider <openai|gemini|auto|status>",
         ].join("\n"),
       };
     case "options":
@@ -132,6 +153,7 @@ function handleCommand(input: string, state: {
           `agent: ${state.agentId ?? "default"}`,
           `session: ${state.sessionKey ?? "auto"}`,
           `model: ${state.llmModel ?? "default"}`,
+          `provider: ${state.llmProvider ?? "auto"}`,
         ].join("\n"),
       };
     case "history": {
@@ -200,17 +222,35 @@ function handleCommand(input: string, state: {
       return { action: "models", filter: arg };
     case "model":
       if (!arg) {
-        return { message: `model: ${state.llmModel ?? "default"}` };
+        return { action: "models" };
       }
       if (arg === "clear") {
         state.llmModel = undefined;
         return { message: "model: default" };
       }
-      if (arg === "list") {
+      if (arg === "list" || arg === "models") {
         return { action: "models" };
+      }
+      if (arg === "status" || arg === "current" || arg === "show") {
+        return { message: `model: ${state.llmModel ?? "default"}` };
       }
       state.llmModel = arg;
       return { message: `model: ${arg}` };
+    case "provider": {
+      const VALID_PROVIDERS = ["openai", "gemini", "auto"];
+      if (!arg || arg === "status" || arg === "current") {
+        return { message: `provider: ${state.llmProvider ?? "auto"}` };
+      }
+      if (arg === "auto" || arg === "clear") {
+        state.llmProvider = undefined;
+        return { message: "provider: auto" };
+      }
+      if (VALID_PROVIDERS.includes(arg)) {
+        state.llmProvider = arg;
+        return { message: `provider: ${arg}` };
+      }
+      return { message: `Invalid provider. Use: ${VALID_PROVIDERS.join(", ")}` };
+    }
     default:
       return { message: `Unknown command: /${command}. Try /help.` };
   }
@@ -350,6 +390,7 @@ async function openModelSelector(
   state: {
     mock: boolean;
     llmModel?: string;
+    llmProvider?: string;
   },
   rl: readline.Interface,
   filter?: string,
@@ -488,7 +529,7 @@ function extractModelIds(payload: Record<string, unknown>): string[] {
 
 async function resolveModelListContext(
   config: Awaited<ReturnType<typeof loadConfig>>,
-  state: { mock: boolean },
+  state: { mock: boolean; llmProvider?: string },
 ): Promise<ModelListContext> {
   const llm = config.llm ?? {};
 
@@ -496,6 +537,54 @@ async function resolveModelListContext(
     return { kind: "mock" };
   }
 
+  // Check explicit provider selection first
+  if (state.llmProvider === "openai") {
+    const openAiOAuth = await getCredentials("openai-codex");
+    if (openAiOAuth?.access_token) {
+      return {
+        kind: "openai-compatible",
+        baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+        apiKey: openAiOAuth.access_token,
+        headers: llm.headers,
+        source: "openai-oauth",
+      };
+    }
+    if (process.env.OPENAI_API_KEY) {
+      return {
+        kind: "openai-compatible",
+        baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+        apiKey: process.env.OPENAI_API_KEY,
+        headers: llm.headers,
+        source: "env:OPENAI_API_KEY",
+      };
+    }
+    return { kind: "error", message: "OpenAI selected but no credentials found. Set OPENAI_API_KEY or login via OAuth." };
+  }
+
+  if (state.llmProvider === "gemini") {
+    const googleOAuth = await getCredentials("google");
+    if (googleOAuth?.access_token) {
+      return {
+        kind: "openai-compatible",
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+        apiKey: googleOAuth.access_token,
+        headers: llm.headers,
+        source: "google-oauth",
+      };
+    }
+    if (process.env.GEMINI_API_KEY) {
+      return {
+        kind: "openai-compatible",
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+        apiKey: process.env.GEMINI_API_KEY,
+        headers: llm.headers,
+        source: "env:GEMINI_API_KEY",
+      };
+    }
+    return { kind: "error", message: "Gemini selected but no credentials found. Set GEMINI_API_KEY or login via Google OAuth." };
+  }
+
+  // Auto-detect provider (original logic)
   const openAiOAuth = await getCredentials("openai-codex");
   if (openAiOAuth?.access_token) {
     return {
