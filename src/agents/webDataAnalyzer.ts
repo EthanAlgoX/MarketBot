@@ -100,7 +100,7 @@ export async function runWebDataAnalyzer(
         query: input.query,
         searchResults,
         fetchedPages,
-        priceSnapshot,
+        priceSnapshot: priceSnapshot ?? undefined,
     });
 
     // Step 5: Generate report

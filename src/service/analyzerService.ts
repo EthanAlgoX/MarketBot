@@ -4,6 +4,7 @@ import { loadConfig } from "../config/io.js";
 import { createProviderFromConfig } from "../core/providers/registry.js";
 import { StockAnalysisPipeline, PipelineResult, PipelineStage } from "../pipeline/index.js";
 import { NotificationService } from "../notification/service.js";
+import { resolveSymbolFromText } from "../utils/symbols.js";
 
 /**
  * Analyzer service options
@@ -89,30 +90,8 @@ export class AnalyzerService {
      * Extract symbol from query
      */
     private extractSymbol(query: string): string {
-        // Try to extract stock/crypto symbol from query
-        // Pattern: uppercase letters 1-5 chars
-        const symbolMatch = query.match(/\b([A-Z]{1,5})\b/);
-        if (symbolMatch) {
-            return symbolMatch[1];
-        }
-
-        // Common Chinese names to symbols
-        const symbolMap: Record<string, string> = {
-            "谷歌": "GOOGL",
-            "苹果": "AAPL",
-            "特斯拉": "TSLA",
-            "微软": "MSFT",
-            "亚马逊": "AMZN",
-            "英伟达": "NVDA",
-            "比特币": "BTC",
-            "以太坊": "ETH",
-        };
-
-        for (const [name, symbol] of Object.entries(symbolMap)) {
-            if (query.includes(name)) {
-                return symbol;
-            }
-        }
+        const resolved = resolveSymbolFromText(query);
+        if (resolved) return resolved;
 
         return "UNKNOWN";
     }
