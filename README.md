@@ -234,149 +234,64 @@ Default skills are preloaded under `marketbot-workspace/main/skills`:
 
 ## ⚙️ Configuration
 
-### LLM Provider
+### 🤖 AI Model Configuration (Zero-Config)
 
-Create `marketbot.json` with your preferred provider:
+MarketBot supports "Zero-Config" mode using Environment Variables. No `marketbot.json` required!
 
-| Provider | Model | Base URL | API Key Env |
-|----------|-------|----------|-------------|
-| **OpenAI** ⭐ | `gpt-4o-mini` | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
-| **OpenAI-Compatible (Custom)** | `your-model` | `https://your-openai-compatible-endpoint/v1` | `LLM_API_KEY` |
-| **Gemini** | `gemini-2.0-flash` | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
-| **Claude** | `claude-3-5-sonnet-20241022` | `https://api.anthropic.com/v1` | `ANTHROPIC_API_KEY` |
-| **Qwen** | `qwen-turbo` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
-| **Moonshot** | `moonshot-v1-8k` | `https://api.moonshot.cn/v1` | `MOONSHOT_API_KEY` |
-| **Ollama** | `llama3.2` | `http://localhost:11434/v1` | - |
+**Option 1: Google Gemini (Free Tier)**
 
-**Example Configurations:**
+```bash
+export GEMINI_API_KEY="AIzaSy..."
+```
+
+**Option 2: OpenAI / Compatible (DeepSeek, etc)**
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export OPENAI_BASE_URL="https://api.deepseek.com/v1"  # Optional
+export OPENAI_MODEL="deepseek-chat"                   # Optional
+```
+
+| Env Variable | Description | Required |
+|--------------|-------------|:--------:|
+| `GEMINI_API_KEY` | Google Gemini API Key | Optional* |
+| `OPENAI_API_KEY` | OpenAI / Compatible API Key | Optional* |
+| `OPENAI_BASE_URL` | Custom Base URL (e.g. DeepSeek) | Optional |
+| `OPENAI_MODEL` | Custom Model Name (default: gpt-4o-mini) | Optional |
+
+> \* One of `GEMINI_API_KEY` or `OPENAI_API_KEY` is required.
 
 <details>
-<summary><b>OpenAI (Default)</b></summary>
+<summary><b>Advanced: marketbot.json Configuration</b></summary>
+
+You can still use `marketbot.json` for complex setups.
 
 ```json
 {
   "llm": {
     "provider": "openai-compatible",
-    "model": "gpt-4o-mini",
-    "baseUrl": "https://api.openai.com/v1",
-    "apiKeyEnv": "OPENAI_API_KEY"
+    "apiKey": "sk-...",
+    "model": "gpt-4o",
+    "baseUrl": "https://api.openai.com/v1"
   }
 }
 ```
 
 </details>
 
-<details>
-<summary><b>OpenAI-Compatible (Custom)</b></summary>
+### 🔔 Notification Configuration
 
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "your-model",
-    "baseUrl": "https://your-openai-compatible-endpoint/v1",
-    "apiKeyEnv": "LLM_API_KEY"
-  }
-}
-```
+Configure channels via Environment Variables or `.env` file. You can configure multiple channels simultaneously.
 
-</details>
-
-<details>
-<summary><b>Google Gemini (Free Tier)</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "gemini-2.0-flash",
-    "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
-    "apiKeyEnv": "GEMINI_API_KEY"
-  }
-}
-```
-
-Get free API key: [Google AI Studio](https://aistudio.google.com/)
-</details>
-
-<details>
-<summary><b>Anthropic Claude</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "claude-3-5-sonnet-20241022",
-    "baseUrl": "https://api.anthropic.com/v1",
-    "apiKeyEnv": "ANTHROPIC_API_KEY"
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Alibaba Qwen (通义千问)</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "qwen-turbo",
-    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "apiKeyEnv": "DASHSCOPE_API_KEY"
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Moonshot (Kimi)</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "moonshot-v1-8k",
-    "baseUrl": "https://api.moonshot.cn/v1",
-    "apiKeyEnv": "MOONSHOT_API_KEY"
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Ollama (Local)</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "llama3.2",
-    "baseUrl": "http://localhost:11434/v1",
-    "apiKeyEnv": ""
-  }
-}
-```
-
-First run: `ollama pull llama3.2`
-</details>
-
-### Browser Config
-
-```json
-{
-  "web": {
-    "search": {
-      "provider": "browser",
-      "maxResults": 5,
-      "headless": true
-    }
-  }
-}
-```
+| Env Variable | Description | Required |
+|--------------|-------------|:--------:|
+| `WECHAT_WEBHOOK_URL` | Enterprise WeChat Webhook URL | Optional |
+| `FEISHU_WEBHOOK_URL` | Feishu (Lark) Webhook URL | Optional |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token (@BotFather) | Optional |
+| `TELEGRAM_CHAT_ID` | Telegram Chat ID | Optional |
+| `PUSHPLUS_TOKEN` | PushPlus Token (<http://www.pushplus.plus>) | Optional |
+| `CUSTOM_WEBHOOK_URL` | Custom Webhook URL | Optional |
+| `CUSTOM_WEBHOOK_BEARER_TOKEN` | Bearer Token for Custom Webhook | Optional |
 
 ## 🖥️ HTTP API
 
