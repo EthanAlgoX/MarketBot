@@ -1,5 +1,6 @@
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { select } from "@inquirer/prompts";
 import { createDefaultDeps } from "../deps.js";
 import { loadConfig } from "../../config/io.js";
 import { resolveAgentConfig, resolveDefaultAgentId } from "../../agents/agentScope.js";
@@ -31,6 +32,34 @@ function tuiCompleter(line: string): [string[], string] {
   }
   const hits = TUI_COMMANDS.filter((cmd) => cmd.startsWith(line));
   return [hits.length ? hits : TUI_COMMANDS, line];
+}
+
+const COMMAND_MENU_CHOICES = [
+  { name: "/help       - Show help", value: "/help" },
+  { name: "/options    - Show current options", value: "/options" },
+  { name: "/models     - List available models", value: "/models" },
+  { name: "/model      - Set model", value: "/model" },
+  { name: "/provider   - Set LLM provider", value: "/provider" },
+  { name: "/mode       - Set data mode", value: "/mode" },
+  { name: "/mock       - Toggle mock mode", value: "/mock toggle" },
+  { name: "/json       - Toggle JSON output", value: "/json toggle" },
+  { name: "/history    - Show history", value: "/history" },
+  { name: "/last       - Re-run last query", value: "/last" },
+  { name: "/exit       - Quit TUI", value: "/exit" },
+];
+
+async function showCommandMenu(): Promise<string | null> {
+  try {
+    const answer = await select({
+      message: "Select a command:",
+      choices: COMMAND_MENU_CHOICES,
+      pageSize: 12,
+    });
+    return answer;
+  } catch {
+    // User cancelled with Ctrl+C
+    return null;
+  }
 }
 
 export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
@@ -76,6 +105,23 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
     const trimmed = line.trim();
 
     if (!trimmed) continue;
+
+    // Show interactive menu when user types just "/"
+    if (trimmed === "/") {
+      const selectedCommand = await showCommandMenu();
+      if (!selectedCommand) continue; // User cancelled
+      const handled = handleCommand(selectedCommand, state);
+      if (handled.exit) break;
+      if (handled.message) console.log(handled.message);
+      if (handled.action === "models") {
+        const message = await openModelSelector(state, rl, handled.filter);
+        if (message) console.log(message);
+      }
+      if (handled.runQuery) {
+        await runQuery(handled.runQuery, state, deps, rl);
+      }
+      continue;
+    }
 
     if (trimmed.startsWith("/")) {
       const handled = handleCommand(trimmed, state);
