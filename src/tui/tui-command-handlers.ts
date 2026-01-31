@@ -33,6 +33,7 @@ import {
   createFilterableSelectList,
   createSearchableSelectList,
   createSettingsList,
+  createTextInputOverlay,
 } from "./components/selectors.js";
 import type { GatewayChatClient } from "./gateway-chat.js";
 import { formatTokens } from "./tui-formatters.js";
@@ -142,6 +143,82 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     }
   };
 
+  const checkProviderConfigured = (provider?: string): boolean => {
+    if (!provider) return false;
+    const p = provider.toLowerCase();
+    let key = "";
+    if (p.includes("deepseek")) key = process.env.DEEPSEEK_API_KEY ?? "";
+    else if (p.includes("openai")) key = process.env.OPENAI_API_KEY ?? "";
+    else if (p.includes("anthropic")) key = process.env.ANTHROPIC_API_KEY ?? "";
+    else if (p.includes("gemini")) key = process.env.GEMINI_API_KEY ?? "";
+    else return true;
+
+    if (!key || key.includes("placeholder") || key === "") return false;
+    return true;
+  };
+
+  const getProviderEnvVar = (provider: string): string | undefined => {
+    const p = provider.toLowerCase();
+    if (p.includes("deepseek")) return "DEEPSEEK_API_KEY";
+    if (p.includes("openai")) return "OPENAI_API_KEY";
+    if (p.includes("anthropic")) return "ANTHROPIC_API_KEY";
+    if (p.includes("gemini")) return "GEMINI_API_KEY";
+    return undefined;
+  };
+
+  const promptApiKey = async (provider: string, onDone: () => Promise<void>) => {
+    const title = `${provider} API Key`;
+    const overlay = createTextInputOverlay(tui, title);
+
+    overlay.onCommit = async (key: string) => {
+      try {
+        if (!key) {
+          chatLog.addSystem("API key cannot be empty");
+          tui.requestRender();
+          return;
+        }
+
+        const snapshot = (await client.getConfig()) as any;
+        const baseHash = snapshot.hash;
+
+        // Actually the protocol's Snapshot might have a hash.
+        // Let's assume the snapshot returned by getConfig has what we need.
+        const patch = {
+          models: {
+            providers: {
+              [provider.toLowerCase()]: {
+                apiKey: key,
+              },
+            },
+          },
+        };
+
+        await client.patchConfig({
+          raw: JSON.stringify(patch),
+          // baseHash: ... we could get this from config.get result if we added it to the Snapshot type
+          note: `Update ${provider} API key from TUI`,
+        });
+
+        chatLog.addSystem(`✅ ${provider} API key updated. Gateway restarting...`);
+        closeOverlay();
+        tui.requestRender();
+        await onDone();
+      } catch (err) {
+        chatLog.addSystem(`❌ Failed to update key: ${String(err)}`);
+        tui.requestRender();
+      }
+    };
+
+    overlay.onCancel = () => {
+      closeOverlay();
+      tui.requestRender();
+    };
+
+    openOverlay(overlay);
+    tui.setFocus(overlay.getEditor());
+    tui.requestRender();
+  };
+
   const openProviderSelector = async () => {
     try {
       const models = await client.listModels();
@@ -170,7 +247,9 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         .map((provider) => ({
           value: provider,
           label: provider,
-          description: "Select to auto-set default model",
+          description: checkProviderConfigured(provider)
+            ? "Configured"
+            : "⚠️ Unconfigured (Enter to set key)",
         }));
 
       // Add "Skip" option
@@ -191,31 +270,37 @@ export function createCommandHandlers(context: CommandHandlerContext) {
             return;
           }
 
-          // specific provider logic
-          const providerModels = models.filter((m) => m.provider === item.value);
-          if (providerModels.length === 0) {
-            chatLog.addSystem(`no models found for provider ${item.value}`);
+          const provider = item.value;
+          const isConfigured = checkProviderConfigured(provider);
+
+          const applyModel = async () => {
+            const providerModels = models.filter((m) => m.provider === provider);
+            if (providerModels.length === 0) {
+              chatLog.addSystem(`no models found for provider ${provider}`);
+              tui.requestRender();
+              return;
+            }
+
+            const selectedModel = providerModels[0];
+            try {
+              const modelRef = `${selectedModel.provider}/${selectedModel.id}`;
+              await client.patchSession({
+                key: state.currentSessionKey,
+                model: modelRef,
+              });
+              chatLog.addSystem(`provider set to ${provider}, model set to ${modelRef}`);
+              await refreshSessionInfo();
+            } catch (err) {
+              chatLog.addSystem(`provider set failed: ${String(err)}`);
+            }
             tui.requestRender();
-            return;
-          }
+          };
 
-          // Simple heuristic: take the first one or favor 'chat'
-          // Ideally we pick one that looks like a flagship, but first is fine for now
-          // If we have "deepseek-chat", that's great.
-          const selectedModel = providerModels[0];
-
-          try {
-            const modelRef = `${selectedModel.provider}/${selectedModel.id}`;
-            await client.patchSession({
-              key: state.currentSessionKey,
-              model: modelRef,
-            });
-            chatLog.addSystem(`provider set to ${item.value}, model set to ${modelRef}`);
-            await refreshSessionInfo();
-          } catch (err) {
-            chatLog.addSystem(`provider set failed: ${String(err)}`);
+          if (!isConfigured) {
+            await promptApiKey(provider, applyModel);
+          } else {
+            await applyModel();
           }
-          tui.requestRender();
         })();
       };
       selector.onCancel = () => {

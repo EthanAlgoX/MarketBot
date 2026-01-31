@@ -1,35 +1,101 @@
 {
-  agents: {
-    defaults: {
-      model: { primary: "deepseek/deepseek-chat"
-      },
-      models: {
-        "deepseek/deepseek-chat": {},
-        "deepseek/deepseek-reasoner": {}
-      }
-    }
-  },
-  models: {
-    mode: "merge",
-    providers: {
-      deepseek: {
-        baseUrl: "https://api.deepseek.com/v1",
-        apiKey: "${DEEPSEEK_API_KEY}",
-        api: "openai-completions",
-        models: [
-          { id: "deepseek-chat", name: "DeepSeek Chat"
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "deepseek": {
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKey": "sk-placeholder",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "name": "DeepSeek Chat",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
           },
-          { id: "deepseek-reasoner", name: "DeepSeek Reasoner", reasoning: true
+          {
+            "id": "deepseek-reasoner",
+            "name": "DeepSeek Reasoner",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
           }
         ]
       }
     }
   },
-  gateway: {
-    mode: "local",
-    auth: {
-      mode: "token",
-      token: "${MARKETBOT_GATEWAY_TOKEN}"
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "deepseek/deepseek-chat"
+      },
+      "models": {
+        "deepseek/deepseek-chat": {
+          "alias": "deepseek"
+        },
+        "deepseek/deepseek-reasoner": {
+          "alias": "deepseek-reasoner"
+        }
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      },
+      "workspace": "/Users/yunxuanhan/.marketbot/workspace"
     }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto"
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "9fd93dbe21dcb3a2886459771b359ca8aecd6786d409e3a2"
+    },
+    "port": 18789,
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    }
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "skills": {
+    "install": {
+      "nodeManager": "npm"
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-01-31T19:04:01.242Z",
+    "lastRunVersion": "2026.1.30",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.1.30",
+    "lastTouchedAt": "2026-01-31T19:04:01.243Z"
   }
 }

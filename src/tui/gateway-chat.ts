@@ -226,6 +226,17 @@ export class GatewayChatClient {
     return await this.client.request("status");
   }
 
+  async getConfig() {
+    return await this.client.request<import("../gateway/protocol/index.js").Snapshot>(
+      "config.get",
+      {},
+    );
+  }
+
+  async patchConfig(opts: import("../gateway/protocol/index.js").ConfigPatchParams) {
+    return await this.client.request("config.patch", opts);
+  }
+
   async listModels(): Promise<GatewayModelChoice[]> {
     const res = await this.client.request<{ models?: GatewayModelChoice[] }>("models.list");
     return Array.isArray(res?.models) ? res.models : [];
