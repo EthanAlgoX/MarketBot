@@ -37,3 +37,6 @@ DEV.md
 
 # Test coverage
 coverage/
+
+# Local workspace
+marketbot-workspace/
