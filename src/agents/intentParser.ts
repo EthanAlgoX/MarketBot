@@ -6,7 +6,7 @@ import type { IntentParsingOutput } from "../core/types.js";
 const INTENT_PARSER_PROMPT = `You are an intent parser for a market analysis system.
 Parse the user's query and extract:
 - asset: The asset being analyzed (e.g., BTC, ETH, AAPL)
-- market: One of "crypto", "forex", "stocks", "commodities"
+- market: One of "crypto", "forex", "stocks", "commodities", "futures"
 - analysis_goal: One of "entry_signal", "exit_signal", "risk_check", "general_analysis"
 - timeframes: Array of timeframes (e.g., ["1h", "4h", "1d"])
 - risk_tolerance: One of "low", "medium", "high"

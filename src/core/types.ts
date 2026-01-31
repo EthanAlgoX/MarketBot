@@ -4,7 +4,7 @@
 
 export interface IntentParsingOutput {
     asset: string;
-    market: "crypto" | "forex" | "stocks" | "commodities";
+    market: "crypto" | "forex" | "stocks" | "commodities" | "futures";
     analysis_goal: "entry_signal" | "exit_signal" | "risk_check" | "general_analysis";
     timeframes: string[];
     risk_tolerance: "low" | "medium" | "high";
