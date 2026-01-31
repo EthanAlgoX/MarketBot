@@ -152,10 +152,24 @@ Analyze this content and provide a structured JSON response.`;
             confidence: number;
         };
 
+        let marketData = parsed.marketData ? { ...parsed.marketData } : undefined;
+        if (input.priceSnapshot) {
+            const snapshot = input.priceSnapshot;
+            const currency = snapshot.currency ? ` ${snapshot.currency}` : "";
+            const priceType = snapshot.priceType ? ` (${snapshot.priceType})` : "";
+            const timestamp = snapshot.timestamp ? ` @ ${snapshot.timestamp}` : "";
+            const priceInfo = `${snapshot.price}${currency}${priceType}${timestamp}`;
+            if (marketData) {
+                marketData.priceInfo = priceInfo;
+            } else {
+                marketData = { priceInfo };
+            }
+        }
+
         return {
             summary: parsed.summary || "No summary available",
             keyFindings: parsed.keyFindings || [],
-            marketData: parsed.marketData,
+            marketData,
             priceSnapshot: input.priceSnapshot,
             sources,
             confidence: parsed.confidence || 0.5,
@@ -163,9 +177,14 @@ Analyze this content and provide a structured JSON response.`;
         };
     } catch {
         // Fallback: return raw content as summary
+        const fallbackMarketData = input.priceSnapshot
+            ? { priceInfo: `${input.priceSnapshot.price}${input.priceSnapshot.currency ? ` ${input.priceSnapshot.currency}` : ""}` }
+            : undefined;
+
         return {
             summary: response.content.slice(0, 500),
             keyFindings: [],
+            marketData: fallbackMarketData,
             priceSnapshot: input.priceSnapshot,
             sources,
             confidence: 0.3,

@@ -16,7 +16,8 @@ export async function webAnalyzeCommand(options: WebAnalyzeOptions): Promise<voi
     const provider = createProviderFromConfig(config);
 
     const query = options.query || options.asset;
-    const resolvedAsset = options.asset || (query ? resolveSymbolFromText(query) : undefined);
+    const assetHint = options.asset || query || "";
+    const resolvedAsset = resolveSymbolFromText(assetHint) || options.asset;
     if (!query) {
         console.error("Error: Please provide a query or asset to analyze.");
         console.log("Usage: marketbot web-analyze <query>");
