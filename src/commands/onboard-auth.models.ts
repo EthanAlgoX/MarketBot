@@ -34,6 +34,33 @@ export const MOONSHOT_DEFAULT_MAX_TOKENS = 8192;
 export const KIMI_CODING_MODEL_ID = "k2p5";
 export const KIMI_CODING_MODEL_REF = `kimi-coding/${KIMI_CODING_MODEL_ID}`;
 
+export const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+export const DEEPSEEK_DEFAULT_MODEL_ID = "deepseek-chat";
+export const DEEPSEEK_DEFAULT_MODEL_REF = `deepseek/${DEEPSEEK_DEFAULT_MODEL_ID}`;
+export const DEEPSEEK_DEFAULT_CONTEXT_WINDOW = 64000;
+export const DEEPSEEK_DEFAULT_MAX_TOKENS = 8192;
+export const DEEPSEEK_DEFAULT_COST = {
+  input: 0.14,
+  output: 0.28,
+  cacheRead: 0.014,
+  cacheWrite: 0.14,
+};
+
+export const GROQ_DEFAULT_MODEL_ID = "llama-3.1-70b-versatile";
+export const GROQ_DEFAULT_MODEL_REF = `groq/${GROQ_DEFAULT_MODEL_ID}`;
+
+export const MISTRAL_DEFAULT_MODEL_ID = "mistral-large-latest";
+export const MISTRAL_DEFAULT_MODEL_REF = `mistral/${MISTRAL_DEFAULT_MODEL_ID}`;
+
+export const CEREBRAS_DEFAULT_MODEL_ID = "llama3.1-70b";
+export const CEREBRAS_DEFAULT_MODEL_REF = `cerebras/${CEREBRAS_DEFAULT_MODEL_ID}`;
+
+export const XAI_DEFAULT_MODEL_ID = "grok-beta";
+export const XAI_DEFAULT_MODEL_REF = `xai/${XAI_DEFAULT_MODEL_ID}`;
+
+export const XIAOMI_DEFAULT_MODEL_ID = "mimo-v2-flash";
+export const XIAOMI_DEFAULT_MODEL_REF = `xiaomi/${XIAOMI_DEFAULT_MODEL_ID}`;
+
 // Pricing: MiniMax doesn't publish public rates. Override in models.json for accurate costs.
 export const MINIMAX_API_COST = {
   input: 15,
@@ -108,5 +135,77 @@ export function buildMoonshotModelDefinition(): ModelDefinitionConfig {
     cost: MOONSHOT_DEFAULT_COST,
     contextWindow: MOONSHOT_DEFAULT_CONTEXT_WINDOW,
     maxTokens: MOONSHOT_DEFAULT_MAX_TOKENS,
+  };
+}
+
+export function buildDeepseekModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: DEEPSEEK_DEFAULT_MODEL_ID,
+    name: "DeepSeek Chat",
+    reasoning: false,
+    input: ["text"],
+    cost: DEEPSEEK_DEFAULT_COST,
+    contextWindow: DEEPSEEK_DEFAULT_CONTEXT_WINDOW,
+    maxTokens: DEEPSEEK_DEFAULT_MAX_TOKENS,
+  };
+}
+
+export function buildGroqModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: GROQ_DEFAULT_MODEL_ID,
+    name: "Llama 3.1 70B Versatile",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0.59, output: 0.79, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
+    maxTokens: 8192,
+  };
+}
+
+export function buildMistralModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: MISTRAL_DEFAULT_MODEL_ID,
+    name: "Mistral Large Latest",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 2, output: 6, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
+    maxTokens: 8192,
+  };
+}
+
+export function buildCerebrasModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: CEREBRAS_DEFAULT_MODEL_ID,
+    name: "Llama 3.1 70B",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0.1, output: 0.1, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 8192,
+    maxTokens: 4096,
+  };
+}
+
+export function buildXaiModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: XAI_DEFAULT_MODEL_ID,
+    name: "Grok Beta",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 5, output: 15, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
+    maxTokens: 8192,
+  };
+}
+
+export function buildXiaomiModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: XIAOMI_DEFAULT_MODEL_ID,
+    name: "Xiaomi Mimo V2 Flash",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0.1, output: 0.3, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 262144,
+    maxTokens: 8192,
   };
 }

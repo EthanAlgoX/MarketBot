@@ -156,14 +156,14 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     else if (p.includes("anthropic")) envKey = process.env.ANTHROPIC_API_KEY ?? "";
     else if (p.includes("gemini")) envKey = process.env.GEMINI_API_KEY ?? "";
 
-    const envIsPlaceholder = envKey.includes("placeholder");
+    const envIsPlaceholder = /placeholder/i.test(envKey);
 
     // Check config
     let configKey = "";
     if (cfg?.models?.providers) {
       configKey = cfg.models.providers[p]?.apiKey ?? "";
     }
-    const configIsReal = configKey && !configKey.includes("placeholder");
+    const configIsReal = configKey && !/placeholder/i.test(configKey);
 
     if (configIsReal) {
       if (envIsPlaceholder) {

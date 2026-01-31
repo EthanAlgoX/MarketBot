@@ -49,6 +49,16 @@ import {
   applyXiaomiConfig,
   applyXiaomiProviderConfig,
   applyZaiConfig,
+  applyDeepseekConfig,
+  applyDeepseekProviderConfig,
+  applyGroqConfig,
+  applyGroqProviderConfig,
+  applyMistralConfig,
+  applyMistralProviderConfig,
+  applyCerebrasConfig,
+  applyCerebrasProviderConfig,
+  applyXaiConfig,
+  applyXaiProviderConfig,
   KIMI_CODING_MODEL_REF,
   MOONSHOT_DEFAULT_MODEL_REF,
   OPENROUTER_DEFAULT_MODEL_REF,
@@ -59,6 +69,10 @@ import {
   setGeminiApiKey,
   setKimiCodingApiKey,
   setMoonshotApiKey,
+  setGroqApiKey,
+  setMistralApiKey,
+  setCerebrasApiKey,
+  setXaiApiKey,
   setOpencodeZenApiKey,
   setOpenrouterApiKey,
   setSyntheticApiKey,
@@ -66,6 +80,12 @@ import {
   setVercelAiGatewayApiKey,
   setXiaomiApiKey,
   setZaiApiKey,
+  setDeepseekApiKey,
+  DEEPSEEK_DEFAULT_MODEL_REF,
+  GROQ_DEFAULT_MODEL_REF,
+  MISTRAL_DEFAULT_MODEL_REF,
+  CEREBRAS_DEFAULT_MODEL_REF,
+  XAI_DEFAULT_MODEL_REF,
   ZAI_DEFAULT_MODEL_REF,
 } from "./onboard-auth.js";
 import { OPENCODE_ZEN_DEFAULT_MODEL } from "./opencode-zen-model-default.js";
@@ -115,6 +135,16 @@ export async function applyAuthChoiceApiProviders(
       authChoice = "venice-api-key";
     } else if (params.opts.tokenProvider === "opencode") {
       authChoice = "opencode-zen";
+    } else if (params.opts.tokenProvider === "deepseek") {
+      authChoice = "deepseek-api-key";
+    } else if (params.opts.tokenProvider === "groq") {
+      authChoice = "groq-api-key";
+    } else if (params.opts.tokenProvider === "mistral") {
+      authChoice = "mistral-api-key";
+    } else if (params.opts.tokenProvider === "cerebras") {
+      authChoice = "cerebras-api-key";
+    } else if (params.opts.tokenProvider === "xai") {
+      authChoice = "xai-api-key";
     }
   }
 
@@ -286,6 +316,266 @@ export async function applyAuthChoiceApiProviders(
         defaultModel: MOONSHOT_DEFAULT_MODEL_REF,
         applyDefaultConfig: applyMoonshotConfig,
         applyProviderConfig: applyMoonshotProviderConfig,
+        noteAgentModel,
+        prompter: params.prompter,
+      });
+      nextConfig = applied.config;
+      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
+    }
+    return { config: nextConfig, agentModelOverride };
+  }
+
+  if (authChoice === "deepseek-api-key") {
+    let hasCredential = false;
+
+    if (!hasCredential && params.opts?.token && params.opts?.tokenProvider === "deepseek") {
+      await setDeepseekApiKey(normalizeApiKeyInput(params.opts.token), params.agentDir);
+      hasCredential = true;
+    }
+
+    if (!hasCredential) {
+      const envKey = resolveEnvApiKey("deepseek");
+      if (envKey) {
+        const useExisting = await params.prompter.confirm({
+          message: `Use existing DEEPSEEK_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
+          initialValue: true,
+        });
+        if (useExisting) {
+          await setDeepseekApiKey(envKey.apiKey, params.agentDir);
+          hasCredential = true;
+        }
+      }
+    }
+
+    if (!hasCredential) {
+      const key = await params.prompter.text({
+        message: "Enter DeepSeek API key",
+        validate: validateApiKeyInput,
+      });
+      await setDeepseekApiKey(normalizeApiKeyInput(String(key)), params.agentDir);
+      hasCredential = true;
+    }
+
+    if (hasCredential) {
+      nextConfig = applyAuthProfileConfig(nextConfig, {
+        profileId: "deepseek:default",
+        provider: "deepseek",
+        mode: "api_key",
+      });
+    }
+
+    {
+      const applied = await applyDefaultModelChoice({
+        config: nextConfig,
+        setDefaultModel: params.setDefaultModel,
+        defaultModel: DEEPSEEK_DEFAULT_MODEL_REF,
+        applyDefaultConfig: applyDeepseekConfig,
+        applyProviderConfig: applyDeepseekProviderConfig,
+        noteDefault: DEEPSEEK_DEFAULT_MODEL_REF,
+        noteAgentModel,
+        prompter: params.prompter,
+      });
+      nextConfig = applied.config;
+      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
+    }
+    return { config: nextConfig, agentModelOverride };
+  }
+
+  if (authChoice === "groq-api-key") {
+    let hasCredential = false;
+    if (!hasCredential && params.opts?.token && params.opts?.tokenProvider === "groq") {
+      await setGroqApiKey(normalizeApiKeyInput(params.opts.token), params.agentDir);
+      hasCredential = true;
+    }
+    if (!hasCredential) {
+      const envKey = resolveEnvApiKey("groq");
+      if (envKey) {
+        const useExisting = await params.prompter.confirm({
+          message: `Use existing GROQ_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
+          initialValue: true,
+        });
+        if (useExisting) {
+          await setGroqApiKey(envKey.apiKey, params.agentDir);
+          hasCredential = true;
+        }
+      }
+    }
+    if (!hasCredential) {
+      const key = await params.prompter.text({
+        message: "Enter Groq API key",
+        validate: validateApiKeyInput,
+      });
+      await setGroqApiKey(normalizeApiKeyInput(String(key)), params.agentDir);
+      hasCredential = true;
+    }
+    if (hasCredential) {
+      nextConfig = applyAuthProfileConfig(nextConfig, {
+        profileId: "groq:default",
+        provider: "groq",
+        mode: "api_key",
+      });
+    }
+    {
+      const applied = await applyDefaultModelChoice({
+        config: nextConfig,
+        setDefaultModel: params.setDefaultModel,
+        defaultModel: GROQ_DEFAULT_MODEL_REF,
+        applyDefaultConfig: applyGroqConfig,
+        applyProviderConfig: applyGroqProviderConfig,
+        noteDefault: GROQ_DEFAULT_MODEL_REF,
+        noteAgentModel,
+        prompter: params.prompter,
+      });
+      nextConfig = applied.config;
+      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
+    }
+    return { config: nextConfig, agentModelOverride };
+  }
+
+  if (authChoice === "mistral-api-key") {
+    let hasCredential = false;
+    if (!hasCredential && params.opts?.token && params.opts?.tokenProvider === "mistral") {
+      await setMistralApiKey(normalizeApiKeyInput(params.opts.token), params.agentDir);
+      hasCredential = true;
+    }
+    if (!hasCredential) {
+      const envKey = resolveEnvApiKey("mistral");
+      if (envKey) {
+        const useExisting = await params.prompter.confirm({
+          message: `Use existing MISTRAL_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
+          initialValue: true,
+        });
+        if (useExisting) {
+          await setMistralApiKey(envKey.apiKey, params.agentDir);
+          hasCredential = true;
+        }
+      }
+    }
+    if (!hasCredential) {
+      const key = await params.prompter.text({
+        message: "Enter Mistral AI API key",
+        validate: validateApiKeyInput,
+      });
+      await setMistralApiKey(normalizeApiKeyInput(String(key)), params.agentDir);
+      hasCredential = true;
+    }
+    if (hasCredential) {
+      nextConfig = applyAuthProfileConfig(nextConfig, {
+        profileId: "mistral:default",
+        provider: "mistral",
+        mode: "api_key",
+      });
+    }
+    {
+      const applied = await applyDefaultModelChoice({
+        config: nextConfig,
+        setDefaultModel: params.setDefaultModel,
+        defaultModel: MISTRAL_DEFAULT_MODEL_REF,
+        applyDefaultConfig: applyMistralConfig,
+        applyProviderConfig: applyMistralProviderConfig,
+        noteDefault: MISTRAL_DEFAULT_MODEL_REF,
+        noteAgentModel,
+        prompter: params.prompter,
+      });
+      nextConfig = applied.config;
+      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
+    }
+    return { config: nextConfig, agentModelOverride };
+  }
+
+  if (authChoice === "cerebras-api-key") {
+    let hasCredential = false;
+    if (!hasCredential && params.opts?.token && params.opts?.tokenProvider === "cerebras") {
+      await setCerebrasApiKey(normalizeApiKeyInput(params.opts.token), params.agentDir);
+      hasCredential = true;
+    }
+    if (!hasCredential) {
+      const envKey = resolveEnvApiKey("cerebras");
+      if (envKey) {
+        const useExisting = await params.prompter.confirm({
+          message: `Use existing CEREBRAS_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
+          initialValue: true,
+        });
+        if (useExisting) {
+          await setCerebrasApiKey(envKey.apiKey, params.agentDir);
+          hasCredential = true;
+        }
+      }
+    }
+    if (!hasCredential) {
+      const key = await params.prompter.text({
+        message: "Enter Cerebras API key",
+        validate: validateApiKeyInput,
+      });
+      await setCerebrasApiKey(normalizeApiKeyInput(String(key)), params.agentDir);
+      hasCredential = true;
+    }
+    if (hasCredential) {
+      nextConfig = applyAuthProfileConfig(nextConfig, {
+        profileId: "cerebras:default",
+        provider: "cerebras",
+        mode: "api_key",
+      });
+    }
+    {
+      const applied = await applyDefaultModelChoice({
+        config: nextConfig,
+        setDefaultModel: params.setDefaultModel,
+        defaultModel: CEREBRAS_DEFAULT_MODEL_REF,
+        applyDefaultConfig: applyCerebrasConfig,
+        applyProviderConfig: applyCerebrasProviderConfig,
+        noteDefault: CEREBRAS_DEFAULT_MODEL_REF,
+        noteAgentModel,
+        prompter: params.prompter,
+      });
+      nextConfig = applied.config;
+      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
+    }
+    return { config: nextConfig, agentModelOverride };
+  }
+
+  if (authChoice === "xai-api-key") {
+    let hasCredential = false;
+    if (!hasCredential && params.opts?.token && params.opts?.tokenProvider === "xai") {
+      await setXaiApiKey(normalizeApiKeyInput(params.opts.token), params.agentDir);
+      hasCredential = true;
+    }
+    if (!hasCredential) {
+      const envKey = resolveEnvApiKey("xai");
+      if (envKey) {
+        const useExisting = await params.prompter.confirm({
+          message: `Use existing XAI_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
+          initialValue: true,
+        });
+        if (useExisting) {
+          await setXaiApiKey(envKey.apiKey, params.agentDir);
+          hasCredential = true;
+        }
+      }
+    }
+    if (!hasCredential) {
+      const key = await params.prompter.text({
+        message: "Enter xAI API key",
+        validate: validateApiKeyInput,
+      });
+      await setXaiApiKey(normalizeApiKeyInput(String(key)), params.agentDir);
+      hasCredential = true;
+    }
+    if (hasCredential) {
+      nextConfig = applyAuthProfileConfig(nextConfig, {
+        profileId: "xai:default",
+        provider: "xai",
+        mode: "api_key",
+      });
+    }
+    {
+      const applied = await applyDefaultModelChoice({
+        config: nextConfig,
+        setDefaultModel: params.setDefaultModel,
+        defaultModel: XAI_DEFAULT_MODEL_REF,
+        applyDefaultConfig: applyXaiConfig,
+        applyProviderConfig: applyXaiProviderConfig,
+        noteDefault: XAI_DEFAULT_MODEL_REF,
         noteAgentModel,
         prompter: params.prompter,
       });

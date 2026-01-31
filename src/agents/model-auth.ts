@@ -257,7 +257,7 @@ export function resolveEnvApiKey(provider: string): EnvApiKeyResult | null {
   const applied = new Set(getShellEnvAppliedKeys());
   const pick = (envVar: string): EnvApiKeyResult | null => {
     const value = process.env[envVar]?.trim();
-    if (!value || value.includes("placeholder")) {
+    if (!value || /placeholder/i.test(value)) {
       return null;
     }
     const source = applied.has(envVar) ? `shell env: ${envVar}` : `env: ${envVar}`;
@@ -282,7 +282,7 @@ export function resolveEnvApiKey(provider: string): EnvApiKeyResult | null {
 
   if (normalized === "google-vertex") {
     const envKey = getEnvApiKey(normalized);
-    if (!envKey) {
+    if (!envKey || /placeholder/i.test(envKey)) {
       return null;
     }
     return { apiKey: envKey, source: "gcloud adc" };
