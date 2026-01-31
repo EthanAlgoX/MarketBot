@@ -5,6 +5,7 @@ import { ensureWorkspace, readWorkspaceContext } from "./workspace.js";
 import { loadSkills } from "../skills/registry.js";
 import { buildSkillStatus } from "../skills/status.js";
 import { ensureSkillsWatcher, getSkillsSnapshotVersion } from "../skills/refresh.js";
+import { createDefaultToolRegistry } from "../tools/registry.js";
 
 const cachedPrompts = new Map<string, string>();
 
@@ -27,6 +28,8 @@ export async function getSystemPrompt(options: SystemPromptOptions = {}): Promis
   const cached = cachedPrompts.get(cacheKey);
   if (cached) return cached;
 
+  const toolsBlock = buildToolsBlock();
+
   const statusReport = await buildSkillStatus(config, { agentId, cwd });
   const eligiblePaths = new Set(
     statusReport.skills
@@ -36,34 +39,61 @@ export async function getSystemPrompt(options: SystemPromptOptions = {}): Promis
   const skills = (await loadSkills(config, agentId, cwd)).filter((skill) =>
     eligiblePaths.has(skill.location),
   );
-  const skillsBlock = skills.length
-    ? [
-        "",
-        "## Skills",
-        ...skills.map((skill) => {
-          const description = skill.description ? ` - ${skill.description}` : "";
-          const content = skill.content ? `\n${skill.content}` : "";
-          return `### ${skill.name}${description}\n${skill.location}${content}`;
-        }),
-        "",
-      ].join("\n")
-    : "";
+  const skillsBlock = skills.length ? buildSkillsBlock(skills) : "";
 
   const contextFiles = await readWorkspaceContext(workspaceDir);
   const contextBlock = contextFiles.length
     ? [
-        "",
         "## Workspace Context",
         ...contextFiles.map((entry) => `### ${entry.name}\n${entry.content}`),
-        "",
-      ].join("\n")
+      ].join("\n\n")
     : "";
 
-  const prompt = `${BASE_SYSTEM_PROMPT}${skillsBlock}${contextBlock}`;
+  const workspaceBlock = `## Workspace\n${workspaceDir}`;
+  const runtimeBlock = buildRuntimeBlock();
+
+  const promptSections = [
+    BASE_SYSTEM_PROMPT,
+    toolsBlock,
+    skillsBlock,
+    workspaceBlock,
+    runtimeBlock,
+    contextBlock,
+  ].filter(Boolean);
+
+  const prompt = promptSections.join("\n\n");
   cachedPrompts.set(cacheKey, prompt);
   return prompt;
 }
 
 export function clearSystemPromptCache() {
   cachedPrompts.clear();
+}
+
+function buildToolsBlock(): string {
+  const registry = createDefaultToolRegistry();
+  const tools = registry.list();
+  if (tools.length === 0) return "";
+  const lines = ["## Tools"];
+  for (const tool of tools) {
+    const description = tool.description ? ` - ${tool.description}` : "";
+    lines.push(`- ${tool.name}${description}`);
+  }
+  return lines.join("\n");
+}
+
+function buildSkillsBlock(skills: Array<{ name: string; description?: string; location: string }>): string {
+  const lines = ["## Skills"];
+  for (const skill of skills) {
+    const description = skill.description ? ` - ${skill.description}` : "";
+    lines.push(`- ${skill.name}${description} (location: ${skill.location})`);
+  }
+  return lines.join("\n");
+}
+
+function buildRuntimeBlock(): string {
+  const node = process.version;
+  const platform = process.platform;
+  const arch = process.arch;
+  return `## Runtime\nnode ${node} (${platform}/${arch})`;
 }

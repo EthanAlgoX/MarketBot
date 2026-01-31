@@ -8,6 +8,7 @@ export interface AgentEntry {
   name?: string;
   workspace?: string;
   default?: boolean;
+  tools?: MarketBotConfig["tools"];
 }
 
 export function normalizeAgentId(id?: string): string {

@@ -1,3 +1,6 @@
+import type { MarketBotConfig } from "../config/types.js";
+import { resolveAgentConfig } from "../agents/agentScope.js";
+
 export type ToolProfileId = "minimal" | "analysis" | "full";
 
 export type ToolPolicyConfig = {
@@ -19,6 +22,30 @@ export const TOOL_PROFILES: Record<ToolProfileId, string[]> = {
     "report_render",
   ],
 };
+
+export function resolveToolPolicy(config: MarketBotConfig, agentId?: string): ToolPolicyConfig | undefined {
+  const base = config.tools;
+  if (!agentId) return base;
+  const agentTools = resolveAgentConfig(config, agentId)?.tools;
+  if (!agentTools) return base;
+  return mergeToolPolicies(base, agentTools);
+}
+
+export function mergeToolPolicies(
+  base: ToolPolicyConfig | undefined,
+  override: ToolPolicyConfig | undefined,
+): ToolPolicyConfig | undefined {
+  if (!override && !base) return undefined;
+  if (!override) return base;
+  if (!base) return override;
+
+  return {
+    allow: override.allow !== undefined ? override.allow : base.allow,
+    profile: override.profile ?? base.profile,
+    alsoAllow: [...(base.alsoAllow ?? []), ...(override.alsoAllow ?? [])],
+    deny: [...(base.deny ?? []), ...(override.deny ?? [])],
+  };
+}
 
 export function resolveToolAllowlist(
   policy: ToolPolicyConfig | undefined,

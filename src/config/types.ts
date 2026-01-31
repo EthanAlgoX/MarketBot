@@ -37,6 +37,18 @@ export interface MarketBotConfig {
     deny?: string[];
     profile?: "minimal" | "analysis" | "full";
   };
+  sessions?: {
+    enabled?: boolean;
+    dir?: string;
+    maxEntries?: number;
+    maxEntryChars?: number;
+    contextMaxChars?: number;
+    includeContext?: boolean;
+  };
+  server?: {
+    host?: string;
+    port?: number;
+  };
   llm?: {
     provider?: "mock" | "openai-compatible";
     model?: string;
@@ -47,44 +59,4 @@ export interface MarketBotConfig {
     jsonMode?: boolean;
     headers?: Record<string, string>;
   };
-  web?: {
-    search?: {
-      enabled?: boolean;
-      provider?: "perplexity" | "browser";
-      apiKey?: string;
-      apiKeyEnv?: string;
-      baseUrl?: string;
-      model?: string;
-      maxResults?: number;
-      timeoutSeconds?: number;
-      cacheTtlMinutes?: number;
-      headless?: boolean;
-    };
-    fetch?: {
-      enabled?: boolean;
-      maxChars?: number;
-      maxRedirects?: number;
-      timeoutSeconds?: number;
-      cacheTtlMinutes?: number;
-      userAgent?: string;
-    };
-  };
-
-  notification?: {
-    wechat?: {
-      webhookUrl?: string;
-    };
-    feishu?: {
-      webhookUrl?: string;
-    };
-    telegram?: {
-      botToken?: string;
-      chatId?: string;
-    };
-    webhook?: {
-      url?: string;
-      bearerToken?: string;
-    };
-  };
 }
-

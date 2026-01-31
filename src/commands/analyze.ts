@@ -2,7 +2,8 @@ import { runMarketBot } from "../core/pipeline.js";
 import { readStdin } from "../core/stdio.js";
 import type { CliDeps } from "../cli/deps.js";
 import { loadConfig } from "../config/io.js";
-import { resolveAgentConfig } from "../agents/agentScope.js";
+import { resolveAgentConfig, resolveDefaultAgentId } from "../agents/agentScope.js";
+import { SessionStore } from "../session/store.js";
 
 export type AnalyzeCommandOptions = {
   query?: string;
@@ -13,6 +14,7 @@ export type AnalyzeCommandOptions = {
   search?: boolean;
   scrape?: boolean;
   agentId?: string;
+  sessionKey?: string;
 };
 
 export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps): Promise<void> {
@@ -31,6 +33,9 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
   const dataOptions = mode || enableSearch ? { mode, enableSearch } : undefined;
 
   const config = await loadConfig(process.cwd(), { validate: true });
+  const defaultAgentId = resolveDefaultAgentId(config);
+  const agentId = opts.agentId ?? defaultAgentId;
+
   if (opts.agentId) {
     const entry = resolveAgentConfig(config, opts.agentId);
     if (config.agents?.list && !entry) {
@@ -40,12 +45,31 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
 
   const provider = deps.createProvider(config);
 
+  const sessionEnabled = config.sessions?.enabled !== false;
+  const sessionKey = opts.sessionKey?.trim() || `agent:${agentId}:main`;
+  const sessionStore = sessionEnabled
+    ? new SessionStore({
+        agentId,
+        stateDir: config.sessions?.dir,
+        maxEntries: config.sessions?.maxEntries,
+        maxEntryChars: config.sessions?.maxEntryChars,
+        contextMaxChars: config.sessions?.contextMaxChars,
+      })
+    : undefined;
+
   const outputs = await runMarketBot({
     userQuery,
     dataOptions,
-    agentId: opts.agentId,
+    agentId: agentId,
     dataService: { getMarketDataFromIntent: deps.getMarketDataFromIntent },
     provider,
+    session: sessionStore
+      ? {
+          key: sessionKey,
+          store: sessionStore,
+          includeContext: config.sessions?.includeContext,
+        }
+      : undefined,
   });
 
   if (opts.json) {

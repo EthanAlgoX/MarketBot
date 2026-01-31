@@ -8,6 +8,7 @@ import { loadSkills } from "./registry.js";
 import { parseSkillMetadata } from "./eligibility/parser.js";
 import { checkEligibility } from "./eligibility/checker.js";
 import { resolveAllowlist, resolveDenylist, resolveSkillConfig } from "./config.js";
+import { ensureSkillsWatcher, getSkillsSnapshotVersion } from "./refresh.js";
 
 export interface SkillStatusEntry {
   name: string;
@@ -32,14 +33,24 @@ export interface SkillStatusReport {
   managedSkillsDir: string;
 }
 
+const statusCache = new Map<string, { version: number; report: SkillStatusReport }>();
+
 export async function buildSkillStatus(
   config: MarketBotConfig,
-  options: { agentId?: string; cwd?: string } = {},
+  options: { agentId?: string; cwd?: string; refresh?: boolean } = {},
 ): Promise<SkillStatusReport> {
   const agentId = options.agentId ?? resolveDefaultAgentId(config);
   const cwd = options.cwd ?? process.cwd();
   const workspaceDir = resolveAgentWorkspaceDir(config, agentId, cwd);
   const managedSkillsDir = resolveManagedSkillsDir(config);
+
+  ensureSkillsWatcher({ config, agentId, cwd });
+  const version = getSkillsSnapshotVersion(workspaceDir);
+  const cacheKey = `${cwd}::${agentId}`;
+  const cached = statusCache.get(cacheKey);
+  if (cached && cached.version === version && !options.refresh) {
+    return cached.report;
+  }
 
   const skills = await loadSkills(config, agentId, cwd);
   const entries: SkillStatusEntry[] = [];
@@ -80,11 +91,18 @@ export async function buildSkillStatus(
     });
   }
 
-  return {
+  const report = {
     skills: entries,
     workspaceDir,
     managedSkillsDir,
-  };
+  } satisfies SkillStatusReport;
+
+  statusCache.set(cacheKey, { version, report });
+  return report;
+}
+
+export function clearSkillStatusCache() {
+  statusCache.clear();
 }
 
 async function readSkillContent(filePath: string): Promise<string> {

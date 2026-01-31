@@ -112,3 +112,31 @@ export interface ReportContext {
     risk: RiskAssessmentOutput;
     reflection: ReflectionOutput;
 }
+
+// ========== Agent Run Trace ==========
+
+export type MarketBotRunPhase = "intent" | "market_data" | "interpret" | "regime" | "risk" | "reflection" | "report";
+
+export interface MarketBotRunPhaseEvent {
+    phase: MarketBotRunPhase;
+    status: "start" | "end" | "error";
+    startedAt: string;
+    endedAt?: string;
+    durationMs?: number;
+    error?: string;
+}
+
+export interface MarketBotRunPhaseResult {
+    phase: MarketBotRunPhase;
+    startedAt: string;
+    endedAt: string;
+    durationMs: number;
+    ok: boolean;
+    error?: string;
+}
+
+export interface MarketBotRunTrace {
+    startedAt: string;
+    endedAt: string;
+    phases: MarketBotRunPhaseResult[];
+}

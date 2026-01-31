@@ -6,6 +6,12 @@ export const AgentSchema = z
     name: z.string().optional(),
     workspace: z.string().optional(),
     default: z.boolean().optional(),
+    tools: z.object({
+      allow: z.array(z.string()).optional(),
+      alsoAllow: z.array(z.string()).optional(),
+      deny: z.array(z.string()).optional(),
+      profile: z.enum(["minimal", "analysis", "full"]).optional(),
+    }).optional(),
   })
   .passthrough();
 
@@ -52,6 +58,24 @@ export const MarketBotConfigSchema = z
         alsoAllow: z.array(z.string()).optional(),
         deny: z.array(z.string()).optional(),
         profile: z.enum(["minimal", "analysis", "full"]).optional(),
+      })
+      .passthrough()
+      .optional(),
+    sessions: z
+      .object({
+        enabled: z.boolean().optional(),
+        dir: z.string().optional(),
+        maxEntries: z.number().int().positive().optional(),
+        maxEntryChars: z.number().int().positive().optional(),
+        contextMaxChars: z.number().int().positive().optional(),
+        includeContext: z.boolean().optional(),
+      })
+      .passthrough()
+      .optional(),
+    server: z
+      .object({
+        host: z.string().optional(),
+        port: z.number().int().positive().optional(),
       })
       .passthrough()
       .optional(),
