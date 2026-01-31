@@ -10,7 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green)](https://nodejs.org/)
 
-MarketBot Finance is an autonomous AI agent designed for financial analysis and market intelligence. It operates across multiple messaging platforms (Discord, Telegram, Signal, Slack, WhatsApp, iMessage) and provides deep reasoning capabilities through a multi-agent architecture.
+MarketBot Finance is an autonomous AI agent designed for financial analysis and market intelligence. It operates across multiple messaging platforms and provides deep reasoning capabilities through a multi-agent architecture.
 
 ---
 
@@ -29,22 +29,23 @@ graph TB
     end
 
     subgraph Core["🧠 Core"]
-        Gateway[Gateway]
+        Gateway[Gateway Server]
+        AutoReply[Auto-Reply Engine]
         Agents[Multi-Agent Reasoning]
         Memory[Memory & Context]
     end
 
     subgraph Tools["🔧 Tools"]
         Browser[Browser Automation]
-        Skills[Skills & Plugins]
-        Media[Media Understanding]
+        Skills[Skills System]
+        Plugins[Plugins]
     end
 
     Channels --> Gateway
-    Gateway --> Agents
-    Agents --> Memory
-    Agents --> Tools
-    Tools --> Agents
+    Gateway --> AutoReply
+    AutoReply --> Agents
+    Agents <--> Memory
+    Agents <--> Tools
     Agents --> Gateway
     Gateway --> Channels
 ```
@@ -55,11 +56,12 @@ graph TB
 
 | Component | Description |
 |-----------|-------------|
-| **Gateway** | Central message routing and channel orchestration |
-| **Agents** | Multi-agent LLM reasoning with financial specialization |
-| **Channels** | Discord, Telegram, Signal, Slack, WhatsApp, iMessage integrations |
-| **Browser** | Headless browser for web research and data scraping |
-| **Skills** | Extensible plugin system for custom analysis workflows |
+| **Gateway** | Central message routing, WebSocket server, session management |
+| **Agents** | Multi-agent LLM orchestration with model selection and failover |
+| **Auto-Reply** | Automated response logic and templating engine |
+| **Channels** | Discord, Telegram, Signal, Slack, WhatsApp, iMessage, LINE, Web |
+| **Browser** | Headless browser automation for web research |
+| **Skills** | 55+ extensible plugins (market-report, github, coding-agent, etc.) |
 | **Daemon** | Background service management and scheduling |
 | **TUI/CLI** | Interactive terminal interface and command-line tools |
 | **Web UI** | Dashboard for configuration and monitoring |
@@ -111,21 +113,26 @@ Key environment variables:
 
 ---
 
-## Skills & Extensibility
+## Skills
 
-MarketBot supports a modular skill system. Browse available skills:
+MarketBot supports 55+ extensible skills:
+
+| Category | Skills |
+|----------|--------|
+| **Finance** | market-report, catalyst-tracker |
+| **Productivity** | notion, obsidian, apple-notes, trello |
+| **Development** | github, coding-agent, skill-creator |
+| **Communication** | discord, slack, telegram |
+| **Media** | video-frames, openai-whisper, camsnap |
+| **Utilities** | weather, 1password, tmux |
 
 ```bash
+# List available skills
 pnpm cli skills list
-```
 
-Install a skill:
-
-```bash
+# Install a skill
 pnpm cli skills install <skill-name>
 ```
-
-Create custom skills in the `skills/` directory following the plugin SDK.
 
 ---
 
