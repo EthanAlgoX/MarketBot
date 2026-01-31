@@ -7,8 +7,18 @@ import { transformSeriesToMarketData } from "../data/marketDataTransform.js";
 import type { MarketSeries } from "../data/types.js";
 import type { ToolContext, ToolResult, ToolSpec } from "./types.js";
 
+import { tradingSignalTools } from "../skills/trading/signal.js";
+import { portfolioTools } from "../skills/portfolio/tracker.js";
+
 export function createMarketBotTools(): ToolSpec[] {
-  return [marketFetchTool(), indicatorsComputeTool(), reportRenderTool(), marketSummaryTool()];
+  return [
+    marketFetchTool(),
+    indicatorsComputeTool(),
+    reportRenderTool(),
+    marketSummaryTool(),
+    ...tradingSignalTools(),
+    ...portfolioTools()
+  ];
 }
 
 function marketFetchTool(): ToolSpec {

@@ -16,11 +16,20 @@ You have access to the following tools:
 - indicators_compute: Compute market indicators from OHLCV series
 - report_render: Generate a full analysis report
 - market_summary: Create a concise market summary
+- signal_analyze: Generate technical trading signals (Buy/Sell/Hold) based on market data
+- portfolio_add: Add an asset to the portfolio
+- portfolio_remove: Remove an asset from the portfolio
+- portfolio_status: Get current portfolio status
 
 When a user asks for analysis:
 1. First use market_fetch to get the latest market data
 2. Analyze the data and generate insights
-3. Provide a clear, actionable response
+3. Use signal_analyze if trading advice is requested
+4. Provide a clear, actionable response
+
+When a user asks about portfolio:
+1. Use portfolio_status to check current holdings
+2. Use portfolio_add/remove to manage assets if requested
 
 Always explain your reasoning and provide specific recommendations when appropriate.`;
 

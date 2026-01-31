@@ -62,19 +62,16 @@ export class MockProvider implements LLMProvider {
         const toolNames = tools.map(t => t.function.name);
 
         // Simulate tool calling behavior for market analysis
-        if ((lowerPrompt.includes("分析") || lowerPrompt.includes("analyze")) &&
-            toolNames.includes("market_fetch")) {
-            // Extract asset from query
-            let asset = "BTC";
-            if (lowerPrompt.includes("google") || lowerPrompt.includes("googl")) {
-                asset = "GOOGL";
-            } else if (lowerPrompt.includes("btc") || lowerPrompt.includes("bitcoin")) {
-                asset = "BTC";
-            } else if (lowerPrompt.includes("eth") || lowerPrompt.includes("ethereum")) {
-                asset = "ETH";
-            }
+        // Only trigger if last message is from user (prevent loops on tool outputs)
+        const isUserMessage = lastMessage?.role === "user";
 
-            const market = ["GOOGL", "AAPL", "MSFT", "TSLA"].includes(asset) ? "stocks" : "crypto";
+        if (isUserMessage && (lowerPrompt.includes("分析") || lowerPrompt.includes("analyze")) &&
+            toolNames.includes("market_fetch")) {
+            // Extract asset from query (e.g., BTC, GOOGL, ETH)
+            const assetMatch = prompt.match(/\b(BTC|ETH|SOL|AAPL|GOOGL|TSLA|NVDA|SPY)\b/i);
+            const asset = assetMatch ? assetMatch[0].toUpperCase() : "BTC";
+
+            const market = asset === "BTC" || asset === "ETH" || asset === "SOL" ? "crypto" : "stock";
 
             return {
                 content: null,
@@ -89,7 +86,51 @@ export class MockProvider implements LLMProvider {
                     })
                 }],
                 finishReason: "tool_calls",
-                usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 }
+                usage: { prompt_tokens: 50, completion_tokens: 20, total_tokens: 70 }
+            };
+        }
+
+        // Simulate Signal Analysis
+        if (isUserMessage && lowerPrompt.includes("signal") && toolNames.includes("signal_analyze")) {
+            const assetMatch = prompt.match(/\b(BTC|ETH|SOL|AAPL|GOOGL|TSLA|NVDA|SPY)\b/i);
+            const asset = assetMatch ? assetMatch[0].toUpperCase() : "ETH";
+            return {
+                content: null,
+                toolCalls: [{
+                    id: `call_signal_${Date.now()}`,
+                    name: "signal_analyze",
+                    arguments: JSON.stringify({ asset })
+                }],
+                finishReason: "tool_calls",
+                usage: { prompt_tokens: 30, completion_tokens: 10, total_tokens: 40 }
+            };
+        }
+
+        // Simulate Portfolio Add
+        if (isUserMessage && lowerPrompt.includes("portfolio") && lowerPrompt.includes("add") && toolNames.includes("portfolio_add")) {
+            return {
+                content: null,
+                toolCalls: [{
+                    id: `call_port_add_${Date.now()}`,
+                    name: "portfolio_add",
+                    arguments: JSON.stringify({ asset: "BTC", amount: 1.5, price: 60000 })
+                }],
+                finishReason: "tool_calls",
+                usage: { prompt_tokens: 40, completion_tokens: 15, total_tokens: 55 }
+            };
+        }
+
+        // Simulate Portfolio Status
+        if (isUserMessage && lowerPrompt.includes("portfolio") && (lowerPrompt.includes("status") || lowerPrompt.includes("check")) && toolNames.includes("portfolio_status")) {
+            return {
+                content: null,
+                toolCalls: [{
+                    id: `call_port_status_${Date.now()}`,
+                    name: "portfolio_status",
+                    arguments: JSON.stringify({})
+                }],
+                finishReason: "tool_calls",
+                usage: { prompt_tokens: 20, completion_tokens: 5, total_tokens: 25 }
             };
         }
 
