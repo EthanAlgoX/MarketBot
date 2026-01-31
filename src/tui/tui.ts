@@ -674,6 +674,7 @@ export async function runTui(opts: TuiOptions) {
     handleCommand,
     sendMessage,
     openModelSelector,
+    openProviderSelector,
     openAgentSelector,
     openSessionSelector,
     openHelpOverlay,
@@ -798,6 +799,11 @@ export async function runTui(opts: TuiOptions) {
       }
       updateSessionBar();
       tui.requestRender();
+
+      // Check if model is set, otherwise prompt for provider
+      if (!sessionInfo.model) {
+        void openProviderSelector();
+      }
     })();
   };
 

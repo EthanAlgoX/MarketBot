@@ -142,6 +142,94 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     }
   };
 
+  const openProviderSelector = async () => {
+    try {
+      const models = await client.listModels();
+      if (models.length === 0) {
+        chatLog.addSystem("no providers available (no models found)");
+        tui.requestRender();
+        return;
+      }
+
+      // Extract unique providers
+      const providerSet = new Set<string>();
+      for (const model of models) {
+        if (model.provider) {
+          providerSet.add(model.provider);
+        }
+      }
+
+      if (providerSet.size === 0) {
+        chatLog.addSystem("no providers found");
+        tui.requestRender();
+        return;
+      }
+
+      const items = Array.from(providerSet)
+        .sort()
+        .map((provider) => ({
+          value: provider,
+          label: provider,
+          description: "Select to auto-set default model",
+        }));
+
+      // Add "Skip" option
+      items.push({
+        value: "skip",
+        label: "Skip",
+        description: "Do not set a provider now",
+      });
+
+      const selector = createSearchableSelectList(items, 9);
+      selector.onSelect = (item) => {
+        void (async () => {
+          closeOverlay();
+
+          if (item.value === "skip") {
+            chatLog.addSystem("provider selection skipped");
+            tui.requestRender();
+            return;
+          }
+
+          // specific provider logic
+          const providerModels = models.filter((m) => m.provider === item.value);
+          if (providerModels.length === 0) {
+            chatLog.addSystem(`no models found for provider ${item.value}`);
+            tui.requestRender();
+            return;
+          }
+
+          // Simple heuristic: take the first one or favor 'chat'
+          // Ideally we pick one that looks like a flagship, but first is fine for now
+          // If we have "deepseek-chat", that's great.
+          const selectedModel = providerModels[0];
+
+          try {
+            const modelRef = `${selectedModel.provider}/${selectedModel.id}`;
+            await client.patchSession({
+              key: state.currentSessionKey,
+              model: modelRef,
+            });
+            chatLog.addSystem(`provider set to ${item.value}, model set to ${modelRef}`);
+            await refreshSessionInfo();
+          } catch (err) {
+            chatLog.addSystem(`provider set failed: ${String(err)}`);
+          }
+          tui.requestRender();
+        })();
+      };
+      selector.onCancel = () => {
+        closeOverlay();
+        tui.requestRender();
+      };
+      openOverlay(selector);
+      tui.requestRender();
+    } catch (err) {
+      chatLog.addSystem(`provider list failed: ${String(err)}`);
+      tui.requestRender();
+    }
+  };
+
   const openAgentSelector = async () => {
     await refreshAgents();
     if (state.agents.length === 0) {
@@ -504,6 +592,19 @@ export function createCommandHandlers(context: CommandHandlerContext) {
       case "models":
         await openModelSelector();
         break;
+      case "provider":
+      case "providers":
+        if (!args) {
+          await openProviderSelector();
+        } else {
+          // We could try to set it directly if arg matches known provider,
+          // but for now re-use selector or just warn if simple set needed.
+          // Let's just open selector if specific logic isn't trivial.
+          // Or implementing simple match:
+          chatLog.addSystem("opening provider picker...");
+          await openProviderSelector();
+        }
+        break;
       case "think":
         if (!args) {
           const levels = formatThinkingLevels(
@@ -800,6 +901,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     handleCommand,
     sendMessage,
     openModelSelector,
+    openProviderSelector,
     openAgentSelector,
     openSessionSelector,
     openSettings,

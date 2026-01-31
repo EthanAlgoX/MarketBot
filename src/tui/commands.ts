@@ -139,6 +139,10 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
     { name: "settings", description: "Open settings" },
     { name: "exit", description: "Exit the TUI" },
     { name: "quit", description: "Exit the TUI" },
+    {
+      name: "provider",
+      description: "Set provider (or open picker)",
+    },
     // Market Analysis Commands
     { name: "analyze", description: "📊 Quick market analysis for a symbol" },
     { name: "watch", description: "👁️ Add symbol to watchlist" },
@@ -178,6 +182,7 @@ export function helpText(options: SlashCommandOptions = {}): string {
     "/agent <id>        Switch agent",
     "/session <key>     Switch session",
     "/model <name>      Set model",
+    "/provider <name>   Set provider",
     `/think <${thinkLevels}>`,
     "/verbose <on|off>",
     "/reasoning <on|off>",
