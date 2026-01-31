@@ -59,6 +59,16 @@ export class MockProvider implements LLMProvider {
 
         // Intent parsing detection
         if (lowerPrompt.includes("intent") || lowerPrompt.includes("parse")) {
+            if (lowerPrompt.includes("google") || lowerPrompt.includes("alphabet")) {
+                return JSON.stringify({
+                    asset: "GOOGL",
+                    market: "stock",
+                    analysis_goal: "fundamental",
+                    timeframes: ["1d", "1w"],
+                    risk_tolerance: "medium",
+                    confidence_level: "high",
+                });
+            }
             return JSON.stringify({
                 asset: "BTC",
                 market: "crypto",
@@ -108,6 +118,36 @@ export class MockProvider implements LLMProvider {
                 alternative_scenarios: ["Breakout above resistance", "Breakdown below support"],
                 recommendation_strength: "moderate",
                 final_summary: "Analysis suggests cautious positioning with moderate confidence.",
+            });
+        }
+
+        // Web Analysis / Search Report
+        if (lowerPrompt.includes("analyze this content") || lowerPrompt.includes("web content")) {
+            return JSON.stringify({
+                summary: "Google (Alphabet Inc.) maintains a dominant position in search and digital advertising. Recent focus has shifted to AI integration across its product suite (Gemini) to compete with Microsoft/OpenAI. Financials remain strong with steady revenue growth from Cloud and YouTube segments.",
+                keyFindings: [
+                    "Dominant market share in Search (>90%)",
+                    "Aggressive AI integration with Gemini models",
+                    "Cloud revenue growing +25% YoY",
+                    "Facing antitrust scrutiny in EU and US"
+                ],
+                marketData: {
+                    priceInfo: "$175.50 USD",
+                    sentiment: "bullish",
+                    keyEvents: ["Gemini 1.5 Pro launch", "Quarterly Earnings Beat"]
+                },
+                technicalAnalysis: {
+                    signal: "buy",
+                    trend: "Uptrend",
+                    maAlignment: "Bullish",
+                    macdSignal: "Positive Crossover",
+                    rsiStatus: "Neutral (55)",
+                    buyPrice: 172.00,
+                    targetPrice: 195.00,
+                    stopLoss: 165.00,
+                    score: 85
+                },
+                confidence: 0.9
             });
         }
 
