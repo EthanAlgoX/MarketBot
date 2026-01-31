@@ -1,0 +1,11 @@
+{
+  "owner": "koba42corp",
+  "slug": "spacescan",
+  "displayName": "Spacescan",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769716098063,
+    "commit": "https://github.com/clawdbot/skills/commit/d82e368bc3c64bbf80ffa07ece6e44735e5adeb6"
+  },
+  "history": []
+}

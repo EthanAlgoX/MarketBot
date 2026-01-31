@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "things-mac",
+  "displayName": "Things Mac",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545384979,
+    "commit": "https://github.com/clawdbot/skills/commit/77d76882f8150e48fdca0ad53976faa2e8a992ab"
+  },
+  "history": []
+}

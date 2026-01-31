@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "ai-schema",
+  "displayName": "Database Schema Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769666361050,
+    "commit": "https://github.com/clawdbot/skills/commit/3864f8d087f2def61b37a24997018023cbd0a2c6"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769657985891,
+      "commit": "https://github.com/clawdbot/skills/commit/8748ebc0e98b69bd44b796b794089eb937ea32bb"
+    }
+  ]
+}

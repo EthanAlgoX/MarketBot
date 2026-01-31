@@ -1,0 +1,22 @@
+{
+  "owner": "charbeld",
+  "slug": "people-memories",
+  "displayName": "People Memories",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769691822105,
+    "commit": "https://github.com/clawdbot/skills/commit/e7f429e542e7449f97bb2f69887e3589948d09b3"
+  },
+  "history": [
+    {
+      "version": "0.1.1",
+      "publishedAt": 1769764202900,
+      "commit": "https://github.com/clawdbot/skills/commit/bbf437b97fd1c39d4f47f3d5cd64acbaf487dfec"
+    },
+    {
+      "version": "0.1.0",
+      "publishedAt": 1769691822105,
+      "commit": "https://github.com/clawdbot/skills/commit/401d9dac8d982d38d89c1187a4d32e6069a02609"
+    }
+  ]
+}

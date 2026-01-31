@@ -1,0 +1,11 @@
+{
+  "owner": "alirezarezvani",
+  "slug": "qms-audit-expert",
+  "displayName": "QMS ISO 13485 Audit Expert",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769778480878,
+    "commit": "https://github.com/clawdbot/skills/commit/249ec142a9b292e4663a699f631746a1918a80bc"
+  },
+  "history": []
+}

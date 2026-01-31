@@ -1,0 +1,11 @@
+{
+  "owner": "lijie420461340",
+  "slug": "n8n-workflow",
+  "displayName": "N8N Workflow",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769739328549,
+    "commit": "https://github.com/clawdbot/skills/commit/b653bc26ca9e577c1d7f805f4f762632cfcdbc6a"
+  },
+  "history": []
+}

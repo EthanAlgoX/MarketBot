@@ -1,0 +1,11 @@
+{
+  "owner": "franky0617",
+  "slug": "bluetooth-monitor",
+  "displayName": "蓝牙设备监控",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769732280271,
+    "commit": "https://github.com/clawdbot/skills/commit/339636cda5d1d47af66c67629eeab6069104bb85"
+  },
+  "history": []
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "aydencook03",
+  "slug": "xai-search",
+  "displayName": "xAI Search",
+  "latest": {
+    "version": "1.0.4",
+    "publishedAt": 1769575005647,
+    "commit": "https://github.com/clawdbot/skills/commit/40e4c18b008d3c97b2347f98f0a59a9f51381a69"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769555809505,
+      "commit": "https://github.com/clawdbot/skills/commit/85b58987f202a17a09fce79ceec3d84cfcc691a1"
+    }
+  ]
+}

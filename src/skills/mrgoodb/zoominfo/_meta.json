@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "zoominfo",
+  "displayName": "Zoominfo",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781100394,
+    "commit": "https://github.com/clawdbot/skills/commit/23d2c55e43bac0f3264124d5960e370ef0c219de"
+  },
+  "history": []
+}

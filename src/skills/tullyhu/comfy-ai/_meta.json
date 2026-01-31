@@ -1,0 +1,11 @@
+{
+  "owner": "tullyhu",
+  "slug": "comfy-ai",
+  "displayName": "Comfy Ai",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769592140211,
+    "commit": "https://github.com/clawdbot/skills/commit/56357c5a2a6a1e7209547d1e2be248d7856386ca"
+  },
+  "history": []
+}

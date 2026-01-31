@@ -1,0 +1,22 @@
+{
+  "owner": "thesethrose",
+  "slug": "weather-pollen",
+  "displayName": "Weather Pollen",
+  "latest": {
+    "version": "1.0.3",
+    "publishedAt": 1768400884123,
+    "commit": "https://github.com/clawdbot/skills/commit/3c623676760578a780fe44b158f98f2f7690107e"
+  },
+  "history": [
+    {
+      "version": "1.0.2",
+      "publishedAt": 1768365911406,
+      "commit": "https://github.com/clawdbot/skills/commit/592054de15282cd7551b3324a97d4bbb7020877e"
+    },
+    {
+      "version": "1.0.1",
+      "publishedAt": 1768362973850,
+      "commit": "https://github.com/clawdbot/skills/commit/b428d73e5398594c37bbe248056075bb26628f00"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "ryanbaumann",
+  "slug": "google-maps-grounding-lite-mcp",
+  "displayName": "Google Maps Grounding MCP",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769473948927,
+    "commit": "https://github.com/clawdbot/skills/commit/c54c953e9a877a92c493965ee6e71558681fe02a"
+  },
+  "history": []
+}

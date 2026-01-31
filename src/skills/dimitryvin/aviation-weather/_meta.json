@@ -1,0 +1,11 @@
+{
+  "owner": "dimitryvin",
+  "slug": "aviation-weather",
+  "displayName": "Aviation Weather",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769448056750,
+    "commit": "https://github.com/clawdbot/skills/commit/cce8c8934de09ba833d4a62d1e7738e44a45d147"
+  },
+  "history": []
+}

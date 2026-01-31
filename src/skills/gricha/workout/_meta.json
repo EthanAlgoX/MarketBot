@@ -1,0 +1,27 @@
+{
+  "owner": "gricha",
+  "slug": "workout",
+  "displayName": "Workout",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769325083459,
+    "commit": "https://github.com/clawdbot/skills/commit/44168b82a3d370a7a46488051864e01852714cbb"
+  },
+  "history": [
+    {
+      "version": "1.0.4",
+      "publishedAt": 1769303679452,
+      "commit": "https://github.com/clawdbot/skills/commit/a17fe8841186c2d4777bb066c2ae0ca65e34f163"
+    },
+    {
+      "version": "1.0.3",
+      "publishedAt": 1769133522686,
+      "commit": "https://github.com/clawdbot/skills/commit/d1961ac073d0206ce2a46a48644c7dc097cfafc8"
+    },
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769133312802,
+      "commit": "https://github.com/clawdbot/skills/commit/29a6eec6622d1aa6a13d250bc81c59f9c9a5c09b"
+    }
+  ]
+}

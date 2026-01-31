@@ -1,0 +1,11 @@
+{
+  "owner": "udiedrichsen",
+  "slug": "audio-gen",
+  "displayName": "Audio Content Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768400692046,
+    "commit": "https://github.com/clawdbot/skills/commit/c00bf6cf3293028993724c0df442a9b1b98f4605"
+  },
+  "history": []
+}

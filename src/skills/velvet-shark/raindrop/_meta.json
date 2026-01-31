@@ -1,0 +1,17 @@
+{
+  "owner": "velvet-shark",
+  "slug": "raindrop",
+  "displayName": "Raindrop.io Bookmarks",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769379934129,
+    "commit": "https://github.com/clawdbot/skills/commit/eaa1c9a7c530ecc5d14152f34df3e8b3391a8690"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769340084434,
+      "commit": "https://github.com/clawdbot/skills/commit/69f40e76a5a4001699bdbd8800e79f56c2f2be58"
+    }
+  ]
+}

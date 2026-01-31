@@ -1,0 +1,11 @@
+{
+  "owner": "jrbobbyhansen-pixel",
+  "slug": "cron-retry",
+  "displayName": "Cron Retry",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769566629598,
+    "commit": "https://github.com/clawdbot/skills/commit/9a0eb16b942d8a7eca0497cd479a45d9d9009a3d"
+  },
+  "history": []
+}

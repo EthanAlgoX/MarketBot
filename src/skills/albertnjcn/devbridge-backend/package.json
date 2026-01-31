@@ -1,0 +1,215 @@
+{
+  "name": "devbridge-backend",
+  "displayName": "后端修复助手",
+  "version": "1.0.0",
+  "description": "后端开发人员通过Clawdbot分析问题并生成修复方案，支持AI辅助代码生成",
+  "author": "DevBridge Team",
+  "license": "MIT",
+  "keywords": [
+    "backend",
+    "fixer",
+    "ai",
+    "code-generation",
+    "api-analysis"
+  ],
+  "repository": "https://github.com/your-username/devbridge-skills",
+  "homepage": "https://clawdhub.com/skills/devbridge-backend",
+  "category": "development-tools",
+  
+  "clawdbot": {
+    "type": "agent",
+    "main": "commands.py",
+    "config": "SKILL.md",
+    "runtime": "python3",
+    "minVersion": "2026.1.0",
+    
+    "triggers": [
+      {
+        "pattern": "^/fix\\s+(.+)$",
+        "handler": "handle_fix_request",
+        "description": "接收修复请求并分析问题"
+      },
+      {
+        "pattern": "^/analyze\\s+(.+)$",
+        "handler": "analyze_problem",
+        "description": "分析API问题"
+      },
+      {
+        "pattern": "^/ready\\s+([a-f0-9-]+)$",
+        "handler": "mark_fix_ready",
+        "description": "标记修复为就绪"
+      },
+      {
+        "pattern": "^/complete\\s+([a-f0-9-]+)$",
+        "handler": "mark_fix_complete",
+        "description": "标记修复完成"
+      }
+    ],
+    
+    "commands": [
+      {
+        "name": "analyze_problem",
+        "description": "分析API问题并生成解决方案",
+        "parameters": [
+          {
+            "name": "problem_id",
+            "type": "string",
+            "required": true,
+            "description": "问题ID"
+          }
+        ]
+      },
+      {
+        "name": "handle_fix_request",
+        "description": "处理修复请求",
+        "parameters": [
+          {
+            "name": "message",
+            "type": "string",
+            "required": true,
+            "description": "完整问题信息"
+          }
+        ]
+      },
+      {
+        "name": "mark_fix_ready",
+        "description": "标记修复为就绪",
+        "parameters": [
+          {
+            "name": "problem_id",
+            "type": "string",
+            "required": true,
+            "description": "问题ID"
+          },
+          {
+            "name": "fix_code",
+            "type": "string",
+            "required": true,
+            "description": "修复代码"
+          },
+          {
+            "name": "explanation",
+            "type": "string",
+            "required": true,
+            "description": "修复说明"
+          }
+        ]
+      },
+      {
+        "name": "mark_fix_complete",
+        "description": "标记修复完成",
+        "parameters": [
+          {
+            "name": "problem_id",
+            "type": "string",
+            "required": true,
+            "description": "问题ID"
+          }
+        ]
+      },
+      {
+        "name": "get_problem_status",
+        "description": "获取问题状态",
+        "parameters": [
+          {
+            "name": "problem_id",
+            "type": "string",
+            "required": true,
+            "description": "问题ID"
+          }
+        ]
+      },
+      {
+        "name": "list_pending_fixes",
+        "description": "列出待修复的问题"
+      }
+    ],
+    
+    "sessions": {
+      "frontend": {
+        "sessionKey": "agent:frontend:dev",
+        "description": "前端Agent的Session Key"
+      },
+      "admin": {
+        "sessionKey": "agent:admin:dev",
+        "description": "管理员Agent的Session Key"
+      }
+    },
+    
+    "dependencies": {
+      "python": ">=3.8",
+      "required_packages": [
+        "openai",
+        "anthropic"
+      ],
+      "optional_packages": [
+        "tiktoken",
+        "requests"
+      ]
+    },
+    
+    "environment": {
+      "AI_PROVIDER": {
+        "type": "string",
+        "description": "AI提供商",
+        "choices": ["openai", "anthropic", "openrouter", "together"],
+        "default": "openai"
+      },
+      "AI_MODEL": {
+        "type": "string",
+        "description": "AI模型",
+        "default": "gpt-4"
+      },
+      "AI_TEMPERATURE": {
+        "type": "number",
+        "description": "AI温度",
+        "default": 0.7,
+        "min": 0.0,
+        "max": 2.0
+      },
+      "AI_MAX_TOKENS": {
+        "type": "number",
+        "description": "最大Token数",
+        "default": 2000
+      },
+      "API_STRICT_MODE": {
+        "type": "boolean",
+        "description": "严格API模式",
+        "default": true
+      },
+      "CODE_LANGUAGE": {
+        "type": "string",
+        "description": "代码语言",
+        "choices": ["javascript", "typescript", "python", "java", "go"],
+        "default": "javascript"
+      },
+      "CODE_FRAMEWORK": {
+        "type": "string",
+        "description": "代码框架",
+        "default": "express"
+      }
+    },
+    
+    "permissions": {
+      "allowed_resources": [
+        "problem:read",
+        "fix:read",
+        "fix:write",
+        "timeline:read"
+      ],
+      "security": {
+        "validate_fixes": true,
+        "require_approval": true,
+        "max_fix_attempts": 5
+      }
+    },
+    
+    "features": {
+      "AI_ANALYSIS": "使用GPT/Claude分析API问题",
+      "CODE_GENERATION": "自动生成修复代码",
+      "MULTI_ATTEMPT": "支持多次修复尝试",
+      "VALIDATION": "修复代码验证",
+      "TEST_GENERATION": "自动生成测试用例"
+    }
+  }
+}

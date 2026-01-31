@@ -1,0 +1,22 @@
+{
+  "owner": "foeken",
+  "slug": "clippy",
+  "displayName": "Clippy - Microsoft 365 CLI",
+  "latest": {
+    "version": "1.2.0",
+    "publishedAt": 1769342635864,
+    "commit": "https://github.com/clawdbot/skills/commit/47a34731f54ceb91edbbee42de09523e0bd0a9a7"
+  },
+  "history": [
+    {
+      "version": "1.0.3",
+      "publishedAt": 1769266181286,
+      "commit": "https://github.com/clawdbot/skills/commit/063bde35c911aa8bc2a27b2bd56d6e63993601a3"
+    },
+    {
+      "version": "1.0.2",
+      "publishedAt": 1769261867846,
+      "commit": "https://github.com/clawdbot/skills/commit/962c387de05f3d280570506c39f81e7b8ac5c468"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "ai-component",
+  "displayName": "React Component Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769665605887,
+    "commit": "https://github.com/clawdbot/skills/commit/e8b9178079e54e03a65d95cc90f8aea4c6998be2"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769657789890,
+      "commit": "https://github.com/clawdbot/skills/commit/c9aab216d0ef0f725a627a908b63b70bb1967206"
+    }
+  ]
+}

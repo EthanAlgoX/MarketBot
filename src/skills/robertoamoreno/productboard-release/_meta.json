@@ -1,0 +1,11 @@
+{
+  "owner": "robertoamoreno",
+  "slug": "productboard-release",
+  "displayName": "Productboard Release",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769839173232,
+    "commit": "https://github.com/clawdbot/skills/commit/ade05cb4d8fc388356d5a222bbbb0b8de535c938"
+  },
+  "history": []
+}

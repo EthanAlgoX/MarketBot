@@ -1,0 +1,11 @@
+{
+  "owner": "jhillin8",
+  "slug": "pregnancy-tracker",
+  "displayName": "Pregnancy Tracker",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769326530292,
+    "commit": "https://github.com/clawdbot/skills/commit/43db1707f6686486a19362fd3791fb2372512380"
+  },
+  "history": []
+}

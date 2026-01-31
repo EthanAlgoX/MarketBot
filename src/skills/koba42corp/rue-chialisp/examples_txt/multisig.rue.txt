@@ -1,0 +1,14 @@
+// Simple 2-of-2 Multisig - Requires both keys to sign
+
+fn main(
+    pk1: PublicKey,
+    pk2: PublicKey,
+    conditions: List<Condition>,
+) -> List<Condition> {
+    let message = tree_hash(conditions);
+    
+    let sig1 = AggSigMe { public_key: pk1, message };
+    let sig2 = AggSigMe { public_key: pk2, message };
+    
+    [sig1, sig2, ...conditions]
+}

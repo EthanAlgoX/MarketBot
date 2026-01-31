@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "grafana",
+  "displayName": "Grafana",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781055122,
+    "commit": "https://github.com/clawdbot/skills/commit/169f200c8619b8ef8493b086370ec2f7b10cce3f"
+  },
+  "history": []
+}

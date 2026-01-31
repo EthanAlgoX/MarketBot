@@ -1,0 +1,11 @@
+{
+  "owner": "promptrotator",
+  "slug": "moltline",
+  "displayName": "Moltline",
+  "latest": {
+    "version": "1.0.5",
+    "publishedAt": 1769849321288,
+    "commit": "https://github.com/clawdbot/skills/commit/3e76ef03185ba5e14e592f5f1c66d4506ef92655"
+  },
+  "history": []
+}

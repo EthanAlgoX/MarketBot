@@ -1,0 +1,11 @@
+{
+  "owner": "ramonitor",
+  "slug": "silverbullet-skill",
+  "displayName": "SilverBullet API",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769636151453,
+    "commit": "https://github.com/clawdbot/skills/commit/67ebe09e82977d1eea96c6c194e443611be79d60"
+  },
+  "history": []
+}

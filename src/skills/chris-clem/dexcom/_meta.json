@@ -1,0 +1,11 @@
+{
+  "owner": "chris-clem",
+  "slug": "dexcom",
+  "displayName": "Dexcom CGM",
+  "latest": {
+    "version": "1.0.4",
+    "publishedAt": 1768731960533,
+    "commit": "https://github.com/clawdbot/skills/commit/8fa2c9178abc0df429c69ba4f853588ce7e7f795"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "mneves75",
+  "slug": "healthkit-sync",
+  "displayName": "HealthKit Sync",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767835301685,
+    "commit": "https://github.com/clawdbot/skills/commit/a770a56514f4c2d75b1ea605f3d9e52d4efc3590"
+  },
+  "history": []
+}

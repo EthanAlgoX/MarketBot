@@ -1,0 +1,11 @@
+{
+  "owner": "bsinriclawd",
+  "slug": "hvac-estimate-takeoff",
+  "displayName": "Hvac Estimate Takeoff",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769317629870,
+    "commit": "https://github.com/clawdbot/skills/commit/c0bd70457294055272d2a2cc26eb3c7510d4a2bb"
+  },
+  "history": []
+}

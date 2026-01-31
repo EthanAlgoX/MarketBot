@@ -1,0 +1,22 @@
+{
+  "owner": "hsooooo",
+  "slug": "korea-metropolitan-bus-alerts",
+  "displayName": "Korea metropolitan bus alerts",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769668483902,
+    "commit": "https://github.com/clawdbot/skills/commit/2a813df28b87db494e6ad8835ea1f93dd7ec5391"
+  },
+  "history": [
+    {
+      "version": "1.0.2",
+      "publishedAt": 1769783452313,
+      "commit": "https://github.com/clawdbot/skills/commit/c80b0554c8c8230c7b13a5f85bc945472e9c8ae4"
+    },
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769668483902,
+      "commit": "https://github.com/clawdbot/skills/commit/deffa899d6bdfe8d572a29a71947d7bd4dd0c947"
+    }
+  ]
+}

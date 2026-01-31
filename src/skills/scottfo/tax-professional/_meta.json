@@ -1,0 +1,11 @@
+{
+  "owner": "scottfo",
+  "slug": "tax-professional",
+  "displayName": "Tax Professional",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769408414524,
+    "commit": "https://github.com/clawdbot/skills/commit/b222596d2dd328733a667514231ff54b4e2cf595"
+  },
+  "history": []
+}

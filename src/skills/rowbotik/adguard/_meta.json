@@ -1,0 +1,11 @@
+{
+  "owner": "rowbotik",
+  "slug": "adguard",
+  "displayName": "Adguard",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769790361123,
+    "commit": "https://github.com/clawdbot/skills/commit/0e5c9a7ab7b4c02fe3b3624184458bd5e9873b3a"
+  },
+  "history": []
+}

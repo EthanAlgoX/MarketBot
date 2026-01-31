@@ -1,0 +1,11 @@
+{
+  "owner": "henrino3",
+  "slug": "daily-review",
+  "displayName": "Daily Review",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768527680326,
+    "commit": "https://github.com/clawdbot/skills/commit/919efd643d931267df873c59e8fb302db0d80bfa"
+  },
+  "history": []
+}

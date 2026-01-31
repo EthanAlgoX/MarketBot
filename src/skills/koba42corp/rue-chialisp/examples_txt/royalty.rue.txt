@@ -1,0 +1,35 @@
+// Royalty Puzzle - Coin that pays a percentage to a creator on every spend
+// Creates two outputs: one for recipient, one for royalty
+
+fn main(
+    creator_puzzle_hash: Bytes32,
+    royalty_percentage: Int,  // e.g., 5 for 5%
+    public_key: PublicKey,
+    recipient_puzzle_hash: Bytes32,
+    total_amount: Int,
+) -> List<Condition> {
+    // Calculate royalty (integer division)
+    let royalty_amount = (total_amount * royalty_percentage) / 100;
+    let recipient_amount = total_amount - royalty_amount;
+    
+    // Require signature
+    let agg_sig = AggSigMe {
+        public_key,
+        message: tree_hash((recipient_puzzle_hash, total_amount)),
+    };
+    
+    // Create outputs
+    let royalty_coin = CreateCoin {
+        puzzle_hash: creator_puzzle_hash,
+        amount: royalty_amount,
+        memos: nil,
+    };
+    
+    let recipient_coin = CreateCoin {
+        puzzle_hash: recipient_puzzle_hash,
+        amount: recipient_amount,
+        memos: nil,
+    };
+    
+    [agg_sig, royalty_coin, recipient_coin]
+}

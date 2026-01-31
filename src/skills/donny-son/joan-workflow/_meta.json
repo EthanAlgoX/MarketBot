@@ -1,0 +1,11 @@
+{
+  "owner": "donny-son",
+  "slug": "joan-workflow",
+  "displayName": "Joan Workflow",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769331036977,
+    "commit": "https://github.com/clawdbot/skills/commit/0aeed4a315eed0a9054dfa74ac1a5e9eb2dbb12f"
+  },
+  "history": []
+}

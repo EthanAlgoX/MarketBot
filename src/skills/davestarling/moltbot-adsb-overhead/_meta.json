@@ -1,0 +1,11 @@
+{
+  "owner": "davestarling",
+  "slug": "moltbot-adsb-overhead",
+  "displayName": "ADS-B Overhead",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769766377663,
+    "commit": "https://github.com/clawdbot/skills/commit/341285a9a1d329a117a9d5df05939de270f2ca67"
+  },
+  "history": []
+}

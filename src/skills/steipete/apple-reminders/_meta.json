@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "apple-reminders",
+  "displayName": "Apple Reminders",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545296326,
+    "commit": "https://github.com/clawdbot/skills/commit/462fd2dc56d011453f83015a1b5f0a49bdcf56e8"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "mattjefferson",
+  "slug": "todoist-td",
+  "displayName": "Todoist",
+  "latest": {
+    "version": "0.1.1",
+    "publishedAt": 1769218326270,
+    "commit": "https://github.com/clawdbot/skills/commit/55de9144390d4cdeeac557c6406a4f3ed9c1c07f"
+  },
+  "history": []
+}

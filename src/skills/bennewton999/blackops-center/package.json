@@ -1,0 +1,29 @@
+{
+  "name": "blackops-center",
+  "version": "1.0.0",
+  "description": "Control your BlackOps Center content from Clawdbot - create, publish, and manage blog posts",
+  "author": "Ben Newton <bennewton999@gmail.com>",
+  "license": "MIT",
+  "keywords": [
+    "clawdbot",
+    "skill",
+    "blackops",
+    "cms",
+    "content",
+    "blogging",
+    "automation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clawdbot/skills"
+  },
+  "skillMetadata": {
+    "category": "productivity",
+    "platforms": ["macos", "linux"],
+    "requires": {
+      "commands": ["curl", "jq"],
+      "optional": []
+    },
+    "tags": ["content", "cms", "blogging", "api", "blackops-center"]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "supabase-schema-gen",
+  "displayName": "Supabase Schema Generator",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769667138382,
+    "commit": "https://github.com/clawdbot/skills/commit/55bc34418cacf6117406f030f2907cead83005bd"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769632930278,
+      "commit": "https://github.com/clawdbot/skills/commit/087d9cc5626df2a294974019433adc969576b117"
+    }
+  ]
+}

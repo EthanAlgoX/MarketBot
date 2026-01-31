@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "solana-trader",
+  "displayName": "Solana Trader",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769538937652,
+    "commit": "https://github.com/clawdbot/skills/commit/8b71777c9eff9061634c6d5107b25318b1f2cd3d"
+  },
+  "history": [
+    {
+      "version": "1.0.2",
+      "publishedAt": 1769512826891,
+      "commit": "https://github.com/clawdbot/skills/commit/426c0f62a6023498b953a1f784d7c906936413e3"
+    }
+  ]
+}

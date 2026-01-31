@@ -1,0 +1,17 @@
+{
+  "owner": "pors",
+  "slug": "clawdbot-release-check",
+  "displayName": "Clawdbot Release Check",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1768093620657,
+    "commit": "https://github.com/clawdbot/skills/commit/c90cc4f7bcb4a3732ff1dd87f98cd07937b798aa"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1767698866586,
+      "commit": "https://github.com/clawdbot/skills/commit/dbbbb4fc1b9b6161da1dabe95d4f003f567a9d7f"
+    }
+  ]
+}

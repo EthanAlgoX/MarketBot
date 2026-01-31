@@ -1,0 +1,11 @@
+{
+  "owner": "jhillin8",
+  "slug": "portfolio-watcher",
+  "displayName": "Portfolio Watcher",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769326523827,
+    "commit": "https://github.com/clawdbot/skills/commit/beafc9a9e34a963a879f5d5142ed4046d252dbfd"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "noblepayne",
+  "slug": "searxng-local-search",
+  "displayName": "Searxng Web Search",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769835313265,
+    "commit": "https://github.com/clawdbot/skills/commit/03c49429626ed8b5d11a353e9c236a539192b6df"
+  },
+  "history": []
+}

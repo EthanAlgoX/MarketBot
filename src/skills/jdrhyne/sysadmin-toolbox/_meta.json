@@ -1,0 +1,11 @@
+{
+  "owner": "jdrhyne",
+  "slug": "sysadmin-toolbox",
+  "displayName": "Sysadmin Toolbox",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1768843243799,
+    "commit": "https://github.com/clawdbot/skills/commit/f909a5beae1a1d2663c0305d044a6d7be636b9f3"
+  },
+  "history": []
+}

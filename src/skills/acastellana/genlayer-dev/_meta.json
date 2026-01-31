@@ -1,0 +1,11 @@
+{
+  "owner": "acastellana",
+  "slug": "genlayer-dev",
+  "displayName": "GenLayer Dev",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769770365036,
+    "commit": "https://github.com/clawdbot/skills/commit/3c6a69e3392e8f0fe50c1e464f9a5043fb5fd44f"
+  },
+  "history": []
+}

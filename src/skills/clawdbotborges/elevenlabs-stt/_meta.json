@@ -1,0 +1,11 @@
+{
+  "owner": "clawdbotborges",
+  "slug": "elevenlabs-stt",
+  "displayName": "ElevenLabs Speech-to-Text",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769436241130,
+    "commit": "https://github.com/clawdbot/skills/commit/fb94c3580d061df0e429a4196f869f4f60e425e6"
+  },
+  "history": []
+}

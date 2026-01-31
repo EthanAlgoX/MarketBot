@@ -1,0 +1,64 @@
+# Camera Watch - Example Configuration
+# =====================================
+# Copy this to config.yaml and update with your settings
+
+# Notifications
+notifications:
+  enabled: true
+  whatsapp: "+1234567890"      # Your phone number
+  cooldown_seconds: 60         # Min time between notifications per camera/object
+  gateway_url: "http://localhost:18789"  # Clawdbot gateway URL
+  gateway_token: ""            # Optional: gateway auth token
+
+# Recordings
+recordings:
+  snapshots_dir: "./snapshots"
+  keep_days: 7
+
+# Logging
+logging:
+  file: "./logs/detections.log"
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+
+# Cameras (add as many as needed)
+cameras:
+  # Example: Front door camera
+  front-door:
+    name: "Front Door"
+    ip: "192.168.1.100"        # Camera IP address
+    channel: 1                  # Hikvision channel (1-16)
+    user: "admin"              # Camera username
+    password: "your-password"  # Camera password
+    poll_interval: 2           # Seconds between snapshots
+    enabled: true
+    track:                     # Objects to detect
+      - person
+      - car
+    confidence: 0.5            # Detection threshold (0.0-1.0)
+
+  # Example: Backyard camera
+  backyard:
+    name: "Backyard"
+    ip: "192.168.1.101"
+    channel: 1
+    user: "admin"
+    password: "your-password"
+    poll_interval: 2
+    enabled: true
+    track:
+      - person
+      - dog
+      - cat
+    confidence: 0.5
+
+# YOLO Model
+model:
+  name: "yolov8s"   # yolov8n (fast), yolov8s (balanced), yolov8m (accurate)
+  device: "cpu"     # cpu, mps (Apple Silicon), cuda (NVIDIA GPU)
+
+# Available objects to track:
+# People: person
+# Vehicles: bicycle, car, motorcycle, airplane, bus, train, truck, boat
+# Animals: bird, cat, dog, horse, sheep, cow, elephant, bear, zebra, giraffe
+# Common: backpack, umbrella, handbag, suitcase, bottle, cup, chair, couch,
+#         bed, laptop, cell phone, tv, and many more (80 total COCO classes)

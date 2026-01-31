@@ -1,0 +1,11 @@
+{
+  "owner": "dvjn",
+  "slug": "no-nonsense-tasks",
+  "displayName": "Tasks Skill",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769609482887,
+    "commit": "https://github.com/clawdbot/skills/commit/499fed8e295b146b4806b88e0bf203c3de3d9351"
+  },
+  "history": []
+}

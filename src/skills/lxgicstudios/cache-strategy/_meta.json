@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "cache-strategy",
+  "displayName": "Cache Strategy",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769627135971,
+    "commit": "https://github.com/clawdbot/skills/commit/ca30a24c60812d850a486ae04f3c8e20df68ea10"
+  },
+  "history": []
+}

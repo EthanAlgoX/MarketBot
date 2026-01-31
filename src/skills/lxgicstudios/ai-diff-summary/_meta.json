@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "ai-diff-summary",
+  "displayName": "Git Diff Summarizer",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769665950817,
+    "commit": "https://github.com/clawdbot/skills/commit/f40479f7b25021bd93e7f57a4e6bca5b5650a592"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769657852963,
+      "commit": "https://github.com/clawdbot/skills/commit/cff9ee647a41c27d30640696f030de8ec043dd25"
+    }
+  ]
+}

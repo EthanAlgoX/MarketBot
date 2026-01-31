@@ -1,0 +1,11 @@
+{
+  "owner": "lijie420461340",
+  "slug": "pdf-extraction",
+  "displayName": "Pdf Extraction",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769739355075,
+    "commit": "https://github.com/clawdbot/skills/commit/d889926824c6cfb48d708753495dc425932fca5d"
+  },
+  "history": []
+}

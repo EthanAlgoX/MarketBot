@@ -1,0 +1,11 @@
+{
+  "owner": "matrixy",
+  "slug": "agent-registry",
+  "displayName": "Agent Registry",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769032962117,
+    "commit": "https://github.com/clawdbot/skills/commit/7c499f1c031ad8a9045b4d32f7ca6d2cf651721f"
+  },
+  "history": []
+}

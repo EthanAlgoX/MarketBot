@@ -1,0 +1,11 @@
+{
+  "owner": "artur-zhdan",
+  "slug": "ai-humanizer",
+  "displayName": "AI Humanizer",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769809123185,
+    "commit": "https://github.com/clawdbot/skills/commit/eafd192101ffae959ad1204dc55984a20b793997"
+  },
+  "history": []
+}

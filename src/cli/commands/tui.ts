@@ -1245,202 +1245,195 @@ async function openModelSelector(
   state: {
     llmModel?: string;
     llmProvider?: string;
+    apiKeys: Record<string, string>;
   },
   rl: readline.Interface,
   filter?: string,
 ): Promise<string | undefined> {
+  console.log("⏳ Scanning available models from all providers...");
+
   const config = await loadConfig(process.cwd(), { validate: true });
-  const context = await resolveModelListContext(config, state);
-  if (context.kind === "error") {
-    return context.message;
+  const allModels = await fetchAllAvailableModels(config, state);
+
+  // Add manually configured models
+  if (Array.isArray(config.llm?.models)) {
+    for (const m of config.llm.models) {
+      if (!allModels.some((x) => x.model === m && x.provider === "config")) {
+        allModels.push({ provider: "config", model: m, label: `[Config] ${m}` });
+      }
+    }
   }
 
-  const endpoint = `${context.baseUrl.replace(/\/$/, "")}/models`;
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${context.apiKey}`,
+  if (allModels.length === 0) {
+    return "No models found from configured providers or config.";
+  }
+
+  // Sort: providers first (alphabetical), then models
+  allModels.sort((a, b) => {
+    const pDiff = a.provider.localeCompare(b.provider);
+    if (pDiff !== 0) return pDiff;
+    return a.model.localeCompare(b.model);
+  });
+
+  // UI Loop
+  let currentFilter = filter?.trim() || "";
+  let page = 0;
+  const pageSize = 12;
+  const currentModel = state.llmModel;
+  const currentProvider = state.llmProvider;
+
+  while (true) {
+    const normalizedFilter = currentFilter.toLowerCase();
+    const filtered = normalizedFilter
+      ? allModels.filter((item) =>
+        item.label.toLowerCase().includes(normalizedFilter) ||
+        item.provider.toLowerCase().includes(normalizedFilter) ||
+        item.model.toLowerCase().includes(normalizedFilter)
+      )
+      : allModels;
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(page, 0), totalPages - 1);
+    const start = page * pageSize;
+    const pageItems = filtered.slice(start, start + pageSize);
+
+    console.log("");
+    console.log(`Models (${filtered.length}${normalizedFilter ? ` of ${allModels.length}` : ""})`);
+    if (currentModel) console.log(`Current: ${currentModel} (${currentProvider ?? "auto"})`);
+    console.log(`Filter: ${currentFilter || "none"} · Page ${page + 1}/${totalPages}`);
+
+    if (!pageItems.length) {
+      console.log("No matches. Enter a new filter or 'q' to quit.");
+    } else {
+      pageItems.forEach((item, idx) => {
+        const index = start + idx + 1;
+        // highlight current
+        const isSelected = item.model === currentModel && (item.provider === currentProvider || item.provider === "config");
+        const prefix = isSelected ? "*" : " ";
+        console.log(`${prefix}${index}. ${item.label}`);
+      });
+    }
+    console.log("Enter number to select, text to filter, n/p for page, q to quit.");
+
+    let answer = "";
+    try {
+      answer = await rl.question("models> ");
+    } catch {
+      return "Model picker closed.";
+    }
+
+    const trimmed = answer.trim();
+    if (!trimmed || trimmed.toLowerCase() === "q") {
+      return "Model picker cancelled.";
+    }
+    if (trimmed.toLowerCase() === "n") {
+      page += 1;
+      continue;
+    }
+    if (trimmed.toLowerCase() === "p") {
+      page -= 1;
+      continue;
+    }
+
+    const index = Number(trimmed);
+    if (Number.isFinite(index)) {
+      const target = filtered[index - 1];
+      if (!target) {
+        console.log("Invalid selection.");
+        continue;
+      }
+      state.llmModel = target.model;
+      // Switch provider if it's a real provider (not just config listing)
+      if (target.provider !== "config") {
+        state.llmProvider = target.provider;
+        await persistProviderSelection(target.provider as any, target.model, state.apiKeys[target.provider], process.cwd());
+        return `Selected: ${target.model} (Provider switched to ${target.provider})`;
+      } else {
+        // Keeps current provider if just selecting from config list, unless we want to infer?
+        // For now, just set model.
+        return `Selected: ${target.model}`;
+      }
+    }
+
+    currentFilter = trimmed;
+    page = 0;
+  }
+}
+
+async function fetchAllAvailableModels(
+  config: Awaited<ReturnType<typeof loadConfig>>,
+  state: { apiKeys?: Record<string, string> }
+): Promise<Array<{ provider: string; model: string; label: string }>> {
+  const providers = Object.keys(PROVIDER_API_INFO);
+  const results: Array<{ provider: string; model: string; label: string }> = [];
+
+  const checkProvider = async (provider: string) => {
+    const creds = await getProviderCredential(provider, config, state);
+    if (!creds) return; // Not configured
+
+    const info = PROVIDER_API_INFO[provider];
+    const endpoint = `${info.baseUrl.replace(/\/$/, "")}/models`;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${creds.apiKey}`,
+    };
+    if (creds.headers) Object.assign(headers, creds.headers);
+    if (provider === "claude") headers["anthropic-version"] = "2023-06-01";
+
+    try {
+      const res = await fetch(endpoint, { method: "GET", headers, signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return; // Skip failed providers
+
+      const data = (await res.json()) as Record<string, unknown>;
+      const ids = extractModelIds(data);
+      for (const id of ids) {
+        results.push({
+          provider,
+          model: id,
+          label: `[${info.name}] ${id}`,
+        });
+      }
+    } catch {
+      // Ignore connection errors
+    }
   };
-  if (context.headers) {
-    Object.assign(headers, context.headers);
-  }
 
-  const res = await fetch(endpoint, { method: "GET", headers });
-  if (!res.ok) {
-    if (Array.isArray(config.llm?.models) && config.llm.models.length > 0) {
-      return await renderModelListFromConfig(config.llm.models, state, rl, filter, "config");
-    }
-    const text = await res.text();
-    if (res.status === 401 && (state.llmProvider === "moonshot" || context.baseUrl.includes("moonshot"))) {
-      return "Moonshot 模型列表无法获取（401）。请使用 /model 手动设置模型，或在 marketbot.json 里配置 llm.models。";
-    }
-    if (res.status === 401 && (state.llmProvider === "kimicode" || context.baseUrl.includes("api.kimi.com/coding"))) {
-      return "Kimi Code 模型列表无法获取（401）。请使用 /model kimi-for-coding，或在 marketbot.json 里配置 llm.models。";
-    }
-    return formatModelListError(res.status, text);
-  }
-
-  const data = (await res.json()) as Record<string, unknown>;
-  const models = extractModelIds(data);
-  if (!models.length) {
-    if (Array.isArray(config.llm?.models) && config.llm.models.length > 0) {
-      return await renderModelListFromConfig(config.llm.models, state, rl, filter, "config");
-    }
-    return "No models returned by the provider.";
-  }
-
-  let currentFilter = filter?.trim() || "";
-  let page = 0;
-  const pageSize = 12;
-  const current = state.llmModel || config.llm?.model;
-
-  while (true) {
-    const normalizedFilter = currentFilter.toLowerCase();
-    const filtered = normalizedFilter
-      ? models.filter((model) => model.toLowerCase().includes(normalizedFilter))
-      : models;
-    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-    page = Math.min(Math.max(page, 0), totalPages - 1);
-    const start = page * pageSize;
-    const pageItems = filtered.slice(start, start + pageSize);
-
-    console.log("");
-    console.log(`Models (${filtered.length}${normalizedFilter ? ` of ${models.length}` : ""}) · ${context.source}`);
-    if (current) console.log(`Current: ${current}`);
-    console.log(`Filter: ${currentFilter || "none"} · Page ${page + 1}/${totalPages}`);
-    if (!pageItems.length) {
-      console.log("No matches. Enter a new filter or 'q' to quit.");
-    } else {
-      pageItems.forEach((model, idx) => {
-        const index = start + idx + 1;
-        console.log(`${index}. ${model}`);
-      });
-    }
-    console.log("Enter number to select, text to filter, n/p for page, q to quit.");
-
-    let answer = "";
-    try {
-      answer = await rl.question("models> ");
-    } catch (err) {
-      if (String(err).includes("readline was closed")) return "Model picker closed.";
-      throw err;
-    }
-
-    const trimmed = answer.trim();
-    if (!trimmed || trimmed.toLowerCase() === "q") {
-      return "Model picker cancelled.";
-    }
-    if (trimmed.toLowerCase() === "n") {
-      page += 1;
-      continue;
-    }
-    if (trimmed.toLowerCase() === "p") {
-      page -= 1;
-      continue;
-    }
-
-    const index = Number(trimmed);
-    if (Number.isFinite(index)) {
-      const target = filtered[index - 1];
-      if (!target) {
-        console.log("Invalid selection.");
-        continue;
-      }
-      state.llmModel = target;
-      return `model: ${target}`;
-    }
-
-    currentFilter = trimmed;
-    page = 0;
-  }
+  await Promise.allSettled(providers.map(checkProvider));
+  return results;
 }
 
-async function renderModelListFromConfig(
-  models: string[],
-  state: { llmModel?: string },
-  rl: readline.Interface,
-  filter?: string,
-  source: string = "config",
-): Promise<string | undefined> {
-  let currentFilter = filter?.trim() || "";
-  let page = 0;
-  const pageSize = 12;
-  const current = state.llmModel;
+// Helper to get credentials for a specific provider
+async function getProviderCredential(
+  provider: string,
+  config: Awaited<ReturnType<typeof loadConfig>>,
+  state: { apiKeys?: Record<string, string> }
+): Promise<{ apiKey: string; headers?: Record<string, string> } | null> {
+  const info = PROVIDER_API_INFO[provider];
+  if (!info) return null;
 
-  while (true) {
-    const normalizedFilter = currentFilter.toLowerCase();
-    const filtered = normalizedFilter
-      ? models.filter((model) => model.toLowerCase().includes(normalizedFilter))
-      : models;
-    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-    page = Math.min(Math.max(page, 0), totalPages - 1);
-    const start = page * pageSize;
-    const pageItems = filtered.slice(start, start + pageSize);
-
-    console.log("");
-    console.log(`Models (${filtered.length}${normalizedFilter ? ` of ${models.length}` : ""}) · ${source}`);
-    if (current) console.log(`Current: ${current}`);
-    console.log(`Filter: ${currentFilter || "none"} · Page ${page + 1}/${totalPages}`);
-    if (!pageItems.length) {
-      console.log("No matches. Enter a new filter or 'q' to quit.");
-    } else {
-      pageItems.forEach((model, idx) => {
-        const index = start + idx + 1;
-        console.log(`${index}. ${model}`);
-      });
-    }
-    console.log("Enter number to select, text to filter, n/p for page, q to quit.");
-
-    let answer = "";
-    try {
-      answer = await rl.question("models> ");
-    } catch (err) {
-      if (String(err).includes("readline was closed")) return "Model picker closed.";
-      throw err;
-    }
-
-    const trimmed = answer.trim();
-    if (!trimmed || trimmed.toLowerCase() === "q") {
-      return "Model picker cancelled.";
-    }
-    if (trimmed.toLowerCase() === "n") {
-      page += 1;
-      continue;
-    }
-    if (trimmed.toLowerCase() === "p") {
-      page -= 1;
-      continue;
-    }
-
-    const index = Number(trimmed);
-    if (Number.isFinite(index)) {
-      const target = filtered[index - 1];
-      if (!target) {
-        console.log("Invalid selection.");
-        continue;
-      }
-      state.llmModel = target;
-      return `model: ${target}`;
-    }
-
-    currentFilter = trimmed;
-    page = 0;
+  // 1. Session state
+  if (state.apiKeys?.[provider]) {
+    return { apiKey: state.apiKeys[provider], headers: config.llm?.headers };
   }
-}
 
-function formatModelListError(status: number, text: string): string {
-  if (status === 403) {
-    if (text.includes("api.model.read") || text.includes("model.read")) {
-      return [
-        "Model list failed: missing api.model.read permission.",
-        "Fix: use a key with model.read scope, or sign in via OpenAI OAuth.",
-        "You can still set a model manually: /model <id>.",
-      ].join("\n");
-    }
-    return [
-      "Model list failed: permission denied.",
-      "You can still set a model manually: /model <id>.",
-    ].join("\n");
+  // 2. Env var
+  if (process.env[info.envVar]) {
+    return { apiKey: process.env[info.envVar]!, headers: config.llm?.headers };
   }
-  return `Model list failed (${status}): ${text}`;
+
+  // 3. Special cases (OAuth or Ollama)
+  if (provider === "openai") {
+    const oauth = await getCredentials("openai-codex");
+    if (oauth?.access_token) return { apiKey: oauth.access_token, headers: config.llm?.headers };
+  }
+  if (provider === "gemini") {
+    const oauth = await getCredentials("google");
+    if (oauth?.access_token) return { apiKey: oauth.access_token, headers: config.llm?.headers };
+  }
+  if (provider === "ollama") {
+    return { apiKey: "ollama", headers: config.llm?.headers }; // config.llm?.baseUrl handles the URL
+  }
+
+  return null;
 }
 
 function extractModelIds(payload: Record<string, unknown>): string[] {
@@ -1467,204 +1460,59 @@ async function resolveModelListContext(
   config: Awaited<ReturnType<typeof loadConfig>>,
   state: { llmProvider?: string; apiKeys?: Record<string, string> },
 ): Promise<ModelListContext> {
-  const llm = config.llm ?? {};
+  // If a provider is explicitly selected, try to get its credentials
+  if (state.llmProvider && state.llmProvider !== "auto") {
+    const creds = await getProviderCredential(state.llmProvider, config, state);
+    const info = PROVIDER_API_INFO[state.llmProvider];
 
-  // Check explicit provider selection first
-  if (state.llmProvider === "openai") {
-    const openAiOAuth = await getCredentials("openai-codex");
-    if (openAiOAuth?.access_token) {
+    if (creds && info) {
       return {
         kind: "openai-compatible",
-        baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
-        apiKey: openAiOAuth.access_token,
-        headers: llm.headers,
-        source: "openai-oauth",
+        baseUrl: info.baseUrl, // Or config override? existing logic used fixed URLsMostly
+        apiKey: creds.apiKey,
+        headers: creds.headers,
+        source: `provider:${state.llmProvider}`
       };
     }
-    const sessionKey = state.apiKeys?.openai;
-    const envKey = process.env.OPENAI_API_KEY;
-    if (sessionKey || envKey) {
+    return { kind: "error", message: `Selected provider ${state.llmProvider} is not configured.` };
+  }
+
+  // Fallback to "auto" / default config logic (preserve existing behavior if needed, 
+  // or just fail if no provider selected? 
+  // The original function handled "auto" by checking various env vars one by one.
+  // For simplicity and consistency, let's keep the config.llm fallback.)
+
+  if (config.llm?.provider === "openai-compatible") {
+    const apiKey = config.llm.apiKey ?? (config.llm.apiKeyEnv ? process.env[config.llm.apiKeyEnv] : process.env.OPENAI_API_KEY);
+    if (apiKey) {
       return {
         kind: "openai-compatible",
-        baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
-        apiKey: sessionKey ?? envKey!,
-        headers: llm.headers,
-        source: sessionKey ? "session" : "env:OPENAI_API_KEY",
+        baseUrl: config.llm.baseUrl ?? "https://api.openai.com/v1",
+        apiKey,
+        headers: config.llm.headers,
+        source: "config"
       };
     }
-    return { kind: "error", message: "OpenAI selected but no credentials found. Set OPENAI_API_KEY or login via OAuth." };
   }
 
-  if (state.llmProvider === "gemini") {
-    const googleOAuth = await getCredentials("google");
-    if (googleOAuth?.access_token) {
-      return {
-        kind: "openai-compatible",
-        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-        apiKey: googleOAuth.access_token,
-        headers: llm.headers,
-        source: "google-oauth",
-      };
+  return { kind: "error", message: "No active provider selected or configured." };
+}
+
+function formatModelListError(status: number, text: string): string {
+  if (status === 403) {
+    if (text.includes("api.model.read") || text.includes("model.read")) {
+      return [
+        "Model list failed: missing api.model.read permission.",
+        "Fix: use a key with model.read scope, or sign in via OpenAI OAuth.",
+        "You can still set a model manually: /model <id>.",
+      ].join("\n");
     }
-    const sessionKey = state.apiKeys?.gemini;
-    const envKey = process.env.GEMINI_API_KEY;
-    if (sessionKey || envKey) {
-      return {
-        kind: "openai-compatible",
-        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-        apiKey: sessionKey ?? envKey!,
-        headers: llm.headers,
-        source: sessionKey ? "session" : "env:GEMINI_API_KEY",
-      };
-    }
-    return { kind: "error", message: "Gemini selected but no credentials found. Set GEMINI_API_KEY or login via Google OAuth." };
+    return [
+      "Model list failed: permission denied.",
+      "You can still set a model manually: /model <id>.",
+    ].join("\n");
   }
-
-  if (state.llmProvider === "claude") {
-    const sessionKey = state.apiKeys?.claude;
-    const envKey = process.env.ANTHROPIC_API_KEY;
-    if (sessionKey || envKey) {
-      return {
-        kind: "openai-compatible",
-        baseUrl: "https://api.anthropic.com/v1",
-        apiKey: sessionKey ?? envKey!,
-        headers: { ...llm.headers, "anthropic-version": "2023-06-01" },
-        source: sessionKey ? "session" : "env:ANTHROPIC_API_KEY",
-      };
-    }
-    return { kind: "error", message: "Claude selected but no credentials found. Set ANTHROPIC_API_KEY." };
-  }
-
-  if (state.llmProvider === "deepseek") {
-    const sessionKey = state.apiKeys?.deepseek;
-    const envKey = process.env.DEEPSEEK_API_KEY;
-    if (sessionKey || envKey) {
-      return {
-        kind: "openai-compatible",
-        baseUrl: "https://api.deepseek.com/v1",
-        apiKey: sessionKey ?? envKey!,
-        headers: llm.headers,
-        source: sessionKey ? "session" : "env:DEEPSEEK_API_KEY",
-      };
-    }
-    return { kind: "error", message: "DeepSeek selected but no credentials found. Set DEEPSEEK_API_KEY." };
-  }
-
-  if (state.llmProvider === "kimicode") {
-    const sessionKey = state.apiKeys?.kimicode;
-    const envKey = process.env.KIMICODE_API_KEY;
-    if (sessionKey || envKey) {
-      return {
-        kind: "openai-compatible",
-        baseUrl: "https://api.kimi.com/coding/v1",
-        apiKey: sessionKey ?? envKey!,
-        headers: llm.headers,
-        source: sessionKey ? "session" : "env:KIMICODE_API_KEY",
-      };
-    }
-    return { kind: "error", message: "Kimi Code selected but no credentials found. Set KIMICODE_API_KEY." };
-  }
-
-  if (state.llmProvider === "qwen") {
-    const sessionKey = state.apiKeys?.qwen;
-    const envKey = process.env.DASHSCOPE_API_KEY ?? process.env.QWEN_API_KEY;
-    if (sessionKey || envKey) {
-      return {
-        kind: "openai-compatible",
-        baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        apiKey: sessionKey ?? envKey!,
-        headers: llm.headers,
-        source: sessionKey ? "session" : "env:DASHSCOPE_API_KEY",
-      };
-    }
-    return { kind: "error", message: "Qwen selected but no credentials found. Set DASHSCOPE_API_KEY or QWEN_API_KEY." };
-  }
-
-  if (state.llmProvider === "moonshot") {
-    const sessionKey = state.apiKeys?.moonshot;
-    const envKey = process.env.MOONSHOT_API_KEY;
-    if (sessionKey || envKey) {
-      return {
-        kind: "openai-compatible",
-        baseUrl: "https://api.moonshot.cn/v1",
-        apiKey: sessionKey ?? envKey!,
-        headers: llm.headers,
-        source: sessionKey ? "session" : "env:MOONSHOT_API_KEY",
-      };
-    }
-    return { kind: "error", message: "Moonshot selected but no credentials found. Set MOONSHOT_API_KEY." };
-  }
-
-  if (state.llmProvider === "ollama") {
-    const baseUrl = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
-    return {
-      kind: "openai-compatible",
-      baseUrl,
-      apiKey: "ollama", // Ollama doesn't need a real API key
-      headers: llm.headers,
-      source: "ollama-local",
-    };
-  }
-
-  // Auto-detect provider (original logic)
-  const openAiOAuth = await getCredentials("openai-codex");
-  if (openAiOAuth?.access_token) {
-    return {
-      kind: "openai-compatible",
-      baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
-      apiKey: openAiOAuth.access_token,
-      headers: llm.headers,
-      source: "openai-oauth",
-    };
-  }
-
-  const googleOAuth = await getCredentials("google");
-  if (googleOAuth?.access_token) {
-    return {
-      kind: "openai-compatible",
-      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-      apiKey: googleOAuth.access_token,
-      headers: llm.headers,
-      source: "google-oauth",
-    };
-  }
-
-  if (llm.provider === "openai-compatible") {
-    const apiKeyEnv = llm.apiKeyEnv ?? "OPENAI_API_KEY";
-    const apiKey = llm.apiKey ?? process.env[apiKeyEnv];
-    if (!apiKey) {
-      return { kind: "error", message: `Missing API key. Set ${apiKeyEnv} or llm.apiKey.` };
-    }
-    return {
-      kind: "openai-compatible",
-      baseUrl: llm.baseUrl ?? "https://api.openai.com/v1",
-      apiKey,
-      headers: llm.headers,
-      source: "config",
-    };
-  }
-
-  if (process.env.GEMINI_API_KEY) {
-    return {
-      kind: "openai-compatible",
-      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-      apiKey: process.env.GEMINI_API_KEY,
-      headers: llm.headers,
-      source: "env:GEMINI_API_KEY",
-    };
-  }
-
-  if (process.env.OPENAI_API_KEY) {
-    return {
-      kind: "openai-compatible",
-      baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
-      apiKey: process.env.OPENAI_API_KEY,
-      headers: llm.headers,
-      source: "env:OPENAI_API_KEY",
-    };
-  }
-
-  return { kind: "error", message: "No LLM credentials found. Configure OAuth or an API key first." };
+  return `Model list failed (${status}): ${text}`;
 }
 
 async function pageOutput(text: string, rl: readline.Interface, pageSize: number): Promise<void> {

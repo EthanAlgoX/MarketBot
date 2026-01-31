@@ -1,0 +1,11 @@
+{
+  "owner": "elithrar",
+  "slug": "web-perf",
+  "displayName": "Web Perf",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767685545091,
+    "commit": "https://github.com/clawdbot/skills/commit/e19975af27b55dae5ba97a255e15e4b06d66aade"
+  },
+  "history": []
+}

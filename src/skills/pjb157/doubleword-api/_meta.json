@@ -1,0 +1,11 @@
+{
+  "owner": "pjb157",
+  "slug": "doubleword-api",
+  "displayName": "Doubleword API",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769546053909,
+    "commit": "https://github.com/clawdbot/skills/commit/a7df411dc8dd8f69b9d985f329117c2ac77ea955"
+  },
+  "history": []
+}

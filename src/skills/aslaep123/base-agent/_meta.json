@@ -1,0 +1,11 @@
+{
+  "owner": "aslaep123",
+  "slug": "base-agent",
+  "displayName": "Base Trading Agent",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769627057927,
+    "commit": "https://github.com/clawdbot/skills/commit/82fc9f65a421dee0008564b3d079e361cf6458f0"
+  },
+  "history": []
+}

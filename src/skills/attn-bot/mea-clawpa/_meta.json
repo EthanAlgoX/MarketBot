@@ -1,0 +1,11 @@
+{
+  "owner": "attn-bot",
+  "slug": "mea-clawpa",
+  "displayName": "Mea Clawpa",
+  "latest": {
+    "version": "1.0.5",
+    "publishedAt": 1769849859638,
+    "commit": "https://github.com/clawdbot/skills/commit/3caa9cc95f4441d6fc3215b8051b33ff6fdfab0b"
+  },
+  "history": []
+}

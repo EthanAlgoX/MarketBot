@@ -96,7 +96,7 @@ export async function skillsRunCommand(opts: {
   json?: boolean;
 }): Promise<void> {
   const config = await loadConfig();
-  const registry = createDefaultToolRegistry();
+  const registry = await createDefaultToolRegistry();
   const result = await runSkillCommand(config, {
     skill: opts.skill,
     command: opts.command,

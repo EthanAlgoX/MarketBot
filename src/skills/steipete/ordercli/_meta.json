@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "ordercli",
+  "displayName": "Ordercli",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545372216,
+    "commit": "https://github.com/clawdbot/skills/commit/d3d5a0f14d165a56ca6ef02ee84185d7f5f1c7dd"
+  },
+  "history": []
+}

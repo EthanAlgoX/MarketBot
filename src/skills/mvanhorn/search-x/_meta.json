@@ -1,0 +1,11 @@
+{
+  "owner": "mvanhorn",
+  "slug": "search-x",
+  "displayName": "Search X",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769196247403,
+    "commit": "https://github.com/clawdbot/skills/commit/044a43eb18feb4262f1b863fb2349f2ae249e8d0"
+  },
+  "history": []
+}

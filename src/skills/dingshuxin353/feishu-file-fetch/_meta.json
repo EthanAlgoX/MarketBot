@@ -1,0 +1,11 @@
+{
+  "owner": "dingshuxin353",
+  "slug": "feishu-file-fetch",
+  "displayName": "feishu_file_fetch",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769759084433,
+    "commit": "https://github.com/clawdbot/skills/commit/e4189e77f84038ec7b7a71d114e5484fd4f17e63"
+  },
+  "history": []
+}

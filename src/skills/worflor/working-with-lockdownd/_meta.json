@@ -1,0 +1,11 @@
+{
+  "owner": "worflor",
+  "slug": "working-with-lockdownd",
+  "displayName": "Working with Lockdownd",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769835566243,
+    "commit": "https://github.com/clawdbot/skills/commit/a9fa2bdca94329d248ffcb15efb9df00237b07b6"
+  },
+  "history": []
+}

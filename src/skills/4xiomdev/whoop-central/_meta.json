@@ -1,0 +1,11 @@
+{
+  "owner": "4xiomdev",
+  "slug": "whoop-central",
+  "displayName": "WHOOP Central",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769592641158,
+    "commit": "https://github.com/clawdbot/skills/commit/e07a4003406dd68d89351372c2b0fda7117bbdd0"
+  },
+  "history": []
+}

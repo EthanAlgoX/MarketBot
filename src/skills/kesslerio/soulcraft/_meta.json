@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "soulcraft",
+  "displayName": "SoulCraft",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769837657106,
+    "commit": "https://github.com/clawdbot/skills/commit/164cc6b9ba66ee002b1b7a947537abf525f24f9f"
+  },
+  "history": []
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "redis-schema-gen",
+  "displayName": "Redis Schema Generator",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769666684410,
+    "commit": "https://github.com/clawdbot/skills/commit/81ef51783a2bd7636c8e0489fcb38e35374b5bc2"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769632780738,
+      "commit": "https://github.com/clawdbot/skills/commit/aff163760ccc633b12fe1ad1d68fac729d0f6277"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "andreolf",
+  "slug": "watch-my-money",
+  "displayName": "Watch My Money",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769449469109,
+    "commit": "https://github.com/clawdbot/skills/commit/4129f90a6ea37752c0b97a43ede494c8274e5073"
+  },
+  "history": []
+}

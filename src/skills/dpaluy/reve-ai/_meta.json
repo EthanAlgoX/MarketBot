@@ -1,0 +1,17 @@
+{
+  "owner": "dpaluy",
+  "slug": "reve-ai",
+  "displayName": "Reve AI Image Generation",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769457939503,
+    "commit": "https://github.com/clawdbot/skills/commit/ebeedad0a1b08c5796e6a4f7f7bb975289403f39"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769406011002,
+      "commit": "https://github.com/clawdbot/skills/commit/c6e96027ed91c930d86ab37b7b678f11294a4f7f"
+    }
+  ]
+}

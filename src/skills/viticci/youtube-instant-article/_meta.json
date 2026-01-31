@@ -1,0 +1,11 @@
+{
+  "owner": "viticci",
+  "slug": "youtube-instant-article",
+  "displayName": "Youtube Instant Article",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769173161870,
+    "commit": "https://github.com/clawdbot/skills/commit/d7f52f5d3ffd63e93288009519c01179073d5616"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "deps-checker",
+  "displayName": "Deps Checker",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769633017863,
+    "commit": "https://github.com/clawdbot/skills/commit/6ab5f19730833927107c64ed8909404c39806699"
+  },
+  "history": []
+}

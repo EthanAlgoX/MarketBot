@@ -1,0 +1,11 @@
+{
+  "owner": "danman60",
+  "slug": "tesla-skill",
+  "displayName": "Tesla",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769708617731,
+    "commit": "https://github.com/clawdbot/skills/commit/e4ac1fe8288027d8a6caee62d545901b7ea65078"
+  },
+  "history": []
+}

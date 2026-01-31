@@ -1,0 +1,11 @@
+{
+  "owner": "nextfrontierbuilds",
+  "slug": "fear-greed",
+  "displayName": "fear-greed",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769577767369,
+    "commit": "https://github.com/clawdbot/skills/commit/81689c88d9c542445536550325cbeb761859eb78"
+  },
+  "history": []
+}

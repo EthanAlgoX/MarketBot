@@ -1,0 +1,11 @@
+{
+  "owner": "jakehandy",
+  "slug": "yclawker-news",
+  "displayName": "YClawbinator - Clawker News",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769809379987,
+    "commit": "https://github.com/clawdbot/skills/commit/7aac51298030903a855a27d971140d2003ca7b6d"
+  },
+  "history": []
+}

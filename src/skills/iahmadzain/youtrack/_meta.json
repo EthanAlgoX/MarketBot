@@ -1,0 +1,11 @@
+{
+  "owner": "iahmadzain",
+  "slug": "youtrack",
+  "displayName": "YouTrack Issue Tracker",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769511791837,
+    "commit": "https://github.com/clawdbot/skills/commit/b794716223402157089c8173fea5737f1d2398b0"
+  },
+  "history": []
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "cdermott7",
+  "slug": "locus",
+  "displayName": "Locus",
+  "latest": {
+    "version": "1.3.0",
+    "publishedAt": 1769575999498,
+    "commit": "https://github.com/clawdbot/skills/commit/694c834aec416fed39d3ddc03059066e0c663038"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769562964786,
+      "commit": "https://github.com/clawdbot/skills/commit/c317e30b3b434b390ca0b172c056c33872025266"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "thesethrose",
+  "slug": "notebook",
+  "displayName": "Notebook",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1768124334841,
+    "commit": "https://github.com/clawdbot/skills/commit/a1ad1224c18a0177b69ee72000d0a277d8db21ac"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1768122759819,
+      "commit": "https://github.com/clawdbot/skills/commit/456eaee1c1fe623a24f3416a05d1f9c1aeb2976f"
+    }
+  ]
+}

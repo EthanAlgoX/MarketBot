@@ -1,0 +1,11 @@
+{
+  "owner": "baanish",
+  "slug": "tessie",
+  "displayName": "Tessie Tesla Control",
+  "latest": {
+    "version": "2.0.3",
+    "publishedAt": 1768422936301,
+    "commit": "https://github.com/clawdbot/skills/commit/1a817913c479a47f77337bf689d486f66d667ddc"
+  },
+  "history": []
+}

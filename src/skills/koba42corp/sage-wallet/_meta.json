@@ -1,0 +1,11 @@
+{
+  "owner": "koba42corp",
+  "slug": "sage-wallet",
+  "displayName": "Sage Wallet",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769725425533,
+    "commit": "https://github.com/clawdbot/skills/commit/2c3d2cf457a21296c02551a359cfe696443364a9"
+  },
+  "history": []
+}

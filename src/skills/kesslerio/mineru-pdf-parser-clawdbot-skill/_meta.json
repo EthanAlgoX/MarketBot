@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "mineru-pdf-parser-clawdbot-skill",
+  "displayName": "MinerU PDF Parser Clawdbot Skill",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769196419179,
+    "commit": "https://github.com/clawdbot/skills/commit/1bcf7e848555b7357482781349700f79c4593fe0"
+  },
+  "history": []
+}

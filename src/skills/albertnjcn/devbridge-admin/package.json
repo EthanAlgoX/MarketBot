@@ -1,0 +1,304 @@
+{
+  "name": "devbridge-admin",
+  "displayName": "审核协调器",
+  "version": "1.0.0",
+  "description": "管理员通过Clawdbot审核和分配修复任务，支持问题审核、批准、拒绝、统计查询等功能",
+  "author": "DevBridge Team",
+  "license": "MIT",
+  "keywords": [
+    "admin",
+    "review",
+    "moderation",
+    "task-assignment",
+    "statistics"
+  ],
+  "repository": "https://github.com/your-username/devbridge-skills",
+  "homepage": "https://clawdhub.com/skills/devbridge-admin",
+  "category": "development-tools",
+  
+  "clawdbot": {
+    "type": "agent",
+    "main": "commands.py",
+    "config": "SKILL.md",
+    "runtime": "python3",
+    "minVersion": "2026.1.0",
+    
+    "triggers": [
+      {
+        "pattern": "^/list",
+        "handler": "list_pending",
+        "description": "列出所有待审核问题"
+      },
+      {
+        "pattern": "^/approve",
+        "handler": "approve_problem",
+        "description": "批准修复任务"
+      },
+      {
+        "pattern": "^/reject",
+        "handler": "reject_problem",
+        "description": "拒绝修复任务（必填原因）"
+      },
+      {
+        "pattern": "^/history",
+        "handler": "review_history",
+        "description": "查看审核历史"
+      },
+      {
+        "pattern": "^/stats",
+        "handler": "show_statistics",
+        "description": "显示审核统计"
+      },
+      {
+        "pattern": "^/pending",
+        "handler": "list_pending",
+        "description": "查看待审核数量"
+      },
+      {
+        "pattern": "^/completed",
+        "handler": "list_completed",
+        "description": "查看已完成数量"
+      }
+    ],
+    
+    "commands": [
+      {
+        "name": "list_pending",
+        "description": "列出所有待审核问题"
+      },
+      {
+        "name": "list_all",
+        "description": "列出所有问题（包括已审核）",
+        "parameters": [
+          {
+            "name": "status",
+            "type": "string",
+            "required": false,
+            "description": "筛选状态：pending, approved, rejected, fixing, ready, completed",
+            "default": "pending"
+          },
+          {
+            "name": "priority",
+            "type": "string",
+            "required": false,
+            "description": "筛选优先级：low, medium, high, critical",
+            "default": ""
+          }
+        ]
+      },
+      {
+        "name": "approve_problem",
+        "description": "批准问题，分配给后端Agent",
+        "parameters": [
+          {
+            "name": "problem_id",
+            "type": "string",
+            "required": true,
+            "description": "问题ID"
+          },
+          {
+            "name": "priority",
+            "type": "string",
+            "required": false,
+            "description": "设置优先级",
+            "default": "medium"
+          },
+          {
+            "name": "note",
+            "type": "string",
+            "required": false,
+            "description": "审核备注"
+          }
+        ]
+      },
+      {
+        "name": "reject_problem",
+        "description": "拒绝问题，必须填写原因",
+        "parameters": [
+          {
+            "name": "problem_id",
+            "type": "string",
+            "required": true,
+            "description": "问题ID"
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "required": true,
+            "description": "拒绝原因（必填）"
+          },
+          {
+            "name": "reason_type",
+            "type": "string",
+            "required": false,
+            "description": "原因类型：invalid_params, permission_denied, not_applicable, already_fixed, need_more_info, duplicate, spec_unclear, out_of_scope, will_not_fix, needs_discussion, other",
+            "default": "other"
+          },
+          {
+            "name": "suggestion",
+            "type": "string",
+            "required": false,
+            "description": "改进建议",
+            "default": ""
+          }
+        ]
+      },
+      {
+        "name": "review_history",
+        "description": "查看审核历史",
+        "parameters": [
+          {
+            "name": "problem_id",
+            "type": "string",
+            "required": false,
+            "description": "问题ID（不填则返回所有历史）"
+          },
+          {
+            "name": "days",
+            "type": "number",
+            "required": false,
+            "description": "最近N天的历史",
+            "default": 7
+          }
+        ]
+      },
+      {
+        "name": "show_statistics",
+        "description": "显示审核统计"
+      },
+      {
+        "name": "get_status",
+        "description": "获取问题状态",
+        "parameters": [
+          {
+            "name": "problem_id",
+            "type": "string",
+            "required": true,
+            "description": "问题ID"
+          }
+        ]
+      },
+      {
+        "name": "get_timeline",
+        "description": "获取问题时间线",
+        "parameters": [
+          {
+            "name": "problem_id",
+            "type": "string",
+            "required": true,
+            "description": "问题ID"
+          },
+          {
+            "name": "expand",
+            "type": "boolean",
+            "required": false,
+            "description": "展开所有节点",
+            "default": false
+          }
+        ]
+      },
+      {
+        "name": "list_completed",
+        "description": "查看已完成问题"
+      }
+    ],
+    
+    "dependencies": {
+      "python": ">=3.8",
+      "required_packages": [
+        "python-dateutil"
+      ]
+    },
+    
+    "permissions": {
+      "allowed_actions": [
+        "review:read",
+        "review:approve",
+        "review:reject",
+        "review:history",
+        "review:stats",
+        "problem:read",
+        "problem:update",
+        "timeline:read"
+      ],
+      "required_roles": [
+        "admin",
+        "reviewer"
+      ]
+    },
+    
+    "sessions": {
+      "frontend": {
+        "sessionKey": "agent:frontend:dev",
+        "description": "前端Agent的Session Key"
+      },
+      "backend": {
+        "sessionKey": "agent:backend:dev",
+        "description": "后端Agent的Session Key"
+      }
+    },
+    
+    "statistics": {
+      "metrics": [
+        "pending_count",
+        "approved_count",
+        "rejected_count",
+        "completed_count",
+        "avg_review_time",
+        "approve_rate",
+        "reject_by_reason"
+      ],
+      "aggregation": {
+        "daily": true,
+        "weekly": true,
+        "monthly": true
+      }
+    },
+    
+    "message_templates": {
+      "pending_review": "🔔 新问题待审核\n\n问题ID: {problem_id}\n接口: {endpoint}\n错误: {error}\n报告人: {reporter}",
+      "approved": "✅ 问题已批准\n\n问题ID: {problem_id}\n接口: {endpoint}\n优先级: {priority}\n已分配给后端Agent",
+      "rejected": "❌ 问题已拒绝\n\n问题ID: {problem_id}\n原因: {reason}\n建议: {suggestion}\n已通知前端Agent",
+      "completed": "🎉 问题已完成\n\n问题ID: {problem_id}\n修复尝试次数: {attempts}\n总耗时: {duration}小时"
+    },
+    
+    "reject_reasons": {
+      "invalid_params": "参数格式不正确或缺少必填参数",
+      "permission_denied": "权限不足，无法访问此资源",
+      "not_applicable": "此问题不适用于当前场景",
+      "already_fixed": "此问题已在其他地方修复",
+      "need_more_info": "需要更多信息才能定位问题",
+      "duplicate": "重复的问题",
+      "spec_unclear": "API规范不清晰",
+      "out_of_scope": "超出当前服务范围",
+      "will_not_fix": "此问题计划不修复，文档化即可",
+      "needs_discussion": "需要团队讨论确定解决方案"
+    },
+    
+    "priority_rules": {
+      "critical": "生产环境阻塞、数据安全问题、核心业务功能失效",
+      "high": "非阻塞功能缺陷、性能严重下降",
+      "medium": "一般功能缺陷、用户体验受影响",
+      "low": "轻微问题、优化建议"
+    },
+    
+    "environment": {
+      "TIMEZONE": {
+        "type": "string",
+        "description": "时区",
+        "default": "Asia/Shanghai"
+      },
+      "DATETIME_FORMAT": {
+        "type": "string",
+        "description": "日期时间格式",
+        "default": "%Y-%m-%d %H:%M:%S"
+      }
+    },
+    
+    "security": {
+      "no_sensitive_data": true,
+      "no_hardcoded_paths": true,
+      "uses_env_vars": true
+    }
+  }
+}

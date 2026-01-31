@@ -1,0 +1,11 @@
+{
+  "owner": "pjtf93",
+  "slug": "cochesnet-cli",
+  "displayName": "Cochesnet Cli",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769363866535,
+    "commit": "https://github.com/clawdbot/skills/commit/2d6d7290bb3ab97dae72608dced83fc892b2bdf6"
+  },
+  "history": []
+}

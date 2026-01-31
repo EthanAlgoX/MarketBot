@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "smartsheet",
+  "displayName": "Smartsheet",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780997744,
+    "commit": "https://github.com/clawdbot/skills/commit/f671648869512aa66df69a4d91b434edd6f5bf81"
+  },
+  "history": []
+}

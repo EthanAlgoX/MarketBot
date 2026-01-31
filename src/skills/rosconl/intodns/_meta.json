@@ -1,0 +1,11 @@
+{
+  "owner": "rosconl",
+  "slug": "intodns",
+  "displayName": "IntoDNS",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769717043910,
+    "commit": "https://github.com/clawdbot/skills/commit/f8f0105571cf017e51e002f17d7cdc98a89de4c6"
+  },
+  "history": []
+}

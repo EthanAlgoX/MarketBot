@@ -1,0 +1,11 @@
+{
+  "owner": "mjrussell",
+  "slug": "trakt",
+  "displayName": "Trakt",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1767853147869,
+    "commit": "https://github.com/clawdbot/skills/commit/41763ef3f8b95487996687940a6adfe04769ff24"
+  },
+  "history": []
+}

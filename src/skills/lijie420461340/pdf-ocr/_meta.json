@@ -1,0 +1,11 @@
+{
+  "owner": "lijie420461340",
+  "slug": "pdf-ocr",
+  "displayName": "Pdf Ocr",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769739941518,
+    "commit": "https://github.com/clawdbot/skills/commit/75b5e15a11b15f0d76badd2ad03db3287bcc50ec"
+  },
+  "history": []
+}

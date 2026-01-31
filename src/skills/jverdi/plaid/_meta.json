@@ -1,0 +1,11 @@
+{
+  "owner": "jverdi",
+  "slug": "plaid",
+  "displayName": "plaid",
+  "latest": {
+    "version": "0.0.3",
+    "publishedAt": 1767495230575,
+    "commit": "https://github.com/clawdbot/skills/commit/cd64326a3fc2823e63422550ff88a7cf755afa81"
+  },
+  "history": []
+}

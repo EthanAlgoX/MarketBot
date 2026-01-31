@@ -1,0 +1,22 @@
+{
+  "owner": "dbhurley",
+  "slug": "daily-recap",
+  "displayName": "Daily Recap",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1768261818415,
+    "commit": "https://github.com/clawdbot/skills/commit/d4406e3e442189f68a0ee0d439b6d8e26aecdf26"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1768259031434,
+      "commit": "https://github.com/clawdbot/skills/commit/004427d4954f320ce3ee056c3a963827a5dd97ea"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768258708911,
+      "commit": "https://github.com/clawdbot/skills/commit/ce3ed71e3ed68b85e00243308f600e8f2bc3b9ae"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "owner": "orlyjamie",
+  "slug": "wed",
+  "displayName": "What would Elon do",
+  "latest": {
+    "version": "1.0.3",
+    "publishedAt": 1769462878085,
+    "commit": "https://github.com/clawdbot/skills/commit/8d95c7ff7369c813d6aa8c43970ed0f6bf9ad77a"
+  },
+  "history": [
+    {
+      "version": "1.0.2",
+      "publishedAt": 1769438228272,
+      "commit": "https://github.com/clawdbot/skills/commit/8b485334e267a3d85a3d9af146697e367746da14"
+    },
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769416151842,
+      "commit": "https://github.com/clawdbot/skills/commit/283b7c7797e6f3e8384e5be418962d7d3287504b"
+    }
+  ]
+}

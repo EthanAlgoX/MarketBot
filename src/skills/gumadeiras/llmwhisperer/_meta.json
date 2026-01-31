@@ -1,0 +1,22 @@
+{
+  "owner": "gumadeiras",
+  "slug": "llmwhisperer",
+  "displayName": "LLMWhisperer",
+  "latest": {
+    "version": "0.0.7",
+    "publishedAt": 1769089648547,
+    "commit": "https://github.com/clawdbot/skills/commit/1e2d980b64fed9f61fdb66657c03d5c52b78c0de"
+  },
+  "history": [
+    {
+      "version": "0.0.6",
+      "publishedAt": 1769062605206,
+      "commit": "https://github.com/clawdbot/skills/commit/2bc3c6202ded85a21992897179d59eddc4b75ccd"
+    },
+    {
+      "version": "0.0.3",
+      "publishedAt": 1769037175121,
+      "commit": "https://github.com/clawdbot/skills/commit/74d27c9b441eff4b4422e840c41530b141b2c5d6"
+    }
+  ]
+}

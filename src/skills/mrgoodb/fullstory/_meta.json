@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "fullstory",
+  "displayName": "Fullstory",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781092942,
+    "commit": "https://github.com/clawdbot/skills/commit/9fced23e77072cfed43fd21f16fb1a3b9287e4c1"
+  },
+  "history": []
+}

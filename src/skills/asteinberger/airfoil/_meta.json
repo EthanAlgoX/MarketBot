@@ -1,0 +1,11 @@
+{
+  "owner": "asteinberger",
+  "slug": "airfoil",
+  "displayName": "Airfoil",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769324953058,
+    "commit": "https://github.com/clawdbot/skills/commit/ae78a23ebc75d52f864a1f505771340c9d4981ce"
+  },
+  "history": []
+}

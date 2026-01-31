@@ -1,0 +1,11 @@
+{
+  "owner": "atlas-secint",
+  "slug": "insecure-defaults",
+  "displayName": "Insecure Defaults Detection",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769636778868,
+    "commit": "https://github.com/clawdbot/skills/commit/45fdf28ce6a9aac8cf7d23af5ca1da80793d3f0c"
+  },
+  "history": []
+}

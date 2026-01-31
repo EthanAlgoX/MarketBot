@@ -1,0 +1,11 @@
+{
+  "owner": "cuba6112",
+  "slug": "tmux-agents",
+  "displayName": "Tmux Agents",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769349998354,
+    "commit": "https://github.com/clawdbot/skills/commit/21b8f016ea455fe8832fa6b8fb7e5be235a2691e"
+  },
+  "history": []
+}

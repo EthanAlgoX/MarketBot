@@ -1,0 +1,11 @@
+{
+  "owner": "kdbhalala",
+  "slug": "apple-hig",
+  "displayName": "Apple Human Interface Guidelines skill for designing native iOS, macOS, watchOS, tvOS, and visionOS applications.",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769783481535,
+    "commit": "https://github.com/clawdbot/skills/commit/d93154d17c6a2f90666afab7e60b58d562b74b24"
+  },
+  "history": []
+}

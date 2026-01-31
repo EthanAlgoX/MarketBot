@@ -1,0 +1,22 @@
+{
+  "owner": "bastos",
+  "slug": "obsidian-daily",
+  "displayName": "Obsidian Daily",
+  "latest": {
+    "version": "1.2.1",
+    "publishedAt": 1769695622938,
+    "commit": "https://github.com/clawdbot/skills/commit/257aafba40b8bd1ccf5ac100812a040105a96d2b"
+  },
+  "history": [
+    {
+      "version": "1.2.0",
+      "publishedAt": 1768269313036,
+      "commit": "https://github.com/clawdbot/skills/commit/b4a1c9825d00eaa2d812f5dca134bd9f7e911bf2"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768264671758,
+      "commit": "https://github.com/clawdbot/skills/commit/e899d78dfc7be38d5cd6b11343ecbe90c98158ec"
+    }
+  ]
+}

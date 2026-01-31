@@ -1,0 +1,11 @@
+{
+  "owner": "xadenryan",
+  "slug": "clawdbot-skill-voice-wake-say",
+  "displayName": "Voice Wake Say TTS Responses (Native)",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769335228985,
+    "commit": "https://github.com/clawdbot/skills/commit/19cd5393a552f1f87221b564a01e1dee61ae95a4"
+  },
+  "history": []
+}

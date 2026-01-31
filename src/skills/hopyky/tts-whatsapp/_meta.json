@@ -1,0 +1,11 @@
+{
+  "owner": "hopyky",
+  "slug": "tts-whatsapp",
+  "displayName": "TTS WhatsApp",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769087894634,
+    "commit": "https://github.com/clawdbot/skills/commit/60dd8c6f45937d24b7f597a0fd7134d52a900b73"
+  },
+  "history": []
+}

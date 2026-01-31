@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "apollo-io",
+  "displayName": "Apollo Io",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781103583,
+    "commit": "https://github.com/clawdbot/skills/commit/3365e0a0a6d8eeb8a91059084dcd0d1616503a7e"
+  },
+  "history": []
+}

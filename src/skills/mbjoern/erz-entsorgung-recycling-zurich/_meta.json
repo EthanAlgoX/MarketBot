@@ -1,0 +1,11 @@
+{
+  "owner": "mbjoern",
+  "slug": "erz-entsorgung-recycling-zurich",
+  "displayName": "ERZ Entsorgung + Recycling Zürich",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768420408960,
+    "commit": "https://github.com/clawdbot/skills/commit/ce1d7dd0b690f10e5cb0104053561cfa49dbe24e"
+  },
+  "history": []
+}

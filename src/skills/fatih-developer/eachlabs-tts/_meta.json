@@ -1,0 +1,11 @@
+{
+  "owner": "fatih-developer",
+  "slug": "eachlabs-tts",
+  "displayName": "Eachlabs Tts",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769773290205,
+    "commit": "https://github.com/clawdbot/skills/commit/924db9f696579b12f485db4be5e9506d64305fcf"
+  },
+  "history": []
+}

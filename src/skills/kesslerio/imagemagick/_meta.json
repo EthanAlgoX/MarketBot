@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "imagemagick",
+  "displayName": "ImageMagick Operations",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769838094531,
+    "commit": "https://github.com/clawdbot/skills/commit/aed4981e0899623fff218218dd56203b4cdd545d"
+  },
+  "history": []
+}

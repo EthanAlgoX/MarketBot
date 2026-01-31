@@ -1,0 +1,11 @@
+{
+  "owner": "andrewdmwalker",
+  "slug": "weather-nws",
+  "displayName": "Weather Nws",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769788267742,
+    "commit": "https://github.com/clawdbot/skills/commit/59de515fa99d4c4a300612e86d9d1a81ca8382a4"
+  },
+  "history": []
+}

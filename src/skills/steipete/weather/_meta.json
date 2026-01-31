@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "weather",
+  "displayName": "Weather",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545394459,
+    "commit": "https://github.com/clawdbot/skills/commit/e98452b182391d326eccc9b9c79e92bba69493dc"
+  },
+  "history": []
+}

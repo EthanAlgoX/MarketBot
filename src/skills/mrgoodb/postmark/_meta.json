@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "postmark",
+  "displayName": "Postmark",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780239419,
+    "commit": "https://github.com/clawdbot/skills/commit/2f54cd2ac5d36979c320f2eceadb2ff81e6f9199"
+  },
+  "history": []
+}

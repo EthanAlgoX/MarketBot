@@ -1,0 +1,11 @@
+{
+  "owner": "lijie420461340",
+  "slug": "pdf-to-docx",
+  "displayName": "Pdf To Docx",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769739408192,
+    "commit": "https://github.com/clawdbot/skills/commit/493c825a30d1f2ad269e87380bb251f005a8793d"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "rubenfb23",
+  "slug": "arxiv-watcher-vigo",
+  "displayName": "ArXiv Watcher",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769434814340,
+    "commit": "https://github.com/clawdbot/skills/commit/f807a3fe6f56922e292223ba41ee7cdbc87c1e81"
+  },
+  "history": []
+}

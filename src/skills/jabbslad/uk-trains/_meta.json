@@ -1,0 +1,11 @@
+{
+  "owner": "jabbslad",
+  "slug": "uk-trains",
+  "displayName": "UK Trains",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769373160787,
+    "commit": "https://github.com/clawdbot/skills/commit/1f1facd9e1446d2aa63867f2b3cff5bb299ccb33"
+  },
+  "history": []
+}

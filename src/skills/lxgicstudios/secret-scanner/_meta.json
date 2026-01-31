@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "secret-scanner",
+  "displayName": "Secret Scanner",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769631706179,
+    "commit": "https://github.com/clawdbot/skills/commit/da10fcc75e84634baf0a6faba4e53205b753f343"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769590133298,
+      "commit": "https://github.com/clawdbot/skills/commit/8e27d68cb17d2ac814e33b4aeb7f951ed0ffb773"
+    }
+  ]
+}

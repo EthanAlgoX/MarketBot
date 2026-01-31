@@ -1,0 +1,22 @@
+{
+  "owner": "tyler6204",
+  "slug": "apple-mail",
+  "displayName": "Apple Mail",
+  "latest": {
+    "version": "1.2.0",
+    "publishedAt": 1768611657854,
+    "commit": "https://github.com/clawdbot/skills/commit/d34ad8038a156791bebcb7aee1ff606db07ad90f"
+  },
+  "history": [
+    {
+      "version": "1.1.0",
+      "publishedAt": 1768477585850,
+      "commit": "https://github.com/clawdbot/skills/commit/8f6ee9e514e59fdaf607eae1ea25ae343fd9f2f0"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768372673149,
+      "commit": "https://github.com/clawdbot/skills/commit/a535afaca502042db040855b1cdc7f4e3cf8fe17"
+    }
+  ]
+}

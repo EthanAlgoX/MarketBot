@@ -1,0 +1,11 @@
+{
+  "owner": "themiloway",
+  "slug": "memory-curator",
+  "displayName": "Memory Curator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769807194102,
+    "commit": "https://github.com/clawdbot/skills/commit/3f944615071e4e2fe1beaa0015c99da07e1a1de1"
+  },
+  "history": []
+}

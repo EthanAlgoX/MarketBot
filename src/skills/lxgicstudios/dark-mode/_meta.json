@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "dark-mode",
+  "displayName": "Dark Mode Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769626266146,
+    "commit": "https://github.com/clawdbot/skills/commit/b6b73933275c61c8de0013cae42e506dc0e5c1ce"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "avatarneil",
+  "slug": "discord-voice",
+  "displayName": "Discord Voice",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769456717738,
+    "commit": "https://github.com/clawdbot/skills/commit/b575aceaaef7db6b62f8899d35cd13c496207ae9"
+  },
+  "history": []
+}

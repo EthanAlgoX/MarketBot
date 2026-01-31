@@ -1,0 +1,11 @@
+{
+  "owner": "visionik",
+  "slug": "sogcli",
+  "displayName": "Sog",
+  "latest": {
+    "version": "0.3.0",
+    "publishedAt": 1769419088020,
+    "commit": "https://github.com/clawdbot/skills/commit/d31034d0375bc33f20abaf49b010d359d8b6991a"
+  },
+  "history": []
+}

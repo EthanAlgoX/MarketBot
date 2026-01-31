@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "instagram",
+  "displayName": "Instagram",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769540905419,
+    "commit": "https://github.com/clawdbot/skills/commit/82e610542c1cb5c5391b296176b3b353c936cadd"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769514107246,
+      "commit": "https://github.com/clawdbot/skills/commit/4bca9a3c52e3a9cfc82de909a1363f73e3b693e6"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "excel",
+  "displayName": "Excel",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769238837386,
+    "commit": "https://github.com/clawdbot/skills/commit/47be174f30093bcdc9d3fd89e700e338d51662a8"
+  },
+  "history": []
+}

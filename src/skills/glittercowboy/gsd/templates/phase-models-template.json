@@ -1,0 +1,71 @@
+{
+  "description": "Per-phase model configuration for GSD Autopilot",
+  "default_model": "claude-3-5-sonnet-latest",
+  "phases": {
+    "1": {
+      "model": "claude-3-5-sonnet-latest",
+      "reasoning": "Initial setup and architecture - Sonnet is cost-effective for routine tasks"
+    },
+    "2": {
+      "model": "claude-3-5-opus-latest",
+      "reasoning": "Complex implementation requiring deep reasoning"
+    },
+    "3": {
+      "model": "claude-3-5-sonnet-latest",
+      "reasoning": "Standard development work"
+    },
+    "gaps": {
+      "model": "claude-3-5-sonnet-latest",
+      "reasoning": "Gap closure typically involves straightforward fixes"
+    },
+    "continuation": {
+      "model": "claude-3-5-sonnet-latest",
+      "reasoning": "Checkpoint continuations need context but not deep reasoning"
+    },
+    "verification": {
+      "model": "claude-3-5-sonnet-latest",
+      "reasoning": "Verification is systematic testing, not complex reasoning"
+    },
+    "milestone_complete": {
+      "model": "claude-3-5-sonnet-latest",
+      "reasoning": "Completion task is straightforward"
+    }
+  },
+  "provider_routing": {
+    "claude-3-5-sonnet-latest": {
+      "provider": "anthropic",
+      "base_url": "https://api.anthropic.com"
+    },
+    "claude-3-5-opus-latest": {
+      "provider": "anthropic",
+      "base_url": "https://api.anthropic.com"
+    },
+    "glm-4.7": {
+      "provider": "z-ai",
+      "base_url": "https://open.bigmodel.cn/api/paas/v4/",
+      "auth_header": "Authorization"
+    },
+    "gpt-4o": {
+      "provider": "openai",
+      "base_url": "https://api.openai.com/v1"
+    },
+    "deepseek-reasoner": {
+      "provider": "openrouter",
+      "model_name": "deepseek/deepseek-reasoner",
+      "base_url": "https://openrouter.ai/api/v1/chat/completions"
+    }
+  },
+  "cost_optimization": {
+    "enabled": true,
+    "auto_downgrade_on_budget": {
+      "threshold_percent": 80,
+      "fallback_model": "claude-3-5-haiku-latest"
+    },
+    "task_type_routing": {
+      "research": "claude-3-5-sonnet-latest",
+      "planning": "claude-3-5-haiku-latest",
+      "coding": "claude-3-5-sonnet-latest",
+      "verification": "claude-3-5-haiku-latest"
+    }
+  }
+}

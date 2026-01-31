@@ -1,0 +1,11 @@
+{
+  "owner": "joargp",
+  "slug": "news-summary",
+  "displayName": "News Summary",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1767689990078,
+    "commit": "https://github.com/clawdbot/skills/commit/68a801d245f9ba9fe3a4e529466c159c5a370caa"
+  },
+  "history": []
+}

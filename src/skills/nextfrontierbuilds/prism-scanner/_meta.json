@@ -1,0 +1,11 @@
+{
+  "owner": "nextfrontierbuilds",
+  "slug": "prism-scanner",
+  "displayName": "prism-scanner",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769577755347,
+    "commit": "https://github.com/clawdbot/skills/commit/2b75946fe32057f257dc898c90edd76c517dd7b1"
+  },
+  "history": []
+}

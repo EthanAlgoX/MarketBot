@@ -1,0 +1,17 @@
+{
+  "owner": "tomstools11",
+  "slug": "prompt-engineering-expert",
+  "displayName": "Prompt Engineering Expert",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769361703113,
+    "commit": "https://github.com/clawdbot/skills/commit/b18a0ecdec0dff20f0d6b42aa39bf2f2698565ae"
+  },
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1769360337356,
+      "commit": "https://github.com/clawdbot/skills/commit/18f55eb15fb4b64e9758751589d685476f8ae53f"
+    }
+  ]
+}

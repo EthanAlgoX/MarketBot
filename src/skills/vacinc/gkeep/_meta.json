@@ -1,0 +1,17 @@
+{
+  "owner": "vacinc",
+  "slug": "gkeep",
+  "displayName": "gkeep",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1768309194653,
+    "commit": "https://github.com/clawdbot/skills/commit/6a05ec14c8e207fb40aa34bc5faa976ff1a13c4d"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768059993261,
+      "commit": "https://github.com/clawdbot/skills/commit/c25969e0d1d36fdc7b365cbfb4efb2dbc6df84c6"
+    }
+  ]
+}

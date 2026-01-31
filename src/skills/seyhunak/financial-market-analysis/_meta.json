@@ -1,0 +1,11 @@
+{
+  "owner": "seyhunak",
+  "slug": "financial-market-analysis",
+  "displayName": "Financial Market Analysis",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769455404315,
+    "commit": "https://github.com/clawdbot/skills/commit/44286ad7814ca142b4861495bcea358bad7a94d3"
+  },
+  "history": []
+}

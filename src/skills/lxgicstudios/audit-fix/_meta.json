@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "audit-fix",
+  "displayName": "NPM Audit Fixer",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632144605,
+    "commit": "https://github.com/clawdbot/skills/commit/10eefa5776ff7cec5115edf78e13ac58ec28ca6c"
+  },
+  "history": []
+}

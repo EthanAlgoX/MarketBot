@@ -1,0 +1,11 @@
+{
+  "owner": "albertnjcn",
+  "slug": "devbridge-backend",
+  "displayName": "后端修复助手",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769776733610,
+    "commit": "https://github.com/clawdbot/skills/commit/38a595920b97943a5e41fc2d2cfe7b9a7f0a9f30"
+  },
+  "history": []
+}

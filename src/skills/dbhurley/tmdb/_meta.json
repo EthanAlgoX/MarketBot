@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "tmdb",
+  "displayName": "TMDb - Movie Database",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767657706074,
+    "commit": "https://github.com/clawdbot/skills/commit/e2b77af600f32a0cae5596bc752f1e67d7516e08"
+  },
+  "history": []
+}

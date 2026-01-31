@@ -1,0 +1,11 @@
+{
+  "owner": "digitaladaption",
+  "slug": "cron-creator",
+  "displayName": "Cron Creator",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769780070924,
+    "commit": "https://github.com/clawdbot/skills/commit/758498e437105f88f64283ed7db6dc1cd930678b"
+  },
+  "history": []
+}

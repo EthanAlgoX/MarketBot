@@ -1,0 +1,11 @@
+{
+  "owner": "mpaicoding-byte",
+  "slug": "coding-agent-user-rules",
+  "displayName": "Coding Agent User Rules",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769019208508,
+    "commit": "https://github.com/clawdbot/skills/commit/b9380964f083397243696f9ac46a8113e0c06827"
+  },
+  "history": []
+}

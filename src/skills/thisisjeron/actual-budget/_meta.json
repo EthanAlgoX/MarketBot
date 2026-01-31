@@ -1,0 +1,11 @@
+{
+  "owner": "thisisjeron",
+  "slug": "actual-budget",
+  "displayName": "Actual Budget CLI to interact with the Actual Budget API",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769585816231,
+    "commit": "https://github.com/clawdbot/skills/commit/87cf26d26ab3fad3af8f0c8ca744a824c36a23aa"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "calendly",
+  "displayName": "Calendly",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780115475,
+    "commit": "https://github.com/clawdbot/skills/commit/d5efca5d7f256ebd4873f5c49ecd880123580993"
+  },
+  "history": []
+}

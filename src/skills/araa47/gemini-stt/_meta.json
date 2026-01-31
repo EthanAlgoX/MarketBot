@@ -1,0 +1,17 @@
+{
+  "owner": "araa47",
+  "slug": "gemini-stt",
+  "displayName": "Gemini STT",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1768651581889,
+    "commit": "https://github.com/clawdbot/skills/commit/5e2701cd3539395d6e2290dfeabc223874b370ee"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768328310222,
+      "commit": "https://github.com/clawdbot/skills/commit/56d5208ab9409d70af54df41788791ca957e9a3a"
+    }
+  ]
+}

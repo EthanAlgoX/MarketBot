@@ -1,0 +1,11 @@
+{
+  "owner": "albertnjcn",
+  "slug": "devbridge-frontend",
+  "displayName": "前端协作助手",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769776683278,
+    "commit": "https://github.com/clawdbot/skills/commit/00c7c8e7f7c6743374045dadec797d340a674209"
+  },
+  "history": []
+}

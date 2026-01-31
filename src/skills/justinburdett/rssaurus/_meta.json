@@ -1,0 +1,11 @@
+{
+  "owner": "justinburdett",
+  "slug": "rssaurus",
+  "displayName": "RSSaurus - Agent-Friendly RSS Feed Reader",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769831808232,
+    "commit": "https://github.com/clawdbot/skills/commit/3d27eca654f89b7bb1aa93f6a4383591e46d068c"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "pasogott",
+  "slug": "frappecli",
+  "displayName": "Frappecli",
+  "latest": {
+    "version": "0.1.1",
+    "publishedAt": 1767909523237,
+    "commit": "https://github.com/clawdbot/skills/commit/6a43ee6829120534134c1305b0e96c68649f233a"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "excel-online",
+  "displayName": "Excel Online",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780701371,
+    "commit": "https://github.com/clawdbot/skills/commit/28c9e8f6ce0f31e35469f3c41b3736e2c493321d"
+  },
+  "history": []
+}

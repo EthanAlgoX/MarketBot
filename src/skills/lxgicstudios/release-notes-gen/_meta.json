@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "release-notes-gen",
+  "displayName": "Release Notes Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632803923,
+    "commit": "https://github.com/clawdbot/skills/commit/a72af1bea07153b929e7379b0d0b53284ee63c75"
+  },
+  "history": []
+}

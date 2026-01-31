@@ -1,0 +1,17 @@
+{
+  "owner": "oswalpalash",
+  "slug": "causal-inference",
+  "displayName": "Causal Inference",
+  "latest": {
+    "version": "0.2.0",
+    "publishedAt": 1769414192860,
+    "commit": "https://github.com/clawdbot/skills/commit/f63387b4c8099192c5572bee9594e5d8784efe6c"
+  },
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1769413609700,
+      "commit": "https://github.com/clawdbot/skills/commit/64ad2649c45cbd0b3b25226432762769da53ac9e"
+    }
+  ]
+}

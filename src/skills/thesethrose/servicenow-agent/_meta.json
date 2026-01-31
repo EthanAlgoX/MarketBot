@@ -1,0 +1,17 @@
+{
+  "owner": "thesethrose",
+  "slug": "servicenow-agent",
+  "displayName": "ServiceNow Agent",
+  "latest": {
+    "version": "0.1.1",
+    "publishedAt": 1768513478441,
+    "commit": "https://github.com/clawdbot/skills/commit/204e0ab7be01c8a51b8792441a2dcfa2eb5b4131"
+  },
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1768511602008,
+      "commit": "https://github.com/clawdbot/skills/commit/5b6d895eb3da29484eed005f3810a8b3ed1bee74"
+    }
+  ]
+}

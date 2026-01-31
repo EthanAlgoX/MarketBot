@@ -1,0 +1,11 @@
+{
+  "owner": "claudio-prime",
+  "slug": "manipulation-detector",
+  "displayName": "manipulation-detector",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769850921736,
+    "commit": "https://github.com/clawdbot/skills/commit/e6664169005ff800495779fa5eecafcfe04ab729"
+  },
+  "history": []
+}

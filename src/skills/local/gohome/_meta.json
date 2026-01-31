@@ -1,0 +1,11 @@
+{
+  "owner": "local",
+  "slug": "gohome",
+  "displayName": "GoHome",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769710418630,
+    "commit": "https://github.com/clawdbot/skills/commit/7d0219e0b60aca13cc7bfa554cbfb32122f726b9"
+  },
+  "history": []
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "xenofex7",
+  "slug": "flight-tracker",
+  "displayName": "A simple Flight Tracker",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1768459980403,
+    "commit": "https://github.com/clawdbot/skills/commit/c1c444dd255de68a747dd89bde98fbd264f96d8f"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768420470253,
+      "commit": "https://github.com/clawdbot/skills/commit/38c2931a7e6aee672d8a513d7c1c115a729feea5"
+    }
+  ]
+}

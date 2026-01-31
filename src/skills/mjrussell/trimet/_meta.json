@@ -1,0 +1,11 @@
+{
+  "owner": "mjrussell",
+  "slug": "trimet",
+  "displayName": "Trimet",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1767852422671,
+    "commit": "https://github.com/clawdbot/skills/commit/498b71c60bb8920c13861e6ac1f95385c5ac0970"
+  },
+  "history": []
+}

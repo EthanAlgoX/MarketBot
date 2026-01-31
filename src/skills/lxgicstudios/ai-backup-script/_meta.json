@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "ai-backup-script",
+  "displayName": "Database Backup Scripts",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769664956806,
+    "commit": "https://github.com/clawdbot/skills/commit/50c55f93c4f7595b38d824a7a047cd87efba4042"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769658123698,
+      "commit": "https://github.com/clawdbot/skills/commit/a8499f3bd33fa23cf22514294119524f293fece1"
+    }
+  ]
+}

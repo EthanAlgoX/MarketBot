@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "jsdoc-gen",
+  "displayName": "JSDoc Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769627296842,
+    "commit": "https://github.com/clawdbot/skills/commit/dbb100a03a222913657e3bca287a0a16a879992b"
+  },
+  "history": []
+}

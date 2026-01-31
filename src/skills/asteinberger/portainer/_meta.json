@@ -1,0 +1,11 @@
+{
+  "owner": "asteinberger",
+  "slug": "portainer",
+  "displayName": "Portainer",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769330831658,
+    "commit": "https://github.com/clawdbot/skills/commit/1c7488f94ffebc514904d1d37f62bcd5c7eb29b4"
+  },
+  "history": []
+}

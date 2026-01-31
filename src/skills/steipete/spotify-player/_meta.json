@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "spotify-player",
+  "displayName": "Spotify Player",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545382402,
+    "commit": "https://github.com/clawdbot/skills/commit/f22eaee10b451225d4d31556720ab18c97b6aef6"
+  },
+  "history": []
+}

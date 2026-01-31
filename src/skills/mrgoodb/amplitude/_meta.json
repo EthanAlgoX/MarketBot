@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "amplitude",
+  "displayName": "Amplitude",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780235063,
+    "commit": "https://github.com/clawdbot/skills/commit/9c5f76a373236d0a6dd3d7b9d69b88f2a2865ee3"
+  },
+  "history": []
+}

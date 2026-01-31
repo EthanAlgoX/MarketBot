@@ -1,0 +1,11 @@
+{
+  "owner": "xtopher86",
+  "slug": "comfyui-request",
+  "displayName": "Comfyui anfrage",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769419540989,
+    "commit": "https://github.com/clawdbot/skills/commit/d3a5f7c3fc495dc506354370647655f9d703627c"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "buddyh",
+  "slug": "alexa-cli",
+  "displayName": "Alexa CLI",
+  "latest": {
+    "version": "0.3.0",
+    "publishedAt": 1767626751844,
+    "commit": "https://github.com/clawdbot/skills/commit/d8ecd9c97e6016014c7921f856a520743a90fdac"
+  },
+  "history": []
+}

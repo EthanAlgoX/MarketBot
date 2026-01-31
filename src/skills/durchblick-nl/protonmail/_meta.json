@@ -1,0 +1,11 @@
+{
+  "owner": "durchblick-nl",
+  "slug": "protonmail",
+  "displayName": "ProtonMail",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768890874197,
+    "commit": "https://github.com/clawdbot/skills/commit/54452f4e95701c217bce7ee9f90410f12a9acd87"
+  },
+  "history": []
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "gumadeiras",
+  "slug": "office-quotes",
+  "displayName": "office-quotes",
+  "latest": {
+    "version": "1.2.3",
+    "publishedAt": 1769401188127,
+    "commit": "https://github.com/clawdbot/skills/commit/cc3183ae438de7c2bafc9b80125f6199f179efb3"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769205614707,
+      "commit": "https://github.com/clawdbot/skills/commit/4af1e04cf36afb14a02ca81b28f14aadc439463e"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "xadenryan",
+  "slug": "voice-wake-say",
+  "displayName": "Voice Wake Say",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769336292318,
+    "commit": "https://github.com/clawdbot/skills/commit/02578c19908234817d7c369faedb0c2a88462c8b"
+  },
+  "history": []
+}

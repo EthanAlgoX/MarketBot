@@ -1,0 +1,11 @@
+{
+  "owner": "doanbactam",
+  "slug": "agnxi-search-skill",
+  "displayName": "Agent Skills Search",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769832005849,
+    "commit": "https://github.com/clawdbot/skills/commit/375ed3e344df6d4c3173e0f820e974ceb1893da5"
+  },
+  "history": []
+}

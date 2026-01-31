@@ -1,0 +1,11 @@
+{
+  "owner": "jdrhyne",
+  "slug": "todo-tracker",
+  "displayName": "TODO Tracker",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768634320198,
+    "commit": "https://github.com/clawdbot/skills/commit/0786e6d2416a160f779e8b89a5aca988ce30e211"
+  },
+  "history": []
+}

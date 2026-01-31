@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "phone-agent",
+  "displayName": "Phone Voice Agent",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769838219955,
+    "commit": "https://github.com/clawdbot/skills/commit/2c3bef6a9b7565767b688b2b01fc9ca2361cd609"
+  },
+  "history": []
+}

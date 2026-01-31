@@ -1,0 +1,11 @@
+{
+  "owner": "aslaep123",
+  "slug": "reddit-trends",
+  "displayName": "Reddit Trends",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769627517622,
+    "commit": "https://github.com/clawdbot/skills/commit/ff6865d30afccfa2fe0103d3fd48837b28447117"
+  },
+  "history": []
+}

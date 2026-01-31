@@ -1,0 +1,11 @@
+{
+  "owner": "gbessoni",
+  "slug": "ringbot",
+  "displayName": "RingBot",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769637671080,
+    "commit": "https://github.com/clawdbot/skills/commit/eac7e35dca8530735a699ed033702b70f1e110e6"
+  },
+  "history": []
+}

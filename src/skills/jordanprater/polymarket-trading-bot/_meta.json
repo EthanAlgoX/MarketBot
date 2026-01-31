@@ -1,0 +1,11 @@
+{
+  "owner": "jordanprater",
+  "slug": "polymarket-trading-bot",
+  "displayName": "Polymarket Trading",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769756712412,
+    "commit": "https://github.com/clawdbot/skills/commit/10f93b541e706e500151575562d7f537b8ca9fda"
+  },
+  "history": []
+}

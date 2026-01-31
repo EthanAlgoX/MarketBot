@@ -1,0 +1,11 @@
+{
+  "owner": "krishna3554",
+  "slug": "echo-agent",
+  "displayName": "Echo Agent",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769841618917,
+    "commit": "https://github.com/clawdbot/skills/commit/b5c95055f2149654e7f770e912620ca1ee163265"
+  },
+  "history": []
+}

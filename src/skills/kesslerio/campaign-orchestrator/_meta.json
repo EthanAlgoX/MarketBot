@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "campaign-orchestrator",
+  "displayName": "Campaign Orchestrator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769838051934,
+    "commit": "https://github.com/clawdbot/skills/commit/5626b6121b8b74d1b9b01a5b2668d6b413e96fcf"
+  },
+  "history": []
+}

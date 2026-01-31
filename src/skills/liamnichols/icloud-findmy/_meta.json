@@ -1,0 +1,11 @@
+{
+  "owner": "liamnichols",
+  "slug": "icloud-findmy",
+  "displayName": "iCloud Find My",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767823039547,
+    "commit": "https://github.com/clawdbot/skills/commit/429d9032029e6e7e3c70727aa59a1cb7676e238c"
+  },
+  "history": []
+}

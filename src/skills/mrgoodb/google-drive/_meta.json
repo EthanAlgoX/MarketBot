@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "google-drive",
+  "displayName": "Google Drive",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780663157,
+    "commit": "https://github.com/clawdbot/skills/commit/70ba2bb33e6510fa1b2e12bc23e5c1c530473744"
+  },
+  "history": []
+}

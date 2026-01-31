@@ -1,0 +1,11 @@
+{
+  "owner": "peetzweg",
+  "slug": "trmnl-display",
+  "displayName": "TRMNL",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769715700989,
+    "commit": "https://github.com/clawdbot/skills/commit/218ef18468f9dedbd181686970a63482b5055d4c"
+  },
+  "history": []
+}

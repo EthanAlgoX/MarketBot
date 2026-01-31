@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "diff-summarizer",
+  "displayName": "Diff Summarizer",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769590647085,
+    "commit": "https://github.com/clawdbot/skills/commit/574939504f1fb06a31a3f9be8cbe196af2246534"
+  },
+  "history": []
+}

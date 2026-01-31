@@ -1,0 +1,11 @@
+{
+  "owner": "livvux",
+  "slug": "mcporter-skill",
+  "displayName": "mcporter",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769410544296,
+    "commit": "https://github.com/clawdbot/skills/commit/0025bf4a2132f292e9c7492af510eeaaf82d09c2"
+  },
+  "history": []
+}

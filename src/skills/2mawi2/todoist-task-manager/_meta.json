@@ -1,0 +1,11 @@
+{
+  "owner": "2mawi2",
+  "slug": "todoist-task-manager",
+  "displayName": "Todoist Task Manager",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769247632464,
+    "commit": "https://github.com/clawdbot/skills/commit/61c9fd62f485f4415714e7c94b4920380b1572e0"
+  },
+  "history": []
+}

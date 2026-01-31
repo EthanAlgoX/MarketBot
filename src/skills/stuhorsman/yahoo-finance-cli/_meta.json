@@ -1,0 +1,11 @@
+{
+  "owner": "stuhorsman",
+  "slug": "yahoo-finance-cli",
+  "displayName": "Yahoo Finance CLI",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769720161978,
+    "commit": "https://github.com/clawdbot/skills/commit/a5390724525ec6440ed671048e6618a06a5276ae"
+  },
+  "history": []
+}

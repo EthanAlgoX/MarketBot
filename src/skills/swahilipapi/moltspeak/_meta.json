@@ -1,0 +1,11 @@
+{
+  "owner": "swahilipapi",
+  "slug": "moltspeak",
+  "displayName": "Molt Speak",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769834498623,
+    "commit": "https://github.com/clawdbot/skills/commit/5bc46ce244b098deb87ee780a68a556d6a9a4b34"
+  },
+  "history": []
+}

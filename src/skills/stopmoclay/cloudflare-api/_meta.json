@@ -1,0 +1,11 @@
+{
+  "owner": "stopmoclay",
+  "slug": "cloudflare-api",
+  "displayName": "Cloudflare API",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768322853150,
+    "commit": "https://github.com/clawdbot/skills/commit/ac8ee3bed8c24353492b227d9034a2de4de28cd4"
+  },
+  "history": []
+}

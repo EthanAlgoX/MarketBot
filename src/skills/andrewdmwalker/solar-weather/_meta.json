@@ -1,0 +1,11 @@
+{
+  "owner": "andrewdmwalker",
+  "slug": "solar-weather",
+  "displayName": "Solar Weather Monitor",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769553913593,
+    "commit": "https://github.com/clawdbot/skills/commit/9bd6dd7260ba0bfc198d22dd55e462b0e88ec6a6"
+  },
+  "history": []
+}

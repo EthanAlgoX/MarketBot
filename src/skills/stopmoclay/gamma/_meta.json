@@ -1,0 +1,11 @@
+{
+  "owner": "stopmoclay",
+  "slug": "gamma",
+  "displayName": "Gamma",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768342556200,
+    "commit": "https://github.com/clawdbot/skills/commit/49edee32efb62467a2db13a5e8641ad0520d7650"
+  },
+  "history": []
+}

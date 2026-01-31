@@ -1,0 +1,22 @@
+{
+  "owner": "koba42corp",
+  "slug": "chia-walletconnect",
+  "displayName": "Chia WalletConnect - Telegram Verification",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769730633425,
+    "commit": "https://github.com/clawdbot/skills/commit/962c18f1cd6728cc8e0aa80c0a1fe5117ffef70d"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769738639685,
+      "commit": "https://github.com/clawdbot/skills/commit/96cc0cef402cb6a3eced20fd250cd6fe0e02476b"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769730633425,
+      "commit": "https://github.com/clawdbot/skills/commit/5f2f159164c0d74eebea1cea619cda9fc859017a"
+    }
+  ]
+}

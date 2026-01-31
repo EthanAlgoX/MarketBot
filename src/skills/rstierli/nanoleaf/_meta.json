@@ -1,0 +1,11 @@
+{
+  "owner": "rstierli",
+  "slug": "nanoleaf",
+  "displayName": "Nanoleaf (Picoleaf)",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768296710556,
+    "commit": "https://github.com/clawdbot/skills/commit/e9543ee9a310708816b85c34be80985fbcc0a2cb"
+  },
+  "history": []
+}

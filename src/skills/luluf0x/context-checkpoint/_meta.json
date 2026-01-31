@@ -1,0 +1,11 @@
+{
+  "owner": "luluf0x",
+  "slug": "context-checkpoint",
+  "displayName": "Context Checkpoint",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769790391275,
+    "commit": "https://github.com/clawdbot/skills/commit/dd0669ccb604e4a5d8321bda80778550c5e4bb17"
+  },
+  "history": []
+}

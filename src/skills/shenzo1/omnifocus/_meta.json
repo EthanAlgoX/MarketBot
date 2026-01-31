@@ -1,0 +1,11 @@
+{
+  "owner": "shenzo1",
+  "slug": "omnifocus",
+  "displayName": "OmniFocus",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769325098106,
+    "commit": "https://github.com/clawdbot/skills/commit/7d7736297a57946894d78f5a1d97a79610ac0132"
+  },
+  "history": []
+}

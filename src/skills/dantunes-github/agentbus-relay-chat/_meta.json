@@ -1,0 +1,17 @@
+{
+  "owner": "dantunes-github",
+  "slug": "agentbus-relay-chat",
+  "displayName": "Agentbus Relay Chat",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769843236341,
+    "commit": "https://github.com/clawdbot/skills/commit/6156441b042dfedef92eab4e5dfe6abba62998dd"
+  },
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1769632270739,
+      "commit": "https://github.com/clawdbot/skills/commit/51a5d8cd23dce2a6d1e2908484943bec844f6e70"
+    }
+  ]
+}

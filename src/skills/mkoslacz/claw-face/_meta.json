@@ -1,0 +1,11 @@
+{
+  "owner": "mkoslacz",
+  "slug": "claw-face",
+  "displayName": "ClawFace",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769811444927,
+    "commit": "https://github.com/clawdbot/skills/commit/56c3bd9785c69fd7df55babd0b1d6af188d71229"
+  },
+  "history": []
+}

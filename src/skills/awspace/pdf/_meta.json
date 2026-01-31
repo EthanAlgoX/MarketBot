@@ -1,0 +1,11 @@
+{
+  "owner": "awspace",
+  "slug": "pdf",
+  "displayName": "Pdf",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769847855729,
+    "commit": "https://github.com/clawdbot/skills/commit/5e0b7671596745641825feaaa6ae7881795805bc"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "clawdiaeth",
+  "slug": "x-engagement-skill",
+  "displayName": "X Engagement",
+  "latest": {
+    "version": "2.1.0",
+    "publishedAt": 1769791360453,
+    "commit": "https://github.com/clawdbot/skills/commit/32092416c55cd667181b0ae66c39680d2e61e0bd"
+  },
+  "history": []
+}

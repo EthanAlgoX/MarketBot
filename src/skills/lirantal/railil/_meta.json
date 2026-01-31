@@ -1,0 +1,11 @@
+{
+  "owner": "lirantal",
+  "slug": "railil",
+  "displayName": "railil - Israel Railways train station schedule",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769198326668,
+    "commit": "https://github.com/clawdbot/skills/commit/e5434b8d477365e01d8a80bc58e880b0f30fee82"
+  },
+  "history": []
+}

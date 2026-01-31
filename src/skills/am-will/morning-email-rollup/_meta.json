@@ -1,0 +1,32 @@
+{
+  "owner": "am-will",
+  "slug": "morning-email-rollup",
+  "displayName": "Morning Email Rollup",
+  "latest": {
+    "version": "2.1.0",
+    "publishedAt": 1768589827150,
+    "commit": "https://github.com/clawdbot/skills/commit/fab781dfaf27f7b46263d9aee841c64a8e9fd63c"
+  },
+  "history": [
+    {
+      "version": "2.0.0",
+      "publishedAt": 1768552309561,
+      "commit": "https://github.com/clawdbot/skills/commit/538e20a0f9cb42984c3c8ad97c769bca8a88b061"
+    },
+    {
+      "version": "1.0.3",
+      "publishedAt": 1768526523340,
+      "commit": "https://github.com/clawdbot/skills/commit/d105e70dffb639eadb7e0e135e8e38a4fb8fe92a"
+    },
+    {
+      "version": "1.0.2",
+      "publishedAt": 1768520593951,
+      "commit": "https://github.com/clawdbot/skills/commit/d52ea3d393e56604831fffe6b559bce1197b3c3a"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1768519570164,
+      "commit": "https://github.com/clawdbot/skills/commit/34e72d9e11cf4fabe090a63dadb403b63d9a2090"
+    }
+  ]
+}

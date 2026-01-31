@@ -1,0 +1,22 @@
+{
+  "owner": "brokemac79",
+  "slug": "webchat-audio-notifications",
+  "displayName": "Webchat Audio Notifications",
+  "latest": {
+    "version": "1.2.0",
+    "publishedAt": 1769641419795,
+    "commit": "https://github.com/clawdbot/skills/commit/8b53d4d310f947addb4a948e921d235628f52741"
+  },
+  "history": [
+    {
+      "version": "1.2.1",
+      "publishedAt": 1769772354542,
+      "commit": "https://github.com/clawdbot/skills/commit/283e614858d48b9cf37f05d157ad9d2362cd1819"
+    },
+    {
+      "version": "1.2.0",
+      "publishedAt": 1769641419795,
+      "commit": "https://github.com/clawdbot/skills/commit/687c803b246833409dfff8042c181e87a82050e0"
+    }
+  ]
+}

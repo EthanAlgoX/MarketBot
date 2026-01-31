@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "readme-writer",
+  "displayName": "Readme Writer",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769631730976,
+    "commit": "https://github.com/clawdbot/skills/commit/c14abd7e3c7a84c9dbea82a397b0bfae9f523acd"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769589893181,
+      "commit": "https://github.com/clawdbot/skills/commit/efecfd511ab88b0d7e41325eda3c80f58535ae27"
+    }
+  ]
+}

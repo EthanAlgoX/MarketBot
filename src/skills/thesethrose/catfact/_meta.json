@@ -1,0 +1,11 @@
+{
+  "owner": "thesethrose",
+  "slug": "catfact",
+  "displayName": "Cat Fact",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1768041521761,
+    "commit": "https://github.com/clawdbot/skills/commit/c42ceceab14ef146f69084658b8d8eeaa72c3e82"
+  },
+  "history": []
+}

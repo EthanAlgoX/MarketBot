@@ -1,0 +1,11 @@
+{
+  "owner": "local",
+  "slug": "xuezh",
+  "displayName": "Xuezh",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769710418959,
+    "commit": "https://github.com/clawdbot/skills/commit/a48e60ca22403374bd24ae697d16bb90df743e85"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "url-shortener",
+  "displayName": "URL Shortener",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769838065256,
+    "commit": "https://github.com/clawdbot/skills/commit/df499970c9226c8bb892d962350463e09da6936b"
+  },
+  "history": []
+}

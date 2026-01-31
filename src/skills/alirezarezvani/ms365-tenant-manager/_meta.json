@@ -1,0 +1,11 @@
+{
+  "owner": "alirezarezvani",
+  "slug": "ms365-tenant-manager",
+  "displayName": "MS 365 Tenant Manager",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769775542764,
+    "commit": "https://github.com/clawdbot/skills/commit/9919813a0afb0482e6ff5f0b9ef6c5daeb8244a0"
+  },
+  "history": []
+}

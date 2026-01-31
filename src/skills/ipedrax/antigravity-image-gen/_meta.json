@@ -1,0 +1,11 @@
+{
+  "owner": "ipedrax",
+  "slug": "antigravity-image-gen",
+  "displayName": "Antigravity Image Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769725661458,
+    "commit": "https://github.com/clawdbot/skills/commit/0e9637be30497cfa7f349f05a986f8898b6b162c"
+  },
+  "history": []
+}

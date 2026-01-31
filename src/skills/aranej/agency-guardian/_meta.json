@@ -1,0 +1,11 @@
+{
+  "owner": "aranej",
+  "slug": "agency-guardian",
+  "displayName": "Agency Guardian",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769464375302,
+    "commit": "https://github.com/clawdbot/skills/commit/51dab13aaa676b760bb2824bad3e2bc9934e9a1f"
+  },
+  "history": []
+}

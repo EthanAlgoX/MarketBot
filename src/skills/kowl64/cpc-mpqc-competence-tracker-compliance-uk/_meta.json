@@ -1,0 +1,11 @@
+{
+  "owner": "kowl64",
+  "slug": "cpc-mpqc-competence-tracker-compliance-uk",
+  "displayName": "CPC/MPQC Training & Competence Tracking (UK)",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768660040996,
+    "commit": "https://github.com/clawdbot/skills/commit/ef595357a12195f1491fff5b31e515defe5fe651"
+  },
+  "history": []
+}

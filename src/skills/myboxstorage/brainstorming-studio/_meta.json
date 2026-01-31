@@ -1,0 +1,11 @@
+{
+  "owner": "myboxstorage",
+  "slug": "brainstorming-studio",
+  "displayName": "Idea Forge Orchestrator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769786609769,
+    "commit": "https://github.com/clawdbot/skills/commit/31175b74a8fc3ade779b16f1199e44293bd3c8e9"
+  },
+  "history": []
+}

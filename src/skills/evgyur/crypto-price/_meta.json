@@ -1,0 +1,17 @@
+{
+  "owner": "evgyur",
+  "slug": "crypto-price",
+  "displayName": "Crypto Price",
+  "latest": {
+    "version": "0.2.2",
+    "publishedAt": 1769498220031,
+    "commit": "https://github.com/clawdbot/skills/commit/16e8f8d5daa6d791aed3727ed6360f176726b843"
+  },
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1769147666544,
+      "commit": "https://github.com/clawdbot/skills/commit/12a53e6d1889293895ebea89c417f5b41323787c"
+    }
+  ]
+}

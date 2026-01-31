@@ -1,0 +1,11 @@
+{
+  "owner": "henrikback",
+  "slug": "camera-watch",
+  "displayName": "Camera Watch",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769806759940,
+    "commit": "https://github.com/clawdbot/skills/commit/2c230c2b1a18cbc7f66a4acc2fa63a3e889b943d"
+  },
+  "history": []
+}

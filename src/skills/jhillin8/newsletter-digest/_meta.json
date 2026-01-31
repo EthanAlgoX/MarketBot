@@ -1,0 +1,11 @@
+{
+  "owner": "jhillin8",
+  "slug": "newsletter-digest",
+  "displayName": "Newsletter Digest",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769326504920,
+    "commit": "https://github.com/clawdbot/skills/commit/4cd01fab2ede1b555deec6bbddaf5ad4c90c2fcf"
+  },
+  "history": []
+}

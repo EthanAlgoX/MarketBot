@@ -1,0 +1,11 @@
+{
+  "owner": "lucas-riverbi",
+  "slug": "salesforce-skill",
+  "displayName": "Salesforce Skill",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769720259338,
+    "commit": "https://github.com/clawdbot/skills/commit/40ba658edd3370466c09131a4386f296c3b069bd"
+  },
+  "history": []
+}

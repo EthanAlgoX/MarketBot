@@ -1,0 +1,16 @@
+// Signature Puzzle - Secure for production
+// Locks coins with a BLS public key, requires signature to spend
+
+fn main(
+    public_key: PublicKey,
+    conditions: List<Condition>,
+) -> List<Condition> {
+    // Create AGG_SIG_ME condition requiring signature on conditions hash
+    let agg_sig = AggSigMe {
+        public_key,
+        message: tree_hash(conditions),
+    };
+    
+    // Prepend signature requirement to conditions
+    [agg_sig, ...conditions]
+}

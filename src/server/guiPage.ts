@@ -531,6 +531,7 @@ export function renderGuiPage(options: GuiPageOptions): string {
               <option value="openai">OpenAI API</option>
               <option value="openai-oauth">ChatGPT Subscription (OAuth)</option>
               <option value="gemini">Google Gemini</option>
+              <option value="kimi-code">Kimi Code</option>
               <option value="openrouter">OpenRouter</option>
               <option value="groq">Groq</option>
               <option value="mistral">Mistral</option>
@@ -635,6 +636,14 @@ export function renderGuiPage(options: GuiPageOptions): string {
           apiKeyEnv: "GEMINI_API_KEY",
           headers: "",
           note: "Preset applied: Gemini (OpenAI-compatible endpoint).",
+        },
+        "kimi-code": {
+          provider: "openai-compatible",
+          model: "kimi-for-coding",
+          baseUrl: "https://api.kimi.com/coding/v1",
+          apiKeyEnv: "KIMICODE_API_KEY",
+          headers: "",
+          note: "Preset applied: Kimi Code.",
         },
         "openrouter": {
           provider: "openai-compatible",

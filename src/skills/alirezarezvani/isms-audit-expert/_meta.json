@@ -1,0 +1,11 @@
+{
+  "owner": "alirezarezvani",
+  "slug": "isms-audit-expert",
+  "displayName": "ISMS ISO 27001 Audit Expert",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769775245848,
+    "commit": "https://github.com/clawdbot/skills/commit/cfbd0c75a4a1544bc11d7df9a05129b95dbee2ae"
+  },
+  "history": []
+}

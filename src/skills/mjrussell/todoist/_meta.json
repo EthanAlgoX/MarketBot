@@ -1,0 +1,17 @@
+{
+  "owner": "mjrussell",
+  "slug": "todoist",
+  "displayName": "Todoist",
+  "latest": {
+    "version": "0.2.1",
+    "publishedAt": 1769577779661,
+    "commit": "https://github.com/clawdbot/skills/commit/db6e1c6126cb245204abd6e3752df20b7b90199c"
+  },
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1767852421167,
+      "commit": "https://github.com/clawdbot/skills/commit/6d691ba2efdcc778c217da900a95aba6f4dcee8f"
+    }
+  ]
+}

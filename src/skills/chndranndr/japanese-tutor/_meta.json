@@ -1,0 +1,17 @@
+{
+  "owner": "chndranndr",
+  "slug": "japanese-tutor",
+  "displayName": "Japanese Tutor",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769678230282,
+    "commit": "https://github.com/clawdbot/skills/commit/c22dc695f587a5163af96bfd3972b0345d6cb10d"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769610413728,
+      "commit": "https://github.com/clawdbot/skills/commit/0777187261c479e4ebb37bafa090e2c57a4fb01e"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "rubenfb23",
+  "slug": "walkie-talkie",
+  "displayName": "Walkie-Talkie Mode",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769433420898,
+    "commit": "https://github.com/clawdbot/skills/commit/a29e83b6a5f84a13d5ebe492d19e180d90debb2e"
+  },
+  "history": []
+}

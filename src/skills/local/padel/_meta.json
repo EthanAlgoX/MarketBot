@@ -1,0 +1,11 @@
+{
+  "owner": "local",
+  "slug": "padel",
+  "displayName": "Padel",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769710418277,
+    "commit": "https://github.com/clawdbot/skills/commit/c2b5904d9ec6fd8b6e6bdc50b595bd0a3ca717fc"
+  },
+  "history": []
+}

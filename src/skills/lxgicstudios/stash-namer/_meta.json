@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "stash-namer",
+  "displayName": "Stash Namer",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769626712265,
+    "commit": "https://github.com/clawdbot/skills/commit/4d6b521f16c2be4429440b1f6e6005ef0a2130ce"
+  },
+  "history": []
+}

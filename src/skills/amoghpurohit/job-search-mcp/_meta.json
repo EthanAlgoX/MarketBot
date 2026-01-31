@@ -1,0 +1,11 @@
+{
+  "owner": "amoghpurohit",
+  "slug": "job-search-mcp",
+  "displayName": "Job Search",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769783936777,
+    "commit": "https://github.com/clawdbot/skills/commit/fc43776cef5781ef638c72856414c1fa12198244"
+  },
+  "history": []
+}

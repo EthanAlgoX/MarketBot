@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "prefetcher",
+  "displayName": "Prefetch Advisor",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769626607846,
+    "commit": "https://github.com/clawdbot/skills/commit/b18bd0945fbb04dadd820ab66587a38037485743"
+  },
+  "history": []
+}

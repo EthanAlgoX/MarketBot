@@ -1,0 +1,50 @@
+[
+  {
+    "title": "【方案选择】图表设计风格",
+    "context": "准备绘制报告配图，需要确定视觉风格。",
+    "uncertainty": "不同风格各有优缺点，需要确认方向。",
+    "findings": [
+      { "content": "目标期刊近期多采用扁平化设计，颜色鲜明", "source": "期刊调研" },
+      { "content": "传统科研风格线条清晰但颜色较素", "source": "参考文献" },
+      { "content": "在线工具提供多种模板可选", "source": "工具库" }
+    ],
+    "judgment": "建议采用扁平化设计，符合当前趋势，但最终以您的偏好为准。",
+    "options": [
+      { "label": "扁平化现代风格", "basis": "符合期刊风格【我的推荐】" },
+      { "label": "传统科研风格", "basis": "保守稳妥" },
+      { "label": "先出草图再选", "basis": "各做一版比较" }
+    ]
+  },
+  {
+    "title": "【优先级】本周任务排序",
+    "context": "整理了本周待处理事项，需要确认优先级。",
+    "uncertainty": "每件事都有紧迫性，时间有限需要排序。",
+    "findings": [
+      { "content": "任务A：下周一截止", "source": "日历" },
+      { "content": "任务B：两周后截止但工作量大", "source": "日历" },
+      { "content": "任务C：有人在等进度反馈", "source": "消息记录" }
+    ],
+    "judgment": "建议按截止日期紧迫性排序：A > B > C",
+    "options": [
+      { "label": "按我建议的顺序", "basis": "A→B→C【我的推荐】" },
+      { "label": "优先任务B", "basis": "工作量大需要早开始" },
+      { "label": "优先任务C", "basis": "不好让人等太久" },
+      { "label": "我自己来排", "basis": "有其他考虑" }
+    ]
+  },
+  {
+    "title": "【格式确认】输出格式偏好",
+    "context": "准备整理一份报告，需要确认输出格式。",
+    "uncertainty": "不同格式各有优缺点。",
+    "findings": [
+      { "content": "Markdown：便于编辑和版本管理", "source": "格式分析" },
+      { "content": "Word：排版灵活，适合正式提交", "source": "格式分析" }
+    ],
+    "judgment": "内部用 Markdown 高效，正式提交用 Word。",
+    "options": [
+      { "label": "Markdown", "basis": "便于更新" },
+      { "label": "Word", "basis": "可直接提交【推荐正式场合】" },
+      { "label": "两个都要", "basis": "Markdown为主，导出Word备用" }
+    ]
+  }
+]

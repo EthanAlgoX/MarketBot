@@ -1,0 +1,124 @@
+{
+  "name": "devbridge-frontend",
+  "displayName": "前端协作助手",
+  "version": "1.0.0",
+  "description": "前端开发人员通过Clawdbot上报API问题，支持跨Agent协作和实时状态跟踪",
+  "author": "DevBridge Team",
+  "license": "MIT",
+  "keywords": [
+    "frontend",
+    "collaboration",
+    "api",
+    "bug-report",
+    "problem-tracking"
+  ],
+  "repository": "https://github.com/your-username/devbridge-skills",
+  "homepage": "https://clawdhub.com/skills/devbridge-frontend",
+  "category": "development-tools",
+  
+  "clawdbot": {
+    "type": "agent",
+    "main": "commands.py",
+    "config": "SKILL.md",
+    "runtime": "python3",
+    "minVersion": "2026.1.0",
+    
+    "triggers": [
+      {
+        "pattern": "^/report\\\\s+(.+)$",
+        "handler": "report_problem",
+        "description": "报告API问题"
+      },
+      {
+        "pattern": "^/bug\\\\s+(.+)$",
+        "handler": "report_problem",
+        "description": "报告Bug"
+      },
+      {
+        "pattern": "^/issue\\\\s+(.+)$",
+        "handler": "report_problem",
+        "description": "报告Issue"
+      },
+      {
+        "pattern": "^/apply\\\\s+([a-f0-9-]+)$",
+        "handler": "apply_fix",
+        "description": "应用修复方案"
+      },
+      {
+        "pattern": "^/resolve\\\\s+([a-f0-9-]+)$",
+        "handler": "resolve_problem",
+        "description": "标记问题已解决"
+      },
+      {
+        "pattern": "^/continue\\\\s+([a-f0-9-]+)$",
+        "handler": "continue_fix",
+        "description": "需要继续修复"
+      },
+      {
+        "pattern": "^/history$",
+        "handler": "show_history",
+        "description": "查看历史问题"
+      },
+      {
+        "pattern": "^/status\\\\s+([a-f0-9-]+)$",
+        "handler": "show_status",
+        "description": "查看问题状态"
+      },
+      {
+        "pattern": "^/timeline\\\\s+([a-f0-9-]+)$",
+        "handler": "show_timeline",
+        "description": "查看时间线"
+      }
+    ],
+    
+    "commands": [
+      {
+        "name": "report_problem",
+        "description": "报告API问题"
+      },
+      {
+        "name": "apply_fix",
+        "description": "应用修复方案"
+      },
+      {
+        "name": "resolve_problem",
+        "description": "标记问题已解决"
+      },
+      {
+        "name": "show_history",
+        "description": "查看历史问题"
+      },
+      {
+        "name": "show_status",
+        "description": "查看问题状态"
+      },
+      {
+        "name": "show_timeline",
+        "description": "查看问题时间线"
+      }
+    ],
+    
+    "dependencies": {
+      "python": ">=3.8",
+      "required_packages": [
+        "python-dateutil"
+      ]
+    },
+    
+    "permissions": {
+      "allowed_actions": [
+        "problem:report",
+        "problem:read",
+        "fix:apply",
+        "problem:resolve",
+        "timeline:read"
+      ]
+    },
+    
+    "security": {
+      "no_sensitive_data": true,
+      "no_hardcoded_paths": true,
+      "uses_env_vars": true
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "xenofex7",
+  "slug": "swiss-transport",
+  "displayName": "Swiss Public Transport",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768419591570,
+    "commit": "https://github.com/clawdbot/skills/commit/3d9155a440622e61c5190b7d924e7eebe49eb053"
+  },
+  "history": []
+}

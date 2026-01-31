@@ -1,0 +1,11 @@
+{
+  "owner": "dktrn9ne",
+  "slug": "fivem-dev",
+  "displayName": "Fivem",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769829530624,
+    "commit": "https://github.com/clawdbot/skills/commit/f7345fc0650e214bd30d4f06c7ce144e78a722a4"
+  },
+  "history": []
+}

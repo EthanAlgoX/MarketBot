@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "swagger-gen",
+  "displayName": "Swagger Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769627656526,
+    "commit": "https://github.com/clawdbot/skills/commit/e04b6b39518b482bcf28131741f9b9e7ac5d0f0d"
+  },
+  "history": []
+}

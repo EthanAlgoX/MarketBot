@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "stripe",
+  "displayName": "Stripe",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769539209931,
+    "commit": "https://github.com/clawdbot/skills/commit/a678923e0a94a4ef9204472aae18b3751e9846be"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769513798424,
+      "commit": "https://github.com/clawdbot/skills/commit/92f4d3d3e9021a8299e49e3a38e9388cfbb4da09"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "thesethrose",
+  "slug": "pi-admin",
+  "displayName": "Pi Admin",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768362452803,
+    "commit": "https://github.com/clawdbot/skills/commit/ba62b0e0ecf2f5d7ca1c378e2fbc26afc1984c40"
+  },
+  "history": []
+}

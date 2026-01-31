@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "sql-injection-scanner",
+  "displayName": "SQL Injection Scanner",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769595952875,
+    "commit": "https://github.com/clawdbot/skills/commit/869393ab888f3af45c502c57ce799d9a37093cc7"
+  },
+  "history": []
+}

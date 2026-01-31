@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "tailwind-config-gen",
+  "displayName": "Tailwind Config Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632943000,
+    "commit": "https://github.com/clawdbot/skills/commit/7364864706e33ab3f090889c37275e7ef799c5d0"
+  },
+  "history": []
+}

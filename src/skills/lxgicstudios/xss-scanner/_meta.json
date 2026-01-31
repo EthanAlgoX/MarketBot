@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "xss-scanner",
+  "displayName": "XSS Scanner",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769631712008,
+    "commit": "https://github.com/clawdbot/skills/commit/cbe4cfd06d027cee16d6bbbb20721cb952b929aa"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769595702184,
+      "commit": "https://github.com/clawdbot/skills/commit/b0ddabcd26f9c1dfe0d22b428c03440c209b7ac8"
+    }
+  ]
+}

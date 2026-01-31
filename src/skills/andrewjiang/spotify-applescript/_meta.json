@@ -1,0 +1,11 @@
+{
+  "owner": "andrewjiang",
+  "slug": "spotify-applescript",
+  "displayName": "Spotify AppleScript",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768862746882,
+    "commit": "https://github.com/clawdbot/skills/commit/92633e57c8882b53ce61d53c8b6d5b4a83687d48"
+  },
+  "history": []
+}

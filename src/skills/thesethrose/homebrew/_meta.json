@@ -1,0 +1,11 @@
+{
+  "owner": "thesethrose",
+  "slug": "homebrew",
+  "displayName": "Homebrew Package Manager",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1768363325998,
+    "commit": "https://github.com/clawdbot/skills/commit/259342353d29eae847bca6c4ba4c969fdc7914f1"
+  },
+  "history": []
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "itsfabioroma",
+  "slug": "transcribee",
+  "displayName": "Transcribee 🐝",
+  "latest": {
+    "version": "1.2.1",
+    "publishedAt": 1769717135984,
+    "commit": "https://github.com/clawdbot/skills/commit/b810edcb01945e1ea7b53f90764eaba46eb00e92"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769680043792,
+      "commit": "https://github.com/clawdbot/skills/commit/dd555b84034779b8dd590ff3df719b72fac7d854"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# BlackOps Center API Configuration
+# Copy this file to config.yaml and fill in your values
+
+# Your personal access token from BlackOps Center
+# Generate at: https://blackopscenter.com/admin/settings (Browser Extension section)
+api_token: "your-token-here"
+
+# Base URL for your BlackOps Center instance
+# Default: https://blackopscenter.com
+# For self-hosted or custom domains, change this
+base_url: "https://blackopscenter.com"

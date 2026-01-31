@@ -1,0 +1,11 @@
+{
+  "owner": "weird-aftertaste",
+  "slug": "npm-proxy",
+  "displayName": "Nginx Proxy Manager",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769192190699,
+    "commit": "https://github.com/clawdbot/skills/commit/8c4d980f69cde82db9af82f91902df70ab53ad93"
+  },
+  "history": []
+}

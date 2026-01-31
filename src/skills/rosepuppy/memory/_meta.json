@@ -1,0 +1,11 @@
+{
+  "owner": "rosepuppy",
+  "slug": "memory",
+  "displayName": "Memory",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769803020334,
+    "commit": "https://github.com/clawdbot/skills/commit/528899cfdcfd4cc4374cd403910123742b81c654"
+  },
+  "history": []
+}

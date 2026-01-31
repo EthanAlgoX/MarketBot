@@ -1,0 +1,11 @@
+{
+  "owner": "mrlynn",
+  "slug": "mongodb-atlas-admin",
+  "displayName": "MongoDB Atlas Admin",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769775264873,
+    "commit": "https://github.com/clawdbot/skills/commit/f04a9906390797215d12da0ab8c7babed0867630"
+  },
+  "history": []
+}

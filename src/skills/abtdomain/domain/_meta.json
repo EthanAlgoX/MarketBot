@@ -1,0 +1,11 @@
+{
+  "owner": "abtdomain",
+  "slug": "domain",
+  "displayName": "DomainKits",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769429191603,
+    "commit": "https://github.com/clawdbot/skills/commit/01763caa9e887e628f0fe4c3ee5e16ea12a16a8a"
+  },
+  "history": []
+}

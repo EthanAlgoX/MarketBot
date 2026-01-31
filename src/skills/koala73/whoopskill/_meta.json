@@ -1,0 +1,17 @@
+{
+  "owner": "koala73",
+  "slug": "whoopskill",
+  "displayName": "Whoop Skill",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769322407939,
+    "commit": "https://github.com/clawdbot/skills/commit/2930cba3ae0574441eeb06bd5f84d413267f17e3"
+  },
+  "history": [
+    {
+      "version": "1.0.2",
+      "publishedAt": 1767622969745,
+      "commit": "https://github.com/clawdbot/skills/commit/6e1650036bd5d369540c8bc6a8ee7051d5e6315a"
+    }
+  ]
+}

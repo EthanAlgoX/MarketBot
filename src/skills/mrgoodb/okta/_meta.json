@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "okta",
+  "displayName": "Okta",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781076068,
+    "commit": "https://github.com/clawdbot/skills/commit/f6ff5cc34b3ded4013e6b9e50d1c8b5f83a6a9f9"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "bobot-agent",
+  "slug": "usage-export",
+  "displayName": "Usage Export",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769812164954,
+    "commit": "https://github.com/clawdbot/skills/commit/1b2e9787f462dee2c41106872605aa1f92eee1b1"
+  },
+  "history": []
+}

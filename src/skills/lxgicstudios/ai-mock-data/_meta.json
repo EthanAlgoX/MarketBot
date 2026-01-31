@@ -1,0 +1,17 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "ai-mock-data",
+  "displayName": "Mock Data Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769666186991,
+    "commit": "https://github.com/clawdbot/skills/commit/34c32a518af3d2c191dc8dedf5cb689502d5db5d"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769657935775,
+      "commit": "https://github.com/clawdbot/skills/commit/4f21bfd5b39166b3608650d02881c19c1e696921"
+    }
+  ]
+}

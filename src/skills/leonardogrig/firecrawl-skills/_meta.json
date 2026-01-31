@@ -1,0 +1,11 @@
+{
+  "owner": "leonardogrig",
+  "slug": "firecrawl-skills",
+  "displayName": "Firecrawl",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769807131840,
+    "commit": "https://github.com/clawdbot/skills/commit/04f4640ef0868c3aafaac665f6ea08d82156e9f8"
+  },
+  "history": []
+}

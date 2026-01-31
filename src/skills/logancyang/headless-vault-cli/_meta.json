@@ -1,0 +1,11 @@
+{
+  "owner": "logancyang",
+  "slug": "headless-vault-cli",
+  "displayName": "Headless Vault CLI",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769658625422,
+    "commit": "https://github.com/clawdbot/skills/commit/8607317225a7a1301ad1eefeefbae28d60845b85"
+  },
+  "history": []
+}

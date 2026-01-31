@@ -1,0 +1,11 @@
+{
+  "owner": "administratorfung",
+  "slug": "news-aggregator-skill-3",
+  "displayName": "News Aggregator Skill",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769680924048,
+    "commit": "https://github.com/clawdbot/skills/commit/3fc0e1f189327f3a62a2a3873ba8275931cf2a14"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "image-optimize",
+  "displayName": "Image Optimizer",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632507053,
+    "commit": "https://github.com/clawdbot/skills/commit/822f74a30cecaa23c5b7abd29008a0a7bc4e0d13"
+  },
+  "history": []
+}

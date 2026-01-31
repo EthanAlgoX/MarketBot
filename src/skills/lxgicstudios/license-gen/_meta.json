@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "license-gen",
+  "displayName": "License Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632570459,
+    "commit": "https://github.com/clawdbot/skills/commit/caf58275f3d2f3afa74363ae63c02f1bdd516c44"
+  },
+  "history": []
+}

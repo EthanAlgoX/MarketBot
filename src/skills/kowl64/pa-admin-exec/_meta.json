@@ -1,0 +1,11 @@
+{
+  "owner": "kowl64",
+  "slug": "pa-admin-exec",
+  "displayName": "Core PA Admin and Exec Support",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768655095929,
+    "commit": "https://github.com/clawdbot/skills/commit/1f99dcf5e50db8a6cf340e7870402cec6c8c90d1"
+  },
+  "history": []
+}

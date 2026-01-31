@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "flights",
+  "displayName": "Flight Tracker",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767898803246,
+    "commit": "https://github.com/clawdbot/skills/commit/b7c116f9f9e6b04109a428b196738960229cbfbe"
+  },
+  "history": []
+}

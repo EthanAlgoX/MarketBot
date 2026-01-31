@@ -1,0 +1,11 @@
+{
+  "owner": "eleutherios-project",
+  "slug": "eleutherios-openclaw-skill",
+  "displayName": "Eleutherios",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769804194723,
+    "commit": "https://github.com/clawdbot/skills/commit/1e850436c28c47679e9ced582054fe03329cdefb"
+  },
+  "history": []
+}

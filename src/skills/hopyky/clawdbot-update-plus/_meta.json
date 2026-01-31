@@ -1,0 +1,17 @@
+{
+  "owner": "hopyky",
+  "slug": "clawdbot-update-plus",
+  "displayName": "Clawdbot Update Plus",
+  "latest": {
+    "version": "2.1.1",
+    "publishedAt": 1769374117586,
+    "commit": "https://github.com/clawdbot/skills/commit/c834ff03b641a46dbb9dd148864211b943beefbd"
+  },
+  "history": [
+    {
+      "version": "1.6.0",
+      "publishedAt": 1769355039037,
+      "commit": "https://github.com/clawdbot/skills/commit/42bb701c5cc0c88413c768d9d70a4d69047d1f91"
+    }
+  ]
+}

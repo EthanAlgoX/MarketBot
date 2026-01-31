@@ -1,0 +1,11 @@
+{
+  "owner": "bmdhodl",
+  "slug": "aws-infra",
+  "displayName": "AWS Infra",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769526133525,
+    "commit": "https://github.com/clawdbot/skills/commit/cc04f978da278ac9c131998ff0e932f220b66293"
+  },
+  "history": []
+}

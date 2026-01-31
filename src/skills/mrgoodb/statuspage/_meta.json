@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "statuspage",
+  "displayName": "Statuspage",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781066548,
+    "commit": "https://github.com/clawdbot/skills/commit/de47b89853ffbfaf3fb03530bd382069829a84c0"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "meta-tags-gen",
+  "displayName": "Meta Tags Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632606964,
+    "commit": "https://github.com/clawdbot/skills/commit/c5763ca8bed57558b0481b77f6a11ded76d7bd6a"
+  },
+  "history": []
+}

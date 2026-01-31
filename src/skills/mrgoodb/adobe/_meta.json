@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "adobe",
+  "displayName": "Adobe",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780694867,
+    "commit": "https://github.com/clawdbot/skills/commit/260d396f5c0749a885f49565840eba1e70141c58"
+  },
+  "history": []
+}

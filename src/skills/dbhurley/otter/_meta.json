@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "otter",
+  "displayName": "Otter.ai Transcription",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767714678769,
+    "commit": "https://github.com/clawdbot/skills/commit/d33136644ac06811fc0e1ab9910d7a4a2ddbf3d3"
+  },
+  "history": []
+}

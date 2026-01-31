@@ -1,0 +1,17 @@
+{
+  "owner": "jmagar",
+  "slug": "gotify",
+  "displayName": "Gotify",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769203194310,
+    "commit": "https://github.com/clawdbot/skills/commit/393f6b27fbbb8c6e818e6529d71824713644ce71"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769150837198,
+      "commit": "https://github.com/clawdbot/skills/commit/435a04e544180f6400dbf45d7e4114deb94473fb"
+    }
+  ]
+}

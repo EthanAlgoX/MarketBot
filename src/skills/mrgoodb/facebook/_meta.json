@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "facebook",
+  "displayName": "Facebook",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769780684455,
+    "commit": "https://github.com/clawdbot/skills/commit/d936a3a8200fe5b7adc61e7e4cd3ebbdc27422a6"
+  },
+  "history": []
+}

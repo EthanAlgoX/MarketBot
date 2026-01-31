@@ -1,0 +1,11 @@
+{
+  "owner": "mpociot",
+  "slug": "superdesign",
+  "displayName": "SuperDesign",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767719074735,
+    "commit": "https://github.com/clawdbot/skills/commit/79d3831a52c889a5126fa14a19c43b3aff5a450b"
+  },
+  "history": []
+}

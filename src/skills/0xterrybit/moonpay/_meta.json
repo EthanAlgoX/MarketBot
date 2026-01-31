@@ -1,0 +1,11 @@
+{
+  "owner": "0xterrybit",
+  "slug": "moonpay",
+  "displayName": "MoonPay",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769539998270,
+    "commit": "https://github.com/clawdbot/skills/commit/405821f6864a9f3b68a0eecf0734dd9a2797569e"
+  },
+  "history": []
+}

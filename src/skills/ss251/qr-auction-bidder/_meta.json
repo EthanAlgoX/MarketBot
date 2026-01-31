@@ -1,0 +1,17 @@
+{
+  "owner": "ss251",
+  "slug": "qr-auction-bidder",
+  "displayName": "Qr Auction Bidder",
+  "latest": {
+    "version": "2.0.1",
+    "publishedAt": 1769769482140,
+    "commit": "https://github.com/clawdbot/skills/commit/3ab8852b0c9eeee88dbe01aa2b6928c7bd129dc6"
+  },
+  "history": [
+    {
+      "version": "2.0.0",
+      "publishedAt": 1769769291229,
+      "commit": "https://github.com/clawdbot/skills/commit/f8129e5b29d7a1d510164c680b991b5ae603293f"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "trialskid",
+  "slug": "overseerr-request-media",
+  "displayName": "Request media on Overseerr",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769463293229,
+    "commit": "https://github.com/clawdbot/skills/commit/0767169232443ea59ab8ac70fab17f3a615e8a88"
+  },
+  "history": []
+}

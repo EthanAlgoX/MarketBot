@@ -1,0 +1,11 @@
+{
+  "owner": "kowl64",
+  "slug": "api-credentials-hygiene",
+  "displayName": "API credentials hygiene",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1768663701906,
+    "commit": "https://github.com/clawdbot/skills/commit/d0095e073099d3c070e9528d5a69ff339c1260c1"
+  },
+  "history": []
+}

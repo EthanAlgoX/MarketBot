@@ -1,0 +1,27 @@
+{
+  "owner": "moltlist",
+  "slug": "moltlist",
+  "displayName": "Moltlist Agent-to-Agent Marketplace",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769832044355,
+    "commit": "https://github.com/clawdbot/skills/commit/2d09734d2a46fa50e00ba55b0b74a6ae30d1a293"
+  },
+  "history": [
+    {
+      "version": "1.0.4",
+      "publishedAt": 1769788030513,
+      "commit": "https://github.com/clawdbot/skills/commit/b5f75f1b711b30ce6dbb14bb58b6ad5c210d2013"
+    },
+    {
+      "version": "1.0.3",
+      "publishedAt": 1769781009833,
+      "commit": "https://github.com/clawdbot/skills/commit/b5502c5c47d91d6260d71c817636a1e9fc532116"
+    },
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769750778904,
+      "commit": "https://github.com/clawdbot/skills/commit/8de83c09e2349c8b811c61114f78a1574f2c9156"
+    }
+  ]
+}

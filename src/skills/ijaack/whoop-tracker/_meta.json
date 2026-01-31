@@ -1,0 +1,11 @@
+{
+  "owner": "ijaack",
+  "slug": "whoop-tracker",
+  "displayName": "WHOOP Tracker",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769520854250,
+    "commit": "https://github.com/clawdbot/skills/commit/737f1548a85aa34f009515d62f93f0583f22e8d8"
+  },
+  "history": []
+}

@@ -1,0 +1,29 @@
+{
+  "backup_dir": "~/.clawdbot/backups",
+  "backup_before_update": true,
+  "backup_count": 5,
+  "excluded_skills": [],
+  "backup_paths": [
+    {"path": "~/.clawdbot", "label": "config", "exclude": ["backups", "logs", "media", "*.lock"]},
+    {"path": "~/clawd", "label": "workspace", "exclude": ["node_modules", ".venv", "__pycache__"]}
+  ],
+  "skills_dirs": [
+    {"path": "~/.clawdbot/skills", "label": "prod", "update": true},
+    {"path": "~/clawd/skills", "label": "dev", "update": false}
+  ],
+  "remote_storage": {
+    "enabled": false,
+    "rclone_remote": "gdrive:",
+    "path": "clawdbot-backups"
+  },
+  "encryption": {
+    "enabled": false,
+    "gpg_recipient": "your-email@example.com"
+  },
+  "notifications": {
+    "enabled": false,
+    "target": "+1234567890",
+    "on_success": true,
+    "on_error": true
+  }
+}

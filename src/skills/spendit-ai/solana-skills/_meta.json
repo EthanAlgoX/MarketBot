@@ -1,0 +1,17 @@
+{
+  "owner": "spendit-ai",
+  "slug": "solana-skills",
+  "displayName": "Solana",
+  "latest": {
+    "version": "0.1.2",
+    "publishedAt": 1769437935228,
+    "commit": "https://github.com/clawdbot/skills/commit/f7426a85ec90fa336c47c27ef195c1096175eec1"
+  },
+  "history": [
+    {
+      "version": "0.1.1",
+      "publishedAt": 1769389616647,
+      "commit": "https://github.com/clawdbot/skills/commit/ded2f0ec1cb65a12dc1b82e8e4778517db51d329"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "bitbucket",
+  "displayName": "Bitbucket",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781010167,
+    "commit": "https://github.com/clawdbot/skills/commit/d1e11d451a42ac1b3fea8f8e9bde03c1383a5c80"
+  },
+  "history": []
+}

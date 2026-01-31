@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "cover-letter-gen",
+  "displayName": "Cover Letter Generator",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769632350906,
+    "commit": "https://github.com/clawdbot/skills/commit/63ed9f10dbd87f2c790f128dc364ba9ed20aa2b7"
+  },
+  "history": []
+}

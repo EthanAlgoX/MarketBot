@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "blogwatcher",
+  "displayName": "Blogwatcher",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545299849,
+    "commit": "https://github.com/clawdbot/skills/commit/9591b8a5f981313c4e464e8b69bf825fecf66737"
+  },
+  "history": []
+}

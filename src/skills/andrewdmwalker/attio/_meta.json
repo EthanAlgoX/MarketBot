@@ -1,0 +1,22 @@
+{
+  "owner": "andrewdmwalker",
+  "slug": "attio",
+  "displayName": "Attio",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769452969473,
+    "commit": "https://github.com/clawdbot/skills/commit/d206832b2ece891fc1085378e3d6463d27b14620"
+  },
+  "history": [
+    {
+      "version": "1.2.0",
+      "publishedAt": 1769736268299,
+      "commit": "https://github.com/clawdbot/skills/commit/d09756816d16d44f641bf701d473e3e9237acd39"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769452969473,
+      "commit": "https://github.com/clawdbot/skills/commit/320ca94c6489abb408476069da3daf2a68283030"
+    }
+  ]
+}

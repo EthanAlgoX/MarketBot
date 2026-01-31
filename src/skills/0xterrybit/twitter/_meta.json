@@ -1,0 +1,17 @@
+{
+  "owner": "0xterrybit",
+  "slug": "twitter",
+  "displayName": "Twitter",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769540906640,
+    "commit": "https://github.com/clawdbot/skills/commit/af3357d48e4d9ca5c92beea9f0ff4c8b5464006c"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769513967558,
+      "commit": "https://github.com/clawdbot/skills/commit/bff516b0aaca61ce5e99cb1a661a05f718a3856b"
+    }
+  ]
+}

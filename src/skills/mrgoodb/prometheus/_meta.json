@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "prometheus",
+  "displayName": "Prometheus",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781058331,
+    "commit": "https://github.com/clawdbot/skills/commit/9a826ce66fca46eb3b133ddcb59c1813e0bc4346"
+  },
+  "history": []
+}

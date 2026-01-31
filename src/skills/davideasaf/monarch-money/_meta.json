@@ -1,0 +1,17 @@
+{
+  "owner": "davideasaf",
+  "slug": "monarch-money",
+  "displayName": "Monarch Money",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769381505198,
+    "commit": "https://github.com/clawdbot/skills/commit/522f08a33e48c61a6a843833454d52dabbd23aa6"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769380269796,
+      "commit": "https://github.com/clawdbot/skills/commit/95229e91334196c958e2d6398767e1f911cee842"
+    }
+  ]
+}

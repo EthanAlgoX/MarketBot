@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "middleware-gen",
+  "displayName": "Middleware Generator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769627429034,
+    "commit": "https://github.com/clawdbot/skills/commit/af26d70ef7d31ecf2c6ebc797b8e7f3c8efb94b0"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "mrgoodb",
+  "slug": "heap",
+  "displayName": "Heap",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769781085711,
+    "commit": "https://github.com/clawdbot/skills/commit/a75e86800b858ce4a9d7f272b3300c61dece0a4a"
+  },
+  "history": []
+}

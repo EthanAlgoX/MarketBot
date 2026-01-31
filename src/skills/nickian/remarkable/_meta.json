@@ -1,0 +1,11 @@
+{
+  "owner": "nickian",
+  "slug": "remarkable",
+  "displayName": "reMarkable Cloud",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769633947906,
+    "commit": "https://github.com/clawdbot/skills/commit/9cea62d243cd2a3e4338859cb08c580e35215cea"
+  },
+  "history": []
+}

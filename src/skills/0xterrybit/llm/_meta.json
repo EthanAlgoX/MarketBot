@@ -1,0 +1,11 @@
+{
+  "owner": "0xterrybit",
+  "slug": "llm",
+  "displayName": "LLM",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769540954205,
+    "commit": "https://github.com/clawdbot/skills/commit/c3edd7f0f6a3036021bcc9d6e43061935f05254c"
+  },
+  "history": []
+}

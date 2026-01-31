@@ -1,0 +1,11 @@
+{
+  "owner": "lucas-riverbi",
+  "slug": "morning-briefing",
+  "displayName": "Morning Briefing",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769716127631,
+    "commit": "https://github.com/clawdbot/skills/commit/b5c0bae394bae6f9d058b5416a420cfb5829aa26"
+  },
+  "history": []
+}

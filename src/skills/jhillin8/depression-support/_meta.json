@@ -1,0 +1,11 @@
+{
+  "owner": "jhillin8",
+  "slug": "depression-support",
+  "displayName": "Depression Support",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769326417221,
+    "commit": "https://github.com/clawdbot/skills/commit/dbf5af1fc0a01dbd3a40443a2ed4dbb4de41bbca"
+  },
+  "history": []
+}

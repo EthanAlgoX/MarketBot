@@ -1,0 +1,11 @@
+{
+  "owner": "ray-778",
+  "slug": "host-ping-detect",
+  "displayName": "Host Ping Detector",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769758557830,
+    "commit": "https://github.com/clawdbot/skills/commit/833c0aee8c3a983c39d1356d5bace8c2867597c4"
+  },
+  "history": []
+}

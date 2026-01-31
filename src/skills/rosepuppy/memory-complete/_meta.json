@@ -1,0 +1,11 @@
+{
+  "owner": "rosepuppy",
+  "slug": "memory-complete",
+  "displayName": "Memory Complete",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769803720157,
+    "commit": "https://github.com/clawdbot/skills/commit/69bb0af90e6d0227e0c70bd8915db0159698cefb"
+  },
+  "history": []
+}

@@ -1,0 +1,27 @@
+{
+  "owner": "peterokase42",
+  "slug": "dont-hack-me",
+  "displayName": "Dont Hack Me",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769698064853,
+    "commit": "https://github.com/clawdbot/skills/commit/8ee50a021e928ed83c04474b2dfdb0024f360164"
+  },
+  "history": [
+    {
+      "version": "1.3.2",
+      "publishedAt": 1769782462325,
+      "commit": "https://github.com/clawdbot/skills/commit/718396362d8803ba89c5bd0ff7c12ebf04fd88b0"
+    },
+    {
+      "version": "1.2.1",
+      "publishedAt": 1769770467767,
+      "commit": "https://github.com/clawdbot/skills/commit/e46bd47a5fe16c5f8ce7a3ec907b02b261936421"
+    },
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769698064853,
+      "commit": "https://github.com/clawdbot/skills/commit/a99a21649fd129831a5374c8c9b02ef1c9eddafe"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "desperado991128",
+  "slug": "peft",
+  "displayName": "Peft Fine Tuning",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769438898184,
+    "commit": "https://github.com/clawdbot/skills/commit/3e2cf111a684b8dd1959f2ade2722c5b24787e3f"
+  },
+  "history": []
+}

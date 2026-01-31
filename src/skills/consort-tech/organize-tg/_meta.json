@@ -1,0 +1,11 @@
+{
+  "owner": "consort-tech",
+  "slug": "organize-tg",
+  "displayName": "Organize TG",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769738468210,
+    "commit": "https://github.com/clawdbot/skills/commit/672fdd7c5b8156825b03f9b12110576520b264c8"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "tader",
+  "slug": "knhb-hockey",
+  "displayName": "KNHB Hockey Match Center",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769774191574,
+    "commit": "https://github.com/clawdbot/skills/commit/9aca034ea0c4879a89d8abeecbd5a76620c1df31"
+  },
+  "history": []
+}

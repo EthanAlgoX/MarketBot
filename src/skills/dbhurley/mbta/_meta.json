@@ -1,0 +1,11 @@
+{
+  "owner": "dbhurley",
+  "slug": "mbta",
+  "displayName": "MBTA Transit",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769206509133,
+    "commit": "https://github.com/clawdbot/skills/commit/58ace9fa5b2c52b515a50185077507e60297b1b5"
+  },
+  "history": []
+}

@@ -1,0 +1,11 @@
+{
+  "owner": "kesslerio",
+  "slug": "dialpad",
+  "displayName": "Dialpad SMS & Voice",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769837993633,
+    "commit": "https://github.com/clawdbot/skills/commit/b89d37b16e0565dffa47cccc14a0bde15f60bf65"
+  },
+  "history": []
+}

@@ -1,0 +1,25 @@
+{
+  "name": "dashboard",
+  "version": "1.0.0",
+  "description": "Kanban-style task management dashboard for Clawdbot agents with live status, drag-drop tasks, notes, and action logs.",
+  "author": "Clawd",
+  "keywords": ["dashboard", "kanban", "tasks", "ui", "web", "management"],
+  "repository": "",
+  "license": "MIT",
+  "clawdbot": {
+    "minVersion": "0.1.0"
+  },
+  "files": [
+    "SKILL.md",
+    "setup.sh",
+    "src/app.py",
+    "src/templates/index.html",
+    "src/static/css/style.css",
+    "src/static/js/dashboard.js"
+  ],
+  "scripts": {
+    "setup": "bash setup.sh",
+    "start": "cd ~/clawd-dashboard && python3 app.py",
+    "stop": "pkill -f 'python3.*app.py'"
+  }
+}

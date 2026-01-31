@@ -1,0 +1,11 @@
+{
+  "owner": "steipete",
+  "slug": "local-places",
+  "displayName": "Local Places",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1767545354524,
+    "commit": "https://github.com/clawdbot/skills/commit/4ba331966903b97e4f291d095a6f8da8ae835501"
+  },
+  "history": []
+}

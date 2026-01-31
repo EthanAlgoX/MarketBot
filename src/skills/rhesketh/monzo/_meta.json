@@ -1,0 +1,17 @@
+{
+  "owner": "rhesketh",
+  "slug": "monzo",
+  "displayName": "Monzo",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1769715129330,
+    "commit": "https://github.com/clawdbot/skills/commit/9006ddb21204220b6a818f6e78f10c395f98e2a8"
+  },
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769708512408,
+      "commit": "https://github.com/clawdbot/skills/commit/be64c1289f8e2b7c16604f04948cc8e740a24e70"
+    }
+  ]
+}

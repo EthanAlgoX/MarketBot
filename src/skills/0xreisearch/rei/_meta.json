@@ -1,0 +1,11 @@
+{
+  "owner": "0xreisearch",
+  "slug": "rei",
+  "displayName": "Rei-Clawd",
+  "latest": {
+    "version": "1.0.3",
+    "publishedAt": 1769506550807,
+    "commit": "https://github.com/clawdbot/skills/commit/761217abca753ab977a8d5c9f4f168e2f1e41bd9"
+  },
+  "history": []
+}

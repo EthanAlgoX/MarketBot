@@ -1,0 +1,11 @@
+{
+  "owner": "porygonthebot",
+  "slug": "frigate",
+  "displayName": "Frigate",
+  "latest": {
+    "version": "1.0.3",
+    "publishedAt": 1769575862992,
+    "commit": "https://github.com/clawdbot/skills/commit/a4b05280a2402dd0ba55b190256359f9f3433b9f"
+  },
+  "history": []
+}

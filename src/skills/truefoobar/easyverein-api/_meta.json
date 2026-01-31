@@ -1,0 +1,11 @@
+{
+  "owner": "truefoobar",
+  "slug": "easyverein-api",
+  "displayName": "easyVerein API v2.0",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769788246345,
+    "commit": "https://github.com/clawdbot/skills/commit/0c61d3bd8bf34c386725ae018a8723d25c7e90a4"
+  },
+  "history": []
+}

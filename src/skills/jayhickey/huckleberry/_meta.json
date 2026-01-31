@@ -1,0 +1,11 @@
+{
+  "owner": "jayhickey",
+  "slug": "huckleberry",
+  "displayName": "Huckleberry",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1768814903425,
+    "commit": "https://github.com/clawdbot/skills/commit/d0aa6f1f0b66db178e9f44fd87e4422eeab333b1"
+  },
+  "history": []
+}

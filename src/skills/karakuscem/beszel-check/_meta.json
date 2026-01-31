@@ -1,0 +1,11 @@
+{
+  "owner": "karakuscem",
+  "slug": "beszel-check",
+  "displayName": "Beszel Check",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769716832539,
+    "commit": "https://github.com/clawdbot/skills/commit/a827bd36edad0e4bc715dd06aad384e4ea5acc86"
+  },
+  "history": []
+}

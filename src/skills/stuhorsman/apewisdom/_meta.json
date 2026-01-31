@@ -1,0 +1,11 @@
+{
+  "owner": "stuhorsman",
+  "slug": "apewisdom",
+  "displayName": "ApeWisdom Reddit Scanner",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769729941420,
+    "commit": "https://github.com/clawdbot/skills/commit/04d49676e69b14232306a488f09fd6d2b24256d8"
+  },
+  "history": []
+}

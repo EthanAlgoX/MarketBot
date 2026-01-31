@@ -1,0 +1,22 @@
+{
+  "owner": "koba42corp",
+  "slug": "vinculum",
+  "displayName": "Vinculum - Shared Consciousness",
+  "latest": {
+    "version": "1.2.0",
+    "publishedAt": 1769728913759,
+    "commit": "https://github.com/clawdbot/skills/commit/35be5a8a9a055e1817f3e7462262d2850a0f59b4"
+  },
+  "history": [
+    {
+      "version": "1.1.1",
+      "publishedAt": 1769701465911,
+      "commit": "https://github.com/clawdbot/skills/commit/de1a837920e32eea3ff640ad0abe1fc12056c128"
+    },
+    {
+      "version": "1.0.0",
+      "publishedAt": 1769696088913,
+      "commit": "https://github.com/clawdbot/skills/commit/abbe48cf622196337bd87d841530353f9bbecafb"
+    }
+  ]
+}

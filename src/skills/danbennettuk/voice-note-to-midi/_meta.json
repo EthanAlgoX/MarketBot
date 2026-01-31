@@ -1,0 +1,11 @@
+{
+  "owner": "danbennettuk",
+  "slug": "voice-note-to-midi",
+  "displayName": "Voice Note To Midi",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769722430873,
+    "commit": "https://github.com/clawdbot/skills/commit/522c3879d16e21b3be98ccab916a81478fc3fc51"
+  },
+  "history": []
+}

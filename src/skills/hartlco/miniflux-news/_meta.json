@@ -1,0 +1,11 @@
+{
+  "owner": "hartlco",
+  "slug": "miniflux-news",
+  "displayName": "Miniflux News",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1769158886872,
+    "commit": "https://github.com/clawdbot/skills/commit/35c2606067dc99b4a721f910f61122a9b18a0216"
+  },
+  "history": []
+}

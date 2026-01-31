@@ -1,0 +1,11 @@
+{
+  "owner": "0xterrybit",
+  "slug": "bybit",
+  "displayName": "Bybit",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1769539951160,
+    "commit": "https://github.com/clawdbot/skills/commit/d6b38212d8bb4927b3794e220d9de9dbd93c055c"
+  },
+  "history": []
+}

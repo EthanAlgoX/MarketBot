@@ -1,0 +1,11 @@
+{
+  "owner": "nextfrontierbuilds",
+  "slug": "web-qa-bot",
+  "displayName": "Web Qa Bot",
+  "latest": {
+    "version": "0.1.1",
+    "publishedAt": 1769590436929,
+    "commit": "https://github.com/clawdbot/skills/commit/b687265020f8125298bd58a8605f492bfe9b239c"
+  },
+  "history": []
+}

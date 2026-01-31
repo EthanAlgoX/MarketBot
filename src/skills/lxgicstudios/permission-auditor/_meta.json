@@ -1,0 +1,11 @@
+{
+  "owner": "lxgicstudios",
+  "slug": "permission-auditor",
+  "displayName": "Permission Auditor",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769596923553,
+    "commit": "https://github.com/clawdbot/skills/commit/00e5ef4518d49afc386c68e5fb2109fabe20ab51"
+  },
+  "history": []
+}

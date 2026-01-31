@@ -1,0 +1,17 @@
+{
+  "owner": "apatki1996",
+  "slug": "gita-sotd",
+  "displayName": "Bhagvad Gita slok of the day",
+  "latest": {
+    "version": "1.0.2",
+    "publishedAt": 1769760681931,
+    "commit": "https://github.com/clawdbot/skills/commit/7d3cada511f4288ecdbb9654e78d7f579395b059"
+  },
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769759953437,
+      "commit": "https://github.com/clawdbot/skills/commit/5beacf2325eb7c8a6f9f48366d552a5eebe54383"
+    }
+  ]
+}

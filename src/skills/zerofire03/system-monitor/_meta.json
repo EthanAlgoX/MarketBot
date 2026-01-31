@@ -1,0 +1,11 @@
+{
+  "owner": "zerofire03",
+  "slug": "system-monitor",
+  "displayName": "System Monitor",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1769655125434,
+    "commit": "https://github.com/clawdbot/skills/commit/09ae15e98ae68aa06889fa392d579cf26709d2f0"
+  },
+  "history": []
+}

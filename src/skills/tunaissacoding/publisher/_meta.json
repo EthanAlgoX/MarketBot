@@ -1,0 +1,17 @@
+{
+  "owner": "tunaissacoding",
+  "slug": "publisher",
+  "displayName": "Publisher",
+  "latest": {
+    "version": "1.0.6",
+    "publishedAt": 1769178250935,
+    "commit": "https://github.com/clawdbot/skills/commit/4b7fd6ff0f038446ddd617d947ed8fcbcc258005"
+  },
+  "history": [
+    {
+      "version": "1.0.4",
+      "publishedAt": 1769172953229,
+      "commit": "https://github.com/clawdbot/skills/commit/861cc2000a89ed01ea0bdd2381aa0c8212028d31"
+    }
+  ]
+}
