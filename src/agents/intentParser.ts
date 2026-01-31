@@ -2,6 +2,7 @@
 
 import type { LLMProvider, LLMMessage } from "../core/llm.js";
 import type { IntentParsingOutput } from "../core/types.js";
+import { resolveSymbolFromText } from "../utils/symbols.js";
 
 const INTENT_PARSER_PROMPT = `You are an intent parser for a market analysis system.
 Parse the user's query and extract:
@@ -23,29 +24,30 @@ export async function runIntentParser(
     systemPrompt?: string
 ): Promise<IntentParsingOutput> {
     const messages: LLMMessage[] = [
-        { role: "system", content: systemPrompt ?? INTENT_PARSER_PROMPT },
+        { role: "system", content: INTENT_PARSER_PROMPT },
         { role: "user", content: `Parse this query: "${userQuery}"` },
     ];
 
     const response = await provider.chat(messages);
 
-    try {
-        const parsed = JSON.parse(response.content) as IntentParsingOutput;
-        return validateIntent(parsed);
-    } catch {
-        // Fallback to default parsing
-        return parseQueryFallback(userQuery);
+    const parsed = tryParseJson(response.content);
+    if (parsed) {
+        return validateIntent(parsed as Partial<IntentParsingOutput>, userQuery);
     }
+
+    // Fallback to default parsing
+    return parseQueryFallback(userQuery);
 }
 
-function validateIntent(parsed: Partial<IntentParsingOutput>): IntentParsingOutput {
+function validateIntent(parsed: Partial<IntentParsingOutput>, query: string): IntentParsingOutput {
+    const fallback = parseQueryFallback(query);
     return {
-        asset: parsed.asset ?? "BTC",
-        market: parsed.market ?? "crypto",
-        analysis_goal: parsed.analysis_goal ?? "general_analysis",
-        timeframes: parsed.timeframes ?? ["1h", "4h"],
-        risk_tolerance: parsed.risk_tolerance ?? "medium",
-        confidence_level: parsed.confidence_level ?? "moderate",
+        asset: parsed.asset ?? fallback.asset,
+        market: normalizeMarket(parsed.market) ?? fallback.market,
+        analysis_goal: parsed.analysis_goal ?? fallback.analysis_goal,
+        timeframes: parsed.timeframes ?? fallback.timeframes,
+        risk_tolerance: parsed.risk_tolerance ?? fallback.risk_tolerance,
+        confidence_level: parsed.confidence_level ?? fallback.confidence_level,
     };
 }
 
@@ -53,21 +55,56 @@ function parseQueryFallback(query: string): IntentParsingOutput {
     const lowerQuery = query.toLowerCase();
 
     // Detect asset
-    let asset = "BTC";
-    const cryptoAssets = ["btc", "bitcoin", "eth", "ethereum", "sol", "solana", "xrp", "ada"];
-    const stockAssets = ["aapl", "apple", "googl", "google", "msft", "microsoft", "tsla", "tesla"];
+    const resolvedSymbol = resolveSymbolFromText(query);
+    let asset = resolvedSymbol ?? "BTC";
 
-    for (const crypto of cryptoAssets) {
-        if (lowerQuery.includes(crypto)) {
-            asset = crypto === "bitcoin" ? "BTC" : crypto === "ethereum" ? "ETH" : crypto.toUpperCase();
-            break;
+    const cryptoNameMap: Array<[string, string]> = [
+        ["bitcoin", "BTC"],
+        ["btc", "BTC"],
+        ["ethereum", "ETH"],
+        ["eth", "ETH"],
+        ["solana", "SOL"],
+        ["sol", "SOL"],
+        ["xrp", "XRP"],
+        ["ada", "ADA"],
+        ["cardano", "ADA"],
+        ["dogecoin", "DOGE"],
+        ["doge", "DOGE"],
+        ["bnb", "BNB"],
+        ["binance", "BNB"],
+    ];
+
+    if (!resolvedSymbol) {
+        for (const [name, symbol] of cryptoNameMap) {
+            if (lowerQuery.includes(name)) {
+                asset = symbol;
+                break;
+            }
         }
     }
 
+    const cryptoAssets = new Set(["BTC", "ETH", "SOL", "XRP", "ADA", "BNB", "DOGE"]);
+    const cryptoCues = ["crypto", "bitcoin", "btc", "ethereum", "eth", "altcoin"];
+    const forexCues = ["forex", "fx", "currency", "exchange rate"];
+    const futuresCues = ["futures", "future", "contract"];
+    const commodityCues = ["commodity", "gold", "silver", "oil", "wti", "brent", "copper", "natural gas"];
+    const stockCues = ["stock", "stocks", "equity", "shares", "share", "nasdaq", "nyse", "earnings", "ticker"];
+
     // Detect market
     let market: IntentParsingOutput["market"] = "crypto";
-    if (stockAssets.some((s) => lowerQuery.includes(s))) market = "stocks";
-    if (lowerQuery.includes("forex") || lowerQuery.includes("currency")) market = "forex";
+    if (cryptoCues.some((cue) => lowerQuery.includes(cue)) || cryptoAssets.has(asset)) {
+        market = "crypto";
+    } else if (forexCues.some((cue) => lowerQuery.includes(cue))) {
+        market = "forex";
+    } else if (futuresCues.some((cue) => lowerQuery.includes(cue))) {
+        market = "futures";
+    } else if (commodityCues.some((cue) => lowerQuery.includes(cue))) {
+        market = "commodities";
+    } else if (stockCues.some((cue) => lowerQuery.includes(cue))) {
+        market = "stocks";
+    } else if (asset && !cryptoAssets.has(asset)) {
+        market = "stocks";
+    }
 
     // Detect analysis goal
     let analysisGoal: IntentParsingOutput["analysis_goal"] = "general_analysis";
@@ -89,4 +126,48 @@ function parseQueryFallback(query: string): IntentParsingOutput {
         risk_tolerance: "medium",
         confidence_level: "moderate",
     };
+}
+
+function normalizeMarket(value?: string): IntentParsingOutput["market"] | undefined {
+    if (!value) return undefined;
+    const normalized = value.toLowerCase();
+    if (normalized === "stock" || normalized === "stocks" || normalized === "equity") return "stocks";
+    if (normalized === "crypto" || normalized === "cryptocurrency" || normalized === "cryptocurrencies") return "crypto";
+    if (normalized === "forex" || normalized === "fx" || normalized === "currency") return "forex";
+    if (normalized === "commodities" || normalized === "commodity") return "commodities";
+    if (normalized === "futures" || normalized === "future") return "futures";
+    return undefined;
+}
+
+function tryParseJson(content: string): unknown | null {
+    const trimmed = content.trim();
+    if (!trimmed) return null;
+
+    try {
+        return JSON.parse(trimmed);
+    } catch {
+        // fall through
+    }
+
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced?.[1]) {
+        try {
+            return JSON.parse(fenced[1].trim());
+        } catch {
+            // fall through
+        }
+    }
+
+    const firstBrace = trimmed.indexOf("{");
+    const lastBrace = trimmed.lastIndexOf("}");
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+        const candidate = trimmed.slice(firstBrace, lastBrace + 1);
+        try {
+            return JSON.parse(candidate);
+        } catch {
+            return null;
+        }
+    }
+
+    return null;
 }

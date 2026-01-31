@@ -109,37 +109,102 @@ export OPENAI_API_KEY="sk-..."
 echo 'OPENAI_API_KEY=sk-...' > .env
 ```
 
-### 3. 运行分析
+### 3. 三种使用模式
+
+MarketBot 提供三种交互方式：
+
+#### 📟 CLI 模式 (命令行)
+
+适用于：自动化脚本、CI/CD 流水线、批量处理
 
 ```bash
-# 分析股票
-node dist/index.js web-analyze "GOOGL 股票分析"
+# 基础分析
+node dist/index.js analyze "分析谷歌股票"
 
-# 分析加密货币
+# 网页增强分析（自动搜索新闻）
 node dist/index.js web-analyze "BTC 今日走势"
 
 # 资产模式（自动搜索价格、新闻、情绪）
 node dist/index.js web-analyze --asset ETH
 
-# 标准分析 (仅市场数据)
-node dist/index.js analyze "分析苹果"
+# Agentic 模式（LLM 自主决定使用工具）
+node dist/index.js analyze "深度分析 NVIDIA" --agentic
 
-# 无 API Key 测试 (Mock 模式)
+# 无 API Key 测试（Mock 模式）
 node dist/index.js analyze "分析 BTC" --mock
+
+# JSON 输出（方便脚本处理）
+node dist/index.js analyze "分析苹果" --json
 ```
 
-### 3b. GUI / TUI
+#### 🖥️ TUI 模式 (终端交互界面)
+
+适用于：交互式会话、迭代分析、探索不同查询
+
+```bash
+# 启动终端交互界面
+node dist/index.js tui
+
+# 以 Mock 模式启动
+node dist/index.js tui --mock
+```
+
+**功能特性：**
+
+- 🔄 **交互式会话** - 无需重启即可运行多个查询
+- 📜 **历史记录** - 回溯并重新运行之前的查询
+- 🔑 **动态切换 Provider** - 运行时切换 LLM 提供商，自动测试连接
+- ⚙️ **运行时选项** - 切换 JSON 输出、Mock 模式、搜索模式
+
+**TUI 命令列表：**
+
+| 命令 | 说明 |
+|------|------|
+| `/help` | 显示所有命令 |
+| `/exit` | 退出 TUI |
+| `/options` | 显示当前设置 |
+| `/history [n]` | 显示最近查询 |
+| `/use <n>` | 重新运行历史记录 |
+| `/last` | 重新运行上一条查询 |
+| `/provider` | 切换 LLM 提供商 (OpenAI/Gemini/DeepSeek/Qwen 等) |
+| `/model` | 选择或设置模型 |
+| `/models [filter]` | 列出可用模型 |
+| `/mode <mock\|auto\|api\|scrape>` | 设置数据模式 |
+| `/mock on\|off` | 开关 Mock LLM |
+| `/json on\|off` | 开关 JSON 输出 |
+| `/search on\|off` | 开关网页搜索 |
+
+**Provider 选择与连接测试：**
+
+```
+mb> /provider
+? Select LLM provider (current: auto)
+✔ Select LLM provider: DeepSeek (深度求索)
+? Enter DeepSeek API Key: ***
+⏳ Testing connection to DeepSeek...
+✓ Connected successfully! Found 2 available models.
+provider: deepseek
+```
+
+#### 🌐 GUI 模式 (Web 仪表盘)
+
+适用于：可视化探索、分享结果、非技术用户
 
 ```bash
 # 启动 Web GUI（自动打开浏览器）
 node dist/index.js gui
-# 提示：没有 API 配额时可在 GUI 勾选 “mock LLM”
 
-# 启动终端交互界面
-node dist/index.js tui
+# 自定义端口
+node dist/index.js gui --port 3000
 ```
 
-TUI 指令示例：`/help`、`/exit`、`/history`、`/use <n>`、`/json on|off`、`/mode <mock|auto|api|scrape|none>`、`/search on|off`、`/scrape on|off`、`/agent <id|clear>`、`/session <key|clear>`。
+**功能特性：**
+
+- 🎨 **可视化仪表盘** - 专业交易风格界面
+- 📊 **图表可视化** - 交互式价格走势图
+- ⚙️ **设置面板** - 配置 LLM、数据源、输出格式
+- 💾 **会话持久化** - 从上次离开的地方继续
+- 🔄 **Mock 模式开关** - 无需 API 配额即可测试
 
 ### 4. 完成
 

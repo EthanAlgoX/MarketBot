@@ -109,37 +109,102 @@ export OPENAI_API_KEY="sk-..."
 echo 'OPENAI_API_KEY=sk-...' > .env
 ```
 
-### 3. Run Analysis
+### 3. Three Usage Modes
+
+MarketBot provides three ways to interact:
+
+#### 📟 CLI Mode (Command Line)
+
+Best for: automation, scripts, CI/CD pipelines
 
 ```bash
-# Analyze stock
-node dist/index.js web-analyze "GOOGL stock analysis"
+# Basic analysis
+node dist/index.js analyze "Analyze Google stock"
 
-# Analyze cryptocurrency
+# Web-enhanced analysis (auto-search news)
 node dist/index.js web-analyze "BTC price prediction"
 
 # Asset mode (auto-search price, news, sentiment)
 node dist/index.js web-analyze --asset ETH
 
-# Standard Analysis (Market Data Only)
-node dist/index.js analyze "Analyze Apple"
+# Agentic mode (LLM decides tools autonomously)
+node dist/index.js analyze "Deep analysis of NVIDIA" --agentic
 
 # Test without API Key (Mock Mode)
 node dist/index.js analyze "Analyze BTC" --mock
+
+# JSON output for scripting
+node dist/index.js analyze "Analyze AAPL" --json
 ```
 
-### 3b. GUI / TUI
+#### 🖥️ TUI Mode (Terminal UI)
+
+Best for: interactive sessions, iterative analysis, exploring different queries
 
 ```bash
-# Start web GUI (opens browser)
-node dist/index.js gui
-# Tip: enable "mock LLM" in the GUI when you don't have API quota
-
 # Start terminal UI
 node dist/index.js tui
+
+# With mock mode enabled
+node dist/index.js tui --mock
 ```
 
-TUI commands: `/help`, `/exit`, `/history`, `/use <n>`, `/json on|off`, `/mode <mock|auto|api|scrape|none>`, `/search on|off`, `/scrape on|off`, `/agent <id|clear>`, `/session <key|clear>`.
+**Features:**
+
+- 🔄 **Interactive sessions** - Run multiple queries without restarting
+- 📜 **History support** - Recall and re-run previous queries
+- 🔑 **Dynamic provider switching** - Change LLM provider on-the-fly with connection testing
+- ⚙️ **Runtime options** - Toggle JSON output, mock mode, search mode
+
+**TUI Commands:**
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all commands |
+| `/exit` | Quit TUI |
+| `/options` | Show current settings |
+| `/history [n]` | Show recent queries |
+| `/use <n>` | Re-run history item |
+| `/last` | Re-run last query |
+| `/provider` | Switch LLM provider (OpenAI/Gemini/DeepSeek/Qwen/etc) |
+| `/model` | Select or set model |
+| `/models [filter]` | List available models |
+| `/mode <mock\|auto\|api\|scrape>` | Set data mode |
+| `/mock on\|off` | Toggle mock LLM |
+| `/json on\|off` | Toggle JSON output |
+| `/search on\|off` | Toggle web search |
+
+**Provider Selection with Connection Test:**
+
+```
+mb> /provider
+? Select LLM provider (current: auto)
+✔ Select LLM provider: DeepSeek (深度求索)
+? Enter DeepSeek API Key: ***
+⏳ Testing connection to DeepSeek...
+✓ Connected successfully! Found 2 available models.
+provider: deepseek
+```
+
+#### 🌐 GUI Mode (Web Dashboard)
+
+Best for: visual exploration, sharing results, less technical users
+
+```bash
+# Start web GUI (auto-opens browser)
+node dist/index.js gui
+
+# Custom port
+node dist/index.js gui --port 3000
+```
+
+**Features:**
+
+- 🎨 **Visual dashboard** - Professional trading-style interface
+- 📊 **Chart visualization** - Interactive price charts
+- ⚙️ **Settings panel** - Configure LLM, data sources, output format
+- 💾 **Session persistence** - Resume where you left off
+- 🔄 **Mock mode toggle** - Test without API quota
 
 ### 4. Done
 
