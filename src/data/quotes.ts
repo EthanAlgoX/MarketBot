@@ -2,7 +2,7 @@
 
 import type { QuoteSnapshot } from "./types.js";
 import { normalizeYahooSymbol } from "../utils/symbols.js";
-import { fetchYahooQuote } from "./providers/yahooFinance.js";
+import { fetchYahooQuote, fetchYahooQuoteFromHtml } from "./providers/yahooFinance.js";
 
 type QuoteCacheEntry = {
   snapshot: QuoteSnapshot;
@@ -41,6 +41,24 @@ export async function fetchQuoteSnapshot(symbol: string, options: QuoteOptions =
     console.warn(`Quote fetch failed for ${symbol}: ${error instanceof Error ? error.message : String(error)}`);
     const cached = QUOTE_CACHE.get(normalized);
     if (cached) return cached.snapshot;
+    return null;
+  }
+}
+
+export async function fetchQuoteSnapshotFromHtml(
+  symbol: string,
+  options: QuoteOptions = {},
+): Promise<QuoteSnapshot | null> {
+  const allowYahoo = options.allowYahoo ?? process.env.YAHOO_FINANCE_ENABLED !== "false";
+  if (!allowYahoo) return null;
+
+  const normalized = normalizeYahooSymbol(symbol);
+  const timeoutMs = options.timeoutMs ?? parseTimeout();
+
+  try {
+    return await fetchYahooQuoteFromHtml(normalized, timeoutMs);
+  } catch (error) {
+    console.warn(`HTML quote fetch failed for ${symbol}: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 }
