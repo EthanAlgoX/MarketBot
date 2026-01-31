@@ -278,7 +278,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
       helpText({
         provider: state.sessionInfo.modelProvider,
         model: state.sessionInfo.model,
-      }),
+      }).replace(/\\n/g, "\n"),
     ];
     return lines.join("\n");
   };
