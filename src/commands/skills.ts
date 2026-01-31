@@ -1,7 +1,7 @@
 import { loadConfig } from "../config/io.js";
 import { resolveDefaultAgentId } from "../agents/agentScope.js";
 import { buildSkillStatus } from "../skills/status.js";
-import { formatSkillInfo, formatSkillsList } from "../cli/skills-format.js";
+import { formatSkillInfo, formatSkillsCheck, formatSkillsList } from "../cli/skills-format.js";
 import { installSkill, removeSkill } from "../skills/installer.js";
 import { syncSkillsToWorkspace } from "../skills/sync.js";
 import { runSkillCommand } from "../skills/invocation.js";
@@ -12,6 +12,22 @@ export async function skillsListCommand(opts: { json?: boolean; agentId?: string
   const agentId = opts.agentId ?? resolveDefaultAgentId(config);
   const report = await buildSkillStatus(config, { agentId });
   console.log(formatSkillsList(report, { json: opts.json }));
+}
+
+export async function skillsCheckCommand(opts: {
+  json?: boolean;
+  eligible?: boolean;
+  verbose?: boolean;
+  agentId?: string;
+} = {}): Promise<void> {
+  const config = await loadConfig();
+  const agentId = opts.agentId ?? resolveDefaultAgentId(config);
+  const report = await buildSkillStatus(config, { agentId });
+  console.log(formatSkillsCheck(report, {
+    json: opts.json,
+    eligible: opts.eligible,
+    verbose: opts.verbose,
+  }));
 }
 
 export async function skillsInstallCommand(opts: {

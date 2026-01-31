@@ -17,13 +17,56 @@ Run tests:
 npm test
 ```
 
-Manage agents:
+## Web Search & Analysis (New!)
+
+使用浏览器自动化搜索网页并分析交易相关信息，无需额外 API：
+
+```bash
+# 自由查询
+DEEPSEEK_API_KEY="..." node dist/compat/tradebot.js web-analyze "BTC 今日走势分析"
+
+# 资产分析（自动搜索价格、新闻、市场情绪）
+DEEPSEEK_API_KEY="..." node dist/compat/tradebot.js web-analyze --asset ETH
+
+# JSON 输出
+DEEPSEEK_API_KEY="..." node dist/compat/tradebot.js web-analyze "SOL price prediction" --json
+```
+
+配置 `marketbot.json`:
+
+```json
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "deepseek-chat",
+    "baseUrl": "https://api.deepseek.com/v1",
+    "apiKeyEnv": "DEEPSEEK_API_KEY"
+  },
+  "web": {
+    "search": {
+      "provider": "browser",
+      "maxResults": 5,
+      "headless": true
+    }
+  }
+}
+```
+
+功能特性：
+
+- 使用 Puppeteer 浏览器自动化搜索 DuckDuckGo
+- 自动抓取搜索结果页面内容
+- LLM 分析生成交易报告（价格、技术指标、市场情绪）
+- 支持中英文查询
+
+## Agent Management
 
 ```bash
 node dist/index.js agents list
 node dist/index.js agents add analyst --name "Analyst" --default
 node dist/index.js analyze --agent analyst "Analyze AAPL swing"
 ```
+
 Legacy CLI alias: `tradebot` (prints a deprecation warning).
 If you pass `--agent`, make sure it exists in `marketbot.json` (use `marketbot agents add`).
 
@@ -39,6 +82,7 @@ Skills:
 ```bash
 node dist/index.js skills list
 node dist/index.js skills list --agent analyst
+node dist/index.js skills check --eligible --verbose
 node dist/index.js skills install /path/to/skill
 node dist/index.js skills install https://github.com/org/skill-repo --name custom-skill
 node dist/index.js skills remove custom-skill
@@ -78,6 +122,9 @@ Sample `marketbot.json`:
     "entries": {
       "news-fetcher": { "enabled": true }
     }
+  },
+  "tools": {
+    "profile": "analysis"
   }
 }
 ```
@@ -90,6 +137,7 @@ DATA_MODE=auto ENABLE_WEB_SEARCH=true SCRAPE_ALLOWLIST="finance.yahoo.com,binanc
 ```
 
 ## Notes
+
 - The CLI defaults to mock market data unless `--live`/`DATA_MODE` is set.
 - Swap in a real LLM provider by implementing `LLMProvider` in `src/core/llm.ts`.
 - Prompts live in `src/prompts/`.
@@ -97,7 +145,9 @@ DATA_MODE=auto ENABLE_WEB_SEARCH=true SCRAPE_ALLOWLIST="finance.yahoo.com,binanc
 - If no `--agent` is passed, MarketBot uses the default agent from `marketbot.json`.
 
 ## Data configuration
+
 Environment variables:
+
 - `DATA_MODE`: `mock` | `auto` | `api` | `scrape`
 - `ENABLE_WEB_SEARCH`: set to `true` to allow search + scrape fallback
 - `SCRAPE_ALLOWLIST`: comma-separated domains permitted for scraping
@@ -107,11 +157,15 @@ Environment variables:
 - `YAHOO_FINANCE_ENABLED`: set to `false` to disable Yahoo Finance provider
 
 ## Config + workspace
+
 - Config file: `marketbot.json` in repo root (override with `MARKETBOT_CONFIG_PATH`)
 - Default workspace can be overridden with `MARKETBOT_WORKSPACE_DIR`
 - Extra skills directories can be provided via `MARKETBOT_SKILLS_DIRS` (comma-separated)
 - Managed skills dir can be overridden with `MARKETBOT_MANAGED_SKILLS_DIR` or `skills.managedDir`
 - Skills can be allowlisted/denylisted in `marketbot.json` via `skills.allowlist` / `skills.denylist`
+- Tools can be allowlisted via `tools.profile` or `tools.allow` / `tools.deny`
+- Tool profiles: `minimal`, `analysis`, `full`
+- Skills watcher can be toggled via `skills.watch` (default: true) and `skills.watchDebounceMs`
 
 Skill metadata (in SKILL.md front-matter):
 
@@ -134,6 +188,7 @@ metadata: {"marketbot":{"skillKey":"market-scan","commands":[{"name":"fetch","de
 ```
 
 ## LLM providers
+
 MarketBot ships with `mock` and `openai-compatible` providers.
 
 Example:
@@ -151,7 +206,10 @@ Example:
 ```
 
 ## Structure
+
 - `src/agents/` agent runners + specs
 - `src/core/` pipeline and LLM interface
 - `src/data/` mock market data
 - `src/prompts/` system + agent prompts
+- `src/web/` web search, fetch, and browser automation
+- `src/commands/` CLI commands including web-analyze

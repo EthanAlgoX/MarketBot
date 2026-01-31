@@ -26,7 +26,7 @@ function httpGetTool(): ToolSpec {
       if (!url) {
         return { ok: false, output: "Missing URL" };
       }
-      const response = await fetchWithTimeout(url, 10_000);
+      const response = await fetchWithTimeout(url, { timeout: 10_000 });
       const text = await response.text();
       const output = text.slice(0, 4000);
       return { ok: response.ok, output, data: { status: response.status } };

@@ -2,7 +2,8 @@ import type { MarketBotConfig } from "../config/types.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { ToolResult } from "../tools/types.js";
 import { buildToolContext } from "../tools/context.js";
-import { buildSkillStatus } from "./status.js";
+import { isToolAllowed } from "../tools/policy.js";
+import { buildSkillStatus, type SkillStatusEntry } from "./status.js";
 
 export interface RunSkillCommandOptions {
   skill: string;
@@ -57,16 +58,22 @@ export async function runSkillCommand(
     throw new Error(`Tool not registered: ${command.dispatch.toolName}`);
   }
 
+  const allTools = options.registry.list().map((entry) => entry.name);
+  if (!isToolAllowed(tool.name, config.tools, allTools)) {
+    throw new Error(`Tool not allowed by policy: ${tool.name}`);
+  }
+
   const context = buildToolContext(options.rawArgs, options.cwd);
   return tool.run(context);
 }
 
 function resolveSkill(
-  skills: Array<{ name: string; skillKey: string }>,
+  skills: SkillStatusEntry[],
   query: string,
-) {
+): SkillStatusEntry | undefined {
   const normalized = query.toLowerCase();
   return skills.find(
     (skill) => skill.name.toLowerCase() === normalized || skill.skillKey.toLowerCase() === normalized,
   );
 }
+

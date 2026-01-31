@@ -86,7 +86,7 @@ export function checkEligibility(
   return {
     eligible,
     missing,
-    blockedByAllowlist: blockedByAllowlist || blockedByDenylist,
+    blockedByAllowlist: Boolean(blockedByAllowlist || blockedByDenylist),
   };
 }
 

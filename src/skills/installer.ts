@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import type { MarketBotConfig } from "../config/types.js";
 import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../agents/agentScope.js";
 import { resolveManagedSkillsDir } from "./paths.js";
+import { bumpSkillsSnapshotVersion } from "./refresh.js";
 
 export interface InstallSkillOptions {
   source: string;
@@ -33,8 +34,9 @@ export async function installSkill(config: MarketBotConfig, options: InstallSkil
     throw new Error("Workspace scope requires --agent <id>.");
   }
 
+  const workspaceDir = scope === "workspace" ? resolveAgentWorkspaceDir(config, agentId, cwd) : undefined;
   const targetRoot = scope === "workspace"
-    ? path.join(resolveAgentWorkspaceDir(config, agentId, cwd), "skills")
+    ? path.join(workspaceDir!, "skills")
     : resolveManagedSkillsDir(config);
 
   await fs.mkdir(targetRoot, { recursive: true });
@@ -45,6 +47,11 @@ export async function installSkill(config: MarketBotConfig, options: InstallSkil
       name: options.name,
       force: options.force ?? false,
     });
+    if (scope === "workspace" && workspaceDir) {
+      bumpSkillsSnapshotVersion({ workspaceDir, reason: "manual" });
+    } else {
+      bumpSkillsSnapshotVersion({ reason: "manual" });
+    }
     return installed;
   } finally {
     await cleanup();
@@ -56,12 +63,20 @@ export async function removeSkill(config: MarketBotConfig, options: RemoveSkillO
   const cwd = options.cwd ?? process.cwd();
   const agentId = options.agentId ?? resolveDefaultAgentId(config);
 
+  const workspaceDir = scope === "workspace" ? resolveAgentWorkspaceDir(config, agentId, cwd) : undefined;
   const targetRoot = scope === "workspace"
-    ? path.join(resolveAgentWorkspaceDir(config, agentId, cwd), "skills")
+    ? path.join(workspaceDir!, "skills")
     : resolveManagedSkillsDir(config);
 
   const dir = path.join(targetRoot, options.name);
   await fs.rm(dir, { recursive: true, force: true });
+
+  if (scope === "workspace" && workspaceDir) {
+    bumpSkillsSnapshotVersion({ workspaceDir, reason: "manual" });
+  } else {
+    bumpSkillsSnapshotVersion({ reason: "manual" });
+  }
+
   return dir;
 }
 
