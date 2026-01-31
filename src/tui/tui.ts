@@ -33,6 +33,7 @@ import {
   normalizeMainKey,
   parseAgentSessionKey,
 } from "../routing/session-key.js";
+import { formatRelativeTime } from "../utils/time-format.js";
 import { getSlashCommands } from "./commands.js";
 import { ChatLog } from "./components/chat-log.js";
 import { CustomEditor } from "./components/custom-editor.js";
@@ -114,6 +115,7 @@ export async function runTui(opts: TuiOptions) {
   let wasDisconnected = false;
   let toolsExpanded = false;
   let showThinking = false;
+  const watchlist: string[] = [];
 
   const deliverDefault = opts.deliver ?? false;
   const autoMessage = opts.message?.trim();
@@ -251,16 +253,22 @@ export async function runTui(opts: TuiOptions) {
   });
 
   const tui = new TUI(new ProcessTerminal());
-  const header = new Text("", 1, 0);
+  const header = new Text("", 0, 0);
+  const subheader = new Text("", 0, 0);
+  const sessionBar = new Text("", 0, 0);
+  const watchlistBar = new Text("", 0, 0);
   const statusContainer = new Container();
-  const footer = new Text("", 1, 0);
+  const shortcutsBar = new Text("", 0, 0);
   const chatLog = new ChatLog();
   const editor = new CustomEditor(tui, editorTheme);
   const root = new Container();
   root.addChild(header);
+  root.addChild(subheader);
+  root.addChild(sessionBar);
+  root.addChild(watchlistBar);
   root.addChild(chatLog);
   root.addChild(statusContainer);
-  root.addChild(footer);
+  root.addChild(shortcutsBar);
   root.addChild(editor);
 
   const updateAutocompleteProvider = () => {
@@ -314,14 +322,151 @@ export async function runTui(opts: TuiOptions) {
 
   currentSessionKey = resolveSessionKey(initialSessionInput);
 
+  const formatConnectionLabel = () => {
+    const lower = connectionStatus.toLowerCase();
+    if (lower.includes("disconnected") || lower.includes("error")) {
+      return theme.error(`o ${connectionStatus}`);
+    }
+    if (lower.includes("connecting") || lower.includes("reconnecting") || lower.includes("gap")) {
+      return theme.warning(`o ${connectionStatus}`);
+    }
+    if (lower.includes("connected")) {
+      return theme.success(`o ${connectionStatus}`);
+    }
+    return theme.neutral(`o ${connectionStatus}`);
+  };
+
+  const formatActivityLabel = () => {
+    const normalized = activityStatus || "idle";
+    if (normalized === "idle") {
+      return theme.dim(normalized);
+    }
+    if (normalized === "error") {
+      return theme.error(normalized);
+    }
+    if (normalized === "aborted") {
+      return theme.warning(normalized);
+    }
+    if (normalized === "waiting") {
+      return theme.neutral(normalized);
+    }
+    if (normalized === "streaming") {
+      return theme.accent(normalized);
+    }
+    if (normalized === "sending") {
+      return theme.accentSoft(normalized);
+    }
+    if (normalized === "running") {
+      return theme.marketInfo(normalized);
+    }
+    return theme.accentSoft(normalized);
+  };
+
   const updateHeader = () => {
-    const sessionLabel = formatSessionKey(currentSessionKey);
-    const agentLabel = formatAgentLabel(currentAgentId);
     header.setText(
-      theme.header(
-        `marketbot tui - ${client.connection.url} - agent ${agentLabel} - session ${sessionLabel}`,
+      `${theme.header("MarketBot TUI")} ${theme.dim("|")} ${theme.dim(client.connection.url)}`,
+    );
+  };
+
+  const updateSubheader = () => {
+    const updatedLabel =
+      typeof sessionInfo.updatedAt === "number" ? formatRelativeTime(sessionInfo.updatedAt) : "n/a";
+    subheader.setText(
+      `${formatConnectionLabel()} ${theme.dim("|")} ${theme.dim("activity")} ${formatActivityLabel()} ${theme.dim("|")} ${theme.dim("updated")} ${theme.dim(updatedLabel)}`,
+    );
+  };
+
+  const updateSessionBar = () => {
+    const sessionKeyLabel = formatSessionKey(currentSessionKey);
+    const sessionLabel = sessionInfo.displayName
+      ? `${sessionKeyLabel} (${sessionInfo.displayName})`
+      : sessionKeyLabel;
+    const agentLabel = formatAgentLabel(currentAgentId);
+    const modelLabel = sessionInfo.model
+      ? sessionInfo.modelProvider
+        ? `${sessionInfo.modelProvider}/${sessionInfo.model}`
+        : sessionInfo.model
+      : "unknown";
+    const tokens = formatTokens(sessionInfo.totalTokens ?? null, sessionInfo.contextTokens ?? null);
+    const think = sessionInfo.thinkingLevel ?? "off";
+    const verbose = sessionInfo.verboseLevel ?? "off";
+    const reasoning = sessionInfo.reasoningLevel ?? "off";
+    const usage = sessionInfo.responseUsage ?? "off";
+    const reasoningLabel =
+      reasoning === "on" ? "reasoning" : reasoning === "stream" ? "reasoning:stream" : null;
+    const footerParts = [
+      `agent ${agentLabel}`,
+      `session ${sessionLabel}`,
+      modelLabel,
+      think !== "off" ? `think ${think}` : null,
+      verbose !== "off" ? `verbose ${verbose}` : null,
+      reasoningLabel,
+      usage !== "off" ? `usage ${usage}` : null,
+      tokens,
+    ].filter(Boolean);
+    sessionBar.setText(theme.dim(footerParts.join(" | ")));
+    updateSubheader();
+  };
+
+  const updateWatchlistBar = () => {
+    if (watchlist.length === 0) {
+      watchlistBar.setText(
+        `${theme.marketInfo("Watchlist")} ${theme.dim("|")} ${theme.dim("empty (use /watch <symbol>)")}`,
+      );
+      return;
+    }
+    const symbolList = watchlist.map((symbol) => theme.highlight(symbol)).join(", ");
+    watchlistBar.setText(
+      `${theme.marketInfo(`Watchlist (${watchlist.length})`)} ${theme.dim("|")} ${symbolList}`,
+    );
+  };
+
+  const updateShortcutsBar = () => {
+    shortcutsBar.setText(
+      theme.dim(
+        "Keys: Alt+Enter commands | Shift+Tab help | Ctrl+L model | Ctrl+G agent | Ctrl+P session | Ctrl+O tools | Ctrl+T thinking | Ctrl+C exit",
       ),
     );
+  };
+
+  const normalizeSymbol = (raw: string) => raw.trim().toUpperCase();
+  const isValidSymbol = (symbol: string) => /^[A-Z0-9.\-]{1,12}$/.test(symbol);
+
+  const addWatchSymbol = (raw: string) => {
+    const symbol = normalizeSymbol(raw);
+    if (!symbol) {
+      return { ok: false, reason: "missing" as const, symbol };
+    }
+    if (!isValidSymbol(symbol)) {
+      return { ok: false, reason: "invalid" as const, symbol };
+    }
+    if (watchlist.includes(symbol)) {
+      return { ok: false, reason: "exists" as const, symbol };
+    }
+    watchlist.push(symbol);
+    updateWatchlistBar();
+    return { ok: true, symbol };
+  };
+
+  const removeWatchSymbol = (raw: string) => {
+    const symbol = normalizeSymbol(raw);
+    if (!symbol) {
+      return { ok: false, reason: "missing" as const, symbol };
+    }
+    const idx = watchlist.indexOf(symbol);
+    if (idx === -1) {
+      return { ok: false, reason: "not_found" as const, symbol };
+    }
+    watchlist.splice(idx, 1);
+    updateWatchlistBar();
+    return { ok: true, symbol };
+  };
+
+  const getWatchlist = () => [...watchlist];
+
+  const clearWatchlist = () => {
+    watchlist.splice(0, watchlist.length);
+    updateWatchlistBar();
   };
 
   const busyStates = new Set(["sending", "waiting", "streaming", "running"]);
@@ -388,7 +533,7 @@ export async function runTui(opts: TuiOptions) {
       return;
     }
 
-    statusLoader.setMessage(`${activityStatus} • ${elapsed} | ${connectionStatus}`);
+    statusLoader.setMessage(`${activityStatus} | ${elapsed} | ${connectionStatus}`);
   };
 
   const startStatusTimer = () => {
@@ -467,6 +612,7 @@ export async function runTui(opts: TuiOptions) {
       statusText?.setText(theme.dim(text));
     }
     lastActivityStatus = activityStatus;
+    updateSubheader();
   };
 
   const setConnectionStatus = (text: string, ttlMs?: number) => {
@@ -486,35 +632,6 @@ export async function runTui(opts: TuiOptions) {
   const setActivityStatus = (text: string) => {
     activityStatus = text;
     renderStatus();
-  };
-
-  const updateFooter = () => {
-    const sessionKeyLabel = formatSessionKey(currentSessionKey);
-    const sessionLabel = sessionInfo.displayName
-      ? `${sessionKeyLabel} (${sessionInfo.displayName})`
-      : sessionKeyLabel;
-    const agentLabel = formatAgentLabel(currentAgentId);
-    const modelLabel = sessionInfo.model
-      ? sessionInfo.modelProvider
-        ? `${sessionInfo.modelProvider}/${sessionInfo.model}`
-        : sessionInfo.model
-      : "unknown";
-    const tokens = formatTokens(sessionInfo.totalTokens ?? null, sessionInfo.contextTokens ?? null);
-    const think = sessionInfo.thinkingLevel ?? "off";
-    const verbose = sessionInfo.verboseLevel ?? "off";
-    const reasoning = sessionInfo.reasoningLevel ?? "off";
-    const reasoningLabel =
-      reasoning === "on" ? "reasoning" : reasoning === "stream" ? "reasoning:stream" : null;
-    const footerParts = [
-      `agent ${agentLabel}`,
-      `session ${sessionLabel}`,
-      modelLabel,
-      think !== "off" ? `think ${think}` : null,
-      verbose !== "off" ? `verbose ${verbose}` : null,
-      reasoningLabel,
-      tokens,
-    ].filter(Boolean);
-    footer.setText(theme.dim(footerParts.join(" | ")));
   };
 
   const { openOverlay, closeOverlay } = createOverlayHandlers(tui, editor);
@@ -538,7 +655,7 @@ export async function runTui(opts: TuiOptions) {
     initialSessionAgentId,
     resolveSessionKey,
     updateHeader,
-    updateFooter,
+    updateSessionBar,
     updateAutocompleteProvider,
     setActivityStatus,
   });
@@ -553,24 +670,42 @@ export async function runTui(opts: TuiOptions) {
     refreshSessionInfo,
   });
 
-  const { handleCommand, sendMessage, openModelSelector, openAgentSelector, openSessionSelector } =
-    createCommandHandlers({
-      client,
-      chatLog,
-      tui,
-      opts,
-      state,
-      deliverDefault,
-      openOverlay,
-      closeOverlay,
-      refreshSessionInfo,
-      loadHistory,
-      setSession,
-      refreshAgents,
-      abortActive,
-      setActivityStatus,
-      formatSessionKey,
-    });
+  const {
+    handleCommand,
+    sendMessage,
+    openModelSelector,
+    openAgentSelector,
+    openSessionSelector,
+    openHelpOverlay,
+    openCommandPalette,
+  } = createCommandHandlers({
+    config,
+    client,
+    chatLog,
+    tui,
+    opts,
+    state,
+    deliverDefault,
+    openOverlay,
+    closeOverlay,
+    refreshSessionInfo,
+    loadHistory,
+    setSession,
+    refreshAgents,
+    abortActive,
+    setActivityStatus,
+    formatSessionKey,
+    setEditorText: (text: string) => {
+      editor.setText(text);
+    },
+    focusEditor: () => {
+      tui.setFocus(editor);
+    },
+    getWatchlist,
+    addWatchSymbol,
+    removeWatchSymbol,
+    clearWatchlist,
+  });
 
   const { runLocalShellLine } = createLocalShellRunner({
     chatLog,
@@ -630,6 +765,12 @@ export async function runTui(opts: TuiOptions) {
     showThinking = !showThinking;
     void loadHistory();
   };
+  editor.onShiftTab = () => {
+    openHelpOverlay();
+  };
+  editor.onAltEnter = () => {
+    openCommandPalette();
+  };
 
   client.onEvent = (evt) => {
     if (evt.event === "chat") {
@@ -655,7 +796,7 @@ export async function runTui(opts: TuiOptions) {
         autoMessageSent = true;
         await sendMessage(autoMessage);
       }
-      updateFooter();
+      updateSessionBar();
       tui.requestRender();
     })();
   };
@@ -667,7 +808,7 @@ export async function runTui(opts: TuiOptions) {
     const reasonLabel = reason?.trim() ? reason.trim() : "closed";
     setConnectionStatus(`gateway disconnected: ${reasonLabel}`, 5000);
     setActivityStatus("idle");
-    updateFooter();
+    updateSessionBar();
     tui.requestRender();
   };
 
@@ -677,8 +818,10 @@ export async function runTui(opts: TuiOptions) {
   };
 
   updateHeader();
+  updateShortcutsBar();
+  updateWatchlistBar();
   setConnectionStatus("connecting");
-  updateFooter();
+  updateSessionBar();
   tui.start();
   client.start();
 }

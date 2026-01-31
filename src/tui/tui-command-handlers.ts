@@ -23,16 +23,19 @@ import {
   normalizeUsageDisplay,
   resolveResponseUsageMode,
 } from "../auto-reply/thinking.js";
+import type { MarketBotConfig } from "../config/types.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 import { formatRelativeTime } from "../utils/time-format.js";
-import { helpText, parseCommand } from "./commands.js";
+import { getSlashCommands, helpText, parseCommand } from "./commands.js";
 import type { ChatLog } from "./components/chat-log.js";
+import { InfoPanel } from "./components/info-panel.js";
 import {
   createFilterableSelectList,
   createSearchableSelectList,
   createSettingsList,
 } from "./components/selectors.js";
 import type { GatewayChatClient } from "./gateway-chat.js";
+import { formatTokens } from "./tui-formatters.js";
 import { formatStatusSummary } from "./tui-status-summary.js";
 import type {
   AgentSummary,
@@ -42,6 +45,7 @@ import type {
 } from "./tui-types.js";
 
 type CommandHandlerContext = {
+  config: MarketBotConfig;
   client: GatewayChatClient;
   chatLog: ChatLog;
   tui: TUI;
@@ -57,10 +61,17 @@ type CommandHandlerContext = {
   abortActive: () => Promise<void>;
   setActivityStatus: (text: string) => void;
   formatSessionKey: (key: string) => string;
+  setEditorText: (text: string) => void;
+  focusEditor: () => void;
+  getWatchlist: () => string[];
+  addWatchSymbol: (raw: string) => { ok: boolean; reason?: string; symbol: string };
+  removeWatchSymbol: (raw: string) => { ok: boolean; reason?: string; symbol: string };
+  clearWatchlist: () => void;
 };
 
 export function createCommandHandlers(context: CommandHandlerContext) {
   const {
+    config,
     client,
     chatLog,
     tui,
@@ -76,6 +87,12 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     abortActive,
     setActivityStatus,
     formatSessionKey,
+    setEditorText,
+    focusEditor,
+    getWatchlist,
+    addWatchSymbol,
+    removeWatchSymbol,
+    clearWatchlist,
   } = context;
 
   const setAgent = async (id: string) => {
@@ -245,6 +262,181 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     tui.requestRender();
   };
 
+  const buildHelpOverlayText = () => {
+    const lines = [
+      "## Shortcuts",
+      "- Alt+Enter: open command palette",
+      "- Shift+Tab: open help",
+      "- Ctrl+L: model picker",
+      "- Ctrl+G: agent picker",
+      "- Ctrl+P: session picker",
+      "- Ctrl+O: toggle tool output",
+      "- Ctrl+T: toggle thinking",
+      "- Ctrl+C: exit",
+      "",
+      "## Slash Commands",
+      helpText({
+        provider: state.sessionInfo.modelProvider,
+        model: state.sessionInfo.model,
+      }),
+    ];
+    return lines.join("\n");
+  };
+
+  const openHelpOverlay = () => {
+    const panel = new InfoPanel("MarketBot Help", buildHelpOverlayText(), {
+      onClose: () => {
+        closeOverlay();
+        tui.requestRender();
+      },
+      footer: "Esc to close",
+    });
+    openOverlay(panel);
+    tui.requestRender();
+  };
+
+  const openCommandPalette = () => {
+    const items = getSlashCommands({
+      cfg: config,
+      provider: state.sessionInfo.modelProvider,
+      model: state.sessionInfo.model,
+    }).map((command) => ({
+      value: command.name,
+      label: `/${command.name}`,
+      description: command.description,
+    }));
+    const selector = createSearchableSelectList(items, 10);
+    selector.onSelect = (item) => {
+      closeOverlay();
+      setEditorText(`/${item.value} `);
+      focusEditor();
+      tui.requestRender();
+    };
+    selector.onCancel = () => {
+      closeOverlay();
+      tui.requestRender();
+    };
+    openOverlay(selector);
+    tui.requestRender();
+  };
+
+  const openWatchlistOverlay = () => {
+    const symbols = getWatchlist();
+    if (symbols.length === 0) {
+      const panel = new InfoPanel(
+        "Watchlist",
+        "Watchlist is empty.\n\nUse `/watch <symbol>` to add tickers.",
+        {
+          onClose: () => {
+            closeOverlay();
+            tui.requestRender();
+          },
+          footer: "Esc to close",
+        },
+      );
+      openOverlay(panel);
+      tui.requestRender();
+      return;
+    }
+    const items = symbols.map((symbol) => ({
+      value: symbol,
+      label: symbol,
+      description: "Enter to analyze",
+    }));
+    const selector = createSearchableSelectList(items, 9);
+    selector.onSelect = (item) => {
+      closeOverlay();
+      setEditorText(`/analyze ${item.value} `);
+      focusEditor();
+      tui.requestRender();
+    };
+    selector.onCancel = () => {
+      closeOverlay();
+      tui.requestRender();
+    };
+    openOverlay(selector);
+    tui.requestRender();
+  };
+
+  const buildDashboardText = (summary?: GatewayStatusSummary) => {
+    const lines: string[] = [];
+    lines.push("## Connection");
+    lines.push(`- Status: ${state.connectionStatus}`);
+    lines.push(`- Activity: ${state.activityStatus}`);
+    lines.push("");
+    lines.push("## Session");
+    const sessionKeyLabel = formatSessionKey(state.currentSessionKey);
+    const sessionLabel = state.sessionInfo.displayName
+      ? `${sessionKeyLabel} (${state.sessionInfo.displayName})`
+      : sessionKeyLabel;
+    const modelLabel = state.sessionInfo.model
+      ? state.sessionInfo.modelProvider
+        ? `${state.sessionInfo.modelProvider}/${state.sessionInfo.model}`
+        : state.sessionInfo.model
+      : "unknown";
+    lines.push(`- Agent: ${state.currentAgentId}`);
+    lines.push(`- Session: ${sessionLabel}`);
+    lines.push(`- Model: ${modelLabel}`);
+    lines.push(
+      `- Tokens: ${formatTokens(state.sessionInfo.totalTokens ?? null, state.sessionInfo.contextTokens ?? null)}`,
+    );
+    const think = state.sessionInfo.thinkingLevel ?? "off";
+    const verbose = state.sessionInfo.verboseLevel ?? "off";
+    const reasoning = state.sessionInfo.reasoningLevel ?? "off";
+    const usage = state.sessionInfo.responseUsage ?? "off";
+    lines.push(`- Thinking: ${think}`);
+    lines.push(`- Verbose: ${verbose}`);
+    lines.push(`- Reasoning: ${reasoning}`);
+    lines.push(`- Usage footer: ${usage}`);
+    if (typeof state.sessionInfo.updatedAt === "number") {
+      lines.push(`- Last update: ${formatRelativeTime(state.sessionInfo.updatedAt)}`);
+    }
+    lines.push("");
+    lines.push("## Watchlist");
+    const symbols = getWatchlist();
+    if (symbols.length === 0) {
+      lines.push("- empty");
+    } else {
+      for (const symbol of symbols) {
+        lines.push(`- ${symbol}`);
+      }
+    }
+    if (summary) {
+      lines.push("");
+      lines.push("## Gateway");
+      const summaryLines = formatStatusSummary(summary);
+      for (const line of summaryLines) {
+        if (!line.trim()) {
+          lines.push("");
+          continue;
+        }
+        lines.push(`- ${line}`);
+      }
+    }
+    return lines.join("\n");
+  };
+
+  const openDashboardOverlay = async () => {
+    let summary: GatewayStatusSummary | undefined;
+    try {
+      const status = await client.getStatus();
+      if (status && typeof status === "object" && !Array.isArray(status)) {
+        summary = status as GatewayStatusSummary;
+      }
+    } catch (err) {
+      chatLog.addSystem(`status failed: ${String(err)}`);
+    }
+    const panel = new InfoPanel("MarketBot Dashboard", buildDashboardText(summary), {
+      onClose: () => {
+        closeOverlay();
+        tui.requestRender();
+      },
+      footer: "Esc to close",
+    });
+    openOverlay(panel);
+    tui.requestRender();
+  };
+
   const handleCommand = async (raw: string) => {
     const { name, args } = parseCommand(raw);
     if (!name) {
@@ -252,12 +444,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     }
     switch (name) {
       case "help":
-        chatLog.addSystem(
-          helpText({
-            provider: state.sessionInfo.modelProvider,
-            model: state.sessionInfo.model,
-          }),
-        );
+        openHelpOverlay();
         break;
       case "status":
         try {
@@ -450,6 +637,9 @@ export function createCommandHandlers(context: CommandHandlerContext) {
       case "settings":
         openSettings();
         break;
+      case "dashboard":
+        await openDashboardOverlay();
+        break;
       case "exit":
       case "quit":
         client.stop();
@@ -473,10 +663,70 @@ export function createCommandHandlers(context: CommandHandlerContext) {
           chatLog.addSystem("👁️ Usage: /watch <symbol> (e.g., /watch AAPL)");
           break;
         }
-        chatLog.addSystem(`👁️ Added ${args.toUpperCase()} to watchlist`);
+        {
+          const symbols = args.split(/[,\s]+/).filter(Boolean);
+          const added: string[] = [];
+          const skipped: string[] = [];
+          const invalid: string[] = [];
+          for (const symbol of symbols) {
+            const result = addWatchSymbol(symbol);
+            if (result.ok) {
+              added.push(result.symbol);
+            } else if (result.reason === "invalid") {
+              invalid.push(result.symbol);
+            } else {
+              skipped.push(result.symbol);
+            }
+          }
+          if (added.length > 0) {
+            chatLog.addSystem(`👁️ Added to watchlist: ${added.join(", ")}`);
+          }
+          if (skipped.length > 0) {
+            chatLog.addSystem(`Already in watchlist: ${skipped.join(", ")}`);
+          }
+          if (invalid.length > 0) {
+            chatLog.addSystem(`Invalid symbols: ${invalid.join(", ")}`);
+          }
+        }
         break;
       case "watchlist":
-        chatLog.addSystem("📋 Watchlist feature coming soon. Use /analyze <symbol> for now.");
+        if (args && ["clear", "reset", "empty"].includes(args.toLowerCase())) {
+          clearWatchlist();
+          chatLog.addSystem("📋 Watchlist cleared.");
+          break;
+        }
+        openWatchlistOverlay();
+        break;
+      case "unwatch":
+        if (!args) {
+          chatLog.addSystem("🧹 Usage: /unwatch <symbol|all>");
+          break;
+        }
+        if (["all", "clear", "reset", "empty"].includes(args.toLowerCase())) {
+          clearWatchlist();
+          chatLog.addSystem("🧹 Watchlist cleared.");
+          break;
+        }
+        {
+          const symbols = args.split(/[,\s]+/).filter(Boolean);
+          const removed: string[] = [];
+          const missing: string[] = [];
+          for (const symbol of symbols) {
+            const result = removeWatchSymbol(symbol);
+            if (result.ok) {
+              removed.push(result.symbol);
+            } else if (result.reason === "not_found") {
+              missing.push(result.symbol);
+            }
+          }
+          if (removed.length > 0) {
+            chatLog.addSystem(`🧹 Removed from watchlist: ${removed.join(", ")}`);
+          }
+          if (missing.length > 0) {
+            chatLog.addSystem(`Not in watchlist: ${missing.join(", ")}`);
+          }
+        }
+        break;
         break;
       case "portfolio":
         await sendMessage(
@@ -553,6 +803,10 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     openAgentSelector,
     openSessionSelector,
     openSettings,
+    openHelpOverlay,
+    openCommandPalette,
+    openWatchlistOverlay,
+    openDashboardOverlay,
     setAgent,
   };
 }

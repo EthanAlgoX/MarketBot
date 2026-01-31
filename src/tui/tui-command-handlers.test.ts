@@ -30,6 +30,7 @@ describe("tui command handlers", () => {
     const setActivityStatus = vi.fn();
 
     const { handleCommand } = createCommandHandlers({
+      config: {} as never,
       client: { sendChat } as never,
       chatLog: { addUser, addSystem } as never,
       tui: { requestRender } as never,
@@ -49,6 +50,12 @@ describe("tui command handlers", () => {
       abortActive: vi.fn(),
       setActivityStatus,
       formatSessionKey: vi.fn(),
+      setEditorText: vi.fn(),
+      focusEditor: vi.fn(),
+      getWatchlist: () => [],
+      addWatchSymbol: vi.fn().mockReturnValue({ ok: true, symbol: "AAPL" }),
+      removeWatchSymbol: vi.fn().mockReturnValue({ ok: true, symbol: "AAPL" }),
+      clearWatchlist: vi.fn(),
     });
 
     await handleCommand("/context");

@@ -39,7 +39,7 @@ type SessionActionContext = {
   initialSessionAgentId: string | null;
   resolveSessionKey: (raw?: string) => string;
   updateHeader: () => void;
-  updateFooter: () => void;
+  updateSessionBar: () => void;
   updateAutocompleteProvider: () => void;
   setActivityStatus: (text: string) => void;
 };
@@ -56,7 +56,7 @@ export function createSessionActions(context: SessionActionContext) {
     initialSessionAgentId,
     resolveSessionKey,
     updateHeader,
-    updateFooter,
+    updateSessionBar,
     updateAutocompleteProvider,
     setActivityStatus,
   } = context;
@@ -95,7 +95,7 @@ export function createSessionActions(context: SessionActionContext) {
         state.agents[0]?.id ?? normalizeAgentId(result.defaultId ?? state.currentAgentId);
     }
     updateHeader();
-    updateFooter();
+    updateSessionBar();
   };
 
   const refreshAgents = async () => {
@@ -160,7 +160,7 @@ export function createSessionActions(context: SessionActionContext) {
         chatLog.addSystem(`sessions list failed: ${String(err)}`);
       }
       updateAutocompleteProvider();
-      updateFooter();
+      updateSessionBar();
       tui.requestRender();
     })();
     try {
@@ -247,7 +247,7 @@ export function createSessionActions(context: SessionActionContext) {
     state.currentSessionId = null;
     state.historyLoaded = false;
     updateHeader();
-    updateFooter();
+    updateSessionBar();
     await loadHistory();
   };
 
