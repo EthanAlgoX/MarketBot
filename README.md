@@ -102,6 +102,9 @@ pnpm cli --help
 
 ## Configuration
 
+MarketBot only requires a model/auth provider to start. Once you configure a
+provider, you can launch immediately without any other confirmation steps.
+
 Create a `.env` file based on `.env.example`:
 
 ```bash
