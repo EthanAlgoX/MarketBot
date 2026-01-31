@@ -1,5 +1,8 @@
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import path from "node:path";
 import { select, password, confirm } from "@inquirer/prompts";
 import { createDefaultDeps } from "../deps.js";
 import { loadConfig, writeConfig } from "../../config/io.js";
@@ -27,6 +30,7 @@ const TUI_COMMANDS = [
   "/help", "/exit", "/quit", "/options", "/history", "/use", "/last",
   "/json", "/mode", "/search", "/scrape", "/live", "/tools",
   "/agent", "/session", "/models", "/model", "/provider",
+  "/clawhub", "/skills",
 ];
 
 function tuiCompleter(line: string): [string[], string] {
@@ -41,6 +45,7 @@ const COMMAND_MENU_CHOICES = [
   { name: "/help       - Show help", value: "/help" },
   { name: "/options    - Show current options", value: "/options" },
   { name: "/tools      - List available tools", value: "/tools" },
+  { name: "/clawhub    - Manage skills (install/update)", value: "/clawhub" },
   { name: "/models     - List available models", value: "/models" },
   { name: "/model      - Set model", value: "/model" },
   { name: "/provider   - Set LLM provider", value: "/provider" },
@@ -453,6 +458,9 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
         const message = await openToolsList(state, handled.filter);
         if (message) console.log(message);
       }
+      if (handled.action === "clawhub") {
+        await runClawHubCommand(handled.args || []);
+      }
       if (handled.action === "provider") {
         const selected = await showProviderMenu(state.llmProvider);
         if (selected && selected !== "auto") {
@@ -558,7 +566,7 @@ function handleCommand(input: string, state: {
   llmModel?: string;
   llmProvider?: string;
   history: string[];
-}): { exit?: boolean; message?: string; runQuery?: string; action?: "models" | "provider" | "tools"; filter?: string } {
+}): { exit?: boolean; message?: string; runQuery?: string; action?: "models" | "provider" | "tools" | "clawhub"; filter?: string; args?: string[] } {
   const [command, ...args] = input.slice(1).split(/\s+/);
   const arg = args[0];
 
@@ -582,6 +590,7 @@ function handleCommand(input: string, state: {
           "/scrape on|off|toggle",
           "/live on|off|toggle",
           "/tools                List available tools",
+          "/clawhub <cmd>        Manage skills (search, install, update)",
           "/agent <id|clear>",
           "/session <key|clear>",
           "/models [filter]",
@@ -589,6 +598,9 @@ function handleCommand(input: string, state: {
           "/provider <openai|gemini|kimicode|auto|status>",
         ].join("\n"),
       };
+    case "clawhub":
+    case "skills":
+      return { action: "clawhub", args };
     case "options":
       return {
         message: [
@@ -1536,5 +1548,28 @@ async function pageOutput(text: string, rl: readline.Interface, pageSize: number
       throw err;
     }
     if (answer.trim().toLowerCase() === "q") break;
+  }
+}
+
+async function runClawHubCommand(args: string[]): Promise<void> {
+  // If installing/updating, ensure we target src/skills if no dir specified
+  const cmd = args[0];
+  const finalArgs = [...args];
+  if ((cmd === "install" || cmd === "update") && !args.includes("--dir") && !args.includes("--workdir")) {
+    finalArgs.push("--dir", "src/skills");
+  }
+
+  console.log(`> clawhub ${finalArgs.join(" ")}`);
+  const commandStr = `npx clawhub ${finalArgs.join(" ")}`;
+
+  try {
+    const execAsync = promisify(exec);
+    const { stdout, stderr } = await execAsync(commandStr);
+    if (stdout) console.log(stdout);
+    if (stderr) console.error(stderr);
+  } catch (err: any) {
+    console.error(`Error running clawhub: ${err.message}`);
+    if (err.stdout) console.log(err.stdout);
+    if (err.stderr) console.error(err.stderr);
   }
 }
