@@ -17,7 +17,7 @@
  * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { buildXiaomiProvider, XIAOMI_DEFAULT_MODEL_ID } from "../agents/models-config.providers.js";
+import { buildXiaomiProvider } from "../agents/models-config.providers.js";
 import {
   buildSyntheticModelDefinition,
   SYNTHETIC_BASE_URL,
@@ -36,9 +36,27 @@ import {
   VERCEL_AI_GATEWAY_DEFAULT_MODEL_REF,
   XIAOMI_DEFAULT_MODEL_REF,
   ZAI_DEFAULT_MODEL_REF,
+  DEEPSEEK_DEFAULT_MODEL_REF,
+  GROQ_DEFAULT_MODEL_REF,
+  MISTRAL_DEFAULT_MODEL_REF,
+  CEREBRAS_DEFAULT_MODEL_REF,
+  XAI_DEFAULT_MODEL_REF,
 } from "./onboard-auth.credentials.js";
 import {
+  buildDeepseekModelDefinition,
+  buildGroqModelDefinition,
+  buildMistralModelDefinition,
+  buildCerebrasModelDefinition,
+  buildXaiModelDefinition,
+  buildXiaomiModelDefinition,
   buildMoonshotModelDefinition,
+  DEEPSEEK_BASE_URL,
+  DEEPSEEK_DEFAULT_MODEL_ID,
+  XIAOMI_DEFAULT_MODEL_ID,
+  GROQ_DEFAULT_MODEL_ID,
+  MISTRAL_DEFAULT_MODEL_ID,
+  CEREBRAS_DEFAULT_MODEL_ID,
+  XAI_DEFAULT_MODEL_ID,
   KIMI_CODING_MODEL_REF,
   MOONSHOT_BASE_URL,
   MOONSHOT_DEFAULT_MODEL_ID,
@@ -521,6 +539,258 @@ export function applyAuthProfileConfig(
       ...cfg.auth,
       profiles,
       ...(order ? { order } : {}),
+    },
+  };
+}
+export function applyDeepseekProviderConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const models = { ...cfg.agents?.defaults?.models };
+  models[DEEPSEEK_DEFAULT_MODEL_REF] = {
+    ...models[DEEPSEEK_DEFAULT_MODEL_REF],
+    alias: models[DEEPSEEK_DEFAULT_MODEL_REF]?.alias ?? "DeepSeek",
+  };
+
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers.deepseek;
+  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const defaultModel = buildDeepseekModelDefinition();
+  const hasDefaultModel = existingModels.some((model) => model.id === DEEPSEEK_DEFAULT_MODEL_ID);
+  const mergedModels = hasDefaultModel ? existingModels : [...existingModels, defaultModel];
+  const { apiKey: existingApiKey, ...existingProviderRest } = (existingProvider ?? {}) as Record<
+    string,
+    unknown
+  > as { apiKey?: string };
+  const resolvedApiKey = typeof existingApiKey === "string" ? existingApiKey : undefined;
+  const normalizedApiKey = resolvedApiKey?.trim();
+  providers.deepseek = {
+    ...existingProviderRest,
+    baseUrl: DEEPSEEK_BASE_URL,
+    api: "openai-completions",
+    ...(normalizedApiKey ? { apiKey: normalizedApiKey } : {}),
+    models: mergedModels.length > 0 ? mergedModels : [defaultModel],
+  };
+
+  return {
+    ...cfg,
+    agents: {
+      ...cfg.agents,
+      defaults: {
+        ...cfg.agents?.defaults,
+        models,
+      },
+    },
+    models: {
+      mode: cfg.models?.mode ?? "merge",
+      providers,
+    },
+  };
+}
+
+export function applyDeepseekConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const next = applyDeepseekProviderConfig(cfg);
+  const existingModel = next.agents?.defaults?.model;
+  return {
+    ...next,
+    agents: {
+      ...next.agents,
+      defaults: {
+        ...next.agents?.defaults,
+        model: {
+          ...(existingModel && "fallbacks" in (existingModel as Record<string, unknown>)
+            ? {
+                fallbacks: (existingModel as { fallbacks?: string[] }).fallbacks,
+              }
+            : undefined),
+          primary: DEEPSEEK_DEFAULT_MODEL_REF,
+        },
+      },
+    },
+  };
+}
+
+export function applyGroqProviderConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const models = { ...cfg.agents?.defaults?.models };
+  models[GROQ_DEFAULT_MODEL_REF] = {
+    ...models[GROQ_DEFAULT_MODEL_REF],
+    alias: models[GROQ_DEFAULT_MODEL_REF]?.alias ?? "Groq",
+  };
+
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers.groq;
+  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const defaultModel = buildGroqModelDefinition();
+  const hasDefaultModel = existingModels.some((model) => model.id === GROQ_DEFAULT_MODEL_ID);
+  const mergedModels = hasDefaultModel ? existingModels : [...existingModels, defaultModel];
+  providers.groq = {
+    ...existingProvider,
+    api: "openai-completions",
+    baseUrl: "https://api.groq.com/openai/v1",
+    models: mergedModels,
+  };
+
+  return {
+    ...cfg,
+    agents: { ...cfg.agents, defaults: { ...cfg.agents?.defaults, models } },
+    models: { mode: cfg.models?.mode ?? "merge", providers },
+  };
+}
+
+export function applyGroqConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const next = applyGroqProviderConfig(cfg);
+  const existingModel = next.agents?.defaults?.model;
+  return {
+    ...next,
+    agents: {
+      ...next.agents,
+      defaults: {
+        ...next.agents?.defaults,
+        model: {
+          ...(existingModel && "fallbacks" in (existingModel as Record<string, unknown>)
+            ? { fallbacks: (existingModel as { fallbacks?: string[] }).fallbacks }
+            : undefined),
+          primary: GROQ_DEFAULT_MODEL_REF,
+        },
+      },
+    },
+  };
+}
+
+export function applyMistralProviderConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const models = { ...cfg.agents?.defaults?.models };
+  models[MISTRAL_DEFAULT_MODEL_REF] = {
+    ...models[MISTRAL_DEFAULT_MODEL_REF],
+    alias: models[MISTRAL_DEFAULT_MODEL_REF]?.alias ?? "Mistral",
+  };
+
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers.mistral;
+  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const defaultModel = buildMistralModelDefinition();
+  const hasDefaultModel = existingModels.some((model) => model.id === MISTRAL_DEFAULT_MODEL_ID);
+  const mergedModels = hasDefaultModel ? existingModels : [...existingModels, defaultModel];
+  providers.mistral = {
+    ...existingProvider,
+    api: "openai-completions",
+    baseUrl: "https://api.mistral.ai/v1",
+    models: mergedModels,
+  };
+
+  return {
+    ...cfg,
+    agents: { ...cfg.agents, defaults: { ...cfg.agents?.defaults, models } },
+    models: { mode: cfg.models?.mode ?? "merge", providers },
+  };
+}
+
+export function applyMistralConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const next = applyMistralProviderConfig(cfg);
+  const existingModel = next.agents?.defaults?.model;
+  return {
+    ...next,
+    agents: {
+      ...next.agents,
+      defaults: {
+        ...next.agents?.defaults,
+        model: {
+          ...(existingModel && "fallbacks" in (existingModel as Record<string, unknown>)
+            ? { fallbacks: (existingModel as { fallbacks?: string[] }).fallbacks }
+            : undefined),
+          primary: MISTRAL_DEFAULT_MODEL_REF,
+        },
+      },
+    },
+  };
+}
+
+export function applyCerebrasProviderConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const models = { ...cfg.agents?.defaults?.models };
+  models[CEREBRAS_DEFAULT_MODEL_REF] = {
+    ...models[CEREBRAS_DEFAULT_MODEL_REF],
+    alias: models[CEREBRAS_DEFAULT_MODEL_REF]?.alias ?? "Cerebras",
+  };
+
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers.cerebras;
+  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const defaultModel = buildCerebrasModelDefinition();
+  const hasDefaultModel = existingModels.some((model) => model.id === CEREBRAS_DEFAULT_MODEL_ID);
+  const mergedModels = hasDefaultModel ? existingModels : [...existingModels, defaultModel];
+  providers.cerebras = {
+    ...existingProvider,
+    api: "openai-completions",
+    baseUrl: "https://api.cerebras.ai/v1",
+    models: mergedModels,
+  };
+
+  return {
+    ...cfg,
+    agents: { ...cfg.agents, defaults: { ...cfg.agents?.defaults, models } },
+    models: { mode: cfg.models?.mode ?? "merge", providers },
+  };
+}
+
+export function applyCerebrasConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const next = applyCerebrasProviderConfig(cfg);
+  const existingModel = next.agents?.defaults?.model;
+  return {
+    ...next,
+    agents: {
+      ...next.agents,
+      defaults: {
+        ...next.agents?.defaults,
+        model: {
+          ...(existingModel && "fallbacks" in (existingModel as Record<string, unknown>)
+            ? { fallbacks: (existingModel as { fallbacks?: string[] }).fallbacks }
+            : undefined),
+          primary: CEREBRAS_DEFAULT_MODEL_REF,
+        },
+      },
+    },
+  };
+}
+
+export function applyXaiProviderConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const models = { ...cfg.agents?.defaults?.models };
+  models[XAI_DEFAULT_MODEL_REF] = {
+    ...models[XAI_DEFAULT_MODEL_REF],
+    alias: models[XAI_DEFAULT_MODEL_REF]?.alias ?? "xAI",
+  };
+
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers.xai;
+  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const defaultModel = buildXaiModelDefinition();
+  const hasDefaultModel = existingModels.some((model) => model.id === XAI_DEFAULT_MODEL_ID);
+  const mergedModels = hasDefaultModel ? existingModels : [...existingModels, defaultModel];
+  providers.xai = {
+    ...existingProvider,
+    api: "openai-completions",
+    baseUrl: "https://api.x.ai/v1",
+    models: mergedModels,
+  };
+
+  return {
+    ...cfg,
+    agents: { ...cfg.agents, defaults: { ...cfg.agents?.defaults, models } },
+    models: { mode: cfg.models?.mode ?? "merge", providers },
+  };
+}
+
+export function applyXaiConfig(cfg: MarketBotConfig): MarketBotConfig {
+  const next = applyXaiProviderConfig(cfg);
+  const existingModel = next.agents?.defaults?.model;
+  return {
+    ...next,
+    agents: {
+      ...next.agents,
+      defaults: {
+        ...next.agents?.defaults,
+        model: {
+          ...(existingModel && "fallbacks" in (existingModel as Record<string, unknown>)
+            ? { fallbacks: (existingModel as { fallbacks?: string[] }).fallbacks }
+            : undefined),
+          primary: XAI_DEFAULT_MODEL_REF,
+        },
+      },
     },
   };
 }

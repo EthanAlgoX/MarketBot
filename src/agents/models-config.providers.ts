@@ -23,6 +23,15 @@ import {
   DEFAULT_COPILOT_API_BASE_URL,
   resolveCopilotApiToken,
 } from "../providers/github-copilot-token.js";
+import {
+  XIAOMI_DEFAULT_MODEL_ID,
+  DEEPSEEK_BASE_URL,
+  DEEPSEEK_DEFAULT_MODEL_ID,
+  GROQ_DEFAULT_MODEL_ID,
+  MISTRAL_DEFAULT_MODEL_ID,
+  CEREBRAS_DEFAULT_MODEL_ID,
+  XAI_DEFAULT_MODEL_ID,
+} from "../commands/onboard-auth.models.js";
 import { ensureAuthProfileStore, listProfilesForProvider } from "./auth-profiles.js";
 import { resolveAwsSdkEnvVarName, resolveEnvApiKey } from "./model-auth.js";
 import { discoverBedrockModels } from "./bedrock-discovery.js";
@@ -52,7 +61,6 @@ const MINIMAX_API_COST = {
 };
 
 const XIAOMI_BASE_URL = "https://api.xiaomimimo.com/anthropic";
-export const XIAOMI_DEFAULT_MODEL_ID = "mimo-v2-flash";
 const XIAOMI_DEFAULT_CONTEXT_WINDOW = 262144;
 const XIAOMI_DEFAULT_MAX_TOKENS = 8192;
 const XIAOMI_DEFAULT_COST = {
@@ -69,6 +77,51 @@ const MOONSHOT_DEFAULT_MAX_TOKENS = 8192;
 const MOONSHOT_DEFAULT_COST = {
   input: 0,
   output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
+const DEEPSEEK_DEFAULT_CONTEXT_WINDOW = 64000;
+const DEEPSEEK_DEFAULT_MAX_TOKENS = 8192;
+const DEEPSEEK_DEFAULT_COST = {
+  input: 0.14,
+  output: 0.28,
+  cacheRead: 0.014,
+  cacheWrite: 0.14,
+};
+
+const GROQ_DEFAULT_CONTEXT_WINDOW = 8192;
+const GROQ_DEFAULT_MAX_TOKENS = 8192;
+const GROQ_DEFAULT_COST = {
+  input: 0.0001,
+  output: 0.0002,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
+const MISTRAL_DEFAULT_CONTEXT_WINDOW = 32768;
+const MISTRAL_DEFAULT_MAX_TOKENS = 8192;
+const MISTRAL_DEFAULT_COST = {
+  input: 0.0001,
+  output: 0.0003,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
+const CEREBRAS_DEFAULT_CONTEXT_WINDOW = 2048;
+const CEREBRAS_DEFAULT_MAX_TOKENS = 2048;
+const CEREBRAS_DEFAULT_COST = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
+const XAI_DEFAULT_CONTEXT_WINDOW = 131072;
+const XAI_DEFAULT_MAX_TOKENS = 8192;
+const XAI_DEFAULT_COST = {
+  input: 0.0001,
+  output: 0.0002,
   cacheRead: 0,
   cacheWrite: 0,
 };
@@ -377,6 +430,106 @@ function buildSyntheticProvider(): ProviderConfig {
   };
 }
 
+function buildDeepseekModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: DEEPSEEK_DEFAULT_MODEL_ID,
+    name: "DeepSeek Chat",
+    reasoning: false,
+    input: ["text"],
+    cost: DEEPSEEK_DEFAULT_COST,
+    contextWindow: DEEPSEEK_DEFAULT_CONTEXT_WINDOW,
+    maxTokens: DEEPSEEK_DEFAULT_MAX_TOKENS,
+  };
+}
+
+function buildDeepseekProvider(): ProviderConfig {
+  return {
+    baseUrl: DEEPSEEK_BASE_URL,
+    api: "openai-completions",
+    models: [buildDeepseekModelDefinition()],
+  };
+}
+
+function buildGroqModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: GROQ_DEFAULT_MODEL_ID,
+    name: "Groq Model",
+    reasoning: false,
+    input: ["text"],
+    cost: GROQ_DEFAULT_COST,
+    contextWindow: GROQ_DEFAULT_CONTEXT_WINDOW,
+    maxTokens: GROQ_DEFAULT_MAX_TOKENS,
+  };
+}
+
+export function buildGroqProvider(): ProviderConfig {
+  return {
+    baseUrl: "https://api.groq.com/openai/v1",
+    api: "openai-completions",
+    models: [buildGroqModelDefinition()],
+  };
+}
+
+function buildMistralModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: MISTRAL_DEFAULT_MODEL_ID,
+    name: "Mistral Model",
+    reasoning: false,
+    input: ["text"],
+    cost: MISTRAL_DEFAULT_COST,
+    contextWindow: MISTRAL_DEFAULT_CONTEXT_WINDOW,
+    maxTokens: MISTRAL_DEFAULT_MAX_TOKENS,
+  };
+}
+
+export function buildMistralProvider(): ProviderConfig {
+  return {
+    baseUrl: "https://api.mistral.ai/v1",
+    api: "openai-completions",
+    models: [buildMistralModelDefinition()],
+  };
+}
+
+function buildCerebrasModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: CEREBRAS_DEFAULT_MODEL_ID,
+    name: "Cerebras Model",
+    reasoning: false,
+    input: ["text"],
+    cost: CEREBRAS_DEFAULT_COST,
+    contextWindow: CEREBRAS_DEFAULT_CONTEXT_WINDOW,
+    maxTokens: CEREBRAS_DEFAULT_MAX_TOKENS,
+  };
+}
+
+export function buildCerebrasProvider(): ProviderConfig {
+  return {
+    baseUrl: "https://api.cerebras.ai/v1",
+    api: "openai-completions",
+    models: [buildCerebrasModelDefinition()],
+  };
+}
+
+function buildXaiModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: XAI_DEFAULT_MODEL_ID,
+    name: "xAI Model",
+    reasoning: false,
+    input: ["text"],
+    cost: XAI_DEFAULT_COST,
+    contextWindow: XAI_DEFAULT_CONTEXT_WINDOW,
+    maxTokens: XAI_DEFAULT_MAX_TOKENS,
+  };
+}
+
+export function buildXaiProvider(): ProviderConfig {
+  return {
+    baseUrl: "https://api.x.ai/v1",
+    api: "openai-completions",
+    models: [buildXaiModelDefinition()],
+  };
+}
+
 export function buildXiaomiProvider(): ProviderConfig {
   return {
     baseUrl: XIAOMI_BASE_URL,
@@ -470,6 +623,41 @@ export async function resolveImplicitProviders(params: {
     resolveApiKeyFromProfiles({ provider: "xiaomi", store: authStore });
   if (xiaomiKey) {
     providers.xiaomi = { ...buildXiaomiProvider(), apiKey: xiaomiKey };
+  }
+
+  const deepseekKey =
+    resolveEnvApiKeyVarName("deepseek") ??
+    resolveApiKeyFromProfiles({ provider: "deepseek", store: authStore });
+  if (deepseekKey) {
+    providers.deepseek = { ...buildDeepseekProvider(), apiKey: deepseekKey };
+  }
+
+  const groqKey =
+    resolveEnvApiKeyVarName("groq") ??
+    resolveApiKeyFromProfiles({ provider: "groq", store: authStore });
+  if (groqKey) {
+    providers.groq = { ...buildGroqProvider(), apiKey: groqKey };
+  }
+
+  const mistralKey =
+    resolveEnvApiKeyVarName("mistral") ??
+    resolveApiKeyFromProfiles({ provider: "mistral", store: authStore });
+  if (mistralKey) {
+    providers.mistral = { ...buildMistralProvider(), apiKey: mistralKey };
+  }
+
+  const cerebrasKey =
+    resolveEnvApiKeyVarName("cerebras") ??
+    resolveApiKeyFromProfiles({ provider: "cerebras", store: authStore });
+  if (cerebrasKey) {
+    providers.cerebras = { ...buildCerebrasProvider(), apiKey: cerebrasKey };
+  }
+
+  const xaiKey =
+    resolveEnvApiKeyVarName("xai") ??
+    resolveApiKeyFromProfiles({ provider: "xai", store: authStore });
+  if (xaiKey) {
+    providers.xai = { ...buildXaiProvider(), apiKey: xaiKey };
   }
 
   // Ollama provider - only add if explicitly configured

@@ -40,6 +40,11 @@ export type AuthChoiceGroupId =
   | "minimax"
   | "synthetic"
   | "venice"
+  | "deepseek"
+  | "groq"
+  | "mistral"
+  | "cerebras"
+  | "xai"
   | "qwen";
 
 export type AuthChoiceGroup = {
@@ -139,6 +144,36 @@ const AUTH_CHOICE_GROUP_DEFS: {
     hint: "Privacy-focused (uncensored models)",
     choices: ["venice-api-key"],
   },
+  {
+    value: "deepseek",
+    label: "DeepSeek",
+    hint: "API key",
+    choices: ["deepseek-api-key"],
+  },
+  {
+    value: "groq",
+    label: "Groq",
+    hint: "API key (Llama 3.1 70B)",
+    choices: ["groq-api-key"],
+  },
+  {
+    value: "mistral",
+    label: "Mistral AI",
+    hint: "API key (Mistral Large)",
+    choices: ["mistral-api-key"],
+  },
+  {
+    value: "cerebras",
+    label: "Cerebras",
+    hint: "API key",
+    choices: ["cerebras-api-key"],
+  },
+  {
+    value: "xai",
+    label: "xAI (Grok)",
+    hint: "API key (Grok Beta)",
+    choices: ["xai-api-key"],
+  },
 ];
 
 export function buildAuthChoiceOptions(params: {
@@ -168,6 +203,11 @@ export function buildAuthChoiceOptions(params: {
   options.push({ value: "moonshot-api-key", label: "Moonshot AI API key" });
   options.push({ value: "kimi-code-api-key", label: "Kimi Coding API key" });
   options.push({ value: "synthetic-api-key", label: "Synthetic API key" });
+  options.push({ value: "deepseek-api-key", label: "DeepSeek API key" });
+  options.push({ value: "groq-api-key", label: "Groq API key" });
+  options.push({ value: "mistral-api-key", label: "Mistral AI API key" });
+  options.push({ value: "cerebras-api-key", label: "Cerebras API key" });
+  options.push({ value: "xai-api-key", label: "xAI (Grok) API key" });
   options.push({
     value: "venice-api-key",
     label: "Venice AI API key",

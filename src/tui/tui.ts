@@ -120,7 +120,7 @@ export async function runTui(opts: TuiOptions) {
     else if (p.includes("gemini")) key = process.env.GEMINI_API_KEY ?? "";
     else return true;
 
-    if (!key || key.includes("placeholder") || key === "") return false;
+    if (!key || /placeholder/i.test(key) || key === "") return false;
     return true;
   };
   const initialSessionInput = (opts.session ?? "").trim();
