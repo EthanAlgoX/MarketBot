@@ -6,7 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
-> 🤖 Multi-Agent Market Analysis System | Crypto · Stocks · Forex | AI-Powered Decision Dashboard
+> 🤖 Multi-Agent Market Analysis System | Crypto · Stocks · Futures · Forex | AI-Powered Decision Dashboard
 
 [**Features**](#-features) • [**Quick Start**](#-quick-start) • [**Architecture**](#-architecture) • [**Configuration**](#-configuration)
 
@@ -21,7 +21,7 @@ English | [简体中文](README_CN.md)
 - **AI Decision Dashboard** - One-line conclusion + precise entry/exit levels + risk checklist
 - **Multi-Agent Collaboration** - Intent → Regime → Risk → Reflection → Report
 - **Browser Automation** - Auto-search news, scrape web pages for real-time analysis
-- **Multi-Market Support** - Crypto, US/HK/A-shares, Forex, and any searchable assets
+- **Multi-Market Support** - Crypto, US/HK/A-shares, Futures, Forex, and any searchable assets
 - **Multi-Channel Push** - WeChat Work, Feishu, Telegram, Webhook
 
 ### 🛡️ Built-in Trading Philosophy
@@ -203,6 +203,16 @@ First run will automatically download Chromium for web search.
 | **ReportGenerator** | Generate pro report | Markdown Report |
 | **WebDataAnalyzer** | Web search + analysis | search results, report |
 
+## 🧰 Default Skills
+
+Default skills are preloaded under `marketbot-workspace/main/skills`:
+
+- `market-scan` (tool: `market_fetch`)
+- `market-summary` (tool: `market_summary`)
+- `indicator-check` (tool: `indicators_compute`)
+- `report-render` (tool: `report_render`)
+- `web-fetch` (tool: `http_get`)
+
 ## ⚙️ Configuration
 
 ### LLM Provider
@@ -212,7 +222,7 @@ Create `marketbot.json` with your preferred provider:
 | Provider | Model | Base URL | API Key Env |
 |----------|-------|----------|-------------|
 | **OpenAI** ⭐ | `gpt-4o-mini` | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
-| **DeepSeek** | `deepseek-chat` | `https://api.deepseek.com/v1` | `DEEPSEEK_API_KEY` |
+| **OpenAI-Compatible (Custom)** | `your-model` | `https://your-openai-compatible-endpoint/v1` | `LLM_API_KEY` |
 | **Gemini** | `gemini-2.0-flash` | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
 | **Claude** | `claude-3-5-sonnet-20241022` | `https://api.anthropic.com/v1` | `ANTHROPIC_API_KEY` |
 | **Qwen** | `qwen-turbo` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
@@ -238,15 +248,15 @@ Create `marketbot.json` with your preferred provider:
 </details>
 
 <details>
-<summary><b>DeepSeek (Recommended ⭐)</b></summary>
+<summary><b>OpenAI-Compatible (Custom)</b></summary>
 
 ```json
 {
   "llm": {
     "provider": "openai-compatible",
-    "model": "deepseek-chat",
-    "baseUrl": "https://api.deepseek.com/v1",
-    "apiKeyEnv": "DEEPSEEK_API_KEY"
+    "model": "your-model",
+    "baseUrl": "https://your-openai-compatible-endpoint/v1",
+    "apiKeyEnv": "LLM_API_KEY"
   }
 }
 ```
