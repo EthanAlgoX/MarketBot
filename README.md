@@ -107,7 +107,7 @@ Sample `marketbot.json`:
 {
   "agents": {
     "defaults": {
-      "workspace": "./marketbot-workspace/main",
+      "workspace": "./marketbot-workspace",
       "ensureBootstrap": true
     },
     "list": [
