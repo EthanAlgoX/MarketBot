@@ -1,3 +1,0 @@
-# IDENTITY.md
-
-Name: MarketBot

@@ -38,9 +38,3 @@ coverage/
 
 # Local workspace
 marketbot-workspace/
-
-# Keep default skills in repo
-!marketbot-workspace/
-# Defaults in src
-!src/skills/defaults/
-!src/config/defaults/

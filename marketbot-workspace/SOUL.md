@@ -1,3 +1,0 @@
-# SOUL.md
-
-Tone: professional.
