@@ -8,6 +8,7 @@ import {
     FeishuNotifier,
     TelegramNotifier,
     WebhookNotifier,
+    PushPlusNotifier,
 } from "./channels.js";
 
 /**
@@ -28,6 +29,9 @@ export interface NotificationConfig {
         url?: string;
         bearerToken?: string;
     };
+    pushplus?: {
+        token?: string;
+    };
 }
 
 /**
@@ -42,12 +46,14 @@ export class NotificationService {
         const feishu = new FeishuNotifier(config?.feishu?.webhookUrl);
         const telegram = new TelegramNotifier(config?.telegram?.botToken, config?.telegram?.chatId);
         const webhook = new WebhookNotifier(config?.webhook?.url, config?.webhook?.bearerToken);
+        const pushplus = new PushPlusNotifier(config?.pushplus?.token);
 
         // Add configured providers
         if (wechat.isConfigured()) this.providers.push(wechat);
         if (feishu.isConfigured()) this.providers.push(feishu);
         if (telegram.isConfigured()) this.providers.push(telegram);
         if (webhook.isConfigured()) this.providers.push(webhook);
+        if (pushplus.isConfigured()) this.providers.push(pushplus);
     }
 
     /**
@@ -74,6 +80,7 @@ export class NotificationService {
             [NotificationChannel.TELEGRAM]: "Telegram",
             [NotificationChannel.EMAIL]: "邮件",
             [NotificationChannel.WEBHOOK]: "Webhook",
+            [NotificationChannel.PUSHPLUS]: "PushPlus",
         };
         return this.providers.map(p => names[p.channel]);
     }

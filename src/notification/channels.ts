@@ -9,6 +9,7 @@ export enum NotificationChannel {
     TELEGRAM = "telegram",   // Telegram
     EMAIL = "email",         // 邮件
     WEBHOOK = "webhook",     // 自定义 Webhook
+    PUSHPLUS = "pushplus",   // PushPlus
 }
 
 /**
@@ -220,6 +221,49 @@ export class WebhookNotifier implements NotificationProvider {
 
             if (!response.ok) {
                 return { channel: this.channel, success: false, error: `HTTP ${response.status}` };
+            }
+            return { channel: this.channel, success: true };
+        } catch (error) {
+            return { channel: this.channel, success: false, error: String(error) };
+        }
+    }
+}
+/**
+ * PushPlus Notifier
+ * Docs: http://www.pushplus.plus
+ */
+export class PushPlusNotifier implements NotificationProvider {
+    readonly channel = NotificationChannel.PUSHPLUS;
+    private token: string | null;
+
+    constructor(token?: string) {
+        this.token = token || process.env.PUSHPLUS_TOKEN || null;
+    }
+
+    isConfigured(): boolean {
+        return !!this.token;
+    }
+
+    async send(content: string, options?: { title?: string; markdown?: boolean }): Promise<NotifyResult> {
+        if (!this.token) {
+            return { channel: this.channel, success: false, error: "Token not configured" };
+        }
+
+        try {
+            const response = await fetch("http://www.pushplus.plus/send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    token: this.token,
+                    title: options?.title || "MarketBot Report",
+                    content: content,
+                    template: options?.markdown ? "markdown" : "txt",
+                }),
+            });
+
+            const data = await response.json() as { code?: number; msg?: string };
+            if (data.code !== 200) {
+                return { channel: this.channel, success: false, error: data.msg };
             }
             return { channel: this.channel, success: true };
         } catch (error) {

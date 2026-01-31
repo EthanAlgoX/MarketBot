@@ -219,134 +219,49 @@ graph TD
 
 ## ⚙️ 配置指南
 
-### LLM 提供商
+### 🤖 AI 模型配置 (免配置文件)
 
-创建 `marketbot.json` 选择你喜欢的提供商：
+MarketBot 支持通过环境变量直接配置模型，**无需创建 `marketbot.json`！**
 
-| 提供商 | 模型 | Base URL | API Key 变量 |
-|--------|------|----------|--------------|
-| **OpenAI** ⭐ | `gpt-4o-mini` | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
-| **DeepSeek** | `deepseek-chat` | `https://api.deepseek.com/v1` | `DEEPSEEK_API_KEY` |
-| **Gemini** | `gemini-2.0-flash` | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
-| **Claude** | `claude-3-5-sonnet-20241022` | `https://api.anthropic.com/v1` | `ANTHROPIC_API_KEY` |
-| **通义千问** | `qwen-turbo` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
-| **Moonshot** | `moonshot-v1-8k` | `https://api.moonshot.cn/v1` | `MOONSHOT_API_KEY` |
-| **Ollama** | `llama3.2` | `http://localhost:11434/v1` | - |
+**方案 1: Google Gemini (免费推荐)**
 
-**配置示例：**
-
-<details>
-<summary><b>OpenAI (默认)</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "gpt-4o-mini",
-    "baseUrl": "https://api.openai.com/v1",
-    "apiKeyEnv": "OPENAI_API_KEY"
-  }
-}
+```bash
+export GEMINI_API_KEY="AIzaSy..."
 ```
 
-</details>
+**方案 2: OpenAI / 兼容接口 (DeepSeek/通义千问等)**
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export OPENAI_BASE_URL="https://api.deepseek.com/v1"  # 可选
+export OPENAI_MODEL="deepseek-chat"                   # 可选
+```
+
+| 环境变量名 | 说明 | 必填 |
+|------------|------|:----:|
+| `GEMINI_API_KEY` | Google Gemini API Key | 可选* |
+| `OPENAI_API_KEY` | OpenAI / 兼容 API Key | 可选* |
+| `OPENAI_BASE_URL` | 自定义接口地址 (如 DeepSeek) | 可选 |
+| `OPENAI_MODEL` | 自定义模型名称 (默认: gpt-4o-mini) | 可选 |
+
+> \* 注: `GEMINI_API_KEY` 和 `OPENAI_API_KEY` 至少需配置一个。
 
 <details>
-<summary><b>DeepSeek (推荐 ⭐)</b></summary>
+<summary><b>进阶: 使用 marketbot.json 配置文件</b></summary>
+
+如果你需要复杂的配置，仍然可以使用 `marketbot.json`。
 
 ```json
 {
   "llm": {
     "provider": "openai-compatible",
+    "apiKey": "sk-...",
     "model": "deepseek-chat",
-    "baseUrl": "https://api.deepseek.com/v1",
-    "apiKeyEnv": "DEEPSEEK_API_KEY"
+    "baseUrl": "https://api.deepseek.com/v1"
   }
 }
 ```
 
-</details>
-
-<details>
-<summary><b>Google Gemini (免费额度)</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "gemini-2.0-flash",
-    "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
-    "apiKeyEnv": "GEMINI_API_KEY"
-  }
-}
-```
-
-免费获取: [Google AI Studio](https://aistudio.google.com/)
-</details>
-
-<details>
-<summary><b>Anthropic Claude</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "claude-3-5-sonnet-20241022",
-    "baseUrl": "https://api.anthropic.com/v1",
-    "apiKeyEnv": "ANTHROPIC_API_KEY"
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>通义千问 (Qwen)</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "qwen-turbo",
-    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "apiKeyEnv": "DASHSCOPE_API_KEY"
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Moonshot (Kimi)</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "moonshot-v1-8k",
-    "baseUrl": "https://api.moonshot.cn/v1",
-    "apiKeyEnv": "MOONSHOT_API_KEY"
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Ollama (本地部署)</b></summary>
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "llama3.2",
-    "baseUrl": "http://localhost:11434/v1",
-    "apiKeyEnv": ""
-  }
-}
-```
-
-先运行: `ollama pull llama3.2`
 </details>
 
 ### 浏览器配置
@@ -365,14 +280,19 @@ graph TD
 
 > 设置 `headless: true` 在后台运行浏览器
 
-### 通知渠道
+### 🔔 通知渠道配置
 
-| 变量 | 说明 |
-|------|------|
-| `WECHAT_WEBHOOK_URL` | 企业微信 Webhook URL |
-| `FEISHU_WEBHOOK_URL` | 飞书 Webhook URL |
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token |
-| `TELEGRAM_CHAT_ID` | Telegram Chat ID |
+支持通过环境变量或 `.env` 文件配置，可同时启用多个渠道。
+
+| 环境变量名 | 说明 | 必填 |
+|------------|------|:----:|
+| `WECHAT_WEBHOOK_URL` | 企业微信 Webhook URL | 可选 |
+| `FEISHU_WEBHOOK_URL` | 飞书 Webhook URL | 可选 |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token (@BotFather) | 可选 |
+| `TELEGRAM_CHAT_ID` | Telegram Chat ID | 可选 |
+| `PUSHPLUS_TOKEN` | PushPlus Token (<http://www.pushplus.plus>) | 可选 |
+| `CUSTOM_WEBHOOK_URL` | 自定义 Webhook URL | 可选 |
+| `CUSTOM_WEBHOOK_BEARER_TOKEN` | 自定义 Webhook Bearer Token | 可选 |
 
 ## 🖥️ HTTP API
 
