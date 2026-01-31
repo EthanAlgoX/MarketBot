@@ -6,6 +6,7 @@ import { loadSkills } from "../skills/registry.js";
 import { buildSkillStatus } from "../skills/status.js";
 import { ensureSkillsWatcher, getSkillsSnapshotVersion } from "../skills/refresh.js";
 import { createDefaultToolRegistry } from "../tools/registry.js";
+import { resolveToolAllowlist, resolveToolPolicy } from "../tools/policy.js";
 
 const cachedPrompts = new Map<string, string>();
 
@@ -28,7 +29,7 @@ export async function getSystemPrompt(options: SystemPromptOptions = {}): Promis
   const cached = cachedPrompts.get(cacheKey);
   if (cached) return cached;
 
-  const toolsBlock = buildToolsBlock();
+  const toolsBlock = buildToolsBlock(config, agentId);
 
   const statusReport = await buildSkillStatus(config, { agentId, cwd });
   const eligiblePaths = new Set(
@@ -70,12 +71,18 @@ export function clearSystemPromptCache() {
   cachedPrompts.clear();
 }
 
-function buildToolsBlock(): string {
+function buildToolsBlock(config: Awaited<ReturnType<typeof loadConfig>>, agentId: string): string {
   const registry = createDefaultToolRegistry();
   const tools = registry.list();
-  if (tools.length === 0) return "";
+  const policy = resolveToolPolicy(config, agentId);
+  const allowlist = resolveToolAllowlist(policy, tools.map((tool) => tool.name));
+  const allowSet = new Set(allowlist.map((name) => name.toLowerCase()));
+  const allowedTools = tools.filter((tool) => allowSet.has(tool.name.toLowerCase()));
+  if (allowedTools.length === 0) {
+    return "## Tools\n- (no tools allowed by policy)";
+  }
   const lines = ["## Tools"];
-  for (const tool of tools) {
+  for (const tool of allowedTools) {
     const description = tool.description ? ` - ${tool.description}` : "";
     lines.push(`- ${tool.name}${description}`);
   }

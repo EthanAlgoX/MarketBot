@@ -2,6 +2,7 @@
 
 import type { LLMProvider, LLMMessage } from "../core/llm.js";
 import type { MarketRegimeInput, MarketRegimeOutput } from "../core/types.js";
+import { tryParseJson } from "./jsonUtils.js";
 
 const REGIME_PROMPT = `You are a market regime analyst.
 Based on the market structure, volatility, and higher timeframe bias, determine:
@@ -20,19 +21,17 @@ export async function runMarketRegime(
     input: MarketRegimeInput,
     systemPrompt?: string
 ): Promise<MarketRegimeOutput> {
+    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${REGIME_PROMPT}` : REGIME_PROMPT;
     const messages: LLMMessage[] = [
-        { role: "system", content: systemPrompt ?? REGIME_PROMPT },
+        { role: "system", content: combinedPrompt },
         { role: "user", content: `Analyze regime: ${JSON.stringify(input)}` },
     ];
 
     const response = await provider.chat(messages);
 
-    try {
-        const parsed = JSON.parse(response.content) as MarketRegimeOutput;
-        return validateRegime(parsed);
-    } catch {
-        return analyzeRegimeFallback(input);
-    }
+    const parsed = tryParseJson<Partial<MarketRegimeOutput>>(response.content);
+    if (parsed) return validateRegime(parsed);
+    return analyzeRegimeFallback(input);
 }
 
 function validateRegime(parsed: Partial<MarketRegimeOutput>): MarketRegimeOutput {

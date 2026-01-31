@@ -4,8 +4,9 @@
 import { loadConfig } from "../../config/io.js";
 import { createProviderFromConfigAsync } from "../../core/providers/registry.js";
 import { runAgentLoop } from "../../core/agentLoop.js";
-import { createMarketBotTools } from "../../tools/marketbot.js";
+import { createDefaultToolRegistry } from "../../tools/registry.js";
 import { createToolBridge } from "../../tools/toolBridge.js";
+import { resolveToolAllowlist, resolveToolPolicy } from "../../tools/policy.js";
 
 const SYSTEM_PROMPT = `You are MarketBot, an AI-powered market analysis assistant.
 
@@ -61,8 +62,16 @@ export async function runAgenticAnalysis(
 
     const provider = await createProviderFromConfigAsync(config);
 
-    // Create tools and bridge
-    const tools = createMarketBotTools();
+    // Create tools and bridge (respect tool policy)
+    const registry = createDefaultToolRegistry();
+    const allTools = registry.list();
+    const policy = resolveToolPolicy(config);
+    const allowlist = resolveToolAllowlist(policy, allTools.map((tool) => tool.name));
+    const allowSet = new Set(allowlist.map((name) => name.toLowerCase()));
+    const tools = allTools.filter((tool) => allowSet.has(tool.name.toLowerCase()));
+    if (tools.length === 0) {
+        throw new Error("No tools allowed by policy.");
+    }
     const bridge = createToolBridge(tools);
 
     if (verbose) {

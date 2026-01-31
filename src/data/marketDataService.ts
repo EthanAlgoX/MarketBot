@@ -97,6 +97,11 @@ function applySnapshotToMarketData(data: MarketDataInput, snapshot: QuoteSnapsho
         ...data,
         current_price: snapshot.price,
         timestamp: snapshot.timestamp ?? data.timestamp,
+        source: snapshot.source,
+        exchange: snapshot.exchange,
+        currency: snapshot.currency,
+        market_state: snapshot.marketState,
+        price_type: snapshot.priceType,
         price_structure: {
             ...data.price_structure,
             support_levels: scaleLevels(data.price_structure.support_levels),

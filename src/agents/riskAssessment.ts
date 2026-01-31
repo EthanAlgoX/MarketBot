@@ -2,6 +2,7 @@
 
 import type { LLMProvider, LLMMessage } from "../core/llm.js";
 import type { RiskAssessmentInput, RiskAssessmentOutput } from "../core/types.js";
+import { tryParseJson } from "./jsonUtils.js";
 
 const RISK_PROMPT = `You are a risk assessment analyst.
 Based on the market regime, volatility, and asset, determine:
@@ -21,19 +22,17 @@ export async function runRiskAssessment(
     input: RiskAssessmentInput,
     systemPrompt?: string
 ): Promise<RiskAssessmentOutput> {
+    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${RISK_PROMPT}` : RISK_PROMPT;
     const messages: LLMMessage[] = [
-        { role: "system", content: systemPrompt ?? RISK_PROMPT },
+        { role: "system", content: combinedPrompt },
         { role: "user", content: `Assess risk: ${JSON.stringify(input)}` },
     ];
 
     const response = await provider.chat(messages);
 
-    try {
-        const parsed = JSON.parse(response.content) as RiskAssessmentOutput;
-        return validateRisk(parsed);
-    } catch {
-        return assessRiskFallback(input);
-    }
+    const parsed = tryParseJson<Partial<RiskAssessmentOutput>>(response.content);
+    if (parsed) return validateRisk(parsed);
+    return assessRiskFallback(input);
 }
 
 function validateRisk(parsed: Partial<RiskAssessmentOutput>): RiskAssessmentOutput {

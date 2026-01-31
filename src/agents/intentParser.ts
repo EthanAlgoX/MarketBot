@@ -3,6 +3,7 @@
 import type { LLMProvider, LLMMessage } from "../core/llm.js";
 import type { IntentParsingOutput } from "../core/types.js";
 import { resolveSymbolFromText } from "../utils/symbols.js";
+import { tryParseJson } from "./jsonUtils.js";
 
 const INTENT_PARSER_PROMPT = `You are an intent parser for a market analysis system.
 Parse the user's query and extract:
@@ -30,9 +31,9 @@ export async function runIntentParser(
 
     const response = await provider.chat(messages);
 
-    const parsed = tryParseJson(response.content);
+    const parsed = tryParseJson<Partial<IntentParsingOutput>>(response.content);
     if (parsed) {
-        return validateIntent(parsed as Partial<IntentParsingOutput>, userQuery);
+        return validateIntent(parsed, userQuery);
     }
 
     // Fallback to default parsing
@@ -137,37 +138,4 @@ function normalizeMarket(value?: string): IntentParsingOutput["market"] | undefi
     if (normalized === "commodities" || normalized === "commodity") return "commodities";
     if (normalized === "futures" || normalized === "future") return "futures";
     return undefined;
-}
-
-function tryParseJson(content: string): unknown | null {
-    const trimmed = content.trim();
-    if (!trimmed) return null;
-
-    try {
-        return JSON.parse(trimmed);
-    } catch {
-        // fall through
-    }
-
-    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced?.[1]) {
-        try {
-            return JSON.parse(fenced[1].trim());
-        } catch {
-            // fall through
-        }
-    }
-
-    const firstBrace = trimmed.indexOf("{");
-    const lastBrace = trimmed.lastIndexOf("}");
-    if (firstBrace >= 0 && lastBrace > firstBrace) {
-        const candidate = trimmed.slice(firstBrace, lastBrace + 1);
-        try {
-            return JSON.parse(candidate);
-        } catch {
-            return null;
-        }
-    }
-
-    return null;
 }
