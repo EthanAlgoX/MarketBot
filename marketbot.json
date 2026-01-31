@@ -12,7 +12,7 @@
             "enabled": true,
             "provider": "browser",
             "maxResults": 5,
-            "headless": true
+            "headless": false
         },
         "fetch": {
             "enabled": true,
