@@ -1,5 +1,3 @@
-![MarketBot Finance Header](assets/header.png)
-
 <p align="center">
   <img src="assets/logo.png" width="120" alt="MarketBot Finance Logo">
 </p>
