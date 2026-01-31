@@ -1,10 +1,20 @@
 {
+  "meta": {
+    "lastTouchedVersion": "2026.1.30",
+    "lastTouchedAt": "2026-01-31T19:15:39.349Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-01-31T19:04:01.242Z",
+    "lastRunVersion": "2026.1.30",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
   "models": {
     "mode": "merge",
     "providers": {
       "deepseek": {
         "baseUrl": "https://api.deepseek.com/v1",
-        "apiKey": "sk-placeholder",
+        "apiKey": "sk-6d68eaf84a5c49919cd7c42bd9dd7aaf",
         "api": "openai-completions",
         "models": [
           {
@@ -56,46 +66,36 @@
           "alias": "deepseek-reasoner"
         }
       },
+      "workspace": "/Users/yunxuanhan/.marketbot/workspace",
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8
-      },
-      "workspace": "/Users/yunxuanhan/.marketbot/workspace"
+      }
     }
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions"
   },
   "commands": {
     "native": "auto",
     "nativeSkills": "auto"
   },
   "gateway": {
+    "port": 18789,
     "mode": "local",
+    "bind": "loopback",
     "auth": {
       "mode": "token",
       "token": "9fd93dbe21dcb3a2886459771b359ca8aecd6786d409e3a2"
     },
-    "port": 18789,
-    "bind": "loopback",
     "tailscale": {
       "mode": "off",
       "resetOnExit": false
     }
   },
-  "messages": {
-    "ackReactionScope": "group-mentions"
-  },
   "skills": {
     "install": {
       "nodeManager": "npm"
     }
-  },
-  "wizard": {
-    "lastRunAt": "2026-01-31T19:04:01.242Z",
-    "lastRunVersion": "2026.1.30",
-    "lastRunCommand": "onboard",
-    "lastRunMode": "local"
-  },
-  "meta": {
-    "lastTouchedVersion": "2026.1.30",
-    "lastTouchedAt": "2026-01-31T19:04:01.243Z"
   }
 }

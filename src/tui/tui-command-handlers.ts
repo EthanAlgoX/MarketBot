@@ -143,10 +143,19 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     }
   };
 
-  const checkProviderConfigured = (provider?: string): boolean => {
+  const checkProviderConfigured = (provider?: string, cfg?: any): boolean => {
     if (!provider) return false;
     const p = provider.toLowerCase();
     let key = "";
+
+    // Check config first if available
+    if (cfg?.models?.providers) {
+      const provCfg = cfg.models.providers[p];
+      if (provCfg?.apiKey && !provCfg.apiKey.includes("placeholder")) {
+        return true;
+      }
+    }
+
     if (p.includes("deepseek")) key = process.env.DEEPSEEK_API_KEY ?? "";
     else if (p.includes("openai")) key = process.env.OPENAI_API_KEY ?? "";
     else if (p.includes("anthropic")) key = process.env.ANTHROPIC_API_KEY ?? "";
@@ -195,7 +204,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
 
         await client.patchConfig({
           raw: JSON.stringify(patch),
-          // baseHash: ... we could get this from config.get result if we added it to the Snapshot type
+          baseHash,
           note: `Update ${provider} API key from TUI`,
         });
 
@@ -242,12 +251,15 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         return;
       }
 
+      const snapshot = (await client.getConfig()) as any;
+      const cfg = snapshot?.config;
+
       const items = Array.from(providerSet)
         .sort()
         .map((provider) => ({
           value: provider,
           label: provider,
-          description: checkProviderConfigured(provider)
+          description: checkProviderConfigured(provider, cfg)
             ? "Configured"
             : "⚠️ Unconfigured (Enter to set key)",
         }));
