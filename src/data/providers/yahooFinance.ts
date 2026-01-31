@@ -68,73 +68,68 @@ export async function fetchYahooQuote(symbol: string, timeoutMs?: number): Promi
 
 export async function fetchYahooQuoteFromHtml(symbol: string, timeoutMs?: number): Promise<QuoteSnapshot | null> {
   const url = `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`;
-  const response = await fetchWithTimeout(url, {
-    timeout: timeoutMs,
-    headers: {
-      // Ensure we get the desktop site which definitely has fin-streamer
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  try {
+    const response = await fetchWithTimeout(url, {
+      timeout: timeoutMs,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`Yahoo HTML fetch failed: ${response.status}`);
+      return null;
     }
-  });
-  if (!response.ok) return null;
-  const html = await response.text();
 
-  // Try to find <fin-streamer> tags which are specific to the symbol
-  // Example: <fin-streamer data-symbol="GOOGL" ... data-field="regularMarketPrice" value="175.5">
-  const cleanSymbol = symbol.toUpperCase();
+    const html = await response.text();
 
-  const extractPrice = (field: string): number | undefined => {
-    // Regex matches: data-symbol="SYMBOL" ... data-field="FIELD" ... value="NUMBER"
-    // Handle attributes in any order
-    const regex = new RegExp(
-      `<fin-streamer[^>]*data-symbol="${cleanSymbol}"[^>]*data-field="${field}"[^>]*value="([0-9.]+)"`,
-      "i"
-    );
-    const match = html.match(regex);
-    if (!match) return undefined;
-    return Number(match[1]);
-  };
+    // Parse fin-streamer tags
+    const streamers: Record<string, string> = {};
+    const tagRegex = /<fin-streamer\b[^>]*>/g;
+    let match;
 
-  const regularPrice = extractPrice("regularMarketPrice");
-  const postPrice = extractPrice("postMarketPrice");
-  const prePrice = extractPrice("preMarketPrice");
+    const getAttr = (tag: string, name: string) => {
+      const m = tag.match(new RegExp(`${name}="([^"]*)"`, "i"));
+      return m ? m[1] : null;
+    };
 
-  // Determine effective price
-  let price = regularPrice;
-  let priceType: QuoteSnapshot["priceType"] = "regular";
+    while ((match = tagRegex.exec(html)) !== null) {
+      const tag = match[0];
+      const field = getAttr(tag, "data-field");
+      const tagSymbol = getAttr(tag, "data-symbol");
+      const value = getAttr(tag, "data-value") || getAttr(tag, "value"); // Support both data-value and value
 
-  // If regular price is missing, or if pre/post is more relevant? 
-  // Usually we prefer regular, but if market is closed, user might want post. 
-  // For simplicity, prioritize post/pre if regular is missing, or if we want to detect state.
-  // Existing logic prioritized result.regularMarketPrice.
+      if (field && value) {
+        // Strict check: If symbol is present, it MUST match the requested symbol
+        // If symbol is missing, assume it belongs to the page's main asset
+        if (tagSymbol && tagSymbol !== symbol) {
+          continue;
+        }
+        streamers[field] = value;
+      }
+    }
 
-  if (price == null && postPrice != null) {
-    price = postPrice;
-    priceType = "post";
-  }
-  if (price == null && prePrice != null) {
-    price = prePrice;
-    priceType = "pre";
-  }
+    const price = parseFloat(streamers["regularMarketPrice"] || "");
+    if (isNaN(price)) {
+      console.warn(`[Yahoo] No regularMarketPrice found for ${symbol}`);
+      return null;
+    }
 
-  // Fallback to strict JSON regex if fin-streamer fails (sometimes Yahoo changes layout)
-  // Fallback to strict JSON regex if fin-streamer fails (sometimes Yahoo changes layout)
-  if (price == null) {
-    // Disabled loose fallback to avoid returning BTC price for irrelevant symbols.
-    console.warn(`[Yahoo] Failed to extract price for ${symbol} via fin-streamer.`);
+    return {
+      symbol,
+      price,
+      change: parseFloat(streamers["regularMarketChange"] || "0"),
+      changePercent: parseFloat(streamers["regularMarketChangePercent"] || "0"),
+      timestamp: new Date().toISOString(), // Fallback as scraping timestamp is unreliable
+      source: "yahoo-finance-html(backup)",
+      priceType: "regular",
+    };
+
+  } catch (err) {
+    console.warn(`HTML scrape error for ${symbol}:`, err);
     return null;
-    // return fetchYahooQuoteFromHtmlJsonFallback(html, symbol);
   }
-
-  return {
-    symbol: cleanSymbol,
-    price,
-    currency: "USD", // fin-streamer doesn't easily show currency, default for now or parse
-    exchange: "Unknown",
-    marketState: "Unknown",
-    source: "yahoo-finance-html(streamer)",
-    timestamp: new Date().toISOString(),
-    priceType,
-  };
 }
 
 function fetchYahooQuoteFromHtmlJsonFallback(html: string, symbol: string): QuoteSnapshot | null {
