@@ -18,7 +18,7 @@ function marketFetchTool(): ToolSpec {
     run: async (context: ToolContext): Promise<ToolResult> => {
       const input = requireJson(context);
       const asset = asString(input.asset);
-      const market = asString(input.market) as "crypto" | "forex" | "stocks" | "commodities";
+      const market = asString(input.market) as "crypto" | "forex" | "stocks" | "commodities" | "futures";
       const timeframes = asStringArray(input.timeframes);
       if (!asset || !market || timeframes.length === 0) {
         return { ok: false, output: "market_fetch requires asset, market, timeframes[]" };

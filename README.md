@@ -35,7 +35,7 @@ English | [简体中文](README_CN.md)
 
 - **Market Data**: Yahoo Finance, Binance (auto-switch)
 - **News Search**: Browser automation (DuckDuckGo/Bing)
-- **AI Analysis**: OpenAI, DeepSeek, and other OpenAI-compatible APIs
+- **AI Analysis**: OpenAI-compatible APIs (OpenAI/Gemini/Claude/Qwen/Moonshot/Ollama)
 
 ## 🎥 Demo
 
@@ -95,7 +95,7 @@ npm run build
 
 ### 2. Configure API Key
 
-**Support for OpenAI, DeepSeek, Gemini, Claude, Qwen, Moonshot, Ollama**
+**Support for OpenAI-compatible APIs (OpenAI, Gemini, Claude, Qwen, Moonshot, Ollama)**
 
 Detailed configuration can be found in [Configuration](#-configuration) section.
 
@@ -219,13 +219,18 @@ graph TD
 
 ## 🧰 Default Skills
 
-Default skills are built-in (source: `src/skills/defaults`) and available to all agents:
+Default skills are preloaded under `marketbot-workspace/main/skills`:
 
 - `market-scan` (tool: `market_fetch`)
 - `market-summary` (tool: `market_summary`)
 - `indicator-check` (tool: `indicators_compute`)
 - `report-render` (tool: `report_render`)
 - `web-fetch` (tool: `http_get`)
+- `stock-analysis` (fetch/summary/report for equities)
+- `crypto-analysis` (fetch/summary/report for crypto)
+- `forex-analysis` (fetch/summary/report for FX)
+- `futures-analysis` (fetch/summary/report for futures)
+- `volatility-check` (quick ATR/volume/momentum summary)
 
 ## ⚙️ Configuration
 
@@ -418,7 +423,7 @@ MarketBot/
 ### 🤖 AI Models
 
 - [x] OpenAI GPT-4/GPT-4o
-- [x] DeepSeek
+- [x] OpenAI-compatible APIs
 - [x] Qwen
 - [ ] Local Models (Ollama)
 
