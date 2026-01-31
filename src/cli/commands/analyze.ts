@@ -43,6 +43,12 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
     }
   }
 
+  // Force mock provider if --mock is specified
+  if (opts.mock) {
+    if (!config.llm) config.llm = {};
+    config.llm.provider = "mock";
+  }
+
   const provider = deps.createProvider(config);
 
   const sessionEnabled = config.sessions?.enabled !== false;
