@@ -4,7 +4,6 @@
     "model": "deepseek-chat",
     "baseUrl": "https://api.deepseek.com/v1",
     "apiKeyEnv": "DEEPSEEK_API_KEY",
-    "apiKey": "sk-6d68eaf84a5c49919cd7c42bd9dd7aaf",
     "timeoutMs": 60000,
     "jsonMode": true
   },
