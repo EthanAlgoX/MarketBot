@@ -3,7 +3,7 @@
 import type { IntentParsingOutput, MarketDataInput } from "../core/types.js";
 import { resolveSymbolFromText } from "../utils/symbols.js";
 import type { QuoteSnapshot } from "./types.js";
-import { fetchQuoteSnapshot } from "./quotes.js";
+import { fetchQuoteSnapshot, fetchQuoteSnapshotFromHtml } from "./quotes.js";
 import { searchMarketInfo } from "../web/webSearch.js";
 
 export interface MarketDataServiceOptions {
@@ -32,14 +32,14 @@ export async function getMarketDataFromIntent(
         case "auto":
         default:
             try {
-                return await fetchFromApi(intent, options);
-            } catch (apiErr) {
+                return await fetchFromScraper(intent, options);
+            } catch (scrapeErr) {
                 try {
-                    return await fetchFromScraper(intent, options);
-                } catch (scrapeErr) {
+                    return await fetchFromApi(intent, options);
+                } catch (apiErr) {
                     const apiMsg = apiErr instanceof Error ? apiErr.message : String(apiErr);
                     const scrapeMsg = scrapeErr instanceof Error ? scrapeErr.message : String(scrapeErr);
-                    throw new Error(`Auto mode failed. API: ${apiMsg} | Scrape: ${scrapeMsg}`);
+                    throw new Error(`Auto mode failed. Scrape: ${scrapeMsg} | API: ${apiMsg}`);
                 }
             }
     }
@@ -99,7 +99,14 @@ async function fetchFromScraper(
     intent: IntentParsingOutput,
     options?: MarketDataServiceOptions
 ): Promise<MarketDataInput> {
-    return fetchFromApi(intent, options);
+    const resolvedAsset = resolveSymbolFromText(intent.asset) ?? intent.asset;
+    const snapshot = await fetchQuoteSnapshotFromHtml(resolvedAsset);
+    if (!snapshot) {
+        throw new Error(`No HTML quote snapshot available for ${resolvedAsset}`);
+    }
+
+    const baseData = buildBaselineMarketData(snapshot.price);
+    return applySnapshotToMarketData(baseData, snapshot);
 }
 
 function applySnapshotToMarketData(data: MarketDataInput, snapshot: QuoteSnapshot): MarketDataInput {

@@ -210,12 +210,11 @@ export async function webSearch(
         }
     }
 
-    // Perplexity API search
-    const apiKey = resolveApiKey(config);
-    if (!apiKey) {
-        // Fall back to browser if API key is missing
-        const maxResults = config?.maxResults ?? 5;
-        const headless = config?.headless !== false;
+    // Perplexity API search (browser-first even when provider is perplexity)
+    const maxResults = config?.maxResults ?? 5;
+    const headless = config?.headless !== false;
+
+    try {
         const browserResult = await runBrowserSearch({
             query,
             maxResults,
@@ -234,13 +233,16 @@ export async function webSearch(
 
         writeCache(SEARCH_CACHE, normalizeCacheKey(`browser:${query}`), result, cacheTtlMs);
         return result;
-    }
+    } catch (browserErr) {
+        const apiKey = resolveApiKey(config);
+        if (!apiKey) {
+            throw browserErr;
+        }
 
-    const baseUrl = config?.baseUrl ?? DEFAULT_PERPLEXITY_BASE_URL;
-    const model = config?.model ?? DEFAULT_PERPLEXITY_MODEL;
-    const timeoutSeconds = resolveTimeoutSeconds(config?.timeoutSeconds, DEFAULT_TIMEOUT_SECONDS);
+        const baseUrl = config?.baseUrl ?? DEFAULT_PERPLEXITY_BASE_URL;
+        const model = config?.model ?? DEFAULT_PERPLEXITY_MODEL;
+        const timeoutSeconds = resolveTimeoutSeconds(config?.timeoutSeconds, DEFAULT_TIMEOUT_SECONDS);
 
-    try {
         const start = Date.now();
         const { content, citations } = await runPerplexitySearch({
             query,
@@ -260,27 +262,6 @@ export async function webSearch(
         };
 
         writeCache(SEARCH_CACHE, cacheKey, result, cacheTtlMs);
-        return result;
-    } catch (err) {
-        const maxResults = config?.maxResults ?? 5;
-        const headless = config?.headless !== false;
-        const browserResult = await runBrowserSearch({
-            query,
-            maxResults,
-            headless,
-        });
-
-        const result: WebSearchResult = {
-            query,
-            provider: "browser",
-            tookMs: browserResult.tookMs,
-            content: browserResult.content,
-            citations: browserResult.citations,
-            searchResults: browserResult.searchResults,
-            scrapedPages: browserResult.scrapedPages,
-        };
-
-        writeCache(SEARCH_CACHE, normalizeCacheKey(`browser:${query}`), result, cacheTtlMs);
         return result;
     }
 }

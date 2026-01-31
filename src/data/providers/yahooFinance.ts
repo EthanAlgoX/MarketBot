@@ -22,16 +22,19 @@ interface YahooQuoteResponse {
 }
 
 export async function fetchYahooQuote(symbol: string, timeoutMs?: number): Promise<QuoteSnapshot | null> {
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+  const htmlFirst = await fetchYahooQuoteFromHtml(symbol, timeoutMs);
+  if (htmlFirst) return htmlFirst;
 
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
   let data: YahooQuoteResponse | null = null;
   try {
     data = await retry(() => fetchJson<YahooQuoteResponse>(url, { timeout: timeoutMs }));
   } catch {
-    // fall through to HTML fallback
+    return null;
   }
 
-  const result = data?.quoteResponse?.result?.[0];
+  const result = data.quoteResponse?.result?.[0];
+  if (!result) return null;
 
   let price = result?.regularMarketPrice;
   let time = result?.regularMarketTime;
@@ -49,10 +52,7 @@ export async function fetchYahooQuote(symbol: string, timeoutMs?: number): Promi
     priceType = "pre";
   }
 
-  if (price == null) {
-    const fallback = await fetchYahooQuoteFromHtml(symbol, timeoutMs);
-    return fallback;
-  }
+  if (price == null) return null;
 
   return {
     symbol: result?.symbol ?? symbol,
@@ -66,7 +66,7 @@ export async function fetchYahooQuote(symbol: string, timeoutMs?: number): Promi
   };
 }
 
-async function fetchYahooQuoteFromHtml(symbol: string, timeoutMs?: number): Promise<QuoteSnapshot | null> {
+export async function fetchYahooQuoteFromHtml(symbol: string, timeoutMs?: number): Promise<QuoteSnapshot | null> {
   const url = `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`;
   const response = await fetchWithTimeout(url, {
     timeout: timeoutMs,
