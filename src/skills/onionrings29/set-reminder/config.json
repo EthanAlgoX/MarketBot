@@ -1,8 +1,0 @@
-{
-  "default": "imessage",
-  "timezone": "America/Edmonton",
-  "channels": {
-    "imessage": "YOUR_EMAIL_OR_PHONE_HERE",
-    "discord": "OPTIONAL_DISCORD_WEBHOOK_OR_USER_ID"
-  }
-}

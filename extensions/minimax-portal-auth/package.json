@@ -1,0 +1,11 @@
+{
+  "name": "@marketbot/minimax-portal-auth",
+  "version": "2026.1.30",
+  "type": "module",
+  "description": "MarketBot MiniMax Portal OAuth provider plugin",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

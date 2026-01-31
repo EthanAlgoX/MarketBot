@@ -1,0 +1,84 @@
+/*
+ * Copyright (C) 2026 MarketBot
+ *
+ * This file is part of MarketBot.
+ *
+ * MarketBot is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * MarketBot is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { describe, expect, it } from "vitest";
+
+import { buildOutboundResultEnvelope } from "./envelope.js";
+import type { OutboundDeliveryJson } from "./format.js";
+
+describe("buildOutboundResultEnvelope", () => {
+  it("flattens delivery-only payloads by default", () => {
+    const delivery: OutboundDeliveryJson = {
+      provider: "whatsapp",
+      via: "gateway",
+      to: "+1",
+      messageId: "m1",
+      mediaUrl: null,
+    };
+    expect(buildOutboundResultEnvelope({ delivery })).toEqual(delivery);
+  });
+
+  it("keeps payloads and meta in the envelope", () => {
+    const envelope = buildOutboundResultEnvelope({
+      payloads: [{ text: "hi", mediaUrl: null, mediaUrls: undefined }],
+      meta: { foo: "bar" },
+    });
+    expect(envelope).toEqual({
+      payloads: [{ text: "hi", mediaUrl: null, mediaUrls: undefined }],
+      meta: { foo: "bar" },
+    });
+  });
+
+  it("includes delivery when payloads are present", () => {
+    const delivery: OutboundDeliveryJson = {
+      provider: "telegram",
+      via: "direct",
+      to: "123",
+      messageId: "m2",
+      mediaUrl: null,
+      chatId: "c1",
+    };
+    const envelope = buildOutboundResultEnvelope({
+      payloads: [],
+      delivery,
+      meta: { ok: true },
+    });
+    expect(envelope).toEqual({
+      payloads: [],
+      meta: { ok: true },
+      delivery,
+    });
+  });
+
+  it("can keep delivery wrapped when requested", () => {
+    const delivery: OutboundDeliveryJson = {
+      provider: "discord",
+      via: "gateway",
+      to: "channel:C1",
+      messageId: "m3",
+      mediaUrl: null,
+      channelId: "C1",
+    };
+    const envelope = buildOutboundResultEnvelope({
+      delivery,
+      flattenDelivery: false,
+    });
+    expect(envelope).toEqual({ delivery });
+  });
+});

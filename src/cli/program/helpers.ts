@@ -1,0 +1,51 @@
+/*
+ * Copyright (C) 2026 MarketBot
+ *
+ * This file is part of MarketBot.
+ *
+ * MarketBot is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * MarketBot is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+export function collectOption(value: string, previous: string[] = []): string[] {
+  return [...previous, value];
+}
+
+export function parsePositiveIntOrUndefined(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return undefined;
+    }
+    const parsed = Math.trunc(value);
+    return parsed > 0 ? parsed : undefined;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed <= 0) {
+      return undefined;
+    }
+    return parsed;
+  }
+  return undefined;
+}
+
+export function resolveActionArgs(actionCommand?: import("commander").Command): string[] {
+  if (!actionCommand) {
+    return [];
+  }
+  const args = (actionCommand as import("commander").Command & { args?: string[] }).args;
+  return Array.isArray(args) ? args : [];
+}

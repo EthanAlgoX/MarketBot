@@ -1,0 +1,11 @@
+{
+  "name": "@marketbot/discord",
+  "version": "2026.1.30",
+  "type": "module",
+  "description": "MarketBot Discord channel plugin",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

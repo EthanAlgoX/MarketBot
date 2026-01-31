@@ -1,0 +1,124 @@
+/*
+ * Copyright (C) 2026 MarketBot
+ *
+ * This file is part of MarketBot.
+ *
+ * MarketBot is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * MarketBot is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import type { AgentToolResult } from "@mariozechner/pi-agent-core";
+import type { DiscordActionConfig } from "../../config/config.js";
+import { banMemberDiscord, kickMemberDiscord, timeoutMemberDiscord } from "../../discord/send.js";
+import { type ActionGate, jsonResult, readStringParam } from "./common.js";
+
+export async function handleDiscordModerationAction(
+  action: string,
+  params: Record<string, unknown>,
+  isActionEnabled: ActionGate<DiscordActionConfig>,
+): Promise<AgentToolResult<unknown>> {
+  const accountId = readStringParam(params, "accountId");
+  switch (action) {
+    case "timeout": {
+      if (!isActionEnabled("moderation", false)) {
+        throw new Error("Discord moderation is disabled.");
+      }
+      const guildId = readStringParam(params, "guildId", {
+        required: true,
+      });
+      const userId = readStringParam(params, "userId", {
+        required: true,
+      });
+      const durationMinutes =
+        typeof params.durationMinutes === "number" && Number.isFinite(params.durationMinutes)
+          ? params.durationMinutes
+          : undefined;
+      const until = readStringParam(params, "until");
+      const reason = readStringParam(params, "reason");
+      const member = accountId
+        ? await timeoutMemberDiscord(
+            {
+              guildId,
+              userId,
+              durationMinutes,
+              until,
+              reason,
+            },
+            { accountId },
+          )
+        : await timeoutMemberDiscord({
+            guildId,
+            userId,
+            durationMinutes,
+            until,
+            reason,
+          });
+      return jsonResult({ ok: true, member });
+    }
+    case "kick": {
+      if (!isActionEnabled("moderation", false)) {
+        throw new Error("Discord moderation is disabled.");
+      }
+      const guildId = readStringParam(params, "guildId", {
+        required: true,
+      });
+      const userId = readStringParam(params, "userId", {
+        required: true,
+      });
+      const reason = readStringParam(params, "reason");
+      if (accountId) {
+        await kickMemberDiscord({ guildId, userId, reason }, { accountId });
+      } else {
+        await kickMemberDiscord({ guildId, userId, reason });
+      }
+      return jsonResult({ ok: true });
+    }
+    case "ban": {
+      if (!isActionEnabled("moderation", false)) {
+        throw new Error("Discord moderation is disabled.");
+      }
+      const guildId = readStringParam(params, "guildId", {
+        required: true,
+      });
+      const userId = readStringParam(params, "userId", {
+        required: true,
+      });
+      const reason = readStringParam(params, "reason");
+      const deleteMessageDays =
+        typeof params.deleteMessageDays === "number" && Number.isFinite(params.deleteMessageDays)
+          ? params.deleteMessageDays
+          : undefined;
+      if (accountId) {
+        await banMemberDiscord(
+          {
+            guildId,
+            userId,
+            reason,
+            deleteMessageDays,
+          },
+          { accountId },
+        );
+      } else {
+        await banMemberDiscord({
+          guildId,
+          userId,
+          reason,
+          deleteMessageDays,
+        });
+      }
+      return jsonResult({ ok: true });
+    }
+    default:
+      throw new Error(`Unknown action: ${action}`);
+  }
+}

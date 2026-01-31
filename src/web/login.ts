@@ -1,0 +1,97 @@
+/*
+ * Copyright (C) 2026 MarketBot
+ *
+ * This file is part of MarketBot.
+ *
+ * MarketBot is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * MarketBot is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { DisconnectReason } from "@whiskeysockets/baileys";
+import { loadConfig } from "../config/config.js";
+import { danger, info, success } from "../globals.js";
+import { logInfo } from "../logger.js";
+import { defaultRuntime, type RuntimeEnv } from "../runtime.js";
+import { formatCliCommand } from "../cli/command-format.js";
+import { resolveWhatsAppAccount } from "./accounts.js";
+import { createWaSocket, formatError, logoutWeb, waitForWaConnection } from "./session.js";
+
+export async function loginWeb(
+  verbose: boolean,
+  waitForConnection?: typeof waitForWaConnection,
+  runtime: RuntimeEnv = defaultRuntime,
+  accountId?: string,
+) {
+  const wait = waitForConnection ?? waitForWaConnection;
+  const cfg = loadConfig();
+  const account = resolveWhatsAppAccount({ cfg, accountId });
+  const sock = await createWaSocket(true, verbose, {
+    authDir: account.authDir,
+  });
+  logInfo("Waiting for WhatsApp connection...", runtime);
+  try {
+    await wait(sock);
+    console.log(success("✅ Linked! Credentials saved for future sends."));
+  } catch (err) {
+    const code =
+      (err as { error?: { output?: { statusCode?: number } } })?.error?.output?.statusCode ??
+      (err as { output?: { statusCode?: number } })?.output?.statusCode;
+    if (code === 515) {
+      console.log(
+        info(
+          "WhatsApp asked for a restart after pairing (code 515); creds are saved. Restarting connection once…",
+        ),
+      );
+      try {
+        sock.ws?.close();
+      } catch {
+        // ignore
+      }
+      const retry = await createWaSocket(false, verbose, {
+        authDir: account.authDir,
+      });
+      try {
+        await wait(retry);
+        console.log(success("✅ Linked after restart; web session ready."));
+        return;
+      } finally {
+        setTimeout(() => retry.ws?.close(), 500);
+      }
+    }
+    if (code === DisconnectReason.loggedOut) {
+      await logoutWeb({
+        authDir: account.authDir,
+        isLegacyAuthDir: account.isLegacyAuthDir,
+        runtime,
+      });
+      console.error(
+        danger(
+          `WhatsApp reported the session is logged out. Cleared cached web session; please rerun ${formatCliCommand("marketbot channels login")} and scan the QR again.`,
+        ),
+      );
+      throw new Error("Session logged out; cache cleared. Re-run login.", { cause: err });
+    }
+    const formatted = formatError(err);
+    console.error(danger(`WhatsApp Web connection ended before fully opening. ${formatted}`));
+    throw new Error(formatted, { cause: err });
+  } finally {
+    // Let Baileys flush any final events before closing the socket.
+    setTimeout(() => {
+      try {
+        sock.ws?.close();
+      } catch {
+        // ignore
+      }
+    }, 500);
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@marketbot/zalouser",
+  "version": "2026.1.30",
+  "type": "module",
+  "description": "MarketBot Zalo Personal Account plugin via zca-cli",
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48",
+    "marketbot": "workspace:*"
+  },
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "zalouser",
+      "label": "Zalo Personal",
+      "selectionLabel": "Zalo (Personal Account)",
+      "docsPath": "/channels/zalouser",
+      "docsLabel": "zalouser",
+      "blurb": "Zalo personal account via QR code login.",
+      "aliases": [
+        "zlu"
+      ],
+      "order": 85,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "npmSpec": "@marketbot/zalouser",
+      "localPath": "extensions/zalouser",
+      "defaultChoice": "npm"
+    }
+  }
+}

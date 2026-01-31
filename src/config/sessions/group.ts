@@ -1,0 +1,131 @@
+/*
+ * Copyright (C) 2026 MarketBot
+ *
+ * This file is part of MarketBot.
+ *
+ * MarketBot is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * MarketBot is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import type { MsgContext } from "../../auto-reply/templating.js";
+import { listDeliverableMessageChannels } from "../../utils/message-channel.js";
+import type { GroupKeyResolution } from "./types.js";
+
+const getGroupSurfaces = () => new Set<string>([...listDeliverableMessageChannels(), "webchat"]);
+
+function normalizeGroupLabel(raw?: string) {
+  const trimmed = raw?.trim().toLowerCase() ?? "";
+  if (!trimmed) {
+    return "";
+  }
+  const dashed = trimmed.replace(/\s+/g, "-");
+  const cleaned = dashed.replace(/[^a-z0-9#@._+-]+/g, "-");
+  return cleaned.replace(/-{2,}/g, "-").replace(/^[-.]+|[-.]+$/g, "");
+}
+
+function shortenGroupId(value?: string) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) {
+    return "";
+  }
+  if (trimmed.length <= 14) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, 6)}...${trimmed.slice(-4)}`;
+}
+
+export function buildGroupDisplayName(params: {
+  provider?: string;
+  subject?: string;
+  groupChannel?: string;
+  space?: string;
+  id?: string;
+  key: string;
+}) {
+  const providerKey = (params.provider?.trim().toLowerCase() || "group").trim();
+  const groupChannel = params.groupChannel?.trim();
+  const space = params.space?.trim();
+  const subject = params.subject?.trim();
+  const detail =
+    (groupChannel && space
+      ? `${space}${groupChannel.startsWith("#") ? "" : "#"}${groupChannel}`
+      : groupChannel || subject || space || "") || "";
+  const fallbackId = params.id?.trim() || params.key;
+  const rawLabel = detail || fallbackId;
+  let token = normalizeGroupLabel(rawLabel);
+  if (!token) {
+    token = normalizeGroupLabel(shortenGroupId(rawLabel));
+  }
+  if (!params.groupChannel && token.startsWith("#")) {
+    token = token.replace(/^#+/, "");
+  }
+  if (token && !/^[@#]/.test(token) && !token.startsWith("g-") && !token.includes("#")) {
+    token = `g-${token}`;
+  }
+  return token ? `${providerKey}:${token}` : providerKey;
+}
+
+export function resolveGroupSessionKey(ctx: MsgContext): GroupKeyResolution | null {
+  const from = typeof ctx.From === "string" ? ctx.From.trim() : "";
+  const chatType = ctx.ChatType?.trim().toLowerCase();
+  const normalizedChatType =
+    chatType === "channel" ? "channel" : chatType === "group" ? "group" : undefined;
+
+  const isWhatsAppGroupId = from.toLowerCase().endsWith("@g.us");
+  const looksLikeGroup =
+    normalizedChatType === "group" ||
+    normalizedChatType === "channel" ||
+    from.includes(":group:") ||
+    from.includes(":channel:") ||
+    isWhatsAppGroupId;
+  if (!looksLikeGroup) {
+    return null;
+  }
+
+  const providerHint = ctx.Provider?.trim().toLowerCase();
+
+  const parts = from.split(":").filter(Boolean);
+  const head = parts[0]?.trim().toLowerCase() ?? "";
+  const headIsSurface = head ? getGroupSurfaces().has(head) : false;
+
+  const provider = headIsSurface
+    ? head
+    : (providerHint ?? (isWhatsAppGroupId ? "whatsapp" : undefined));
+  if (!provider) {
+    return null;
+  }
+
+  const second = parts[1]?.trim().toLowerCase();
+  const secondIsKind = second === "group" || second === "channel";
+  const kind = secondIsKind
+    ? second
+    : from.includes(":channel:") || normalizedChatType === "channel"
+      ? "channel"
+      : "group";
+  const id = headIsSurface
+    ? secondIsKind
+      ? parts.slice(2).join(":")
+      : parts.slice(1).join(":")
+    : from;
+  const finalId = id.trim().toLowerCase();
+  if (!finalId) {
+    return null;
+  }
+
+  return {
+    key: `${provider}:${kind}:${finalId}`,
+    channel: provider,
+    id: finalId,
+    chatType: kind === "channel" ? "channel" : "group",
+  };
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@marketbot/lobster",
+  "version": "2026.1.30",
+  "type": "module",
+  "description": "Lobster workflow tool plugin (typed pipelines + resumable approvals)",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

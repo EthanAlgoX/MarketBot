@@ -1,1 +1,0 @@
-## Usage Examples\n- &quot;Morning briefing&quot;\n- &quot;Daily report for 2026-01-28&quot;\n\nTriggers remindctl today + Notion query + vault_add_note.

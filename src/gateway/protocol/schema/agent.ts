@@ -1,0 +1,125 @@
+/*
+ * Copyright (C) 2026 MarketBot
+ *
+ * This file is part of MarketBot.
+ *
+ * MarketBot is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * MarketBot is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { Type } from "@sinclair/typebox";
+
+import { NonEmptyString, SessionLabelString } from "./primitives.js";
+
+export const AgentEventSchema = Type.Object(
+  {
+    runId: NonEmptyString,
+    seq: Type.Integer({ minimum: 0 }),
+    stream: NonEmptyString,
+    ts: Type.Integer({ minimum: 0 }),
+    data: Type.Record(Type.String(), Type.Unknown()),
+  },
+  { additionalProperties: false },
+);
+
+export const SendParamsSchema = Type.Object(
+  {
+    to: NonEmptyString,
+    message: NonEmptyString,
+    mediaUrl: Type.Optional(Type.String()),
+    mediaUrls: Type.Optional(Type.Array(Type.String())),
+    gifPlayback: Type.Optional(Type.Boolean()),
+    channel: Type.Optional(Type.String()),
+    accountId: Type.Optional(Type.String()),
+    /** Optional session key for mirroring delivered output back into the transcript. */
+    sessionKey: Type.Optional(Type.String()),
+    idempotencyKey: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
+export const PollParamsSchema = Type.Object(
+  {
+    to: NonEmptyString,
+    question: NonEmptyString,
+    options: Type.Array(NonEmptyString, { minItems: 2, maxItems: 12 }),
+    maxSelections: Type.Optional(Type.Integer({ minimum: 1, maximum: 12 })),
+    durationHours: Type.Optional(Type.Integer({ minimum: 1 })),
+    channel: Type.Optional(Type.String()),
+    accountId: Type.Optional(Type.String()),
+    idempotencyKey: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
+export const AgentParamsSchema = Type.Object(
+  {
+    message: NonEmptyString,
+    agentId: Type.Optional(NonEmptyString),
+    to: Type.Optional(Type.String()),
+    replyTo: Type.Optional(Type.String()),
+    sessionId: Type.Optional(Type.String()),
+    sessionKey: Type.Optional(Type.String()),
+    thinking: Type.Optional(Type.String()),
+    deliver: Type.Optional(Type.Boolean()),
+    attachments: Type.Optional(Type.Array(Type.Unknown())),
+    channel: Type.Optional(Type.String()),
+    replyChannel: Type.Optional(Type.String()),
+    accountId: Type.Optional(Type.String()),
+    replyAccountId: Type.Optional(Type.String()),
+    threadId: Type.Optional(Type.String()),
+    groupId: Type.Optional(Type.String()),
+    groupChannel: Type.Optional(Type.String()),
+    groupSpace: Type.Optional(Type.String()),
+    timeout: Type.Optional(Type.Integer({ minimum: 0 })),
+    lane: Type.Optional(Type.String()),
+    extraSystemPrompt: Type.Optional(Type.String()),
+    idempotencyKey: NonEmptyString,
+    label: Type.Optional(SessionLabelString),
+    spawnedBy: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+export const AgentIdentityParamsSchema = Type.Object(
+  {
+    agentId: Type.Optional(NonEmptyString),
+    sessionKey: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+export const AgentIdentityResultSchema = Type.Object(
+  {
+    agentId: NonEmptyString,
+    name: Type.Optional(NonEmptyString),
+    avatar: Type.Optional(NonEmptyString),
+  },
+  { additionalProperties: false },
+);
+
+export const AgentWaitParamsSchema = Type.Object(
+  {
+    runId: NonEmptyString,
+    timeoutMs: Type.Optional(Type.Integer({ minimum: 0 })),
+  },
+  { additionalProperties: false },
+);
+
+export const WakeParamsSchema = Type.Object(
+  {
+    mode: Type.Union([Type.Literal("now"), Type.Literal("next-heartbeat")]),
+    text: NonEmptyString,
+  },
+  { additionalProperties: false },
+);

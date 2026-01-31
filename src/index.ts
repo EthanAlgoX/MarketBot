@@ -1,26 +1,113 @@
 #!/usr/bin/env node
+/*
+ * Copyright (C) 2026 MarketBot
+ *
+ * This file is part of MarketBot.
+ *
+ * MarketBot is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * MarketBot is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import process from "node:process";
-import "dotenv/config"; // Load environment variables
 import { fileURLToPath } from "node:url";
+
+import { getReplyFromConfig } from "./auto-reply/reply.js";
+import { applyTemplate } from "./auto-reply/templating.js";
+import { monitorWebChannel } from "./channel-web.js";
+import { createDefaultDeps } from "./cli/deps.js";
+import { promptYesNo } from "./cli/prompt.js";
+import { waitForever } from "./cli/wait.js";
+import { loadConfig } from "./config/config.js";
+import {
+  deriveSessionKey,
+  loadSessionStore,
+  resolveSessionKey,
+  resolveStorePath,
+  saveSessionStore,
+} from "./config/sessions.js";
+import { ensureBinary } from "./infra/binaries.js";
+import { loadDotEnv } from "./infra/dotenv.js";
+import { normalizeEnv } from "./infra/env.js";
+import { isMainModule } from "./infra/is-main.js";
+import { ensureMarketBotCliOnPath } from "./infra/path-env.js";
+import {
+  describePortOwner,
+  ensurePortAvailable,
+  handlePortError,
+  PortInUseError,
+} from "./infra/ports.js";
+import { assertSupportedRuntime } from "./infra/runtime-guard.js";
+import { formatUncaughtError } from "./infra/errors.js";
+import { installUnhandledRejectionHandler } from "./infra/unhandled-rejections.js";
+import { enableConsoleCapture } from "./logging.js";
+import { runCommandWithTimeout, runExec } from "./process/exec.js";
+import { assertWebChannel, normalizeE164, toWhatsappJid } from "./utils.js";
+
+loadDotEnv({ quiet: true });
+normalizeEnv();
+ensureMarketBotCliOnPath();
+
+// Capture all console output into structured logs while keeping stdout/stderr behavior.
+enableConsoleCapture();
+
+// Enforce the minimum supported runtime before doing any work.
+assertSupportedRuntime();
 
 import { buildProgram } from "./cli/program.js";
 
-export { runMarketBot } from "./core/pipeline.js";
-export { createProviderFromConfig } from "./core/providers/registry.js";
-export type * from "./core/types.js";
-export { getMarketDataFromIntent } from "./data/marketDataService.js";
-export { loadDataConfig } from "./data/config.js";
-export { createDefaultDeps } from "./cli/deps.js";
-export { createDefaultToolRegistry } from "./tools/registry.js";
-export { runSkillCommand } from "./skills/invocation.js";
-export { toolsListCommand, toolsInfoCommand, toolsRunCommand } from "./cli/commands/tools.js";
+const program = buildProgram();
 
-const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+export {
+  assertWebChannel,
+  applyTemplate,
+  createDefaultDeps,
+  deriveSessionKey,
+  describePortOwner,
+  ensureBinary,
+  ensurePortAvailable,
+  getReplyFromConfig,
+  handlePortError,
+  loadConfig,
+  loadSessionStore,
+  monitorWebChannel,
+  normalizeE164,
+  PortInUseError,
+  promptYesNo,
+  resolveSessionKey,
+  resolveStorePath,
+  runCommandWithTimeout,
+  runExec,
+  saveSessionStore,
+  toWhatsappJid,
+  waitForever,
+};
+
+const isMain = isMainModule({
+  currentFile: fileURLToPath(import.meta.url),
+});
 
 if (isMain) {
-  const program = buildProgram();
-  void program.parseAsync(process.argv).catch((error) => {
-    console.error("MarketBot CLI failed:", error instanceof Error ? error.message : error);
+  // Global error handlers to prevent silent crashes from unhandled rejections/exceptions.
+  // These log the error and exit gracefully instead of crashing without trace.
+  installUnhandledRejectionHandler();
+
+  process.on("uncaughtException", (error) => {
+    console.error("[marketbot] Uncaught exception:", formatUncaughtError(error));
+    process.exit(1);
+  });
+
+  void program.parseAsync(process.argv).catch((err) => {
+    console.error("[marketbot] CLI failed:", formatUncaughtError(err));
     process.exit(1);
   });
 }

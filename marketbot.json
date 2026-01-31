@@ -1,23 +1,25 @@
 {
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "deepseek-chat",
-    "baseUrl": "https://api.deepseek.com/v1",
-    "apiKeyEnv": "DEEPSEEK_API_KEY",
-    "timeoutMs": 60000,
-    "jsonMode": true
+  agents: {
+    defaults: {
+      model: { primary: "deepseek/deepseek-chat" },
+      models: {
+        "deepseek/deepseek-chat": {},
+        "deepseek/deepseek-reasoner": {}
+      }
+    }
   },
-  "web": {
-    "search": {
-      "enabled": true,
-      "provider": "browser",
-      "maxResults": 5,
-      "headless": false
-    },
-    "fetch": {
-      "enabled": true,
-      "maxChars": 30000,
-      "timeoutSeconds": 15
+  models: {
+    mode: "merge",
+    providers: {
+      deepseek: {
+        baseUrl: "https://api.deepseek.com/v1",
+        apiKey: "${DEEPSEEK_API_KEY}",
+        api: "openai-completions",
+        models: [
+          { id: "deepseek-chat", name: "DeepSeek Chat" },
+          { id: "deepseek-reasoner", name: "DeepSeek Reasoner", reasoning: true }
+        ]
+      }
     }
   }
 }

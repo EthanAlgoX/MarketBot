@@ -1,0 +1,36 @@
+{
+  "name": "@marketbot/msteams",
+  "version": "2026.1.30",
+  "type": "module",
+  "description": "MarketBot Microsoft Teams channel plugin",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "msteams",
+      "label": "Microsoft Teams",
+      "selectionLabel": "Microsoft Teams (Bot Framework)",
+      "docsPath": "/channels/msteams",
+      "docsLabel": "msteams",
+      "blurb": "Bot Framework; enterprise support.",
+      "aliases": [
+        "teams"
+      ],
+      "order": 60
+    },
+    "install": {
+      "npmSpec": "@marketbot/msteams",
+      "localPath": "extensions/msteams",
+      "defaultChoice": "npm"
+    }
+  },
+  "dependencies": {
+    "@microsoft/agents-hosting": "^1.2.3",
+    "@microsoft/agents-hosting-express": "^1.2.3",
+    "@microsoft/agents-hosting-extensions-teams": "^1.2.3",
+    "express": "^5.2.1",
+    "marketbot": "workspace:*",
+    "proper-lockfile": "^4.1.2"
+  }
+}
