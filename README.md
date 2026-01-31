@@ -133,6 +133,7 @@ node dist/index.js analyze "Analyze BTC" --mock
 ```bash
 # Start web GUI (opens browser)
 node dist/index.js gui
+# Tip: enable "mock LLM" in the GUI when you don't have API quota
 
 # Start terminal UI
 node dist/index.js tui

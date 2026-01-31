@@ -133,6 +133,7 @@ node dist/index.js analyze "分析 BTC" --mock
 ```bash
 # 启动 Web GUI（自动打开浏览器）
 node dist/index.js gui
+# 提示：没有 API 配额时可在 GUI 勾选 “mock LLM”
 
 # 启动终端交互界面
 node dist/index.js tui
