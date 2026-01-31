@@ -17,37 +17,40 @@ MarketBot Finance is an autonomous AI agent designed for financial analysis and 
 ## Architecture
 
 ```mermaid
-graph TB
-    subgraph Channels["📡 Channels"]
-        Discord[Discord]
-        Telegram[Telegram]
-        Signal[Signal]
-        Slack[Slack]
-        WhatsApp[WhatsApp]
-        iMessage[iMessage]
-        Web[Web UI]
+flowchart LR
+    subgraph Input["� Input"]
+        direction TB
+        Discord((Discord))
+        Telegram((Telegram))
+        Signal((Signal))
+        Slack((Slack))
+        WhatsApp((WhatsApp))
+        iMessage((iMessage))
+        WebUI((Web))
     end
 
-    subgraph Core["🧠 Core"]
-        Gateway[Gateway Server]
-        AutoReply[Auto-Reply Engine]
-        Agents[Multi-Agent Reasoning]
-        Memory[Memory & Context]
+    subgraph Engine["⚙️ Engine"]
+        direction TB
+        Gateway["🔀 Gateway"]
+        AutoReply["💬 Auto-Reply"]
+        Agents["🧠 Multi-Agent<br/>Reasoning"]
+        Memory["📚 Memory"]
     end
 
-    subgraph Tools["🔧 Tools"]
-        Browser[Browser Automation]
-        Skills[Skills System]
-        Plugins[Plugins]
+    subgraph Capabilities["�️ Capabilities"]
+        direction TB
+        Browser["🌐 Browser"]
+        Skills["🔌 Skills"]
+        Media["🖼️ Media"]
+        Cron["⏰ Scheduler"]
     end
 
-    Channels --> Gateway
+    Input --> Gateway
     Gateway --> AutoReply
     AutoReply --> Agents
     Agents <--> Memory
-    Agents <--> Tools
+    Agents <--> Capabilities
     Agents --> Gateway
-    Gateway --> Channels
 ```
 
 ---
