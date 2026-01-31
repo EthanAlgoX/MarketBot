@@ -7,12 +7,22 @@ import { getCredentials } from "../auth/oauth.js";
 
 export async function createProviderFromConfigAsync(config: MarketBotConfig): Promise<LLMProvider> {
   // 1. Check for OAuth Credentials (Subscriptions) - Priority 1
-  const creds = await getCredentials();
-  if (creds && creds.access_token) {
+  const openAiOAuth = await getCredentials("openai-codex");
+  if (openAiOAuth && openAiOAuth.access_token) {
+    return new OpenAICompatibleProvider({
+      baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+      apiKey: openAiOAuth.access_token,
+      model: config.llm?.model ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+      timeoutMs: 30_000,
+    });
+  }
+
+  const googleOAuth = await getCredentials("google");
+  if (googleOAuth && googleOAuth.access_token) {
     // Use Google Gemini via OpenAI Compatible endpoint with OAuth token
     return new OpenAICompatibleProvider({
       baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-      apiKey: creds.access_token,
+      apiKey: googleOAuth.access_token,
       model: "gemini-2.0-flash", // Default for subscription
       timeoutMs: 30_000,
     });
