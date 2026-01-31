@@ -2,12 +2,13 @@ import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { select, password } from "@inquirer/prompts";
 import { createDefaultDeps } from "../deps.js";
-import { loadConfig } from "../../config/io.js";
+import { loadConfig, writeConfig } from "../../config/io.js";
 import { resolveAgentConfig, resolveDefaultAgentId } from "../../agents/agentScope.js";
 import { SessionStore } from "../../session/store.js";
 import { runMarketBot } from "../../core/pipeline.js";
 import type { MarketBotRunPhase, MarketBotRunPhaseEvent } from "../../core/types.js";
 import { getCredentials } from "../../core/auth/oauth.js";
+import type { MarketBotConfig } from "../../config/types.js";
 
 export type TuiOptions = {
   json?: boolean;
@@ -91,6 +92,46 @@ const PROVIDER_API_INFO: Record<string, { envVar: string; name: string; baseUrl:
   qwen: { envVar: "DASHSCOPE_API_KEY", name: "Qwen/DashScope", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", defaultModel: "qwen-plus" },
   moonshot: { envVar: "MOONSHOT_API_KEY", name: "Moonshot", baseUrl: "https://api.moonshot.cn/v1", defaultModel: "moonshot-v1-8k" },
 };
+
+function inferProviderId(llm?: MarketBotConfig["llm"]): keyof typeof PROVIDER_API_INFO | undefined {
+  const baseUrl = llm?.baseUrl?.toLowerCase() ?? "";
+  if (baseUrl.includes("api.deepseek.com")) return "deepseek";
+  if (baseUrl.includes("generativelanguage.googleapis.com")) return "gemini";
+  if (baseUrl.includes("api.anthropic.com")) return "claude";
+  if (baseUrl.includes("dashscope.aliyuncs.com")) return "qwen";
+  if (baseUrl.includes("api.moonshot.cn")) return "moonshot";
+  if (baseUrl.includes("api.openai.com")) return "openai";
+  return undefined;
+}
+
+async function persistProviderSelection(
+  providerId: keyof typeof PROVIDER_API_INFO,
+  model: string | undefined,
+  apiKey: string | undefined,
+  cwd: string,
+): Promise<void> {
+  const info = PROVIDER_API_INFO[providerId];
+  const config = await loadConfig(cwd, { validate: true });
+  const nextModel = model ?? config.llm?.model ?? info.defaultModel;
+  const update: Partial<NonNullable<MarketBotConfig["llm"]>> = {
+    provider: "openai-compatible",
+    baseUrl: info.baseUrl,
+    model: nextModel,
+    apiKeyEnv: info.envVar,
+  };
+  if (apiKey) {
+    update.apiKey = apiKey;
+  }
+  await writeConfig({ ...config, llm: { ...(config.llm ?? {}), ...update } }, cwd);
+}
+
+async function persistModelSelection(model: string | undefined, cwd: string): Promise<void> {
+  const config = await loadConfig(cwd, { validate: true });
+  const nextLlm = { ...(config.llm ?? {}) };
+  if (model) nextLlm.model = model;
+  else delete nextLlm.model;
+  await writeConfig({ ...config, llm: nextLlm }, cwd);
+}
 
 async function testApiConnection(provider: string, apiKey: string): Promise<{ success: boolean; message: string; model?: string }> {
   const info = PROVIDER_API_INFO[provider];
@@ -187,6 +228,8 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
     completer: tuiCompleter,
   });
   const deps = createDefaultDeps();
+  const initialConfig = await loadConfig(process.cwd(), { validate: true });
+  const inferredProvider = inferProviderId(initialConfig.llm);
 
   const state = {
     json: Boolean(opts.json),
@@ -196,9 +239,11 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
     scrape: Boolean(opts.scrape),
     agentId: opts.agentId,
     sessionKey: opts.sessionKey,
-    llmModel: undefined as string | undefined,
-    llmProvider: undefined as string | undefined,
-    apiKeys: {} as Record<string, string>,
+    llmModel: opts.llmModel ?? initialConfig.llm?.model ?? undefined,
+    llmProvider: inferredProvider ?? undefined,
+    apiKeys: inferredProvider && initialConfig.llm?.apiKey
+      ? { [inferredProvider]: initialConfig.llm.apiKey }
+      : {} as Record<string, string>,
     history: [] as string[],
   };
 
@@ -271,12 +316,20 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
     if (trimmed === "/") {
       const selectedCommand = await showCommandMenu();
       if (!selectedCommand) continue; // User cancelled
+      const prevModel = state.llmModel;
       const handled = handleCommand(selectedCommand, state);
       if (handled.exit) break;
       if (handled.message) console.log(handled.message);
+      if (state.llmModel !== prevModel) {
+        await persistModelSelection(state.llmModel, process.cwd());
+      }
       if (handled.action === "models") {
+        const beforeModel = state.llmModel;
         const message = await openModelSelector(state, rl, handled.filter);
         if (message) console.log(message);
+        if (state.llmModel !== beforeModel) {
+          await persistModelSelection(state.llmModel, process.cwd());
+        }
       }
       if (handled.action === "provider") {
         const selected = await showProviderMenu(state.llmProvider);
@@ -311,6 +364,7 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
               console.log(`⚠ No API key provided. Set ${info.envVar} or use /provider to enter again.`);
             }
           }
+          await persistProviderSelection(selected, state.llmModel, state.apiKeys[selected], process.cwd());
           console.log(`provider: ${state.llmProvider}`);
         } else if (selected === "auto") {
           state.llmProvider = undefined;
@@ -324,12 +378,20 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
     }
 
     if (trimmed.startsWith("/")) {
+      const prevModel = state.llmModel;
       const handled = handleCommand(trimmed, state);
       if (handled.exit) break;
       if (handled.message) console.log(handled.message);
+      if (state.llmModel !== prevModel) {
+        await persistModelSelection(state.llmModel, process.cwd());
+      }
       if (handled.action === "models") {
+        const beforeModel = state.llmModel;
         const message = await openModelSelector(state, rl, handled.filter);
         if (message) console.log(message);
+        if (state.llmModel !== beforeModel) {
+          await persistModelSelection(state.llmModel, process.cwd());
+        }
       }
       if (handled.action === "provider") {
         const selected = await showProviderMenu(state.llmProvider);
@@ -364,6 +426,7 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
               console.log(`⚠ No API key provided. Set ${info.envVar} or use /provider to enter again.`);
             }
           }
+          await persistProviderSelection(selected, state.llmModel, state.apiKeys[selected], process.cwd());
           console.log(`provider: ${state.llmProvider}`);
         } else if (selected === "auto") {
           state.llmProvider = undefined;
