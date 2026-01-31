@@ -16,10 +16,15 @@ export const TOOL_PROFILES: Record<ToolProfileId, string[]> = {
   full: [
     "echo",
     "http_get",
+    "web_search",
     "market_fetch",
     "indicators_compute",
     "market_summary",
     "report_render",
+    "signal_analyze",
+    "portfolio_add",
+    "portfolio_remove",
+    "portfolio_status",
   ],
 };
 

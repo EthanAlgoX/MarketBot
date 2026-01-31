@@ -2,6 +2,7 @@ import { buildToolContext } from "../../tools/context.js";
 import { createDefaultToolRegistry } from "../../tools/registry.js";
 import { loadConfig } from "../../config/io.js";
 import { isToolAllowed, resolveToolAllowlist, resolveToolPolicy } from "../../tools/policy.js";
+import { appendToolLog } from "../../tools/toolLogging.js";
 
 export async function toolsListCommand(opts: { json?: boolean; agentId?: string } = {}): Promise<void> {
   const registry = createDefaultToolRegistry();
@@ -13,7 +14,17 @@ export async function toolsListCommand(opts: { json?: boolean; agentId?: string 
   if (opts.json) {
     console.log(
       JSON.stringify(
-        { tools: allowed.map((tool) => ({ name: tool.name, description: tool.description })) },
+        {
+          tools: allowed.map((tool) => ({
+            name: tool.name,
+            description: tool.description,
+            version: tool.version,
+            tags: tool.tags,
+            inputSchema: tool.inputSchema,
+            outputSchema: tool.outputSchema,
+            examples: tool.examples,
+          })),
+        },
         null,
         2,
       ),
@@ -26,7 +37,8 @@ export async function toolsListCommand(opts: { json?: boolean; agentId?: string 
   }
   for (const tool of allowed) {
     const description = tool.description ? ` - ${tool.description}` : "";
-    console.log(`${tool.name}${description}`);
+    const version = tool.version ? `@${tool.version}` : "";
+    console.log(`${tool.name}${version}${description}`);
   }
 }
 
@@ -57,12 +69,27 @@ export async function toolsInfoCommand(opts: { name: string; json?: boolean; age
   }
 
   if (opts.json) {
-    console.log(JSON.stringify({ name: tool.name, description: tool.description }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          name: tool.name,
+          description: tool.description,
+          version: tool.version,
+          tags: tool.tags,
+          inputSchema: tool.inputSchema,
+          outputSchema: tool.outputSchema,
+          examples: tool.examples,
+        },
+        null,
+        2,
+      ),
+    );
     return;
   }
 
-  console.log(`${tool.name}`);
+  console.log(`${tool.name}${tool.version ? `@${tool.version}` : ""}`);
   if (tool.description) console.log(tool.description);
+  if (tool.tags?.length) console.log(`tags: ${tool.tags.join(", ")}`);
 }
 
 export async function toolsRunCommand(opts: { name: string; args: string[]; json?: boolean; agentId?: string }): Promise<void> {
@@ -79,8 +106,16 @@ export async function toolsRunCommand(opts: { name: string; args: string[]; json
     throw new Error(`Tool not allowed by policy: ${tool.name}`);
   }
 
-  const context = buildToolContext(opts.args.join(" "));
+  const context = buildToolContext(opts.args.join(" "), process.cwd(), opts.agentId);
+  const startedAt = Date.now();
   const result = await tool.run(context);
+  await appendToolLog({
+    name: tool.name,
+    ok: result.ok,
+    durationMs: Date.now() - startedAt,
+    input: opts.args.join(" "),
+    output: result.output,
+  }, context);
 
   if (opts.json) {
     console.log(JSON.stringify(result, null, 2));

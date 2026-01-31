@@ -334,6 +334,10 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
           await persistModelSelection(state.llmModel, process.cwd());
         }
       }
+      if (handled.action === "tools") {
+        const message = await openToolsList(state, handled.filter);
+        if (message) console.log(message);
+      }
       if (handled.action === "provider") {
         const selected = await showProviderMenu(state.llmProvider);
         if (selected && selected !== "auto") {
@@ -395,6 +399,10 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
         if (state.llmModel !== beforeModel) {
           await persistModelSelection(state.llmModel, process.cwd());
         }
+      }
+      if (handled.action === "tools") {
+        const message = await openToolsList(state, handled.filter);
+        if (message) console.log(message);
       }
       if (handled.action === "provider") {
         const selected = await showProviderMenu(state.llmProvider);
@@ -460,7 +468,7 @@ function handleCommand(input: string, state: {
   llmModel?: string;
   llmProvider?: string;
   history: string[];
-}): { exit?: boolean; message?: string; runQuery?: string; action?: "models" | "provider"; filter?: string } {
+}): { exit?: boolean; message?: string; runQuery?: string; action?: "models" | "provider" | "tools"; filter?: string } {
   const [command, ...args] = input.slice(1).split(/\s+/);
   const arg = args[0];
 
@@ -483,6 +491,7 @@ function handleCommand(input: string, state: {
           "/search on|off|toggle",
           "/scrape on|off|toggle",
           "/live on|off|toggle",
+          "/tools                List available tools",
           "/agent <id|clear>",
           "/session <key|clear>",
           "/models [filter]",
@@ -581,6 +590,8 @@ function handleCommand(input: string, state: {
       }
       state.llmModel = arg;
       return { message: `model: ${arg}` };
+    case "tools":
+      return { action: "tools", filter: arg };
     case "provider": {
       const VALID_PROVIDERS = ["openai", "gemini", "claude", "deepseek", "qwen", "moonshot", "ollama", "auto"];
       if (!arg) {
@@ -1099,6 +1110,36 @@ type ModelListContext =
     headers?: Record<string, string>;
     source: string;
   };
+
+async function openToolsList(
+  state: { agentId?: string },
+  filter?: string,
+): Promise<string | undefined> {
+  const registry = createDefaultToolRegistry();
+  const config = await loadConfig(process.cwd(), { validate: true });
+  const allTools = registry.list();
+  const policy = resolveToolPolicy(config, state.agentId);
+  const allowlist = resolveToolAllowlist(policy, allTools.map((tool) => tool.name));
+  const allowSet = new Set(allowlist.map((name) => name.toLowerCase()));
+  const allowed = allTools.filter((tool) => allowSet.has(tool.name.toLowerCase()));
+
+  const normalizedFilter = filter?.trim().toLowerCase();
+  const filtered = normalizedFilter
+    ? allowed.filter((tool) => tool.name.toLowerCase().includes(normalizedFilter))
+    : allowed;
+
+  if (filtered.length === 0) {
+    return normalizedFilter ? "No tools matched the filter." : "No tools allowed by policy.";
+  }
+
+  console.log("");
+  console.log(`Tools (${filtered.length}${normalizedFilter ? ` of ${allowed.length}` : ""})`);
+  for (const tool of filtered) {
+    const description = tool.description ? ` - ${tool.description}` : "";
+    console.log(`${tool.name}${description}`);
+  }
+  return undefined;
+}
 
 async function openModelSelector(
   state: {

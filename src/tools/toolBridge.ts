@@ -3,28 +3,29 @@
 
 import type { ToolSpec, ToolContext, ToolResult } from "./types.js";
 import type { ToolDefinition, ToolCall, ToolCallResult } from "../core/agentTypes.js";
+import { appendToolLog } from "./toolLogging.js";
 
 /**
  * Convert a ToolSpec to an OpenAI-compatible ToolDefinition
  */
 export function convertToolSpecToDefinition(tool: ToolSpec): ToolDefinition {
-    // Parse the description to extract parameter hints
-    // For now, we'll create a simple schema with optional JSON input
+    const parameters = tool.inputSchema ?? {
+        type: "object",
+        properties: {
+            input: {
+                type: "object",
+                description: "JSON input for the tool",
+            },
+        },
+        required: [],
+    };
+
     return {
         type: "function",
         function: {
             name: tool.name,
             description: tool.description ?? `Execute the ${tool.name} tool`,
-            parameters: {
-                type: "object",
-                properties: {
-                    input: {
-                        type: "object",
-                        description: "JSON input for the tool",
-                    },
-                },
-                required: [],
-            },
+            parameters,
         },
     };
 }
@@ -74,11 +75,19 @@ export function createToolRunner(
             env: baseContext?.env ?? process.env,
         };
 
-        // Execute tool
+        const startedAt = Date.now();
         let result: ToolResult;
         try {
             result = await tool.run(context);
         } catch (err) {
+            const durationMs = Date.now() - startedAt;
+            await appendToolLog({
+                name: call.name,
+                ok: false,
+                durationMs,
+                input: call.arguments,
+                error: err instanceof Error ? err.message : String(err),
+            }, context);
             return {
                 callId: call.id,
                 name: call.name,
@@ -86,6 +95,15 @@ export function createToolRunner(
                 output: `Tool execution error: ${err instanceof Error ? err.message : String(err)}`,
             };
         }
+
+        const durationMs = Date.now() - startedAt;
+        await appendToolLog({
+            name: call.name,
+            ok: result.ok,
+            durationMs,
+            input: call.arguments,
+            output: result.output,
+        }, context);
 
         return {
             callId: call.id,

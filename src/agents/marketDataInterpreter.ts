@@ -11,6 +11,7 @@ Analyze the provided market data and produce:
 - momentum: One of "strong_bullish", "bullish", "neutral", "bearish", "strong_bearish"
 - key_levels: Object with nearest_support and nearest_resistance
 - summary: Brief text summary
+- news_analysis: Brief summary of news sentiment and key events (if news_context is present)
 
 Respond with valid JSON only.`;
 
@@ -31,17 +32,18 @@ export async function runMarketDataInterpreter(
     const response = await provider.chat(messages);
 
     const parsed = tryParseJson<Partial<MarketDataInterpretation>>(response.content);
-    if (parsed) return validateInterpretation(parsed);
+    if (parsed) return validateInterpretation(parsed, marketData);
     return interpretFallback(marketData);
 }
 
-function validateInterpretation(parsed: Partial<MarketDataInterpretation>): MarketDataInterpretation {
+function validateInterpretation(parsed: Partial<MarketDataInterpretation>, input: MarketDataInput): MarketDataInterpretation {
     return {
         market_structure: parsed.market_structure ?? "ranging",
         volatility_state: parsed.volatility_state ?? "medium",
         momentum: parsed.momentum ?? "neutral",
         key_levels: parsed.key_levels ?? {},
         summary: parsed.summary ?? "Market conditions analyzed.",
+        news_analysis: parsed.news_analysis ?? (input.news_context ? input.news_context.join("\n").slice(0, 500) + "..." : undefined),
     };
 }
 
@@ -93,5 +95,6 @@ function interpretFallback(data: MarketDataInput): MarketDataInterpretation {
         momentum,
         key_levels: keyLevels,
         summary: summaryParts.join(" "),
+        news_analysis: data.news_context ? data.news_context.slice(0, 3).join("\n") : undefined,
     };
 }

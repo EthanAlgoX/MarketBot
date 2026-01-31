@@ -1,6 +1,6 @@
 import type { ToolContext } from "./types.js";
 
-export function buildToolContext(rawArgs: string, cwd: string = process.cwd()): ToolContext {
+export function buildToolContext(rawArgs: string, cwd: string = process.cwd(), agentId?: string): ToolContext {
   const trimmed = rawArgs.trim();
   const args = trimmed ? trimmed.split(/\s+/) : [];
   const json = safeJsonParse(trimmed);
@@ -10,6 +10,7 @@ export function buildToolContext(rawArgs: string, cwd: string = process.cwd()): 
     json: json ?? undefined,
     cwd,
     env: process.env,
+    agentId,
   };
 }
 

@@ -4,6 +4,7 @@ import type { IntentParsingOutput, MarketDataInput } from "../core/types.js";
 import { resolveSymbolFromText } from "../utils/symbols.js";
 import type { QuoteSnapshot } from "./types.js";
 import { fetchQuoteSnapshot } from "./quotes.js";
+import { searchMarketInfo } from "../web/webSearch.js";
 
 export interface MarketDataServiceOptions {
     mode?: "auto" | "api" | "scrape";
@@ -50,7 +51,7 @@ export async function getMarketDataFromIntent(
  */
 async function fetchFromApi(
     intent: IntentParsingOutput,
-    _options?: MarketDataServiceOptions
+    options?: MarketDataServiceOptions
 ): Promise<MarketDataInput> {
     const resolvedAsset = resolveSymbolFromText(intent.asset) ?? intent.asset;
     const snapshot = await fetchQuoteSnapshot(resolvedAsset);
@@ -74,7 +75,20 @@ async function fetchFromApi(
     }
 
     const baseData = buildBaselineMarketData(snapshot.price);
-    return applySnapshotToMarketData(baseData, snapshot);
+    const result = applySnapshotToMarketData(baseData, snapshot);
+
+    if (options?.enableSearch) {
+        try {
+            const news = await searchMarketInfo(resolvedAsset, "latest news and market sentiment");
+            if (news.content) {
+                result.news_context = [news.content];
+            }
+        } catch (e) {
+            console.warn(`News fetch failed for ${resolvedAsset}:`, e);
+        }
+    }
+
+    return result;
 }
 
 /**
