@@ -1,0 +1,45 @@
+services:
+  marketbot-gateway:
+    image: ${MARKETBOT_IMAGE:-marketbot:local}
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      MARKETBOT_GATEWAY_TOKEN: ${MARKETBOT_GATEWAY_TOKEN}
+      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
+      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
+      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+    volumes:
+      - ${MARKETBOT_CONFIG_DIR}:/home/node/.marketbot
+      - ${MARKETBOT_WORKSPACE_DIR}:/home/node/.marketbot/workspace
+    ports:
+      - '${MARKETBOT_GATEWAY_PORT:-18789}:18789'
+      - '${MARKETBOT_BRIDGE_PORT:-18790}:18790'
+    init: true
+    restart: unless-stopped
+    command:
+      [
+        'node',
+        'dist/index.js',
+        "gateway",
+        '--bind',
+        '${MARKETBOT_GATEWAY_BIND:-lan}',
+        '--port',
+        '${MARKETBOT_GATEWAY_PORT:-18789}',
+      ]
+
+  marketbot-cli:
+    image: ${MARKETBOT_IMAGE:-marketbot:local}
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      BROWSER: echo
+      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
+      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
+      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+    volumes:
+      - ${MARKETBOT_CONFIG_DIR}:/home/node/.marketbot
+      - ${MARKETBOT_WORKSPACE_DIR}:/home/node/.marketbot/workspace
+    stdin_open: true
+    tty: true
+    init: true
+    entrypoint: ['node', 'dist/index.js']

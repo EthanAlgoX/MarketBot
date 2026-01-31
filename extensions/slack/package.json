@@ -1,0 +1,11 @@
+{
+  "name": "@marketbot/slack",
+  "version": "2026.1.30",
+  "type": "module",
+  "description": "MarketBot Slack channel plugin",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

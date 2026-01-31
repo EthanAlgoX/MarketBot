@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: marketbot
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: SETUP_PASSWORD
+        sync: false
+      - key: MARKETBOT_STATE_DIR
+        value: /data/.marketbot
+      - key: MARKETBOT_WORKSPACE_DIR
+        value: /data/workspace
+      - key: MARKETBOT_GATEWAY_TOKEN
+        generateValue: true
+    disk:
+      name: marketbot-data
+      mountPath: /data
+      sizeGB: 1

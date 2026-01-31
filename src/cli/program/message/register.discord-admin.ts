@@ -1,0 +1,176 @@
+/*
+ * Copyright (C) 2026 MarketBot
+ *
+ * This file is part of MarketBot.
+ *
+ * MarketBot is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * MarketBot is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import type { Command } from "commander";
+import type { MessageCliHelpers } from "./helpers.js";
+
+export function registerMessageDiscordAdminCommands(message: Command, helpers: MessageCliHelpers) {
+  const role = message.command("role").description("Role actions");
+  helpers
+    .withMessageBase(
+      role.command("info").description("List roles").requiredOption("--guild-id <id>", "Guild id"),
+    )
+    .action(async (opts) => {
+      await helpers.runMessageAction("role-info", opts);
+    });
+
+  helpers
+    .withMessageBase(
+      role
+        .command("add")
+        .description("Add role to a member")
+        .requiredOption("--guild-id <id>", "Guild id")
+        .requiredOption("--user-id <id>", "User id")
+        .requiredOption("--role-id <id>", "Role id"),
+    )
+    .action(async (opts) => {
+      await helpers.runMessageAction("role-add", opts);
+    });
+
+  helpers
+    .withMessageBase(
+      role
+        .command("remove")
+        .description("Remove role from a member")
+        .requiredOption("--guild-id <id>", "Guild id")
+        .requiredOption("--user-id <id>", "User id")
+        .requiredOption("--role-id <id>", "Role id"),
+    )
+    .action(async (opts) => {
+      await helpers.runMessageAction("role-remove", opts);
+    });
+
+  const channel = message.command("channel").description("Channel actions");
+  helpers
+    .withMessageBase(
+      helpers.withRequiredMessageTarget(channel.command("info").description("Fetch channel info")),
+    )
+    .action(async (opts) => {
+      await helpers.runMessageAction("channel-info", opts);
+    });
+
+  helpers
+    .withMessageBase(
+      channel
+        .command("list")
+        .description("List channels")
+        .requiredOption("--guild-id <id>", "Guild id"),
+    )
+    .action(async (opts) => {
+      await helpers.runMessageAction("channel-list", opts);
+    });
+
+  const member = message.command("member").description("Member actions");
+  helpers
+    .withMessageBase(
+      member
+        .command("info")
+        .description("Fetch member info")
+        .requiredOption("--user-id <id>", "User id"),
+    )
+    .option("--guild-id <id>", "Guild id (Discord)")
+    .action(async (opts) => {
+      await helpers.runMessageAction("member-info", opts);
+    });
+
+  const voice = message.command("voice").description("Voice actions");
+  helpers
+    .withMessageBase(
+      voice
+        .command("status")
+        .description("Fetch voice status")
+        .requiredOption("--guild-id <id>", "Guild id")
+        .requiredOption("--user-id <id>", "User id"),
+    )
+    .action(async (opts) => {
+      await helpers.runMessageAction("voice-status", opts);
+    });
+
+  const event = message.command("event").description("Event actions");
+  helpers
+    .withMessageBase(
+      event
+        .command("list")
+        .description("List scheduled events")
+        .requiredOption("--guild-id <id>", "Guild id"),
+    )
+    .action(async (opts) => {
+      await helpers.runMessageAction("event-list", opts);
+    });
+
+  helpers
+    .withMessageBase(
+      event
+        .command("create")
+        .description("Create a scheduled event")
+        .requiredOption("--guild-id <id>", "Guild id")
+        .requiredOption("--event-name <name>", "Event name")
+        .requiredOption("--start-time <iso>", "Event start time"),
+    )
+    .option("--end-time <iso>", "Event end time")
+    .option("--desc <text>", "Event description")
+    .option("--channel-id <id>", "Channel id")
+    .option("--location <text>", "Event location")
+    .option("--event-type <stage|external|voice>", "Event type")
+    .action(async (opts) => {
+      await helpers.runMessageAction("event-create", opts);
+    });
+
+  helpers
+    .withMessageBase(
+      message
+        .command("timeout")
+        .description("Timeout a member")
+        .requiredOption("--guild-id <id>", "Guild id")
+        .requiredOption("--user-id <id>", "User id"),
+    )
+    .option("--duration-min <n>", "Timeout duration minutes")
+    .option("--until <iso>", "Timeout until")
+    .option("--reason <text>", "Moderation reason")
+    .action(async (opts) => {
+      await helpers.runMessageAction("timeout", opts);
+    });
+
+  helpers
+    .withMessageBase(
+      message
+        .command("kick")
+        .description("Kick a member")
+        .requiredOption("--guild-id <id>", "Guild id")
+        .requiredOption("--user-id <id>", "User id"),
+    )
+    .option("--reason <text>", "Moderation reason")
+    .action(async (opts) => {
+      await helpers.runMessageAction("kick", opts);
+    });
+
+  helpers
+    .withMessageBase(
+      message
+        .command("ban")
+        .description("Ban a member")
+        .requiredOption("--guild-id <id>", "Guild id")
+        .requiredOption("--user-id <id>", "User id"),
+    )
+    .option("--reason <text>", "Moderation reason")
+    .option("--delete-days <n>", "Ban delete message days")
+    .action(async (opts) => {
+      await helpers.runMessageAction("ban", opts);
+    });
+}

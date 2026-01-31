@@ -1,0 +1,11 @@
+{
+  "name": "@marketbot/copilot-proxy",
+  "version": "2026.1.30",
+  "type": "module",
+  "description": "MarketBot Copilot Proxy provider plugin",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@marketbot/whatsapp",
+  "version": "2026.1.30",
+  "type": "module",
+  "description": "MarketBot WhatsApp channel plugin",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

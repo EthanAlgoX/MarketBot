@@ -1,1 +1,0 @@
-# When to Read\n- Customizing briefing (add weather, email scan).\n\n## Config\n- NOTION_TASKS_DB: Your tasks DB ID (e.g., from Notion URL).

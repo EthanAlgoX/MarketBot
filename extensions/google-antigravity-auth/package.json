@@ -1,0 +1,11 @@
+{
+  "name": "@marketbot/google-antigravity-auth",
+  "version": "2026.1.30",
+  "type": "module",
+  "description": "MarketBot Google Antigravity OAuth provider plugin",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
