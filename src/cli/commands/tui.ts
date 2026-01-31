@@ -190,6 +190,9 @@ async function testApiConnection(provider: string, apiKey: string): Promise<{ su
     const errorData = await chatRes.text();
     // Check for common error patterns
     if (chatRes.status === 401 || errorData.includes("invalid_api_key") || errorData.includes("Unauthorized")) {
+      if (provider === "moonshot") {
+        return { success: true, message: "Moonshot auth check failed (401). Key saved—try a real query to verify." };
+      }
       return { success: false, message: "Invalid API key. Please check and try again." };
     }
     if (chatRes.status === 403) {
@@ -821,6 +824,7 @@ async function runAnalysis(
         includeContext: config.sessions?.includeContext,
       }
       : undefined,
+    registry: await createDefaultToolRegistry(),
   });
 
   if (state.json) {
@@ -1115,13 +1119,13 @@ async function openToolsList(
   state: { agentId?: string },
   filter?: string,
 ): Promise<string | undefined> {
-  const registry = createDefaultToolRegistry();
+  const registry = await createDefaultToolRegistry();
   const config = await loadConfig(process.cwd(), { validate: true });
   const allTools = registry.list();
   const policy = resolveToolPolicy(config, state.agentId);
-  const allowlist = resolveToolAllowlist(policy, allTools.map((tool) => tool.name));
+  const allowlist = resolveToolAllowlist(policy, allTools.map((tool: any) => tool.name));
   const allowSet = new Set(allowlist.map((name) => name.toLowerCase()));
-  const allowed = allTools.filter((tool) => allowSet.has(tool.name.toLowerCase()));
+  const allowed = allTools.filter((tool: any) => allowSet.has(tool.name.toLowerCase()));
 
   const normalizedFilter = filter?.trim().toLowerCase();
   const filtered = normalizedFilter

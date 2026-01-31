@@ -1,5 +1,6 @@
+import path from "node:path";
 import type { ToolSpec } from "./types.js";
-import { createBuiltinTools } from "./tools.js";
+import { discoverSkills } from "../skills/loader.js";
 
 export class ToolRegistry {
   private tools = new Map<string, ToolSpec>();
@@ -15,12 +16,20 @@ export class ToolRegistry {
   list(): ToolSpec[] {
     return Array.from(this.tools.values()).sort((a, b) => a.name.localeCompare(b.name));
   }
+
+  async loadDynamicTools(cwd: string = process.cwd()) {
+    const skillsDir = path.join(cwd, "src", "skills");
+    const skills = await discoverSkills(skillsDir);
+    for (const skill of skills) {
+      for (const tool of skill.tools) {
+        this.register(tool);
+      }
+    }
+  }
 }
 
-export function createDefaultToolRegistry(): ToolRegistry {
+export async function createDefaultToolRegistry(): Promise<ToolRegistry> {
   const registry = new ToolRegistry();
-  for (const tool of createBuiltinTools()) {
-    registry.register(tool);
-  }
+  await registry.loadDynamicTools();
   return registry;
 }
