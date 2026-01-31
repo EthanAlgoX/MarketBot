@@ -7,7 +7,7 @@ export async function fetchWithTimeout(
     url: string,
     options: RequestInit & { timeout?: number } = {}
 ): Promise<Response> {
-    const { timeout = 10000, ...fetchOptions } = options;
+    const { timeout = 10000, headers, ...fetchOptions } = options;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -15,6 +15,10 @@ export async function fetchWithTimeout(
     try {
         const response = await fetch(url, {
             ...fetchOptions,
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                ...headers,
+            },
             signal: controller.signal,
         });
         clearTimeout(timeoutId);

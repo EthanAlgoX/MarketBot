@@ -113,7 +113,7 @@ export async function searchBing(
         await page.waitForSelector("#b_results", { timeout: 10000 });
 
         // Extract search results
-        const items = await page.evaluate(() => {
+        const items = await page.evaluate(function () {
             const results: Array<{ title: string; url: string; snippet: string }> = [];
             const elements = document.querySelectorAll("#b_results .b_algo");
 
@@ -161,18 +161,9 @@ export async function searchDuckDuckGo(
         });
 
         // Extract search results
-        const items = await page.evaluate(() => {
+        const items = await page.evaluate(function () {
             const results: Array<{ title: string; url: string; snippet: string }> = [];
             const elements = document.querySelectorAll(".result");
-
-            // Helper to check for garbled text
-            const isGarbled = (text: string) => {
-                // Check for replacement char, control chars, or mostly non-printable
-                if (/[\ufffd\u0000-\u001f]/.test(text)) return true;
-                // Check for common GBK mojibake patterns
-                if (/[�\ufffd]{2,}/.test(text)) return true;
-                return false;
-            };
 
             elements.forEach((el) => {
                 const linkEl = el.querySelector(".result__a");
@@ -195,8 +186,11 @@ export async function searchDuckDuckGo(
                     }
 
                     let title = linkEl.textContent?.trim() || "";
-                    // If title is garbled, use hostname as fallback
-                    if (isGarbled(title)) {
+
+                    // Check for garbled text (inline check to avoid helper function issues)
+                    const isGarbled = /[\ufffd\u0000-\u001f]/.test(title) || /[\ufffd]{2,}/.test(title);
+
+                    if (isGarbled) {
                         try {
                             title = new URL(url).hostname;
                         } catch {
@@ -241,7 +235,7 @@ export async function scrapePageContent(
         });
 
         // Extract page content
-        const data = await page.evaluate(() => {
+        const data = await page.evaluate(function () {
             const title = document.title || "";
 
             // Remove script and style elements
