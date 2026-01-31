@@ -1,7 +1,7 @@
 // Web analysis command - search and analyze web content
 
 import { loadConfig } from "../../config/io.js";
-import { createProviderFromConfig } from "../../core/providers/registry.js";
+import { createProviderFromConfigAsync } from "../../core/providers/registry.js";
 import { runWebDataAnalyzer, marketWebAnalysis } from "../../agents/webDataAnalyzer.js";
 import { resolveSymbolFromText } from "../../utils/symbols.js";
 
@@ -13,7 +13,7 @@ export interface WebAnalyzeOptions {
 
 export async function webAnalyzeCommand(options: WebAnalyzeOptions): Promise<void> {
     const config = await loadConfig();
-    const provider = createProviderFromConfig(config);
+    const provider = await createProviderFromConfigAsync(config);
 
     const query = options.query || options.asset;
     const assetHint = options.asset || query || "";
