@@ -69,5 +69,22 @@ export interface MarketBotConfig {
       userAgent?: string;
     };
   };
+
+  notification?: {
+    wechat?: {
+      webhookUrl?: string;
+    };
+    feishu?: {
+      webhookUrl?: string;
+    };
+    telegram?: {
+      botToken?: string;
+      chatId?: string;
+    };
+    webhook?: {
+      url?: string;
+      bearerToken?: string;
+    };
+  };
 }
 
