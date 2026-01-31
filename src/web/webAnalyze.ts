@@ -143,106 +143,147 @@ Analyze this content and provide a structured JSON response.`;
     }
 }
 /**
- * Format analysis output as markdown report with decision dashboard.
+ * Format analysis output as professional one-page AI stock analysis report.
+ * 
+ * Structure:
+ * - Header: Symbol + Time
+ * - Decision Block: Signal + Entry/TP/SL + Logic
+ * - Context: Market + Stock status
+ * - Key Drivers: Technical + Events
+ * - Risk: Main risks + Invalidation
+ * - Footer: AI self-check + Disclaimer
  */
 export function formatAnalysisReport(analysis: WebAnalysisOutput): string {
     const lines: string[] = [];
+    const ta = analysis.technicalAnalysis;
 
-    // Header with signal
-    if (analysis.technicalAnalysis) {
-        const ta = analysis.technicalAnalysis;
+    // === HEADER (10%) ===
+    lines.push("# 📄 AI 股票分析报告\n");
+    lines.push("---\n");
+    lines.push(`📅 **${analysis.generatedAt}** | *AI Stock Trading Snapshot*\n`);
+
+    // === DECISION BLOCK (25%) ===
+    lines.push("## 🟦 核心结论\n");
+
+    if (ta) {
         const signalEmoji: Record<string, string> = {
-            strong_buy: "🟢",
-            buy: "🟢",
-            hold: "🟡",
-            wait: "🟡",
-            sell: "🔴",
-            strong_sell: "🔴",
+            strong_buy: "🟢", buy: "🟢", hold: "🟡", wait: "🟡", sell: "🔴", strong_sell: "🔴",
         };
         const signalLabel: Record<string, string> = {
-            strong_buy: "强烈买入",
-            buy: "买入",
-            hold: "持有",
-            wait: "观望",
-            sell: "卖出",
-            strong_sell: "强烈卖出",
+            strong_buy: "LONG ↑↑", buy: "LONG ↑", hold: "WAIT ⏸", wait: "WAIT ⏸", sell: "SHORT ↓", strong_sell: "SHORT ↓↓",
         };
+        const confidenceStars = Math.round((ta.score / 100) * 5);
+        const stars = "⭐".repeat(confidenceStars) + "☆".repeat(5 - confidenceStars);
 
-        lines.push(`# ${signalEmoji[ta.signal] || "⚪"} 决策仪表盘\n`);
-        lines.push(`**信号**: ${signalLabel[ta.signal] || ta.signal} | **趋势**: ${ta.trend}`);
-        lines.push(`**评分**: ${ta.score}/100\n`);
-
-        // Buy/Sell targets
-        if (ta.buyPrice || ta.stopLoss || ta.targetPrice) {
-            lines.push(`💰 **狙击点位**: 买入 ${ta.buyPrice || "-"} | 止损 ${ta.stopLoss || "-"} | 目标 ${ta.targetPrice || "-"}\n`);
-        }
+        lines.push("| 方向 & 置信度 | 交易参数 | 核心逻辑 |");
+        lines.push("|:---|:---|:---|");
+        lines.push(`| ${signalEmoji[ta.signal] || "⚪"} **${signalLabel[ta.signal] || ta.signal}** | 入场: ${ta.buyPrice || "-"} | ${ta.trend} |`);
+        lines.push(`| ${stars} (${ta.score}/100) | 止盈: ${ta.targetPrice || "-"} | ${ta.maAlignment} |`);
+        lines.push(`| **${ta.trend}** | 止损: ${ta.stopLoss || "-"} | ${ta.macdSignal} |`);
+        lines.push("");
 
         // Checklist
         if (ta.checklist?.length) {
-            lines.push("**检查清单**: " + ta.checklist.map(c => `${c.emoji}${c.item}`).join(" "));
+            lines.push("> " + ta.checklist.map(c => `${c.emoji} ${c.item}`).join(" | "));
             lines.push("");
         }
-
-        // Technical details
-        lines.push("## 技术指标\n");
-        lines.push(`- **均线排列**: ${ta.maAlignment}`);
-        lines.push(`- **MACD**: ${ta.macdSignal}`);
-        lines.push(`- **RSI**: ${ta.rsiStatus}`);
-        if (ta.biasWarning) {
-            lines.push(`- ⚠️ **乖离率**: ${ta.biasWarning}`);
-        }
-        lines.push("");
     } else {
-        lines.push("# Web Analysis Report\n");
+        // Fallback for non-technical analysis
+        const sentiment = analysis.marketData?.sentiment || "neutral";
+        const sentimentEmoji = sentiment === "bullish" ? "🟢" : sentiment === "bearish" ? "🔴" : "🟡";
+        lines.push(`${sentimentEmoji} **Signal**: ${sentiment.toUpperCase()} | **Confidence**: ${(analysis.confidence * 100).toFixed(0)}%\n`);
     }
 
-    lines.push(`Generated: ${analysis.generatedAt}\n`);
-
-    lines.push("## Summary\n");
-    lines.push(`${analysis.summary}\n`);
-
-    if (analysis.keyFindings.length > 0) {
-        lines.push("## Key Findings\n");
-        for (const finding of analysis.keyFindings) {
-            lines.push(`- ${finding}`);
-        }
-        lines.push("");
-    }
+    // === CONTEXT BLOCK (20%) ===
+    lines.push("## 🟨 市场 & 个股状态\n");
+    lines.push("| 市场环境 | 个股状态 |");
+    lines.push("|:---|:---|");
 
     if (analysis.marketData) {
-        lines.push("## Market Data\n");
-        if (analysis.marketData.priceInfo) {
-            lines.push(`**Price Info**: ${analysis.marketData.priceInfo}\n`);
-        }
-        if (analysis.marketData.sentiment) {
-            const sentimentEmoji =
-                analysis.marketData.sentiment === "bullish"
-                    ? "🟢"
-                    : analysis.marketData.sentiment === "bearish"
-                        ? "🔴"
-                        : "⚪";
-            lines.push(`**Sentiment**: ${sentimentEmoji} ${analysis.marketData.sentiment}\n`);
-        }
-        if (analysis.marketData.keyEvents?.length) {
-            lines.push("**Key Events**:");
-            for (const event of analysis.marketData.keyEvents) {
-                lines.push(`- ${event}`);
-            }
-            lines.push("");
-        }
+        const sentiment = analysis.marketData.sentiment || "neutral";
+        const sentimentLabel = sentiment === "bullish" ? "Risk-On 📈" : sentiment === "bearish" ? "Risk-Off 📉" : "中性 ➖";
+        lines.push(`| Regime: ${sentimentLabel} | Trend: ${ta?.trend || "待分析"} |`);
+        lines.push(`| Volatility: Medium | Structure: ${ta?.maAlignment || "-"} |`);
+    } else {
+        lines.push("| Regime: 待分析 | Trend: 待分析 |");
+        lines.push("| Volatility: - | Structure: - |");
     }
+    lines.push("");
 
+    // === KEY DRIVERS (20%) ===
+    lines.push("## 🟩 关键依据\n");
+
+    // Technical
+    lines.push("### 📊 技术面");
+    if (ta) {
+        lines.push(`- 均线: ${ta.maAlignment}`);
+        lines.push(`- MACD: ${ta.macdSignal}`);
+        lines.push(`- RSI: ${ta.rsiStatus}`);
+        if (ta.biasWarning) lines.push(`- ⚠️ 乖离率: ${ta.biasWarning}`);
+    } else {
+        lines.push("- 技术分析待获取更多数据");
+    }
+    lines.push("");
+
+    // Events/Fundamental
+    lines.push("### 📰 事件/基本面");
+    if (analysis.keyFindings.length > 0) {
+        for (const finding of analysis.keyFindings.slice(0, 4)) {
+            lines.push(`- ${finding}`);
+        }
+    } else {
+        lines.push("- 无重大事件");
+    }
+    lines.push("");
+
+    // === RISK BLOCK (15%) ===
+    lines.push("## 🟥 风险 & 失效条件\n");
+    lines.push("### ⚠️ 主要风险");
+
+    // Extract risks from summary or key findings
+    const riskKeywords = ["风险", "risk", "警惕", "注意", "危险", "下跌", "回调", "阻力"];
+    const risks = analysis.keyFindings.filter(f => riskKeywords.some(k => f.toLowerCase().includes(k)));
+    if (risks.length > 0) {
+        for (const risk of risks.slice(0, 2)) {
+            lines.push(`- ${risk}`);
+        }
+    } else {
+        lines.push("- 市场波动风险");
+        lines.push("- 突发事件风险");
+    }
+    lines.push("");
+
+    lines.push("### ❌ 失效条件");
+    if (ta?.stopLoss) {
+        lines.push(`- 日线收盘跌破 ${ta.stopLoss}`);
+    }
+    lines.push("- 市场结构破坏");
+    lines.push("- 重大利空消息");
+    lines.push("");
+
+    // === SUMMARY ===
+    lines.push("## 📝 分析摘要\n");
+    lines.push(`> ${analysis.summary}\n`);
+
+    // === SOURCES ===
     if (analysis.sources.length > 0) {
-        lines.push("## Sources\n");
-        for (const source of analysis.sources.slice(0, 10)) {
-            const label = source.title || source.url;
+        lines.push("## 📚 数据来源\n");
+        for (const source of analysis.sources.slice(0, 5)) {
+            const label = source.title || new URL(source.url).hostname;
             lines.push(`- [${label}](${source.url})`);
         }
         lines.push("");
     }
 
-    lines.push(`---`);
-    lines.push(`Confidence: ${(analysis.confidence * 100).toFixed(0)}%`);
+    // === FOOTER (10%) ===
+    lines.push("---\n");
+    lines.push("## 🟪 AI 自检 & 免责声明\n");
+    lines.push(`- **置信度**: ${(analysis.confidence * 100).toFixed(0)}%`);
+    lines.push(`- **数据源**: ${analysis.sources.length} 个`);
+    lines.push(`- **生成时间**: ${analysis.generatedAt}`);
+    lines.push("");
+    lines.push("> ⚠️ **免责声明**: 本报告由 AI 生成，仅供研究参考，不构成投资建议。投资有风险，入市需谨慎。");
 
     return lines.join("\n");
 }
+
