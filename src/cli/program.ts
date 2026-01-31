@@ -18,6 +18,8 @@ import { setupCommand } from "./commands/setup.js";
 import { serverCommand } from "./commands/server.js";
 import { createDefaultDeps } from "./deps.js";
 
+import { createAuthCommand } from "./commands/auth.js";
+
 export function buildProgram() {
   const program = new Command();
 
@@ -25,6 +27,8 @@ export function buildProgram() {
     .name("marketbot")
     .description("MarketBot - multi-agent trading analysis CLI")
     .version("0.1.0");
+
+  program.addCommand(createAuthCommand());
 
   program
     .command("analyze [query]")

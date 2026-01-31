@@ -1,5 +1,5 @@
 import { loadConfig } from "../config/io.js";
-import { createProviderFromConfig } from "../core/providers/registry.js";
+import { createProviderFromConfigAsync } from "../core/providers/registry.js";
 import { runMarketBot } from "../core/pipeline.js";
 import type { MarketDataInput } from "../core/types.js";
 import { getMarketDataFromIntent } from "../data/marketDataService.js";
@@ -84,7 +84,7 @@ function reportRenderTool(): ToolSpec {
       }
 
       const config = await loadConfig(process.cwd(), { validate: true });
-      const provider = createProviderFromConfig(config);
+      const provider = await createProviderFromConfigAsync(config);
       const outputs = await runMarketBot({
         userQuery,
         marketData,

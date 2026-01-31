@@ -49,7 +49,7 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
     config.llm.provider = "mock";
   }
 
-  const provider = deps.createProvider(config);
+  const provider = await deps.createProviderAsync(config);
 
   const sessionEnabled = config.sessions?.enabled !== false;
   const sessionKey = opts.sessionKey?.trim() || `agent:${agentId}:main`;
