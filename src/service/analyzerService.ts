@@ -55,13 +55,21 @@ export class AnalyzerService {
 
         const symbol = options.symbol || this.extractSymbol(options.query || "");
 
+        // Detect language from query if not provided
+        let language = options.language;
+        if (!language && options.query) {
+            const hasChinese = /[\u4e00-\u9fa5]/.test(options.query);
+            language = hasChinese ? "zh" : "en";
+        }
+        language = language || "zh";
+
         const result = await this.pipeline!.run({
             symbol,
             query: options.query,
             options: {
                 enableSearch: options.enableSearch ?? true,
                 enableNotification: options.enableNotification ?? false,
-                language: options.language ?? "zh",
+                language: language,
             },
         }, {
             onStage: (stage, status) => {
@@ -71,6 +79,8 @@ export class AnalyzerService {
 
         return result;
     }
+
+
 
     /**
      * Check if notification channels are available

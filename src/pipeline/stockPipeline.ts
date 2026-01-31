@@ -184,6 +184,7 @@ export class StockAnalysisPipeline {
             searchResults: stageData ? [stageData.searchResults] : undefined,
             fetchedPages: stageData?.fetchedPages,
             priceSnapshot: stageData?.priceSnapshot ?? undefined,
+            language: ctx.input.options?.language,
         });
 
         ctx.llmAnalysis = {
@@ -219,7 +220,10 @@ export class StockAnalysisPipeline {
         const analysisResult = ctx.stageResults.get(PipelineStage.LLM_ANALYSIS);
         if (!analysisResult) return;
 
-        const report = formatAnalysisReport(analysisResult as Parameters<typeof formatAnalysisReport>[0]);
+        const report = formatAnalysisReport(
+            analysisResult as Parameters<typeof formatAnalysisReport>[0],
+            ctx.input.options?.language,
+        );
 
         await this.notificationService.sendReport(report, {
             title: `📊 ${ctx.input.symbol} 分析报告`,
@@ -232,7 +236,9 @@ export class StockAnalysisPipeline {
         success: boolean,
     ): PipelineResult {
         const analysisResult = ctx.stageResults.get(PipelineStage.LLM_ANALYSIS) as Parameters<typeof formatAnalysisReport>[0] | undefined;
-        const report = analysisResult ? formatAnalysisReport(analysisResult) : "分析失败";
+        const report = analysisResult
+            ? formatAnalysisReport(analysisResult, ctx.input.options?.language)
+            : "分析失败";
 
         return {
             success,
