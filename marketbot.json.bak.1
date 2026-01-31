@@ -1,0 +1,35 @@
+{
+  agents: {
+    defaults: {
+      model: { primary: "deepseek/deepseek-chat"
+      },
+      models: {
+        "deepseek/deepseek-chat": {},
+        "deepseek/deepseek-reasoner": {}
+      }
+    }
+  },
+  models: {
+    mode: "merge",
+    providers: {
+      deepseek: {
+        baseUrl: "https://api.deepseek.com/v1",
+        apiKey: "${DEEPSEEK_API_KEY}",
+        api: "openai-completions",
+        models: [
+          { id: "deepseek-chat", name: "DeepSeek Chat"
+          },
+          { id: "deepseek-reasoner", name: "DeepSeek Reasoner", reasoning: true
+          }
+        ]
+      }
+    }
+  },
+  gateway: {
+    mode: "local",
+    auth: {
+      mode: "token",
+      token: "${MARKETBOT_GATEWAY_TOKEN}"
+    }
+  }
+}
