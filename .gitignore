@@ -26,6 +26,10 @@ Thumbs.db
 # Reference projects - DO NOT UPLOAD
 moltbot-main/
 moltbot/
+daily_stock_analysis/
+
+# Local dev notes - DO NOT UPLOAD
+DEV.md
 
 # Cache
 .cache/

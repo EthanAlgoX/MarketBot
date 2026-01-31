@@ -18,6 +18,19 @@ export interface WebAnalysisOutput {
         sentiment?: "bullish" | "bearish" | "neutral";
         keyEvents?: string[];
     };
+    technicalAnalysis?: {
+        signal: "strong_buy" | "buy" | "hold" | "wait" | "sell" | "strong_sell";
+        trend: string;
+        maAlignment: string;
+        macdSignal: string;
+        rsiStatus: string;
+        biasWarning?: string;
+        buyPrice?: number;
+        stopLoss?: number;
+        targetPrice?: number;
+        checklist?: Array<{ item: string; emoji: string }>;
+        score: number;
+    };
     sources: Array<{
         title?: string;
         url: string;
@@ -129,14 +142,60 @@ Analyze this content and provide a structured JSON response.`;
         };
     }
 }
-
 /**
- * Format analysis output as markdown report.
+ * Format analysis output as markdown report with decision dashboard.
  */
 export function formatAnalysisReport(analysis: WebAnalysisOutput): string {
     const lines: string[] = [];
 
-    lines.push("# Web Analysis Report\n");
+    // Header with signal
+    if (analysis.technicalAnalysis) {
+        const ta = analysis.technicalAnalysis;
+        const signalEmoji: Record<string, string> = {
+            strong_buy: "🟢",
+            buy: "🟢",
+            hold: "🟡",
+            wait: "🟡",
+            sell: "🔴",
+            strong_sell: "🔴",
+        };
+        const signalLabel: Record<string, string> = {
+            strong_buy: "强烈买入",
+            buy: "买入",
+            hold: "持有",
+            wait: "观望",
+            sell: "卖出",
+            strong_sell: "强烈卖出",
+        };
+
+        lines.push(`# ${signalEmoji[ta.signal] || "⚪"} 决策仪表盘\n`);
+        lines.push(`**信号**: ${signalLabel[ta.signal] || ta.signal} | **趋势**: ${ta.trend}`);
+        lines.push(`**评分**: ${ta.score}/100\n`);
+
+        // Buy/Sell targets
+        if (ta.buyPrice || ta.stopLoss || ta.targetPrice) {
+            lines.push(`💰 **狙击点位**: 买入 ${ta.buyPrice || "-"} | 止损 ${ta.stopLoss || "-"} | 目标 ${ta.targetPrice || "-"}\n`);
+        }
+
+        // Checklist
+        if (ta.checklist?.length) {
+            lines.push("**检查清单**: " + ta.checklist.map(c => `${c.emoji}${c.item}`).join(" "));
+            lines.push("");
+        }
+
+        // Technical details
+        lines.push("## 技术指标\n");
+        lines.push(`- **均线排列**: ${ta.maAlignment}`);
+        lines.push(`- **MACD**: ${ta.macdSignal}`);
+        lines.push(`- **RSI**: ${ta.rsiStatus}`);
+        if (ta.biasWarning) {
+            lines.push(`- ⚠️ **乖离率**: ${ta.biasWarning}`);
+        }
+        lines.push("");
+    } else {
+        lines.push("# Web Analysis Report\n");
+    }
+
     lines.push(`Generated: ${analysis.generatedAt}\n`);
 
     lines.push("## Summary\n");
