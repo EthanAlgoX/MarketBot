@@ -159,6 +159,61 @@ export async function webSearch(
 
     // Use browser-based search by default
     if (provider === "browser") {
+        try {
+            const maxResults = config?.maxResults ?? 5;
+            const headless = config?.headless !== false;
+            const browserResult = await runBrowserSearch({
+                query,
+                maxResults,
+                headless,
+            });
+
+            const result: WebSearchResult = {
+                query,
+                provider: "browser",
+                tookMs: browserResult.tookMs,
+                content: browserResult.content,
+                citations: browserResult.citations,
+                searchResults: browserResult.searchResults,
+                scrapedPages: browserResult.scrapedPages,
+            };
+
+            writeCache(SEARCH_CACHE, cacheKey, result, cacheTtlMs);
+            return result;
+        } catch (err) {
+            const apiKey = resolveApiKey(config);
+            if (!apiKey) throw err;
+            const baseUrl = config?.baseUrl ?? DEFAULT_PERPLEXITY_BASE_URL;
+            const model = config?.model ?? DEFAULT_PERPLEXITY_MODEL;
+            const timeoutSeconds = resolveTimeoutSeconds(config?.timeoutSeconds, DEFAULT_TIMEOUT_SECONDS);
+
+            const start = Date.now();
+            const { content, citations } = await runPerplexitySearch({
+                query,
+                apiKey,
+                baseUrl,
+                model,
+                timeoutSeconds,
+            });
+
+            const result: WebSearchResult = {
+                query,
+                provider: "perplexity",
+                model,
+                tookMs: Date.now() - start,
+                content,
+                citations,
+            };
+
+            writeCache(SEARCH_CACHE, normalizeCacheKey(`perplexity:${query}`), result, cacheTtlMs);
+            return result;
+        }
+    }
+
+    // Perplexity API search
+    const apiKey = resolveApiKey(config);
+    if (!apiKey) {
+        // Fall back to browser if API key is missing
         const maxResults = config?.maxResults ?? 5;
         const headless = config?.headless !== false;
         const browserResult = await runBrowserSearch({
@@ -177,42 +232,57 @@ export async function webSearch(
             scrapedPages: browserResult.scrapedPages,
         };
 
-        writeCache(SEARCH_CACHE, cacheKey, result, cacheTtlMs);
+        writeCache(SEARCH_CACHE, normalizeCacheKey(`browser:${query}`), result, cacheTtlMs);
         return result;
-    }
-
-    // Perplexity API search
-    const apiKey = resolveApiKey(config);
-    if (!apiKey) {
-        throw new Error(
-            "Missing Perplexity API key. Set PERPLEXITY_API_KEY or use provider: 'browser' for browser-based search.",
-        );
     }
 
     const baseUrl = config?.baseUrl ?? DEFAULT_PERPLEXITY_BASE_URL;
     const model = config?.model ?? DEFAULT_PERPLEXITY_MODEL;
     const timeoutSeconds = resolveTimeoutSeconds(config?.timeoutSeconds, DEFAULT_TIMEOUT_SECONDS);
 
-    const start = Date.now();
-    const { content, citations } = await runPerplexitySearch({
-        query,
-        apiKey,
-        baseUrl,
-        model,
-        timeoutSeconds,
-    });
+    try {
+        const start = Date.now();
+        const { content, citations } = await runPerplexitySearch({
+            query,
+            apiKey,
+            baseUrl,
+            model,
+            timeoutSeconds,
+        });
 
-    const result: WebSearchResult = {
-        query,
-        provider: "perplexity",
-        model,
-        tookMs: Date.now() - start,
-        content,
-        citations,
-    };
+        const result: WebSearchResult = {
+            query,
+            provider: "perplexity",
+            model,
+            tookMs: Date.now() - start,
+            content,
+            citations,
+        };
 
-    writeCache(SEARCH_CACHE, cacheKey, result, cacheTtlMs);
-    return result;
+        writeCache(SEARCH_CACHE, cacheKey, result, cacheTtlMs);
+        return result;
+    } catch (err) {
+        const maxResults = config?.maxResults ?? 5;
+        const headless = config?.headless !== false;
+        const browserResult = await runBrowserSearch({
+            query,
+            maxResults,
+            headless,
+        });
+
+        const result: WebSearchResult = {
+            query,
+            provider: "browser",
+            tookMs: browserResult.tookMs,
+            content: browserResult.content,
+            citations: browserResult.citations,
+            searchResults: browserResult.searchResults,
+            scrapedPages: browserResult.scrapedPages,
+        };
+
+        writeCache(SEARCH_CACHE, normalizeCacheKey(`browser:${query}`), result, cacheTtlMs);
+        return result;
+    }
 }
 
 /**
@@ -245,4 +315,3 @@ export async function searchMultiple(
     }
     return results;
 }
-

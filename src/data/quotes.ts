@@ -16,7 +16,12 @@ export async function fetchQuoteSnapshot(symbol: string, options: QuoteOptions =
   const normalized = normalizeYahooSymbol(symbol);
   const timeoutMs = options.timeoutMs ?? parseTimeout();
 
-  return fetchYahooQuote(normalized, timeoutMs);
+  try {
+    return await fetchYahooQuote(normalized, timeoutMs);
+  } catch (error) {
+    console.warn(`Quote fetch failed for ${symbol}: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
 }
 
 function parseTimeout(): number | undefined {

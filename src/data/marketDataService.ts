@@ -32,9 +32,14 @@ export async function getMarketDataFromIntent(
         default:
             try {
                 return await fetchFromApi(intent, options);
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
-                throw new Error(`API fetch failed in auto mode: ${msg}`);
+            } catch (apiErr) {
+                try {
+                    return await fetchFromScraper(intent, options);
+                } catch (scrapeErr) {
+                    const apiMsg = apiErr instanceof Error ? apiErr.message : String(apiErr);
+                    const scrapeMsg = scrapeErr instanceof Error ? scrapeErr.message : String(scrapeErr);
+                    throw new Error(`Auto mode failed. API: ${apiMsg} | Scrape: ${scrapeMsg}`);
+                }
             }
     }
 }
@@ -50,10 +55,22 @@ async function fetchFromApi(
     const resolvedAsset = resolveSymbolFromText(intent.asset) ?? intent.asset;
     const snapshot = await fetchQuoteSnapshot(resolvedAsset);
     if (!snapshot) {
-        if (process.env.YAHOO_FINANCE_ENABLED === "false") {
-            throw new Error("Yahoo Finance is disabled. Set YAHOO_FINANCE_ENABLED=true to enable live quotes.");
-        }
-        throw new Error(`No quote snapshot available for ${resolvedAsset}`);
+        // Fallback if quote unavailable (e.g. rate limit 429 or disabled)
+        // Return empty structure to allow pipeline to proceed (e.g. for news/sentiment analysis)
+        return {
+            price_structure: {
+                trend_1h: "range",
+                trend_4h: "range",
+                support_levels: [],
+                resistance_levels: [],
+            },
+            indicators: {
+                ema_alignment: "neutral",
+                atr_change: "stable",
+                volume_state: "stable",
+            },
+            timestamp: new Date().toISOString(),
+        };
     }
 
     const baseData = buildBaselineMarketData(snapshot.price);
