@@ -21,6 +21,10 @@ engine that can operate in real time, across channels, and with tool-assisted
 research. The focus is actionable market intelligence: structured analysis,
 clear risk/invalidation levels, and reproducible workflows.
 
+## Demo
+
+![MarketBot Video](docs/video_en.mov)
+
 ### 1) Gateway-first control plane
 
 - The Gateway is the central WebSocket server for sessions, routing, and tool
