@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import process from "node:process";
+import "dotenv/config"; // Load environment variables
 import { fileURLToPath } from "node:url";
 
 import { buildProgram } from "./cli/program.js";

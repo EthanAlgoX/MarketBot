@@ -7,7 +7,8 @@ export function createProviderFromConfig(config: MarketBotConfig): LLMProvider {
   const llm = config.llm ?? {};
 
   // 1. If provider is explicitly configured, use it
-  if (llm.provider && llm.provider !== "mock") {
+  if (llm.provider) {
+    if (llm.provider === "mock") return new MockProvider();
     return createExplicitProvider(llm);
   }
 
