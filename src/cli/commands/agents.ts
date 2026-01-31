@@ -1,10 +1,10 @@
 import path from "node:path";
 
-import { loadConfig, writeConfig } from "../config/io.js";
-import type { MarketBotConfig } from "../config/types.js";
-import { resolveConfigPath, resolveWorkspaceRoot } from "../config/paths.js";
-import { ensureWorkspace } from "../agents/workspace.js";
-import { listAgentIds, normalizeAgentId, resolveAgentConfig, resolveDefaultAgentId } from "../agents/agentScope.js";
+import { loadConfig, writeConfig } from "../../config/io.js";
+import type { MarketBotConfig } from "../../config/types.js";
+import { resolveConfigPath, resolveWorkspaceRoot } from "../../config/paths.js";
+import { ensureWorkspace } from "../../agents/workspace.js";
+import { listAgentIds, normalizeAgentId, resolveAgentConfig, resolveDefaultAgentId } from "../../agents/agentScope.js";
 
 export async function agentsListCommand(opts: { json?: boolean } = {}): Promise<void> {
   const config = await loadConfig();

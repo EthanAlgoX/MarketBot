@@ -1,9 +1,9 @@
 import { Command } from "commander";
-import { analyzeCommand } from "../commands/analyze.js";
-import { runAgenticAnalysis } from "../commands/analyzeAgentic.js";
-import { webAnalyzeCommand } from "../commands/webAnalyze.js";
-import { configShowCommand, configValidateCommand } from "../commands/config.js";
-import { agentsAddCommand, agentsListCommand } from "../commands/agents.js";
+import { analyzeCommand } from "./commands/analyze.js";
+import { runAgenticAnalysis } from "./commands/analyzeAgentic.js";
+import { webAnalyzeCommand } from "./commands/webAnalyze.js";
+import { configShowCommand, configValidateCommand } from "./commands/config.js";
+import { agentsAddCommand, agentsListCommand } from "./commands/agents.js";
 import {
   skillsCheckCommand,
   skillsInfoCommand,
@@ -12,10 +12,10 @@ import {
   skillsRemoveCommand,
   skillsSyncCommand,
   skillsRunCommand,
-} from "../commands/skills.js";
-import { toolsInfoCommand, toolsListCommand, toolsRunCommand } from "../commands/tools.js";
-import { setupCommand } from "../commands/setup.js";
-import { serverCommand } from "../commands/server.js";
+} from "./commands/skills.js";
+import { toolsInfoCommand, toolsListCommand, toolsRunCommand } from "./commands/tools.js";
+import { setupCommand } from "./commands/setup.js";
+import { serverCommand } from "./commands/server.js";
 import { createDefaultDeps } from "./deps.js";
 
 export function buildProgram() {

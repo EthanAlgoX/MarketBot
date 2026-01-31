@@ -1,11 +1,11 @@
 // Agentic Analysis Command
 // Uses the agent loop to autonomously call tools and generate analysis
 
-import { loadConfig } from "../config/io.js";
-import { createProviderFromConfig } from "../core/providers/registry.js";
-import { runAgentLoop } from "../core/agentLoop.js";
-import { createMarketBotTools } from "../tools/marketbot.js";
-import { createToolBridge } from "../tools/toolBridge.js";
+import { loadConfig } from "../../config/io.js";
+import { createProviderFromConfig } from "../../core/providers/registry.js";
+import { runAgentLoop } from "../../core/agentLoop.js";
+import { createMarketBotTools } from "../../tools/marketbot.js";
+import { createToolBridge } from "../../tools/toolBridge.js";
 
 const SYSTEM_PROMPT = `You are MarketBot, an AI-powered market analysis assistant.
 

@@ -1,9 +1,9 @@
-import { runMarketBot } from "../core/pipeline.js";
-import { readStdin } from "../core/stdio.js";
-import type { CliDeps } from "../cli/deps.js";
-import { loadConfig } from "../config/io.js";
-import { resolveAgentConfig, resolveDefaultAgentId } from "../agents/agentScope.js";
-import { SessionStore } from "../session/store.js";
+import { runMarketBot } from "../../core/pipeline.js";
+import { readStdin } from "../../core/stdio.js";
+import type { CliDeps } from "../deps.js";
+import { loadConfig } from "../../config/io.js";
+import { resolveAgentConfig, resolveDefaultAgentId } from "../../agents/agentScope.js";
+import { SessionStore } from "../../session/store.js";
 
 export type AnalyzeCommandOptions = {
   query?: string;
@@ -49,12 +49,12 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
   const sessionKey = opts.sessionKey?.trim() || `agent:${agentId}:main`;
   const sessionStore = sessionEnabled
     ? new SessionStore({
-        agentId,
-        stateDir: config.sessions?.dir,
-        maxEntries: config.sessions?.maxEntries,
-        maxEntryChars: config.sessions?.maxEntryChars,
-        contextMaxChars: config.sessions?.contextMaxChars,
-      })
+      agentId,
+      stateDir: config.sessions?.dir,
+      maxEntries: config.sessions?.maxEntries,
+      maxEntryChars: config.sessions?.maxEntryChars,
+      contextMaxChars: config.sessions?.contextMaxChars,
+    })
     : undefined;
 
   const outputs = await runMarketBot({
@@ -65,10 +65,10 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
     provider,
     session: sessionStore
       ? {
-          key: sessionKey,
-          store: sessionStore,
-          includeContext: config.sessions?.includeContext,
-        }
+        key: sessionKey,
+        store: sessionStore,
+        includeContext: config.sessions?.includeContext,
+      }
       : undefined,
   });
 

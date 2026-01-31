@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 
-import { loadConfig } from "../config/io.js";
-import { resolveConfigPath } from "../config/paths.js";
-import { validateMarketBotConfig } from "../config/schema.js";
+import { loadConfig } from "../../config/io.js";
+import { resolveConfigPath } from "../../config/paths.js";
+import { validateMarketBotConfig } from "../../config/schema.js";
 
 export async function configShowCommand(): Promise<void> {
   const configPath = resolveConfigPath();

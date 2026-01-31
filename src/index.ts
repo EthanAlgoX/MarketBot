@@ -14,7 +14,7 @@ export { loadDataConfig } from "./data/config.js";
 export { createDefaultDeps } from "./cli/deps.js";
 export { createDefaultToolRegistry } from "./tools/registry.js";
 export { runSkillCommand } from "./skills/invocation.js";
-export { toolsListCommand, toolsInfoCommand, toolsRunCommand } from "./commands/tools.js";
+export { toolsListCommand, toolsInfoCommand, toolsRunCommand } from "./cli/commands/tools.js";
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 

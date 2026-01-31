@@ -63,7 +63,7 @@ export function resolveAgentWorkspaceDir(
 
   const configPath = resolveConfigPath(cwd);
   const root = resolveWorkspaceRoot(configPath);
-  const defaultWorkspace = cfg.agents?.defaults?.workspace?.trim() || path.join(root, defaultId);
+  const defaultWorkspace = cfg.agents?.defaults?.workspace?.trim() || root;
 
   if (id === defaultId) return defaultWorkspace;
   return path.join(root, id);

@@ -1,5 +1,5 @@
-import { loadConfig } from "../config/io.js";
-import { startHttpServer } from "../server/httpServer.js";
+import { loadConfig } from "../../config/io.js";
+import { startHttpServer } from "../../server/httpServer.js";
 
 export async function serverCommand(opts: { host?: string; port?: number } = {}): Promise<void> {
   const config = await loadConfig(process.cwd());

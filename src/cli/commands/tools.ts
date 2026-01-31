@@ -1,7 +1,7 @@
-import { buildToolContext } from "../tools/context.js";
-import { createDefaultToolRegistry } from "../tools/registry.js";
-import { loadConfig } from "../config/io.js";
-import { isToolAllowed, resolveToolAllowlist, resolveToolPolicy } from "../tools/policy.js";
+import { buildToolContext } from "../../tools/context.js";
+import { createDefaultToolRegistry } from "../../tools/registry.js";
+import { loadConfig } from "../../config/io.js";
+import { isToolAllowed, resolveToolAllowlist, resolveToolPolicy } from "../../tools/policy.js";
 
 export async function toolsListCommand(opts: { json?: boolean; agentId?: string } = {}): Promise<void> {
   const registry = createDefaultToolRegistry();
