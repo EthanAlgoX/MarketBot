@@ -26,6 +26,7 @@ import {
 } from "../theme/theme.js";
 import { FilterableSelectList, type FilterableSelectItem } from "./filterable-select-list.js";
 import { SearchableSelectList } from "./searchable-select-list.js";
+import { TextInputOverlay } from "./text-input-overlay.js";
 
 export function createSelectList(items: SelectItem[], maxVisible = 7) {
   return new SelectList(items, maxVisible, selectListTheme);
@@ -37,6 +38,14 @@ export function createSearchableSelectList(items: SelectItem[], maxVisible = 7) 
 
 export function createFilterableSelectList(items: FilterableSelectItem[], maxVisible = 7) {
   return new FilterableSelectList(items, maxVisible, filterableSelectListTheme);
+}
+
+export function createTextInputOverlay(
+  tui: import("@mariozechner/pi-tui").TUI,
+  label: string,
+  initialValue = "",
+) {
+  return new TextInputOverlay(tui, label, initialValue);
 }
 
 export function createSettingsList(
