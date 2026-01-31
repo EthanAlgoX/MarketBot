@@ -160,7 +160,6 @@ export function buildProgram() {
         eligible: Boolean(opts.eligible),
         verbose: Boolean(opts.verbose),
         agentId: opts.agent,
-          sessionKey: opts.session,
       });
     });
 
@@ -175,7 +174,6 @@ export function buildProgram() {
         name,
         json: Boolean(opts.json),
         agentId: opts.agent,
-          sessionKey: opts.session,
       });
     });
 
@@ -192,7 +190,6 @@ export function buildProgram() {
         name: opts.name,
         scope: opts.scope === "workspace" ? "workspace" : "managed",
         agentId: opts.agent,
-          sessionKey: opts.session,
         force: Boolean(opts.force),
       });
     });
@@ -207,7 +204,6 @@ export function buildProgram() {
         name,
         scope: opts.scope === "workspace" ? "workspace" : "managed",
         agentId: opts.agent,
-          sessionKey: opts.session,
       });
     });
 
@@ -220,7 +216,6 @@ export function buildProgram() {
     .action(async (opts) => {
       await skillsSyncCommand({
         agentId: opts.agent,
-          sessionKey: opts.session,
         removeExtra: Boolean(opts.removeExtra),
       });
     });
@@ -238,7 +233,6 @@ export function buildProgram() {
         args,
         json: Boolean(opts.json),
         agentId: opts.agent,
-          sessionKey: opts.session,
       });
     });
 

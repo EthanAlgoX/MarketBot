@@ -59,4 +59,25 @@ export interface MarketBotConfig {
     jsonMode?: boolean;
     headers?: Record<string, string>;
   };
+  web?: {
+    search?: {
+      enabled?: boolean;
+      provider?: "perplexity" | "browser";
+      apiKey?: string;
+      apiKeyEnv?: string;
+      maxResults?: number;
+      headless?: boolean;
+    };
+    fetch?: {
+      enabled?: boolean;
+      maxChars?: number;
+      timeoutSeconds?: number;
+    };
+  };
+  notification?: {
+    wechat?: { webhookUrl?: string };
+    feishu?: { webhookUrl?: string };
+    telegram?: { botToken?: string; chatId?: string };
+    webhook?: { url?: string; bearerToken?: string };
+  };
 }

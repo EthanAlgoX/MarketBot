@@ -44,12 +44,12 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
         const sessionKey = (body.sessionKey as string | undefined)?.trim() || `agent:${agentId}:main`;
         const sessionStore = sessionEnabled
           ? new SessionStore({
-              agentId,
-              stateDir: config.sessions?.dir,
-              maxEntries: config.sessions?.maxEntries,
-              maxEntryChars: config.sessions?.maxEntryChars,
-              contextMaxChars: config.sessions?.contextMaxChars,
-            })
+            agentId,
+            stateDir: config.sessions?.dir,
+            maxEntries: config.sessions?.maxEntries,
+            maxEntryChars: config.sessions?.maxEntryChars,
+            contextMaxChars: config.sessions?.contextMaxChars,
+          })
           : undefined;
 
         const outputs = await runMarketBot({
@@ -61,10 +61,10 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
           includeTrace: Boolean(body.includeTrace),
           session: sessionStore
             ? {
-                key: sessionKey,
-                store: sessionStore,
-                includeContext: config.sessions?.includeContext,
-              }
+              key: sessionKey,
+              store: sessionStore,
+              includeContext: config.sessions?.includeContext,
+            }
             : undefined,
         });
 
@@ -73,7 +73,10 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
 
       if (req.method === "POST" && req.url === "/tools/invoke") {
         const body = await readJsonBody(req);
-        const toolName = typeof body?.name === "string" ? body.name.trim() : "";
+        if (!body) {
+          return sendJson(res, 400, { ok: false, error: "Missing request body" });
+        }
+        const toolName = typeof body.name === "string" ? body.name.trim() : "";
         if (!toolName) {
           return sendJson(res, 400, { ok: false, error: "Missing tool name" });
         }
