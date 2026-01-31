@@ -3,16 +3,30 @@ import type { LLMProvider } from "../llm.js";
 import { MockProvider } from "../llm.js";
 import { OpenAICompatibleProvider } from "./openaiCompatible.js";
 
-export function createProviderFromConfig(config: MarketBotConfig): LLMProvider {
+import { getCredentials } from "../auth/oauth.js";
+
+export async function createProviderFromConfigAsync(config: MarketBotConfig): Promise<LLMProvider> {
+  // 1. Check for OAuth Credentials (Subscriptions) - Priority 1
+  const creds = await getCredentials();
+  if (creds && creds.access_token) {
+    // Use Google Gemini via OpenAI Compatible endpoint with OAuth token
+    return new OpenAICompatibleProvider({
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      apiKey: creds.access_token,
+      model: "gemini-2.0-flash", // Default for subscription
+      timeoutMs: 30_000,
+    });
+  }
+
   const llm = config.llm ?? {};
 
-  // 1. If provider is explicitly configured, use it
+  // 2. If provider is explicitly configured, use it
   if (llm.provider) {
     if (llm.provider === "mock") return new MockProvider();
     return createExplicitProvider(llm);
   }
 
-  // 2. Auto-detect from Environment Variables (Zero-Config Mode)
+  // 3. Auto-detect from Environment Variables (Zero-Config Mode)
   // Priority 1: Gemini (Free Tier is popular)
   if (process.env.GEMINI_API_KEY) {
     return new OpenAICompatibleProvider({
@@ -35,6 +49,11 @@ export function createProviderFromConfig(config: MarketBotConfig): LLMProvider {
 
   // 3. Fallback to Mock
   return new MockProvider();
+}
+
+/** @deprecated Use createProviderFromConfigAsync instead */
+export function createProviderFromConfig(config: MarketBotConfig): LLMProvider {
+  throw new Error("Synchronous createProviderFromConfig is deprecated. Use createProviderFromConfigAsync.");
 }
 
 function createExplicitProvider(llm: NonNullable<MarketBotConfig["llm"]>): LLMProvider {

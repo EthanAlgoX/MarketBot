@@ -2,7 +2,7 @@
 // Uses the agent loop to autonomously call tools and generate analysis
 
 import { loadConfig } from "../../config/io.js";
-import { createProviderFromConfig } from "../../core/providers/registry.js";
+import { createProviderFromConfigAsync } from "../../core/providers/registry.js";
 import { runAgentLoop } from "../../core/agentLoop.js";
 import { createMarketBotTools } from "../../tools/marketbot.js";
 import { createToolBridge } from "../../tools/toolBridge.js";
@@ -65,7 +65,7 @@ export async function runAgenticAnalysis(
         config.llm.provider = "mock";
     }
 
-    const provider = createProviderFromConfig(config);
+    const provider = await createProviderFromConfigAsync(config);
 
     // Create tools and bridge
     const tools = createMarketBotTools();
