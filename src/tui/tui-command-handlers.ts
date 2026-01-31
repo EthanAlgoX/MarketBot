@@ -143,27 +143,48 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     }
   };
 
-  const checkProviderConfigured = (provider?: string, cfg?: any): boolean => {
-    if (!provider) return false;
+  const checkProviderStatus = (
+    provider?: string,
+    cfg?: any,
+  ): { status: "Configured" | "Unconfigured" | "Warning"; message?: string } => {
+    if (!provider) return { status: "Unconfigured" };
     const p = provider.toLowerCase();
-    let key = "";
 
-    // Check config first if available
+    let envKey = "";
+    if (p.includes("deepseek")) envKey = process.env.DEEPSEEK_API_KEY ?? "";
+    else if (p.includes("openai")) envKey = process.env.OPENAI_API_KEY ?? "";
+    else if (p.includes("anthropic")) envKey = process.env.ANTHROPIC_API_KEY ?? "";
+    else if (p.includes("gemini")) envKey = process.env.GEMINI_API_KEY ?? "";
+
+    const envIsPlaceholder = envKey.includes("placeholder");
+
+    // Check config
+    let configKey = "";
     if (cfg?.models?.providers) {
-      const provCfg = cfg.models.providers[p];
-      if (provCfg?.apiKey && !provCfg.apiKey.includes("placeholder")) {
-        return true;
+      configKey = cfg.models.providers[p]?.apiKey ?? "";
+    }
+    const configIsReal = configKey && !configKey.includes("placeholder");
+
+    if (configIsReal) {
+      if (envIsPlaceholder) {
+        return {
+          status: "Warning",
+          message: "⚠️ Configured (but env placeholder may override - restart gateway)",
+        };
       }
+      return { status: "Configured", message: "Configured" };
     }
 
-    if (p.includes("deepseek")) key = process.env.DEEPSEEK_API_KEY ?? "";
-    else if (p.includes("openai")) key = process.env.OPENAI_API_KEY ?? "";
-    else if (p.includes("anthropic")) key = process.env.ANTHROPIC_API_KEY ?? "";
-    else if (p.includes("gemini")) key = process.env.GEMINI_API_KEY ?? "";
-    else return true;
+    if (envKey && !envIsPlaceholder) {
+      return { status: "Configured", message: "Configured (via Env)" };
+    }
 
-    if (!key || key.includes("placeholder") || key === "") return false;
-    return true;
+    return { status: "Unconfigured", message: "⚠️ Unconfigured (Enter to set key)" };
+  };
+
+  const checkProviderConfigured = (provider?: string, cfg?: any): boolean => {
+    const res = checkProviderStatus(provider, cfg);
+    return res.status === "Configured" || res.status === "Warning";
   };
 
   const getProviderEnvVar = (provider: string): string | undefined => {
@@ -259,9 +280,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         .map((provider) => ({
           value: provider,
           label: provider,
-          description: checkProviderConfigured(provider, cfg)
-            ? "Configured"
-            : "⚠️ Unconfigured (Enter to set key)",
+          description: checkProviderStatus(provider, cfg).message,
         }));
 
       // Add "Skip" option
