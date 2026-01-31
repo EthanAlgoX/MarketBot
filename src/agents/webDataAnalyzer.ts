@@ -4,6 +4,8 @@ import type { LLMProvider } from "../core/llm.js";
 import { webSearch, searchMarketInfo, type WebSearchConfig, type WebSearchResult } from "../web/webSearch.js";
 import { webFetch, type WebFetchConfig, type WebFetchResult } from "../web/webFetch.js";
 import { analyzeWebContent, formatAnalysisReport, type WebAnalysisOutput } from "../web/webAnalyze.js";
+import { fetchQuoteSnapshot } from "../data/quotes.js";
+import { resolveSymbolFromText } from "../utils/symbols.js";
 
 export interface WebDataAnalyzerConfig {
     search?: WebSearchConfig;
@@ -11,6 +13,7 @@ export interface WebDataAnalyzerConfig {
     maxSearchQueries?: number;
     maxFetchUrls?: number;
     fetchCitations?: boolean;
+    enableQuoteSnapshot?: boolean;
 }
 
 export interface WebDataAnalyzerInput {
@@ -45,6 +48,16 @@ export async function runWebDataAnalyzer(
     const start = Date.now();
     const searchResults: WebSearchResult[] = [];
     const fetchedPages: WebFetchResult[] = [];
+
+    const resolvedSymbol = input.asset ?? resolveSymbolFromText(input.query);
+    let priceSnapshot;
+    if (resolvedSymbol && config?.enableQuoteSnapshot !== false) {
+        try {
+            priceSnapshot = await fetchQuoteSnapshot(resolvedSymbol);
+        } catch (error) {
+            console.warn(`Quote fetch failed for ${resolvedSymbol}:`, error);
+        }
+    }
 
     // Step 1: Primary search
     try {
@@ -87,6 +100,7 @@ export async function runWebDataAnalyzer(
         query: input.query,
         searchResults,
         fetchedPages,
+        priceSnapshot,
     });
 
     // Step 5: Generate report

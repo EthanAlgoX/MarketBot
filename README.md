@@ -2,42 +2,44 @@
 
 # 📈 MarketBot
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
-> 🤖 Multi-Agent 市场分析系统 | 支持 Crypto · 股票 · 外汇 | AI 驱动的决策仪表盘
+> 🤖 Multi-Agent Market Analysis System | Crypto · Stocks · Forex | AI-Powered Decision Dashboard
 
-[**功能特性**](#-功能特性) • [**快速开始**](#-快速开始) • [**架构设计**](#-架构设计) • [**配置指南**](#-配置指南)
+[**Features**](#-features) • [**Quick Start**](#-quick-start) • [**Architecture**](#-architecture) • [**Configuration**](#-configuration)
+
+English | [简体中文](README_CN.md)
 
 </div>
 
-## ✨ 功能特性
+## ✨ Features
 
-### 🎯 核心功能
+### 🎯 Core Features
 
-- **AI 决策仪表盘** - 一句话核心结论 + 精确买卖点位 + 风险检查清单
-- **多 Agent 协作** - 意图解析 → 市场体制 → 风险评估 → 反思综合 → 报告生成
-- **浏览器自动化** - 自动搜索新闻、抓取网页进行实时分析
-- **多市场支持** - Crypto、A股/港股/美股、外汇及任意可搜索资产
-- **多渠道推送** - 支持企业微信、飞书、Telegram、Webhook
+- **AI Decision Dashboard** - One-line conclusion + precise entry/exit levels + risk checklist
+- **Multi-Agent Collaboration** - Intent → Regime → Risk → Reflection → Report
+- **Browser Automation** - Auto-search news, scrape web pages for real-time analysis
+- **Multi-Market Support** - Crypto, US/HK/A-shares, Forex, and any searchable assets
+- **Multi-Channel Push** - WeChat Work, Feishu, Telegram, Webhook
 
-### 🛡️ 交易理念内置
+### 🛡️ Built-in Trading Philosophy
 
-- ❌ **严禁追高** - 乖离率 > 5% 自动标记「危险」
-- ✅ **趋势交易** - MA5 > MA10 > MA20 多头排列
-- 📍 **精确点位** - 入场价、止损价、目标价
-- 📋 **检查清单** - 每项条件用 ✅⚠️❌ 标记
+- ❌ **No Chasing** - Auto-flag "Danger" when deviation > 5%
+- ✅ **Trend Trading** - MA5 > MA10 > MA20 bullish alignment
+- 📍 **Precise Levels** - Entry, stop-loss, target prices
+- 📋 **Checklist** - Each condition marked with ✅⚠️❌
 
-### 📊 数据来源
+### 📊 Data Sources
 
-- **行情数据**: Yahoo Finance、Binance（自动切换）
-- **新闻搜索**: 浏览器自动化（DuckDuckGo/Bing）
-- **AI 分析**: OpenAI、DeepSeek、及其他 OpenAI 兼容 API
+- **Market Data**: Yahoo Finance, Binance (auto-switch)
+- **News Search**: Browser automation (DuckDuckGo/Bing)
+- **AI Analysis**: OpenAI, DeepSeek, and other OpenAI-compatible APIs
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 安装
+### 1. Installation
 
 ```bash
 git clone https://github.com/EthanAlgoX/MarketBot.git
@@ -46,85 +48,85 @@ npm install
 npm run build
 ```
 
-### 2. 配置 API Key
+### 2. Configure API Key
 
-**二选一（推荐 DeepSeek，性价比高）**
+**Choose one (DeepSeek recommended for cost-effectiveness)**
 
-| 变量 | 说明 | 获取地址 |
-|------|------|---------|
+| Variable | Description | Get it from |
+|----------|-------------|-------------|
 | `OPENAI_API_KEY` | OpenAI API Key | [platform.openai.com](https://platform.openai.com/) |
 | `DEEPSEEK_API_KEY` | DeepSeek API Key | [platform.deepseek.com](https://platform.deepseek.com/) |
 
 ```bash
-# 方式一：环境变量
+# Option 1: Environment variable
 export DEEPSEEK_API_KEY="sk-..."
 
-# 方式二：.env 文件
+# Option 2: .env file
 echo 'DEEPSEEK_API_KEY=sk-...' > .env
 ```
 
-### 3. 运行分析
+### 3. Run Analysis
 
 ```bash
-# 分析股票
-node dist/index.js web-analyze "GOOGL 股票分析"
+# Analyze stock
+node dist/index.js web-analyze "GOOGL stock analysis"
 
-# 分析加密货币
-node dist/index.js web-analyze "BTC 今日走势"
+# Analyze cryptocurrency
+node dist/index.js web-analyze "BTC price prediction"
 
-# 资产模式（自动搜索价格、新闻、情绪）
+# Asset mode (auto-search price, news, sentiment)
 node dist/index.js web-analyze --asset ETH
 ```
 
-### 4. 完成
+### 4. Done
 
-首次运行会自动下载 Chromium 浏览器用于网页搜索。
+First run will automatically download Chromium for web search.
 
-## 📱 输出效果
+## 📱 Output Example
 
-### 决策仪表盘
+### Decision Dashboard
 
 ```
-📄 AI 股票分析报告
+📄 AI Stock Analysis Report
 ---
 📅 2026-01-31 | AI Stock Trading Snapshot
 
-## 🟦 核心结论
+## 🟦 Core Conclusion
 
-| 方向 & 置信度 | 交易参数 | 核心逻辑 |
+| Direction & Confidence | Trading Params | Core Logic |
 |:---|:---|:---|
-| 🟢 LONG ↑ | 入场: $338.00 | Uptrend |
-| ⭐⭐⭐⭐☆ (80/100) | 止盈: $350.00 | 多头排列 |
-| **趋势向上** | 止损: $320.00 | MACD 金叉 |
+| 🟢 LONG ↑ | Entry: $338.00 | Uptrend |
+| ⭐⭐⭐⭐☆ (80/100) | TP: $350.00 | Bullish MA |
+| **Trending Up** | SL: $320.00 | MACD Cross |
 
-## 🟩 关键依据
+## 🟩 Key Drivers
 
-### 📊 技术面
-- 均线: 多头排列
-- MACD: 金叉
-- RSI: 正常区间
+### 📊 Technical
+- MA: Bullish alignment
+- MACD: Golden cross
+- RSI: Normal range
 
-### 📰 事件/基本面
-- 财报将于 2/4 发布
-- 分析师评级: Strong Buy
+### 📰 Events/Fundamentals
+- Earnings on 2/4
+- Analyst rating: Strong Buy
 
-## 🟥 风险 & 失效条件
+## 🟥 Risk & Invalidation
 
-- 市场波动风险
-- 日线收盘跌破 $320 失效
+- Market volatility risk
+- Invalidated if daily close < $320
 
 ---
-⚠️ 免责声明: 本报告由 AI 生成，仅供研究参考，不构成投资建议。
+⚠️ Disclaimer: AI-generated report for research only, not investment advice.
 ```
 
-## 🏗️ 架构设计
+## 🏗️ Architecture
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │                         MarketBot                               │
 ├────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │                 Core Pipeline (核心流水线)               │   │
+│  │                 Core Pipeline                            │   │
 │  │                                                          │   │
 │  │  Intent → Data → Interpret → Regime → Risk → Reflect    │   │
 │  │                           ↓                              │   │
@@ -132,40 +134,38 @@ node dist/index.js web-analyze --asset ETH
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │                  Specialized Agents (专业 Agent)         │   │
+│  │                  Specialized Agents                      │   │
 │  │                                                          │   │
 │  │  ┌────────────┐ ┌────────────┐ ┌─────────────────┐      │   │
 │  │  │IntentParser│ │MarketRegime│ │ RiskAssessment  │      │   │
-│  │  │  意图解析  │ │ 市场体制   │ │    风险评估     │      │   │
 │  │  └────────────┘ └────────────┘ └─────────────────┘      │   │
 │  │                                                          │   │
 │  │  ┌────────────┐ ┌────────────┐ ┌─────────────────┐      │   │
 │  │  │ Reflection │ │ ReportGen  │ │ WebDataAnalyzer │      │   │
-│  │  │  反思综合  │ │  报告生成  │ │    网页分析     │      │   │
 │  │  └────────────┘ └────────────┘ └─────────────────┘      │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-### Agent 模块
+### Agent Modules
 
-| Agent | 职责 | 输出 |
-|-------|------|------|
-| **IntentParser** | 解析用户查询意图 | asset, market, timeframes |
-| **MarketDataInterpreter** | 解读市场数据 | structure, volatility, momentum |
-| **MarketRegime** | 识别市场体制 | regime, strategy, confidence |
-| **RiskAssessment** | 评估交易风险 | risk_level, position_size |
-| **Reflection** | 综合分析、识别盲点 | confidence, alternatives |
-| **ReportGenerator** | 生成专业报告 | Markdown Report |
-| **WebDataAnalyzer** | 网页搜索+分析 | 搜索结果、分析报告 |
+| Agent | Responsibility | Output |
+|-------|----------------|--------|
+| **IntentParser** | Parse user query intent | asset, market, timeframes |
+| **MarketDataInterpreter** | Interpret market data | structure, volatility, momentum |
+| **MarketRegime** | Identify market regime | regime, strategy, confidence |
+| **RiskAssessment** | Evaluate trading risk | risk_level, position_size |
+| **Reflection** | Synthesize analysis | confidence, alternatives |
+| **ReportGenerator** | Generate pro report | Markdown Report |
+| **WebDataAnalyzer** | Web search + analysis | search results, report |
 
-## ⚙️ 配置指南
+## ⚙️ Configuration
 
-### LLM 提供商
+### LLM Provider
 
-创建 `marketbot.json`:
+Create `marketbot.json`:
 
-**OpenAI (默认)**
+**OpenAI (Default)**
 
 ```json
 {
@@ -178,7 +178,7 @@ node dist/index.js web-analyze --asset ETH
 }
 ```
 
-**DeepSeek (推荐)**
+**DeepSeek (Recommended)**
 
 ```json
 {
@@ -191,7 +191,7 @@ node dist/index.js web-analyze --asset ETH
 }
 ```
 
-### 浏览器配置
+### Browser Config
 
 ```json
 {
@@ -199,102 +199,91 @@ node dist/index.js web-analyze --asset ETH
     "search": {
       "provider": "browser",
       "maxResults": 5,
-      "headless": false
+      "headless": true
     }
   }
 }
 ```
 
-> 设置 `headless: true` 在后台运行浏览器
-
-### 通知渠道
-
-| Secret 名称 | 说明 |
-|------------|------|
-| `WECHAT_WEBHOOK_URL` | 企业微信 Webhook URL |
-| `FEISHU_WEBHOOK_URL` | 飞书 Webhook URL |
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token |
-| `TELEGRAM_CHAT_ID` | Telegram Chat ID |
-
 ## 🖥️ HTTP API
 
 ```bash
-# 启动服务器
+# Start server
 node dist/index.js server --port 8787
 
-# 健康检查
+# Health check
 curl http://127.0.0.1:8787/health
 
-# 分析请求
+# Analyze
 curl -X POST http://127.0.0.1:8787/analyze \
   -H "Content-Type: application/json" \
   -d '{"query":"Analyze BTC"}'
 ```
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 MarketBot/
 ├── src/
-│   ├── agents/          # 专业 Agent (7个)
-│   ├── core/            # 流水线、LLM 接口
-│   ├── pipeline/        # 股票分析流水线
-│   ├── service/         # 统一服务层
-│   ├── web/             # 浏览器搜索/抓取
-│   ├── tools/           # 工具调度
-│   ├── skills/          # 技能系统
-│   ├── commands/        # CLI 命令
-│   └── server/          # HTTP 服务器
-├── marketbot.json       # 配置文件
+│   ├── agents/          # Specialized Agents (7)
+│   ├── core/            # Pipeline, LLM interface
+│   ├── pipeline/        # Stock analysis pipeline
+│   ├── service/         # Unified service layer
+│   ├── web/             # Browser search/scrape
+│   ├── tools/           # Tool dispatch
+│   ├── skills/          # Skill system
+│   ├── commands/        # CLI commands
+│   └── server/          # HTTP server
+├── marketbot.json       # Config file
 └── package.json
 ```
 
 ## 🗺️ Roadmap
 
-### 🔔 通知渠道
+### 🔔 Notification Channels
 
-- [x] 企业微信机器人
-- [x] 飞书机器人
+- [x] WeChat Work Bot
+- [x] Feishu Bot
 - [x] Telegram Bot
-- [x] 自定义 Webhook
-- [ ] 邮件通知
+- [x] Custom Webhook
+- [ ] Email Notification
 
-### 🤖 AI 模型
+### 🤖 AI Models
 
 - [x] OpenAI GPT-4/GPT-4o
 - [x] DeepSeek
-- [x] 通义千问
-- [ ] 本地模型 (Ollama)
+- [x] Qwen
+- [ ] Local Models (Ollama)
 
-### 📊 数据源
+### 📊 Data Sources
 
 - [x] Yahoo Finance
 - [x] Binance
-- [x] 浏览器搜索
+- [x] Browser Search
 - [ ] Tushare Pro
 - [ ] AkShare
 
-### 🎯 功能增强
+### 🎯 Features
 
-- [x] 决策仪表盘
-- [x] 多 Agent 协作
-- [x] 一页式报告
+- [x] Decision Dashboard
+- [x] Multi-Agent Collaboration
+- [x] One-Page Report
 - [x] HTTP API
-- [ ] 历史分析回测
-- [ ] GitHub Actions 定时运行
+- [ ] Historical Backtesting
+- [ ] GitHub Actions Scheduled Run
 
-## ⚠️ 免责声明
+## ⚠️ Disclaimer
 
-本项目仅供学习和研究使用，不构成任何投资建议。股市有风险，投资需谨慎。作者不对使用本项目产生的任何损失负责。
+This project is for learning and research purposes only and does not constitute any investment advice. The stock market is risky, please invest cautiously. The author is not responsible for any losses resulting from the use of this project.
 
 ## 📄 License
 
-[MIT License](LICENSE) © 2026 EthanAlgoX
+[AGPL-3.0 License](LICENSE) © 2026 EthanAlgoX
 
 ---
 
 <div align="center">
 
-**如果觉得有用，请给个 ⭐ Star 支持一下！**
+**If you find it useful, please give it a ⭐ Star!**
 
 </div>

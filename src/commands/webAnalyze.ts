@@ -3,6 +3,7 @@
 import { loadConfig } from "../config/io.js";
 import { createProviderFromConfig } from "../core/providers/registry.js";
 import { runWebDataAnalyzer, marketWebAnalysis } from "../agents/webDataAnalyzer.js";
+import { resolveSymbolFromText } from "../utils/symbols.js";
 
 export interface WebAnalyzeOptions {
     query?: string;
@@ -15,6 +16,7 @@ export async function webAnalyzeCommand(options: WebAnalyzeOptions): Promise<voi
     const provider = createProviderFromConfig(config);
 
     const query = options.query || options.asset;
+    const resolvedAsset = options.asset || (query ? resolveSymbolFromText(query) : undefined);
     if (!query) {
         console.error("Error: Please provide a query or asset to analyze.");
         console.log("Usage: marketbot web-analyze <query>");
@@ -27,8 +29,8 @@ export async function webAnalyzeCommand(options: WebAnalyzeOptions): Promise<voi
 
     try {
         let result;
-        if (options.asset) {
-            result = await marketWebAnalysis(provider, options.asset, {
+        if (resolvedAsset) {
+            result = await marketWebAnalysis(provider, resolvedAsset, {
                 search: config.web?.search,
                 fetch: config.web?.fetch,
             });
