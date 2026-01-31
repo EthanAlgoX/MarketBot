@@ -50,6 +50,8 @@ const palette = {
   link: "#7DD3A5",
   error: "#F97066",
   success: "#7DD3A5",
+  overlayBg: "#1B1F26",
+  overlayTitle: "#F6C453",
   // Market-specific colors
   bullish: "#22C55E", // Green for positive/bullish
   bearish: "#EF4444", // Red for negative/bearish
@@ -104,6 +106,8 @@ export const theme = {
   border: fg(palette.border),
   bold: (text: string) => chalk.bold(text),
   italic: (text: string) => chalk.italic(text),
+  overlayBg: bg(palette.overlayBg),
+  overlayTitle: fg(palette.overlayTitle),
   // Market-specific styles
   bullish: fg(palette.bullish),
   bearish: fg(palette.bearish),

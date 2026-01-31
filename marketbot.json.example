@@ -1,0 +1,41 @@
+{
+  // MarketBot Finance Configuration
+  // Copy this to ~/.marketbot/marketbot.json
+
+  // Model Configuration
+  "model": {
+    "default": "deepseek/deepseek-chat",
+    "fallback": ["openai/gpt-4o", "anthropic/claude-sonnet-4-20250514"]
+  },
+
+  // Financial Skills (enabled by default)
+  "skills": {
+    "allowlist": [
+      "market-report",
+      "catalyst-tracker", 
+      "risk-checklist"
+    ]
+  },
+
+  // Web Search (required for market data)
+  "webSearch": {
+    "enabled": true,
+    "provider": "brave"
+    // Set BRAVE_API_KEY in .env
+  },
+
+  // Agent Settings
+  "agent": {
+    "main": {
+      "description": "MarketBot Finance - Financial Intelligence Agent",
+      "thinkingLevel": "on",
+      "reasoningLevel": "on"
+    }
+  },
+
+  // TUI Settings
+  "tui": {
+    "showThinking": false,
+    "toolsExpanded": false
+  }
+}
