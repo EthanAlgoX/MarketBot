@@ -78,7 +78,7 @@ export function createToolRunner(
         const startedAt = Date.now();
         let result: ToolResult;
         try {
-            result = await tool.run(context);
+            result = await runWithTimeout(tool, context);
         } catch (err) {
             const durationMs = Date.now() - startedAt;
             await appendToolLog({
@@ -113,6 +113,21 @@ export function createToolRunner(
             data: result.data,
         };
     };
+}
+
+async function runWithTimeout(tool: ToolSpec, context: ToolContext): Promise<ToolResult> {
+    if (!tool.timeoutMs || tool.timeoutMs <= 0) {
+        return tool.run(context);
+    }
+    return await Promise.race([
+        tool.run(context),
+        new Promise<ToolResult>((_, reject) => {
+            const timer = setTimeout(() => {
+                clearTimeout(timer);
+                reject(new Error(`Tool timeout after ${tool.timeoutMs}ms`));
+            }, tool.timeoutMs);
+        }),
+    ]);
 }
 
 /**

@@ -16,19 +16,23 @@ export type ToolLogEntry = {
 };
 
 export async function appendToolLog(entry: Omit<ToolLogEntry, "ts">, context: ToolContext): Promise<void> {
-  const config = await loadConfig(context.cwd, { validate: true });
-  const agentId = context.agentId ?? "main";
-  const workspaceDir = resolveAgentWorkspaceDir(config, agentId, context.cwd);
-  const logsDir = path.join(workspaceDir, "logs");
-  const filePath = path.join(logsDir, "tools.log.jsonl");
+  try {
+    const config = await loadConfig(context.cwd, { validate: true });
+    const agentId = context.agentId ?? "main";
+    const workspaceDir = resolveAgentWorkspaceDir(config, agentId, context.cwd);
+    const logsDir = path.join(workspaceDir, "logs");
+    const filePath = path.join(logsDir, "tools.log.jsonl");
 
-  await fs.mkdir(logsDir, { recursive: true });
+    await fs.mkdir(logsDir, { recursive: true });
 
-  const payload: ToolLogEntry = {
-    ts: new Date().toISOString(),
-    ...entry,
-  };
+    const payload: ToolLogEntry = {
+      ts: new Date().toISOString(),
+      ...entry,
+    };
 
-  const line = JSON.stringify(payload);
-  await fs.appendFile(filePath, `${line}\n`, "utf8");
+    const line = JSON.stringify(payload);
+    await fs.appendFile(filePath, `${line}\n`, "utf8");
+  } catch {
+    // Ignore logging errors to avoid breaking tool execution
+  }
 }

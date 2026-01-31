@@ -20,6 +20,7 @@ import { SessionStore } from "../session/store.js";
 import { buildToolContext } from "../tools/context.js";
 import { createDefaultToolRegistry } from "../tools/registry.js";
 import { isToolAllowed, resolveToolPolicy } from "../tools/policy.js";
+import { appendToolLog } from "../tools/toolLogging.js";
 
 export interface HttpServerOptions {
   host?: string;
@@ -222,8 +223,16 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
           : Array.isArray(body.args)
             ? body.args.join(" ")
             : "";
-        const context = buildToolContext(rawArgs);
+        const context = buildToolContext(rawArgs, process.cwd(), agentId);
+        const startedAt = Date.now();
         const result = await tool.run(context);
+        await appendToolLog({
+          name: tool.name,
+          ok: result.ok,
+          durationMs: Date.now() - startedAt,
+          input: rawArgs,
+          output: result.output,
+        }, context);
         return sendJson(res, 200, { ok: result.ok, result });
       }
 

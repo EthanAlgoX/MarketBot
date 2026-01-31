@@ -82,7 +82,7 @@ export class MockProvider implements LLMProvider {
                         asset,
                         market,
                         timeframes: ["1h", "4h", "1d"],
-                        mode: "mock"
+                        mode: "auto"
                     })
                 }],
                 finishReason: "tool_calls",

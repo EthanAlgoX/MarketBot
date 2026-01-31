@@ -13,7 +13,7 @@ import {
   skillsSyncCommand,
   skillsRunCommand,
 } from "./commands/skills.js";
-import { toolsInfoCommand, toolsListCommand, toolsRunCommand } from "./commands/tools.js";
+import { toolsInfoCommand, toolsListCommand, toolsRunCommand, toolsLogCommand } from "./commands/tools.js";
 import { setupCommand } from "./commands/setup.js";
 import { serverCommand } from "./commands/server.js";
 import { createDefaultDeps } from "./deps.js";
@@ -335,6 +335,17 @@ export function buildProgram() {
     .option("--agent <id>", "Agent id (maps to tool policy)")
     .action(async (name: string, args: string[], opts) => {
       await toolsRunCommand({ name, args, json: Boolean(opts.json), agentId: opts.agent });
+    });
+
+  tools
+    .command("log")
+    .description("Show recent tool invocations")
+    .option("--limit <n>", "Number of entries to show", "20")
+    .option("--json", "Output JSON", false)
+    .option("--agent <id>", "Agent id (maps to workspace)")
+    .action(async (opts) => {
+      const limit = opts.limit ? Number(opts.limit) : undefined;
+      await toolsLogCommand({ limit, json: Boolean(opts.json), agentId: opts.agent });
     });
 
   return program;

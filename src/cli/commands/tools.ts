@@ -1,8 +1,12 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+
 import { buildToolContext } from "../../tools/context.js";
 import { createDefaultToolRegistry } from "../../tools/registry.js";
 import { loadConfig } from "../../config/io.js";
 import { isToolAllowed, resolveToolAllowlist, resolveToolPolicy } from "../../tools/policy.js";
 import { appendToolLog } from "../../tools/toolLogging.js";
+import { resolveAgentWorkspaceDir } from "../../agents/agentScope.js";
 
 export async function toolsListCommand(opts: { json?: boolean; agentId?: string } = {}): Promise<void> {
   const registry = createDefaultToolRegistry();
@@ -108,21 +112,94 @@ export async function toolsRunCommand(opts: { name: string; args: string[]; json
 
   const context = buildToolContext(opts.args.join(" "), process.cwd(), opts.agentId);
   const startedAt = Date.now();
-  const result = await tool.run(context);
-  await appendToolLog({
-    name: tool.name,
-    ok: result.ok,
-    durationMs: Date.now() - startedAt,
-    input: opts.args.join(" "),
-    output: result.output,
-  }, context);
+  try {
+    const result = await runToolWithTimeout(tool, context);
+    await appendToolLog({
+      name: tool.name,
+      ok: result.ok,
+      durationMs: Date.now() - startedAt,
+      input: opts.args.join(" "),
+      output: result.output,
+    }, context);
+    if (opts.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
 
-  if (opts.json) {
-    console.log(JSON.stringify(result, null, 2));
+    console.log(result.output);
+  } catch (err) {
+    await appendToolLog({
+      name: tool.name,
+      ok: false,
+      durationMs: Date.now() - startedAt,
+      input: opts.args.join(" "),
+      error: err instanceof Error ? err.message : String(err),
+    }, context);
+    throw err;
+  }
+
+  return;
+}
+
+async function runToolWithTimeout(
+  tool: { run: (context: any) => Promise<any>; timeoutMs?: number },
+  context: ReturnType<typeof buildToolContext>,
+): Promise<any> {
+  const timeoutMs = (tool as { timeoutMs?: number }).timeoutMs;
+  if (!timeoutMs || timeoutMs <= 0) {
+    return tool.run(context as any);
+  }
+  return await Promise.race([
+    tool.run(context as any),
+    new Promise((_, reject) => {
+      const timer = setTimeout(() => {
+        clearTimeout(timer);
+        reject(new Error(`Tool timeout after ${timeoutMs}ms`));
+      }, timeoutMs);
+    }),
+  ]);
+}
+
+export async function toolsLogCommand(opts: { limit?: number; json?: boolean; agentId?: string } = {}): Promise<void> {
+  const config = await loadConfig(process.cwd(), { validate: true });
+  const agentId = opts.agentId ?? "main";
+  const workspaceDir = resolveAgentWorkspaceDir(config, agentId, process.cwd());
+  const logPath = path.join(workspaceDir, "logs", "tools.log.jsonl");
+
+  let content = "";
+  try {
+    content = await fs.readFile(logPath, "utf8");
+  } catch {
+    if (opts.json) {
+      console.log(JSON.stringify({ logs: [] }, null, 2));
+    } else {
+      console.log("No tool logs found.");
+    }
     return;
   }
 
-  console.log(result.output);
+  const lines = content.trim().split(/\r?\n/).filter(Boolean);
+  const limit = opts.limit && Number.isFinite(opts.limit) ? Math.max(1, opts.limit) : 20;
+  const slice = lines.slice(-limit).map((line) => {
+    try {
+      return JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      return { raw: line };
+    }
+  });
+
+  if (opts.json) {
+    console.log(JSON.stringify({ logs: slice }, null, 2));
+    return;
+  }
+
+  for (const entry of slice) {
+    const ts = typeof entry.ts === "string" ? entry.ts : "";
+    const name = typeof entry.name === "string" ? entry.name : "";
+    const ok = entry.ok === true ? "ok" : "err";
+    const durationMs = typeof entry.durationMs === "number" ? `${entry.durationMs}ms` : "";
+    console.log(`${ts} ${name} ${ok} ${durationMs}`.trim());
+  }
 }
 
 function filterAllowedTools(
