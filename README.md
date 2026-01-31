@@ -1,62 +1,161 @@
-# MarketBot (TypeScript)
+# MarketBot
 
-MarketBot is a multi-agent **market analysis** system for crypto, stocks, and forex. It produces conditional, risk-aware reports and **does not** generate buy/sell signals.
+> 🤖 Multi-Agent 市场分析系统 | Crypto · Stocks · Forex
 
-## Who it's for
+MarketBot 是一个基于 TypeScript 的多 Agent 市场分析系统，通过协作式 AI Agent 提供风险感知的分析报告。
 
-- Developers building automated analysis pipelines or dashboards
-- MarketBot users who want repeatable, explainable market summaries
+## ✨ 特性
 
-## Key features
+- 🔗 **多 Agent 协作** - 意图解析、市场体制、风险评估、反思综合
+- 🌐 **浏览器自动化** - 自动搜索、抓取网页进行实时分析
+- 📊 **多市场支持** - Crypto、股票、外汇及任意可搜索资产
+- 🔌 **可扩展** - Skills 技能系统 + Tools 工具调度
+- 💾 **会话持久化** - 支持历史记录和上下文
 
-- Multi-agent workflows with configurable agents and prompts
-- Supports crypto, stocks, and forex (plus any asset that can be searched)
-- Automatic web search + page fetching via browser automation
-- Skills + tools dispatch system with allowlists and policy profiles
-- Live data modes with providers and scrape fallbacks
-- Session history with configurable storage limits
-- HTTP server for programmatic access
+---
 
-## Quick start
+## 🚀 快速开始
 
 ```bash
-npm install
-npm run build
-node dist/index.js setup
-node dist/index.js analyze "Analyze BTC short-term"
+# 安装
+npm install && npm run build
+
+# 配置 API Key
+export OPENAI_API_KEY="sk-..."   # 或 DeepSeek
+export DEEPSEEK_API_KEY="sk-..."
+
+# 运行分析
+node dist/index.js web-analyze "BTC 今日走势分析"
+node dist/index.js web-analyze --asset GOOGL
 ```
 
-Run tests:
+---
 
-```bash
-npm test
+## 🏗️ 架构设计
+
+### 系统架构图
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                         MarketBot                               │
+├────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                 Core Pipeline (核心流水线)               │   │
+│  │                                                          │   │
+│  │  Intent → Data → Interpret → Regime → Risk → Reflect    │   │
+│  │                           ↓                              │   │
+│  │                     Report Generator                     │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                              │                                  │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                  Specialized Agents                      │   │
+│  │                                                          │   │
+│  │  ┌────────────┐ ┌────────────┐ ┌─────────────────┐      │   │
+│  │  │IntentParser│ │MarketRegime│ │ RiskAssessment  │      │   │
+│  │  │  意图解析  │ │ 市场体制   │ │    风险评估     │      │   │
+│  │  └────────────┘ └────────────┘ └─────────────────┘      │   │
+│  │                                                          │   │
+│  │  ┌────────────┐ ┌────────────┐ ┌─────────────────┐      │   │
+│  │  │ Reflection │ │ ReportGen  │ │ WebDataAnalyzer │      │   │
+│  │  │  反思综合  │ │  报告生成  │ │    网页分析     │      │   │
+│  │  └────────────┘ └────────────┘ └─────────────────┘      │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    AgentLoop 执行循环                    │   │
+│  │      request → context → LLM → tools → reply → session  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-Legacy CLI alias: `tradebot` (prints a deprecation warning).
+### Agent 模块
 
-## Web search & analysis
+| Agent | 职责 | 输出 |
+|-------|------|------|
+| **IntentParser** | 解析用户查询意图 | asset, market, timeframes |
+| **MarketDataInterpreter** | 解读市场数据 | structure, volatility, momentum |
+| **MarketRegime** | 识别市场体制 | regime, strategy, confidence |
+| **RiskAssessment** | 评估交易风险 | risk_level, position_size |
+| **Reflection** | 综合分析、识别盲点 | confidence, alternatives |
+| **ReportGenerator** | 生成专业报告 | Markdown Report |
+| **WebDataAnalyzer** | 网页搜索+分析 | 搜索结果、分析报告 |
 
-使用浏览器自动化搜索网页并分析交易相关信息：
+### 目录结构
+
+```
+src/
+├── agents/          # Agent 实现 (7个专业 Agent)
+├── core/            # 流水线、LLM 接口
+├── pipeline/        # 股票分析流水线
+├── service/         # 统一服务层
+├── gateway/         # 消息网关
+├── web/             # 浏览器搜索、抓取
+├── data/            # 市场数据服务
+├── tools/           # 工具调度
+├── skills/          # 技能系统
+├── commands/        # CLI 命令
+└── server/          # HTTP 服务器
+```
+
+---
+
+## 📖 使用指南
+
+### Web 搜索分析
 
 ```bash
-# 使用 OpenAI (默认)
-OPENAI_API_KEY="sk-..." node dist/index.js web-analyze "BTC 今日走势分析"
+# OpenAI (默认)
+OPENAI_API_KEY="sk-..." node dist/index.js web-analyze "BTC 分析"
 
-# 使用 DeepSeek
-DEEPSEEK_API_KEY="sk-..." node dist/index.js web-analyze "GOOGL 股票分析"
+# DeepSeek
+DEEPSEEK_API_KEY="sk-..." node dist/index.js web-analyze "GOOGL 股票"
 
-# 资产分析（自动搜索价格、新闻、市场情绪）
-OPENAI_API_KEY="..." node dist/index.js web-analyze --asset ETH
+# 资产模式
+node dist/index.js web-analyze --asset ETH
 
 # JSON 输出
-node dist/index.js web-analyze "SOL price prediction" --json
+node dist/index.js web-analyze "SOL analysis" --json
 ```
 
-### LLM 配置
+### HTTP API
+
+```bash
+# 启动服务器
+node dist/index.js server --port 8787
+
+# 调用分析
+curl -X POST http://127.0.0.1:8787/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Analyze BTC"}'
+```
+
+### Agent 管理
+
+```bash
+node dist/index.js agents list
+node dist/index.js agents add analyst --name "Analyst" --default
+node dist/index.js analyze --agent analyst "Analyze AAPL"
+```
+
+### Skills & Tools
+
+```bash
+# Skills
+node dist/index.js skills list
+node dist/index.js skills install /path/to/skill
+
+# Tools
+node dist/index.js tools list
+node dist/index.js tools run market_fetch
+```
+
+---
+
+## ⚙️ 配置
+
+### LLM 提供商
 
 **OpenAI (默认)**
-
-配置 `marketbot.json`:
 
 ```json
 {
@@ -82,7 +181,7 @@ node dist/index.js web-analyze "SOL price prediction" --json
 }
 ```
 
-**浏览器搜索配置**
+### 浏览器配置
 
 ```json
 {
@@ -90,161 +189,15 @@ node dist/index.js web-analyze "SOL price prediction" --json
     "search": {
       "provider": "browser",
       "maxResults": 5,
-      "headless": true
+      "headless": false
     }
   }
 }
 ```
 
-> Tip: 设置 `apiKeyEnv` 为任意环境变量名称（如 `LLM_API_KEY`）以兼容其他 OpenAI 格式的 API。
+### 完整配置示例
 
-## Live data & scraping
-
-Live data uses providers by default and falls back to web search/scraping when enabled:
-
-```bash
-DATA_MODE=auto ENABLE_WEB_SEARCH=true \
-SCRAPE_ALLOWLIST="finance.yahoo.com,binance.com" \
-node dist/index.js analyze --live --search "Analyze AAPL swing"
-```
-
-Environment variables:
-
-- `DATA_MODE`: `mock` | `auto` | `api` | `scrape`
-- `ENABLE_WEB_SEARCH`: set to `true` to allow search + scrape fallback
-- `SCRAPE_ALLOWLIST`: comma-separated domains permitted for scraping
-- `DATA_TIMEOUT_MS`: request timeout (ms)
-- `SERPAPI_KEY` or `BING_SEARCH_KEY`: for web search providers
-- `BINANCE_ENABLED`: set to `false` to disable Binance provider
-- `YAHOO_FINANCE_ENABLED`: set to `false` to disable Yahoo Finance provider
-
-## Agents
-
-```bash
-node dist/index.js agents list
-node dist/index.js agents add analyst --name "Analyst" --default
-node dist/index.js analyze --agent analyst "Analyze AAPL swing"
-```
-
-If you pass `--agent`, make sure it exists in `marketbot.json` (use `marketbot agents add`).
-
-## Skills & tools
-
-Skills:
-
-```bash
-node dist/index.js skills list
-node dist/index.js skills list --agent analyst
-node dist/index.js skills check --eligible --verbose
-node dist/index.js skills install /path/to/skill
-node dist/index.js skills install https://github.com/org/skill-repo --name custom-skill
-node dist/index.js skills remove custom-skill
-node dist/index.js skills info custom-skill
-node dist/index.js skills sync --agent analyst --remove-extra
-node dist/index.js skills run chart-reader analyze "https://example.com/chart.png"
-```
-
-Built-in tools for skill dispatch: `echo`, `http_get`, `market_fetch`, `indicators_compute`, `report_render`, `market_summary`.
-
-Tools CLI:
-
-```bash
-node dist/index.js tools list
-node dist/index.js tools info market_fetch
-node dist/index.js tools run echo "hello"
-```
-
-Tool policy profiles:
-
-- `minimal` (safe subset)
-- `analysis` (default)
-- `full` (all tools)
-
-Per-agent overrides are supported via `agents.list[].tools`.
-
-## HTTP server
-
-```bash
-node dist/index.js server --port 8787
-
-curl -X POST http://127.0.0.1:8787/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"query":"Analyze BTC short-term"}'
-```
-
-## Sessions
-
-MarketBot can store session history for each agent run. Configure via:
-
-- `sessions.enabled`
-- `sessions.dir`
-- `sessions.maxEntries`
-- `sessions.maxEntryChars`
-- `sessions.contextMaxChars`
-- `sessions.includeContext`
-
-## Config + workspace
-
-- Config file: `marketbot.json` in repo root (override with `MARKETBOT_CONFIG_PATH`)
-- Default workspace can be overridden with `MARKETBOT_WORKSPACE_DIR`
-- Extra skills directories: `MARKETBOT_SKILLS_DIRS` (comma-separated)
-- Managed skills dir: `MARKETBOT_MANAGED_SKILLS_DIR` or `skills.managedDir`
-- Skills allowlist/denylist: `skills.allowlist` / `skills.denylist`
-- Tools allow/deny: `tools.profile` or `tools.allow` / `tools.deny`
-- Skill watcher: `skills.watch` and `skills.watchDebounceMs`
-- HTTP server config: `server.host` / `server.port` or env `MARKETBOT_SERVER_HOST` / `MARKETBOT_SERVER_PORT`
-
-Sample `marketbot.json`:
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "workspace": "./marketbot-workspace",
-      "ensureBootstrap": true
-    },
-    "list": [
-      { "id": "main", "name": "MarketBot", "default": true }
-    ]
-  },
-  "llm": {
-    "provider": "mock"
-  },
-  "skills": {
-    "allowlist": ["news-fetcher", "chart-reader"],
-    "entries": {
-      "news-fetcher": { "enabled": true }
-    }
-  },
-  "tools": {
-    "profile": "analysis"
-  },
-  "sessions": {
-    "enabled": true,
-    "maxEntries": 20
-  }
-}
-```
-
-## LLM providers
-
-MarketBot 支持 `mock` 和 `openai-compatible` 两种 LLM 提供商。
-
-### OpenAI (默认)
-
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "gpt-4o-mini",
-    "baseUrl": "https://api.openai.com/v1",
-    "apiKeyEnv": "OPENAI_API_KEY",
-    "jsonMode": true
-  }
-}
-```
-
-### DeepSeek
+创建 `marketbot.json`:
 
 ```json
 {
@@ -253,37 +206,57 @@ MarketBot 支持 `mock` 和 `openai-compatible` 两种 LLM 提供商。
     "model": "deepseek-chat",
     "baseUrl": "https://api.deepseek.com/v1",
     "apiKeyEnv": "DEEPSEEK_API_KEY"
-  }
+  },
+  "web": {
+    "search": { "provider": "browser", "maxResults": 5, "headless": true }
+  },
+  "agents": {
+    "defaults": { "workspace": "./marketbot-workspace" },
+    "list": [{ "id": "main", "name": "MarketBot", "default": true }]
+  },
+  "tools": { "profile": "analysis" },
+  "sessions": { "enabled": true, "maxEntries": 20 }
 }
 ```
 
-### 其他 OpenAI 兼容 API
+---
 
-```json
-{
-  "llm": {
-    "provider": "openai-compatible",
-    "model": "your-model",
-    "baseUrl": "https://your-endpoint/v1",
-    "apiKeyEnv": "LLM_API_KEY"
-  }
-}
+## 🔧 环境变量
+
+| 变量 | 说明 |
+|------|------|
+| `OPENAI_API_KEY` | OpenAI API Key |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key |
+| `DATA_MODE` | `mock` / `auto` / `api` / `scrape` |
+| `ENABLE_WEB_SEARCH` | 启用网页搜索 |
+| `MARKETBOT_CONFIG_PATH` | 配置文件路径 |
+
+---
+
+## 📋 报告格式
+
+生成的分析报告采用专业一页式结构：
+
+```
+📄 AI 股票分析报告
+├── 🟦 核心结论 (Signal, Entry/TP/SL)
+├── 🟨 市场状态 (Regime, Trend)
+├── 🟩 关键依据 (技术面, 事件)
+├── 🟥 风险警示 (风险, 失效条件)
+├── 📝 分析摘要
+└── 🟪 AI 自检 & 免责声明
 ```
 
-> 如需非 OpenAI 兼容的 API，可在 `src/core/llm.ts` 中实现自定义 `LLMProvider`。
+---
 
-## Notes
+## ⚠️ 免责声明
 
-- This is **decision-support analysis**, not trading advice.
-- The CLI defaults to mock market data unless `--live`/`DATA_MODE` is set.
-- Prompts live in `src/prompts/` and agent runners live in `src/agents/`.
-- Workspace files (AGENTS.md/SOUL.md/TOOLS.md/etc) live under `marketbot-workspace/` by default.
+- 本系统为 **决策支持分析**，不构成投资建议
+- CLI 默认使用 mock 数据，需 `--live` 启用实时数据
+- 投资有风险，入市需谨慎
 
-## Structure
+---
 
-- `src/agents/` agent runners + specs
-- `src/core/` pipeline and LLM interface
-- `src/data/` mock market data
-- `src/prompts/` system + agent prompts
-- `src/web/` web search, fetch, and browser automation
-- `src/commands/` CLI commands including web-analyze
+## 📜 License
+
+MIT
