@@ -2,88 +2,160 @@
   <img src="assets/logo.png" width="120" alt="MarketBot Finance Logo">
 </p>
 
-# 📈 MarketBot Finance
+# MarketBot Finance
 
-> **Autonomous Financial Intelligence & Quantitative Analysis Engine**
+> **Autonomous Financial Intelligence Agent with Multi-Channel Messaging**
 
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL_v3-blue.svg)](LICENSE)
-[![Focus: Finance](https://img.shields.io/badge/focus-finance-success.svg)](#)
-[![Status: Beta](https://img.shields.io/badge/status-beta-orange.svg)](#)
-[![Built with: TypeScript](https://img.shields.io/badge/built%20with-TypeScript-blue.svg)](#)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green)](https://nodejs.org/)
 
-**MarketBot Finance** is a high-performance, programmable financial agent designed to autonomously analyze markets, aggregate economic intelligence, and provide actionable trading insights. Built on a multi-agent reasoning framework, it bridges the gap between raw market data and high-stakes decision making.
-
----
-
-## 💎 Core Pillars
-
-### 🧠 Deep Reasoning & Multi-Agent Logic
-
-MarketBot Finance doesn't just fetch data; it *understands* it. By coordinating multiple specialized agents, it can cross-reference technical signals with sentiment analysis and fundamental reports.
-
-### 🌐 Autonomous Market Research
-
-When data is missing or out-of-date, MarketBot Finance launches its own browser-based research sessions to hunt for real-time news, filings, and sentiment indicators across the web.
-
-### 🔌 Extensible Skill Architecture
-
-A professional-grade plugin system allows you to build custom data pipelines, proprietary indicators, and specialized analysis workflows in TypeScript.
+MarketBot Finance is an autonomous AI agent designed for financial analysis and market intelligence. It operates across multiple messaging platforms (Discord, Telegram, Signal, Slack, WhatsApp, iMessage) and provides deep reasoning capabilities through a multi-agent architecture.
 
 ---
 
-## 🏛️ Architecture
+## Architecture
 
 ```mermaid
-graph TD
-    Data[Market Data / Web / Filings] --> |Ingest| Gateway[MarketBot Gateway]
-    Gateway --> |Route| Agent[Multi-Agent Reasoning]
-    Agent --> |Call| Tools[Technical / Sentiment Tools]
-    Tools --> |Return| Agent
-    Agent --> |Analyze| Output[Actionable Intelligence]
-    Output --> |Deliver| UI[Terminal TUI / Web / Signal]
+graph TB
+    subgraph Channels["📡 Channels"]
+        Discord[Discord]
+        Telegram[Telegram]
+        Signal[Signal]
+        Slack[Slack]
+        WhatsApp[WhatsApp]
+        iMessage[iMessage]
+        Web[Web UI]
+    end
+
+    subgraph Core["🧠 Core"]
+        Gateway[Gateway]
+        Agents[Multi-Agent Reasoning]
+        Memory[Memory & Context]
+    end
+
+    subgraph Tools["🔧 Tools"]
+        Browser[Browser Automation]
+        Skills[Skills & Plugins]
+        Media[Media Understanding]
+    end
+
+    Channels --> Gateway
+    Gateway --> Agents
+    Agents --> Memory
+    Agents --> Tools
+    Tools --> Agents
+    Agents --> Gateway
+    Gateway --> Channels
 ```
 
 ---
 
-## 🚀 Quick Start
+## Core Components
 
-### 1. Installation
+| Component | Description |
+|-----------|-------------|
+| **Gateway** | Central message routing and channel orchestration |
+| **Agents** | Multi-agent LLM reasoning with financial specialization |
+| **Channels** | Discord, Telegram, Signal, Slack, WhatsApp, iMessage integrations |
+| **Browser** | Headless browser for web research and data scraping |
+| **Skills** | Extensible plugin system for custom analysis workflows |
+| **Daemon** | Background service management and scheduling |
+| **TUI/CLI** | Interactive terminal interface and command-line tools |
+| **Web UI** | Dashboard for configuration and monitoring |
+
+---
+
+## Quick Start
+
+### Installation
 
 ```bash
-git clone https://github.com/yourusername/marketbot.git
-cd marketbot
+git clone https://github.com/EthanAlgoX/MarketBot.git
+cd MarketBot
 pnpm install
 pnpm build
 ```
 
-### 2. Launch the Control Center (TUI)
-
-Experience the full power of MarketBot through its interactive terminal interface:
+### Launch
 
 ```bash
+# Interactive Terminal UI
 pnpm tui
+
+# Start as Daemon
+pnpm daemon start
+
+# Run CLI Commands
+pnpm cli --help
 ```
 
-### 3. Example Queries
+---
 
-- `Evaluate NVDA technicals against current semiconductor sentiment.`
-- `Analyze BTC support levels using Volume Profile and RSI.`
-- `Scan for latest FOMC minutes and summarize market impact.`
+## Configuration
+
+Create a `.env` file based on `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Key environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `LLM_PROVIDER` | AI provider (openai, anthropic, gemini, etc.) |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `GOOGLE_AI_API_KEY` | Google AI API key |
 
 ---
 
-## 🛠️ Specialized Tooling
+## Skills & Extensibility
 
-MarketBot Finance includes built-in tools for:
+MarketBot supports a modular skill system. Browse available skills:
 
-- **Web Research**: Headless browser automation for real-time data scraping.
-- **Data Analysis**: Local and LLM-driven quantitative auditing.
-- **Multimodal**: Image analysis for chart pattern recognition.
-- **Connectivity**: Integrated delivery via Signal, Telegram, Slack, and Discord.
+```bash
+pnpm cli skills list
+```
+
+Install a skill:
+
+```bash
+pnpm cli skills install <skill-name>
+```
+
+Create custom skills in the `skills/` directory following the plugin SDK.
 
 ---
 
-## 📜 License
+## Deployment
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
-See [LICENSE](LICENSE) for details.
+### Docker
+
+```bash
+docker-compose up -d
+```
+
+### Systemd (Linux)
+
+```bash
+pnpm cli daemon install
+sudo systemctl enable marketbot
+sudo systemctl start marketbot
+```
+
+---
+
+## Documentation
+
+- [CLI Reference](docs/cli/index.md)
+- [Agent Configuration](docs/concepts/agent.md)
+- [Skill Development](docs/cli/skills.md)
+- [Channel Setup](docs/concepts/group-messages.md)
+
+---
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [LICENSE](LICENSE) for details.
