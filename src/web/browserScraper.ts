@@ -48,15 +48,23 @@ export async function launchBrowser(config?: BrowserConfig): Promise<void> {
     if (browserInstance) return;
 
     const puppeteer = await getPuppeteer();
+    // Default to visible browser (headless: false) for debugging
+    // Set headless: true in config to run in background
+    const headless = config?.headless === true;
+
+    console.log(`🌐 Launching browser (headless: ${headless})...`);
+
     browserInstance = await puppeteer.launch({
-        headless: config?.headless !== false ? true : false,
+        headless: headless,
         args: [
             "--no-sandbox",
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
             "--disable-accelerated-2d-canvas",
             "--disable-gpu",
+            "--window-size=1280,800",
         ],
+        defaultViewport: { width: 1280, height: 800 },
     });
 }
 
@@ -157,6 +165,15 @@ export async function searchDuckDuckGo(
             const results: Array<{ title: string; url: string; snippet: string }> = [];
             const elements = document.querySelectorAll(".result");
 
+            // Helper to check for garbled text
+            const isGarbled = (text: string) => {
+                // Check for replacement char, control chars, or mostly non-printable
+                if (/[\ufffd\u0000-\u001f]/.test(text)) return true;
+                // Check for common GBK mojibake patterns
+                if (/[�\ufffd]{2,}/.test(text)) return true;
+                return false;
+            };
+
             elements.forEach((el) => {
                 const linkEl = el.querySelector(".result__a");
                 const snippetEl = el.querySelector(".result__snippet");
@@ -177,8 +194,18 @@ export async function searchDuckDuckGo(
                         }
                     }
 
+                    let title = linkEl.textContent?.trim() || "";
+                    // If title is garbled, use hostname as fallback
+                    if (isGarbled(title)) {
+                        try {
+                            title = new URL(url).hostname;
+                        } catch {
+                            title = url;
+                        }
+                    }
+
                     results.push({
-                        title: linkEl.textContent?.trim() || "",
+                        title,
                         url,
                         snippet: snippetEl?.textContent?.trim() || "",
                     });
@@ -230,9 +257,21 @@ export async function scrapePageContent(
             };
         });
 
+        // Filter out garbled titles (common pattern: contains replacement characters)
+        let cleanTitle = data.title;
+        if (/[\ufffd\u0000-\u001f]/.test(cleanTitle) || /^[�\?]+/.test(cleanTitle)) {
+            // Try to extract from URL
+            try {
+                const urlObj = new URL(url);
+                cleanTitle = urlObj.hostname;
+            } catch {
+                cleanTitle = url;
+            }
+        }
+
         return {
             url,
-            title: data.title,
+            title: cleanTitle,
             content: data.content,
             scrapedAt: new Date().toISOString(),
         };
