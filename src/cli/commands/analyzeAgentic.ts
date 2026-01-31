@@ -28,6 +28,7 @@ export interface AgenticAnalyzeOptions {
     query: string;
     maxIterations?: number;
     verbose?: boolean;
+    mock?: boolean;
     onToolCall?: (toolName: string, args: string) => void;
 }
 
@@ -45,10 +46,16 @@ export interface AgenticAnalyzeResult {
 export async function runAgenticAnalysis(
     options: AgenticAnalyzeOptions
 ): Promise<AgenticAnalyzeResult> {
-    const { query, maxIterations = 10, verbose = false, onToolCall } = options;
+    const { query, maxIterations = 10, verbose = false, mock = false, onToolCall } = options;
 
     // Load config and create provider
     const config = await loadConfig(process.cwd(), { validate: true });
+
+    if (mock) {
+        if (!config.llm) config.llm = {};
+        config.llm.provider = "mock";
+    }
+
     const provider = createProviderFromConfig(config);
 
     // Create tools and bridge
