@@ -93,7 +93,7 @@ export async function runMarketBot({
       if (recordTrace) {
         phases.push({ phase, startedAt: startedAtIso, endedAt: endedAtIso, durationMs, ok: true });
       }
-      onPhase?.({ phase, status: "end", startedAt: startedAtIso, endedAt: endedAtIso, durationMs });
+      onPhase?.({ phase, status: "end", startedAt: startedAtIso, endedAt: endedAtIso, durationMs, detail: result });
       return result;
     } catch (err) {
       const endedAt = new Date();

@@ -1,9 +1,9 @@
 {
     "llm": {
         "provider": "openai-compatible",
-        "model": "gpt-4o-mini",
-        "baseUrl": "https://api.openai.com/v1",
-        "apiKeyEnv": "OPENAI_API_KEY",
+        "model": "deepseek-chat",
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKeyEnv": "DEEPSEEK_API_KEY",
         "timeoutMs": 60000,
         "jsonMode": true
     },

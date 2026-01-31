@@ -124,6 +124,7 @@ export interface MarketBotRunPhaseEvent {
     endedAt?: string;
     durationMs?: number;
     error?: string;
+    detail?: unknown;
 }
 
 export interface MarketBotRunPhaseResult {
