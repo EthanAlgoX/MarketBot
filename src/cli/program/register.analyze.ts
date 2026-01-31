@@ -31,6 +31,7 @@ const ANALYSIS_SYSTEM_PROMPT = [
   "Prioritize accuracy, cite assumptions, and separate facts from hypotheses.",
   "Return concise, structured analysis with clear risk/invalidation levels.",
   "If live data is missing, state the limitation and suggest what to check next.",
+  "If tool calls fail, continue with best-effort analysis and explain the failure.",
 ].join("\n");
 
 type AnalyzeOptions = {
@@ -86,6 +87,11 @@ function buildAnalysisMessage(opts: AnalyzeOptions): string {
   if (opts.news) {
     context.push("Include recent catalysts/news and macro drivers.");
   }
+  context.push(
+    opts.news
+      ? "Web tools are allowed for recent data/news."
+      : "Do not use web tools; proceed with assumptions.",
+  );
 
   if (context.length > 0) {
     parts.push(`\nContext:\n- ${context.join("\n- ")}`);
