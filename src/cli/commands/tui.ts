@@ -1,6 +1,6 @@
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { select } from "@inquirer/prompts";
+import { select, password } from "@inquirer/prompts";
 import { createDefaultDeps } from "../deps.js";
 import { loadConfig } from "../../config/io.js";
 import { resolveAgentConfig, resolveDefaultAgentId } from "../../agents/agentScope.js";
@@ -62,6 +62,125 @@ async function showCommandMenu(): Promise<string | null> {
   }
 }
 
+async function showProviderMenu(currentProvider?: string): Promise<string | null> {
+  try {
+    const answer = await select({
+      message: `Select LLM provider (current: ${currentProvider ?? "auto"})`,
+      choices: [
+        { name: "OpenAI (ChatGPT, GPT-4o)", value: "openai" },
+        { name: "Gemini (Google AI)", value: "gemini" },
+        { name: "Claude (Anthropic)", value: "claude" },
+        { name: "DeepSeek (深度求索)", value: "deepseek" },
+        { name: "Qwen (阿里通义千问)", value: "qwen" },
+        { name: "Moonshot (月之暗面 Kimi)", value: "moonshot" },
+        { name: "Ollama (Local LLM)", value: "ollama" },
+        { name: "Auto (detect from credentials)", value: "auto" },
+      ],
+      pageSize: 10,
+    });
+    return answer;
+  } catch {
+    return null;
+  }
+}
+
+const PROVIDER_API_INFO: Record<string, { envVar: string; name: string; baseUrl: string; defaultModel: string }> = {
+  openai: { envVar: "OPENAI_API_KEY", name: "OpenAI", baseUrl: "https://api.openai.com/v1", defaultModel: "gpt-4o-mini" },
+  gemini: { envVar: "GEMINI_API_KEY", name: "Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", defaultModel: "gemini-2.0-flash" },
+  claude: { envVar: "ANTHROPIC_API_KEY", name: "Claude/Anthropic", baseUrl: "https://api.anthropic.com/v1", defaultModel: "claude-3-haiku-20240307" },
+  deepseek: { envVar: "DEEPSEEK_API_KEY", name: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", defaultModel: "deepseek-chat" },
+  qwen: { envVar: "DASHSCOPE_API_KEY", name: "Qwen/DashScope", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", defaultModel: "qwen-plus" },
+  moonshot: { envVar: "MOONSHOT_API_KEY", name: "Moonshot", baseUrl: "https://api.moonshot.cn/v1", defaultModel: "moonshot-v1-8k" },
+};
+
+async function testApiConnection(provider: string, apiKey: string): Promise<{ success: boolean; message: string; model?: string }> {
+  const info = PROVIDER_API_INFO[provider];
+  if (!info) return { success: true, message: "Skipped (no API key required)" };
+
+  console.log(`⏳ Testing connection to ${info.name}...`);
+
+  try {
+    // First try to list models to verify API key works
+    const modelsRes = await fetch(`${info.baseUrl}/models`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        ...(provider === "claude" ? { "anthropic-version": "2023-06-01" } : {}),
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (modelsRes.ok) {
+      const data = await modelsRes.json() as { data?: Array<{ id: string }> };
+      const modelCount = Array.isArray(data.data) ? data.data.length : 0;
+      return {
+        success: true,
+        message: `Connected successfully! Found ${modelCount} available models.`,
+        model: info.defaultModel,
+      };
+    }
+
+    // If models endpoint fails (some providers don't support it), try a minimal chat completion
+    const chatRes = await fetch(`${info.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        ...(provider === "claude" ? { "anthropic-version": "2023-06-01" } : {}),
+      },
+      body: JSON.stringify({
+        model: info.defaultModel,
+        messages: [{ role: "user", content: "hi" }],
+        max_tokens: 1,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (chatRes.ok) {
+      return {
+        success: true,
+        message: `Connected successfully! Model: ${info.defaultModel}`,
+        model: info.defaultModel,
+      };
+    }
+
+    const errorData = await chatRes.text();
+    // Check for common error patterns
+    if (chatRes.status === 401 || errorData.includes("invalid_api_key") || errorData.includes("Unauthorized")) {
+      return { success: false, message: "Invalid API key. Please check and try again." };
+    }
+    if (chatRes.status === 403) {
+      return { success: false, message: "API key lacks required permissions." };
+    }
+    if (errorData.includes("insufficient_quota") || errorData.includes("rate_limit")) {
+      return { success: true, message: `Connected (quota/rate limit warning). Model: ${info.defaultModel}`, model: info.defaultModel };
+    }
+
+    return { success: false, message: `Connection failed (${chatRes.status}): ${errorData.slice(0, 100)}` };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("timeout") || msg.includes("TimeoutError")) {
+      return { success: false, message: "Connection timeout. Check your network or try again." };
+    }
+    return { success: false, message: `Connection error: ${msg}` };
+  }
+}
+
+async function promptForApiKey(provider: string): Promise<string | null> {
+  const info = PROVIDER_API_INFO[provider];
+  if (!info) return null; // Ollama and auto don't need API key
+
+  try {
+    const key = await password({
+      message: `Enter ${info.name} API Key (${info.envVar}):`,
+      mask: "*",
+    });
+    return key?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
   const rl = readline.createInterface({
     input,
@@ -81,12 +200,13 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
     sessionKey: opts.sessionKey,
     llmModel: undefined as string | undefined,
     llmProvider: undefined as string | undefined,
+    apiKeys: {} as Record<string, string>,
     history: [] as string[],
   };
 
   console.log("\nMarketBot TUI");
   console.log("Type a query and press Enter.");
-  console.log('Commands: "/help", "/exit"\n');
+  console.log('Type "/" for command menu\n');
 
   let exiting = false;
   rl.on("SIGINT", () => {
@@ -94,13 +214,56 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
     rl.close();
   });
 
+  // Custom input that detects "/" and auto-shows menu
+  async function getInput(): Promise<string | null> {
+    return new Promise((resolve) => {
+      process.stdout.write("mb> ");
+
+      const onKeypress = async (char: string, key: { name?: string; ctrl?: boolean }) => {
+        if (key?.ctrl && key.name === "c") {
+          input.removeListener("keypress", onKeypress);
+          input.setRawMode(false);
+          resolve(null);
+          return;
+        }
+
+        if (char === "/") {
+          input.removeListener("keypress", onKeypress);
+          input.setRawMode(false);
+          process.stdout.write("/\n");
+
+          // Show menu immediately
+          const selectedCommand = await showCommandMenu();
+          resolve(selectedCommand);
+          return;
+        }
+
+        // For any other character, fall back to regular readline
+        input.removeListener("keypress", onKeypress);
+        input.setRawMode(false);
+
+        // Put the character back and use readline for the rest
+        const restOfLine = await rl.question(char);
+        resolve(char + restOfLine);
+      };
+
+      input.setRawMode(true);
+      input.resume();
+      input.on("keypress", onKeypress);
+    });
+  }
+
   while (!exiting) {
-    let line = "";
+    let line: string | null = "";
     try {
-      line = await rl.question("mb> ");
+      line = await getInput();
     } catch (err) {
       if (String(err).includes("readline was closed")) break;
       throw err;
+    }
+    if (line === null) {
+      exiting = true;
+      break;
     }
     const trimmed = line.trim();
 
@@ -117,6 +280,45 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
         const message = await openModelSelector(state, rl, handled.filter);
         if (message) console.log(message);
       }
+      if (handled.action === "provider") {
+        const selected = await showProviderMenu(state.llmProvider);
+        if (selected && selected !== "auto") {
+          state.llmProvider = selected;
+          // Always prompt for API key for providers that need it
+          const info = PROVIDER_API_INFO[selected];
+          if (info && !state.apiKeys[selected]) {
+            const hasEnvKey = Boolean(process.env[info.envVar]);
+            if (hasEnvKey) {
+              console.log(`ℹ Using ${info.envVar} from environment. Press Enter to keep, or enter new key to override.`);
+            }
+            const key = await promptForApiKey(selected);
+            if (key) {
+              state.apiKeys[selected] = key;
+              // Test connection with the new API key
+              const testResult = await testApiConnection(selected, key);
+              if (testResult.success) {
+                console.log(`✓ ${testResult.message}`);
+              } else {
+                console.log(`✗ ${testResult.message}`);
+              }
+            } else if (hasEnvKey) {
+              // Test connection with environment key
+              const testResult = await testApiConnection(selected, process.env[info.envVar]!);
+              if (testResult.success) {
+                console.log(`✓ ${testResult.message}`);
+              } else {
+                console.log(`✗ ${testResult.message}`);
+              }
+            } else {
+              console.log(`⚠ No API key provided. Set ${info.envVar} or use /provider to enter again.`);
+            }
+          }
+          console.log(`provider: ${state.llmProvider}`);
+        } else if (selected === "auto") {
+          state.llmProvider = undefined;
+          console.log("provider: auto");
+        }
+      }
       if (handled.runQuery) {
         await runQuery(handled.runQuery, state, deps, rl);
       }
@@ -130,6 +332,45 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
       if (handled.action === "models") {
         const message = await openModelSelector(state, rl, handled.filter);
         if (message) console.log(message);
+      }
+      if (handled.action === "provider") {
+        const selected = await showProviderMenu(state.llmProvider);
+        if (selected && selected !== "auto") {
+          state.llmProvider = selected;
+          // Always prompt for API key for providers that need it
+          const info = PROVIDER_API_INFO[selected];
+          if (info && !state.apiKeys[selected]) {
+            const hasEnvKey = Boolean(process.env[info.envVar]);
+            if (hasEnvKey) {
+              console.log(`ℹ Using ${info.envVar} from environment. Press Enter to keep, or enter new key to override.`);
+            }
+            const key = await promptForApiKey(selected);
+            if (key) {
+              state.apiKeys[selected] = key;
+              // Test connection with the new API key
+              const testResult = await testApiConnection(selected, key);
+              if (testResult.success) {
+                console.log(`✓ ${testResult.message}`);
+              } else {
+                console.log(`✗ ${testResult.message}`);
+              }
+            } else if (hasEnvKey) {
+              // Test connection with environment key
+              const testResult = await testApiConnection(selected, process.env[info.envVar]!);
+              if (testResult.success) {
+                console.log(`✓ ${testResult.message}`);
+              } else {
+                console.log(`✗ ${testResult.message}`);
+              }
+            } else {
+              console.log(`⚠ No API key provided. Set ${info.envVar} or use /provider to enter again.`);
+            }
+          }
+          console.log(`provider: ${state.llmProvider}`);
+        } else if (selected === "auto") {
+          state.llmProvider = undefined;
+          console.log("provider: auto");
+        }
       }
       if (handled.runQuery) {
         await runQuery(handled.runQuery, state, deps, rl);
@@ -156,7 +397,7 @@ function handleCommand(input: string, state: {
   llmModel?: string;
   llmProvider?: string;
   history: string[];
-}): { exit?: boolean; message?: string; runQuery?: string; action?: "models"; filter?: string } {
+}): { exit?: boolean; message?: string; runQuery?: string; action?: "models" | "provider"; filter?: string } {
   const [command, ...args] = input.slice(1).split(/\s+/);
   const arg = args[0];
 
@@ -283,8 +524,11 @@ function handleCommand(input: string, state: {
       state.llmModel = arg;
       return { message: `model: ${arg}` };
     case "provider": {
-      const VALID_PROVIDERS = ["openai", "gemini", "auto"];
-      if (!arg || arg === "status" || arg === "current") {
+      const VALID_PROVIDERS = ["openai", "gemini", "claude", "deepseek", "qwen", "moonshot", "ollama", "auto"];
+      if (!arg) {
+        return { action: "provider" };
+      }
+      if (arg === "status" || arg === "current") {
         return { message: `provider: ${state.llmProvider ?? "auto"}` };
       }
       if (arg === "auto" || arg === "clear") {
@@ -320,6 +564,9 @@ async function runQuery(
     scrape: boolean;
     agentId?: string;
     sessionKey?: string;
+    llmModel?: string;
+    llmProvider?: string;
+    apiKeys: Record<string, string>;
     history: string[];
   },
   deps: ReturnType<typeof createDefaultDeps>,
@@ -352,6 +599,8 @@ async function runAnalysis(
     agentId?: string;
     sessionKey?: string;
     llmModel?: string;
+    llmProvider?: string;
+    apiKeys: Record<string, string>;
   },
   deps: ReturnType<typeof createDefaultDeps>,
 ): Promise<string> {
@@ -379,6 +628,73 @@ async function runAnalysis(
   if (state.mock) {
     if (!config.llm) config.llm = {};
     config.llm.provider = "mock";
+  }
+
+  // Apply TUI provider and API key selection
+  if (state.llmProvider && !state.mock) {
+    if (!config.llm) config.llm = {};
+    const sessionKey = state.apiKeys[state.llmProvider];
+
+    switch (state.llmProvider) {
+      case "openai":
+        config.llm.provider = "openai-compatible";
+        config.llm.baseUrl = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
+        if (sessionKey) config.llm.apiKey = sessionKey;
+        break;
+      case "gemini":
+        config.llm.provider = "openai-compatible"; // Uses OpenAI-compatible API
+        config.llm.baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
+        if (sessionKey) config.llm.apiKey = sessionKey;
+        else if (process.env.GEMINI_API_KEY) config.llm.apiKey = process.env.GEMINI_API_KEY;
+        break;
+      case "claude":
+        config.llm.provider = "openai-compatible";
+        config.llm.baseUrl = "https://api.anthropic.com/v1";
+        config.llm.headers = { ...config.llm.headers, "anthropic-version": "2023-06-01" };
+        if (sessionKey) config.llm.apiKey = sessionKey;
+        else if (process.env.ANTHROPIC_API_KEY) config.llm.apiKey = process.env.ANTHROPIC_API_KEY;
+        break;
+      case "deepseek":
+        config.llm.provider = "openai-compatible";
+        config.llm.baseUrl = "https://api.deepseek.com/v1";
+        // Override model unless already set to a deepseek model
+        if (!config.llm.model || !config.llm.model.startsWith("deepseek")) {
+          config.llm.model = "deepseek-chat";
+        }
+        if (sessionKey) config.llm.apiKey = sessionKey;
+        else if (process.env.DEEPSEEK_API_KEY) config.llm.apiKey = process.env.DEEPSEEK_API_KEY;
+        break;
+      case "qwen":
+        config.llm.provider = "openai-compatible";
+        config.llm.baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+        // Override model unless already set to a qwen model
+        if (!config.llm.model || !config.llm.model.startsWith("qwen")) {
+          config.llm.model = "qwen-plus";
+        }
+        if (sessionKey) config.llm.apiKey = sessionKey;
+        else if (process.env.DASHSCOPE_API_KEY) config.llm.apiKey = process.env.DASHSCOPE_API_KEY;
+        else if (process.env.QWEN_API_KEY) config.llm.apiKey = process.env.QWEN_API_KEY;
+        break;
+      case "moonshot":
+        config.llm.provider = "openai-compatible";
+        config.llm.baseUrl = "https://api.moonshot.cn/v1";
+        // Override model unless already set to a moonshot model
+        if (!config.llm.model || !config.llm.model.startsWith("moonshot")) {
+          config.llm.model = "moonshot-v1-8k";
+        }
+        if (sessionKey) config.llm.apiKey = sessionKey;
+        else if (process.env.MOONSHOT_API_KEY) config.llm.apiKey = process.env.MOONSHOT_API_KEY;
+        break;
+      case "ollama":
+        config.llm.provider = "openai-compatible";
+        config.llm.baseUrl = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
+        // Override model unless already set to a local model (not gpt/gemini/claude/deepseek/qwen/moonshot)
+        if (!config.llm.model || /^(gpt|gemini|claude|deepseek|qwen|moonshot)/i.test(config.llm.model)) {
+          config.llm.model = "llama3.2";
+        }
+        config.llm.apiKey = "ollama";
+        break;
+    }
   }
 
   const provider = await deps.createProviderAsync(config);
@@ -575,7 +891,7 @@ function extractModelIds(payload: Record<string, unknown>): string[] {
 
 async function resolveModelListContext(
   config: Awaited<ReturnType<typeof loadConfig>>,
-  state: { mock: boolean; llmProvider?: string },
+  state: { mock: boolean; llmProvider?: string; apiKeys?: Record<string, string> },
 ): Promise<ModelListContext> {
   const llm = config.llm ?? {};
 
@@ -595,13 +911,15 @@ async function resolveModelListContext(
         source: "openai-oauth",
       };
     }
-    if (process.env.OPENAI_API_KEY) {
+    const sessionKey = state.apiKeys?.openai;
+    const envKey = process.env.OPENAI_API_KEY;
+    if (sessionKey || envKey) {
       return {
         kind: "openai-compatible",
         baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: sessionKey ?? envKey!,
         headers: llm.headers,
-        source: "env:OPENAI_API_KEY",
+        source: sessionKey ? "session" : "env:OPENAI_API_KEY",
       };
     }
     return { kind: "error", message: "OpenAI selected but no credentials found. Set OPENAI_API_KEY or login via OAuth." };
@@ -618,16 +936,89 @@ async function resolveModelListContext(
         source: "google-oauth",
       };
     }
-    if (process.env.GEMINI_API_KEY) {
+    const sessionKey = state.apiKeys?.gemini;
+    const envKey = process.env.GEMINI_API_KEY;
+    if (sessionKey || envKey) {
       return {
         kind: "openai-compatible",
         baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-        apiKey: process.env.GEMINI_API_KEY,
+        apiKey: sessionKey ?? envKey!,
         headers: llm.headers,
-        source: "env:GEMINI_API_KEY",
+        source: sessionKey ? "session" : "env:GEMINI_API_KEY",
       };
     }
     return { kind: "error", message: "Gemini selected but no credentials found. Set GEMINI_API_KEY or login via Google OAuth." };
+  }
+
+  if (state.llmProvider === "claude") {
+    const sessionKey = state.apiKeys?.claude;
+    const envKey = process.env.ANTHROPIC_API_KEY;
+    if (sessionKey || envKey) {
+      return {
+        kind: "openai-compatible",
+        baseUrl: "https://api.anthropic.com/v1",
+        apiKey: sessionKey ?? envKey!,
+        headers: { ...llm.headers, "anthropic-version": "2023-06-01" },
+        source: sessionKey ? "session" : "env:ANTHROPIC_API_KEY",
+      };
+    }
+    return { kind: "error", message: "Claude selected but no credentials found. Set ANTHROPIC_API_KEY." };
+  }
+
+  if (state.llmProvider === "deepseek") {
+    const sessionKey = state.apiKeys?.deepseek;
+    const envKey = process.env.DEEPSEEK_API_KEY;
+    if (sessionKey || envKey) {
+      return {
+        kind: "openai-compatible",
+        baseUrl: "https://api.deepseek.com/v1",
+        apiKey: sessionKey ?? envKey!,
+        headers: llm.headers,
+        source: sessionKey ? "session" : "env:DEEPSEEK_API_KEY",
+      };
+    }
+    return { kind: "error", message: "DeepSeek selected but no credentials found. Set DEEPSEEK_API_KEY." };
+  }
+
+  if (state.llmProvider === "qwen") {
+    const sessionKey = state.apiKeys?.qwen;
+    const envKey = process.env.DASHSCOPE_API_KEY ?? process.env.QWEN_API_KEY;
+    if (sessionKey || envKey) {
+      return {
+        kind: "openai-compatible",
+        baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        apiKey: sessionKey ?? envKey!,
+        headers: llm.headers,
+        source: sessionKey ? "session" : "env:DASHSCOPE_API_KEY",
+      };
+    }
+    return { kind: "error", message: "Qwen selected but no credentials found. Set DASHSCOPE_API_KEY or QWEN_API_KEY." };
+  }
+
+  if (state.llmProvider === "moonshot") {
+    const sessionKey = state.apiKeys?.moonshot;
+    const envKey = process.env.MOONSHOT_API_KEY;
+    if (sessionKey || envKey) {
+      return {
+        kind: "openai-compatible",
+        baseUrl: "https://api.moonshot.cn/v1",
+        apiKey: sessionKey ?? envKey!,
+        headers: llm.headers,
+        source: sessionKey ? "session" : "env:MOONSHOT_API_KEY",
+      };
+    }
+    return { kind: "error", message: "Moonshot selected but no credentials found. Set MOONSHOT_API_KEY." };
+  }
+
+  if (state.llmProvider === "ollama") {
+    const baseUrl = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
+    return {
+      kind: "openai-compatible",
+      baseUrl,
+      apiKey: "ollama", // Ollama doesn't need a real API key
+      headers: llm.headers,
+      source: "ollama-local",
+    };
   }
 
   // Auto-detect provider (original logic)

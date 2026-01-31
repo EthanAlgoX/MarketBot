@@ -12,7 +12,13 @@ export async function createProviderFromConfigAsync(config: MarketBotConfig): Pr
     return new MockProvider();
   }
 
-  // 1. Check for OAuth Credentials (Subscriptions) - Priority 1
+  // 1. If provider is explicitly configured (from TUI or config), use it FIRST
+  // This ensures TUI provider selection takes priority
+  if (llm.provider) {
+    return createExplicitProvider(llm);
+  }
+
+  // 2. Check for OAuth Credentials (Subscriptions)
   const openAiOAuth = await getCredentials("openai-codex");
   if (openAiOAuth && openAiOAuth.access_token) {
     return new OpenAICompatibleProvider({
@@ -32,11 +38,6 @@ export async function createProviderFromConfigAsync(config: MarketBotConfig): Pr
       model: "gemini-2.0-flash", // Default for subscription
       timeoutMs: 30_000,
     });
-  }
-
-  // 2. If provider is explicitly configured, use it
-  if (llm.provider) {
-    return createExplicitProvider(llm);
   }
 
   // 3. Auto-detect from Environment Variables (Zero-Config Mode)
