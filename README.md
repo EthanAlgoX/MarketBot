@@ -2,7 +2,7 @@
 
 MarketBot is a multi-agent **market analysis** system for crypto, stocks, and forex. It produces conditional, risk-aware reports and **does not** generate buy/sell signals.
 
-## Who it’s for
+## Who it's for
 
 - Developers building automated analysis pipelines or dashboards
 - MarketBot users who want repeatable, explainable market summaries
@@ -39,17 +39,37 @@ Legacy CLI alias: `tradebot` (prints a deprecation warning).
 使用浏览器自动化搜索网页并分析交易相关信息：
 
 ```bash
-# 自由查询
-DEEPSEEK_API_KEY="..." node dist/compat/tradebot.js web-analyze "BTC 今日走势分析"
+# 使用 OpenAI (默认)
+OPENAI_API_KEY="sk-..." node dist/index.js web-analyze "BTC 今日走势分析"
+
+# 使用 DeepSeek
+DEEPSEEK_API_KEY="sk-..." node dist/index.js web-analyze "GOOGL 股票分析"
 
 # 资产分析（自动搜索价格、新闻、市场情绪）
-DEEPSEEK_API_KEY="..." node dist/compat/tradebot.js web-analyze --asset ETH
+OPENAI_API_KEY="..." node dist/index.js web-analyze --asset ETH
 
 # JSON 输出
-DEEPSEEK_API_KEY="..." node dist/compat/tradebot.js web-analyze "SOL price prediction" --json
+node dist/index.js web-analyze "SOL price prediction" --json
 ```
 
+### LLM 配置
+
+**OpenAI (默认)**
+
 配置 `marketbot.json`:
+
+```json
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "gpt-4o-mini",
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKeyEnv": "OPENAI_API_KEY"
+  }
+}
+```
+
+**DeepSeek**
 
 ```json
 {
@@ -58,7 +78,14 @@ DEEPSEEK_API_KEY="..." node dist/compat/tradebot.js web-analyze "SOL price predi
     "model": "deepseek-chat",
     "baseUrl": "https://api.deepseek.com/v1",
     "apiKeyEnv": "DEEPSEEK_API_KEY"
-  },
+  }
+}
+```
+
+**浏览器搜索配置**
+
+```json
+{
   "web": {
     "search": {
       "provider": "browser",
@@ -68,6 +95,8 @@ DEEPSEEK_API_KEY="..." node dist/compat/tradebot.js web-analyze "SOL price predi
   }
 }
 ```
+
+> Tip: 设置 `apiKeyEnv` 为任意环境变量名称（如 `LLM_API_KEY`）以兼容其他 OpenAI 格式的 API。
 
 ## Live data & scraping
 
@@ -199,9 +228,9 @@ Sample `marketbot.json`:
 
 ## LLM providers
 
-MarketBot ships with `mock` and `openai-compatible` providers.
+MarketBot 支持 `mock` 和 `openai-compatible` 两种 LLM 提供商。
 
-Example:
+### OpenAI (默认)
 
 ```json
 {
@@ -214,6 +243,34 @@ Example:
   }
 }
 ```
+
+### DeepSeek
+
+```json
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "deepseek-chat",
+    "baseUrl": "https://api.deepseek.com/v1",
+    "apiKeyEnv": "DEEPSEEK_API_KEY"
+  }
+}
+```
+
+### 其他 OpenAI 兼容 API
+
+```json
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "your-model",
+    "baseUrl": "https://your-endpoint/v1",
+    "apiKeyEnv": "LLM_API_KEY"
+  }
+}
+```
+
+> 如需非 OpenAI 兼容的 API，可在 `src/core/llm.ts` 中实现自定义 `LLMProvider`。
 
 ## Notes
 
