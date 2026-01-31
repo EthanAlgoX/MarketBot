@@ -42,8 +42,17 @@ export async function discoverSkills(skillsDir: string): Promise<DynamicSkill[]>
                 const mod = jiti(indexPath);
                 const tools = resolveToolSpecs(mod);
                 skill.tools.push(...tools);
-            } catch (err) {
-                console.error(`[skills] Failed to load ${indexPath}:`, err);
+            } catch (err: any) {
+                // Suppress full stack trace for optional community skills
+                // Just log the message so user knows why it's missing
+                const msg = err instanceof Error ? err.message : String(err);
+                if (msg.includes("Cannot find module")) {
+                    console.warn(`[skills] Skipping ${id}: Missing dependency (${msg.split('\n')[0]})`);
+                } else if (msg.includes("Missing")) {
+                    console.warn(`[skills] Skipping ${id}: Configuration issue (${msg})`);
+                } else {
+                    console.warn(`[skills] Skipping ${id}: Load failed (${msg})`);
+                }
             }
         }
         return skill;
