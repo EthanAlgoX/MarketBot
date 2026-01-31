@@ -36,18 +36,19 @@ const GOOGLE_SCOPES = [
 // OpenAI Codex OAuth (ChatGPT subscription)
 const OPENAI_AUTH_URL = "https://auth.openai.com/oauth/authorize";
 const OPENAI_TOKEN_URL = "https://auth.openai.com/oauth/token";
+const OPENAI_DEFAULT_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const OPENAI_DEFAULT_REDIRECT_URI = "http://127.0.0.1:1455/auth/callback";
 const OPENAI_DEFAULT_SCOPES = "openid profile email offline_access";
 
 export async function login(provider: OAuthProvider = "google"): Promise<OAuthCredentials> {
   if (provider === "openai-codex") {
     const creds = await loginOpenAICodex();
-    await saveCredentials("openai-codex", creds);
+    await storeCredentials("openai-codex", creds);
     return creds;
   }
 
   const creds = await loginGoogle();
-  await saveCredentials("google", creds);
+  await storeCredentials("google", creds);
   return creds;
 }
 
@@ -88,7 +89,7 @@ export async function getCredentials(provider: OAuthProvider = "google"): Promis
   if (isExpired(creds)) {
     const refreshed = await tryRefresh(provider, creds);
     if (refreshed) {
-      await saveCredentials(provider, refreshed);
+      await storeCredentials(provider, refreshed);
       return refreshed;
     }
     console.warn("Token expired. Please login again.");
@@ -96,6 +97,59 @@ export async function getCredentials(provider: OAuthProvider = "google"): Promis
   }
 
   return creds;
+}
+
+export async function storeCredentials(provider: OAuthProvider, creds: OAuthCredentials): Promise<void> {
+  const store = await loadOAuthStore();
+  store.providers[provider] = creds;
+  await saveOAuthStore(store);
+}
+
+export function createOpenAiOAuthSession(params?: { redirectUri?: string }): {
+  authUrl: string;
+  state: string;
+  verifier: string;
+  redirectUri: string;
+} {
+  const clientId = resolveOpenAiClientId();
+
+  const { verifier, challenge } = generatePkce();
+  const state = randomBytes(16).toString("hex");
+  const redirectUri = params?.redirectUri || resolveOpenAiRedirectUri();
+  const authUrl = buildOpenAiAuthUrl({
+    clientId,
+    redirectUri,
+    state,
+    challenge,
+  });
+
+  return { authUrl, state, verifier, redirectUri };
+}
+
+export async function exchangeOpenAiOAuthCode(params: {
+  code: string;
+  verifier: string;
+  redirectUri: string;
+  clientId?: string;
+}): Promise<OAuthCredentials> {
+  const clientId = params.clientId ?? resolveOpenAiClientId();
+  return exchangeOpenAiCodeForTokens(params.code, params.verifier, clientId, params.redirectUri);
+}
+
+export async function waitForOpenAiOAuthCallback(params: {
+  state: string;
+  verifier: string;
+  redirectUri: string;
+}): Promise<OAuthCredentials> {
+  const { code } = await waitForLocalCallback({
+    expectedState: params.state,
+    redirectUri: params.redirectUri,
+  });
+  return exchangeOpenAiOAuthCode({
+    code,
+    verifier: params.verifier,
+    redirectUri: params.redirectUri,
+  });
 }
 
 async function loginGoogle(): Promise<OAuthCredentials> {
@@ -116,10 +170,7 @@ async function loginGoogle(): Promise<OAuthCredentials> {
 }
 
 async function loginOpenAICodex(): Promise<OAuthCredentials> {
-  const clientId = process.env.OPENAI_OAUTH_CLIENT_ID;
-  if (!clientId) {
-    throw new Error("Missing OPENAI_OAUTH_CLIENT_ID. Set it to enable OpenAI OAuth.");
-  }
+  const clientId = resolveOpenAiClientId();
 
   const { verifier, challenge } = generatePkce();
   const state = randomBytes(16).toString("hex");
@@ -321,12 +372,6 @@ async function saveOAuthStore(store: OAuthStore): Promise<void> {
   await fs.writeFile(OAUTH_STORE_FILE, JSON.stringify(store, null, 2));
 }
 
-async function saveCredentials(provider: OAuthProvider, creds: OAuthCredentials): Promise<void> {
-  const store = await loadOAuthStore();
-  store.providers[provider] = creds;
-  await saveOAuthStore(store);
-}
-
 async function readStoredCredentials(provider: OAuthProvider): Promise<OAuthCredentials | null> {
   const store = await loadOAuthStore();
   const creds = store.providers[provider];
@@ -372,8 +417,7 @@ async function tryRefresh(provider: OAuthProvider, creds: OAuthCredentials): Pro
 
 async function refreshOpenAiTokens(creds: OAuthCredentials): Promise<OAuthCredentials | null> {
   if (!creds.refresh_token) return null;
-  const clientId = process.env.OPENAI_OAUTH_CLIENT_ID;
-  if (!clientId) return null;
+  const clientId = resolveOpenAiClientId();
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -457,6 +501,10 @@ function base64UrlDecode(value: string): string {
 
 function resolveOpenAiRedirectUri(): string {
   return process.env.OPENAI_OAUTH_REDIRECT_URI || OPENAI_DEFAULT_REDIRECT_URI;
+}
+
+function resolveOpenAiClientId(): string {
+  return process.env.OPENAI_OAUTH_CLIENT_ID || OPENAI_DEFAULT_CLIENT_ID;
 }
 
 function resolveOpenAiScopes(): string {

@@ -2,7 +2,16 @@ import http from "node:http";
 
 import { renderGuiPage } from "./guiPage.js";
 
+import type { MarketBotConfig } from "../config/types.js";
 import { loadConfig } from "../config/io.js";
+import {
+  createOpenAiOAuthSession,
+  exchangeOpenAiOAuthCode,
+  getCredentials,
+  logout,
+  storeCredentials,
+  waitForOpenAiOAuthCallback,
+} from "../core/auth/oauth.js";
 import { createProviderFromConfigAsync } from "../core/providers/registry.js";
 import { runMarketBot } from "../core/pipeline.js";
 import { getMarketDataFromIntent, type MarketDataServiceOptions } from "../data/marketDataService.js";
@@ -22,6 +31,8 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 8787;
   const enableGui = options.enableGui ?? false;
+  const openAiSessions = new Map<string, { verifier: string; redirectUri: string; createdAt: number }>();
+  const openAiSessionTtlMs = 5 * 60 * 1000;
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -30,6 +41,101 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
       }
 
       if (req.method === "GET" && req.url === "/health") {
+        return sendJson(res, 200, { ok: true });
+      }
+
+      if (req.method === "POST" && req.url === "/auth/openai/start") {
+        const hasCustomConfig = Boolean(
+          process.env.OPENAI_OAUTH_CLIENT_ID || process.env.OPENAI_OAUTH_REDIRECT_URI,
+        );
+        const redirectUri = hasCustomConfig
+          ? process.env.OPENAI_OAUTH_REDIRECT_URI ??
+            `http://${req.headers.host || `${host}:${port}`}/auth/openai/callback`
+          : undefined;
+        const session = createOpenAiOAuthSession(redirectUri ? { redirectUri } : undefined);
+
+        if (hasCustomConfig) {
+          openAiSessions.set(session.state, {
+            verifier: session.verifier,
+            redirectUri: session.redirectUri,
+            createdAt: Date.now(),
+          });
+        } else {
+          void waitForOpenAiOAuthCallback({
+            state: session.state,
+            verifier: session.verifier,
+            redirectUri: session.redirectUri,
+          })
+            .then((creds) => storeCredentials("openai-codex", creds))
+            .catch((err) => {
+              console.error("OpenAI OAuth callback failed:", err);
+            });
+        }
+
+        return sendJson(res, 200, { ok: true, authUrl: session.authUrl });
+      }
+
+      if (req.method === "GET" && req.url.startsWith("/auth/openai/callback")) {
+        const url = new URL(req.url, `http://${req.headers.host || `${host}:${port}`}`);
+        const code = url.searchParams.get("code");
+        const state = url.searchParams.get("state");
+        const error = url.searchParams.get("error");
+
+        if (error) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.end(`<h1>Authentication failed</h1><p>${error}</p>`);
+          return;
+        }
+
+        if (!code || !state) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.end("<h1>Authentication failed</h1><p>Missing code/state.</p>");
+          return;
+        }
+
+        const session = openAiSessions.get(state);
+        if (!session) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.end("<h1>Authentication failed</h1><p>Invalid or expired session.</p>");
+          return;
+        }
+
+        if (Date.now() - session.createdAt > openAiSessionTtlMs) {
+          openAiSessions.delete(state);
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.end("<h1>Authentication failed</h1><p>Session expired. Please retry.</p>");
+          return;
+        }
+
+        const creds = await exchangeOpenAiOAuthCode({
+          code,
+          verifier: session.verifier,
+          redirectUri: session.redirectUri,
+        });
+        await storeCredentials("openai-codex", creds);
+        openAiSessions.delete(state);
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.end("<h1>Authenticated!</h1><p>You can close this window now.</p>");
+        return;
+      }
+
+      if (req.method === "GET" && req.url === "/auth/openai/status") {
+        const creds = await getCredentials("openai-codex");
+        return sendJson(res, 200, {
+          ok: true,
+          authenticated: Boolean(creds?.access_token),
+          expiresAt: creds?.expires_at ?? null,
+        });
+      }
+
+      if (req.method === "POST" && req.url === "/auth/openai/logout") {
+        await logout("openai-codex");
         return sendJson(res, 200, { ok: true });
       }
 
@@ -48,6 +154,10 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
         }
 
         const config = await loadConfig(process.cwd(), { validate: true });
+        const llmOverride = extractLlmOverride(body);
+        if (llmOverride) {
+          config.llm = { ...(config.llm ?? {}), ...llmOverride };
+        }
         if (body.mockLlm === true) {
           if (!config.llm) config.llm = {};
           config.llm.provider = "mock";
@@ -133,6 +243,30 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
       resolve(server);
     });
   });
+}
+
+function extractLlmOverride(body: Record<string, unknown>): Partial<NonNullable<MarketBotConfig["llm"]>> | null {
+  if (!body.llm || typeof body.llm !== "object") return null;
+  const raw = body.llm as Record<string, unknown>;
+  const allowedProvider = raw.provider === "openai-compatible" || raw.provider === "mock" ? raw.provider : undefined;
+  const model = typeof raw.model === "string" ? raw.model.trim() : undefined;
+  const baseUrl = typeof raw.baseUrl === "string" ? raw.baseUrl.trim() : undefined;
+  const apiKey = typeof raw.apiKey === "string" ? raw.apiKey.trim() : undefined;
+  const apiKeyEnv = typeof raw.apiKeyEnv === "string" ? raw.apiKeyEnv.trim() : undefined;
+  const jsonMode = typeof raw.jsonMode === "boolean" ? raw.jsonMode : undefined;
+  const timeoutMs =
+    typeof raw.timeoutMs === "number" && Number.isFinite(raw.timeoutMs) ? Math.max(1000, raw.timeoutMs) : undefined;
+
+  const result: Partial<NonNullable<MarketBotConfig["llm"]>> = {};
+  if (allowedProvider) result.provider = allowedProvider;
+  if (model) result.model = model;
+  if (baseUrl) result.baseUrl = baseUrl;
+  if (apiKey) result.apiKey = apiKey;
+  if (apiKeyEnv) result.apiKeyEnv = apiKeyEnv;
+  if (jsonMode !== undefined) result.jsonMode = jsonMode;
+  if (timeoutMs !== undefined) result.timeoutMs = timeoutMs;
+
+  return Object.keys(result).length ? result : null;
 }
 
 function resolveDataOptions(body: Record<string, unknown>): MarketDataServiceOptions | undefined {
