@@ -70,7 +70,7 @@ export async function analyzeCommand(opts: AnalyzeCommandOptions, deps: CliDeps)
         includeContext: config.sessions?.includeContext,
       }
       : undefined,
-    registry: createDefaultToolRegistry(),
+    registry: await createDefaultToolRegistry(),
   });
 
   if (opts.json) {

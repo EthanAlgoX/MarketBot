@@ -3,13 +3,14 @@ import path from "node:path";
 
 import { buildToolContext } from "../../tools/context.js";
 import { createDefaultToolRegistry } from "../../tools/registry.js";
+import type { ToolSpec } from "../../tools/types.js";
 import { loadConfig } from "../../config/io.js";
 import { isToolAllowed, resolveToolAllowlist, resolveToolPolicy } from "../../tools/policy.js";
 import { appendToolLog } from "../../tools/toolLogging.js";
 import { resolveAgentWorkspaceDir } from "../../agents/agentScope.js";
 
 export async function toolsListCommand(opts: { json?: boolean; agentId?: string } = {}): Promise<void> {
-  const registry = createDefaultToolRegistry();
+  const registry = await createDefaultToolRegistry();
   const config = await loadConfig();
   const allTools = registry.list();
   const policy = resolveToolPolicy(config, opts.agentId);
@@ -47,7 +48,7 @@ export async function toolsListCommand(opts: { json?: boolean; agentId?: string 
 }
 
 export async function toolsInfoCommand(opts: { name: string; json?: boolean; agentId?: string }): Promise<void> {
-  const registry = createDefaultToolRegistry();
+  const registry = await createDefaultToolRegistry();
   const config = await loadConfig();
   const tool = registry.get(opts.name);
   if (!tool) {
@@ -97,7 +98,7 @@ export async function toolsInfoCommand(opts: { name: string; json?: boolean; age
 }
 
 export async function toolsRunCommand(opts: { name: string; args: string[]; json?: boolean; agentId?: string }): Promise<void> {
-  const registry = createDefaultToolRegistry();
+  const registry = await createDefaultToolRegistry();
   const config = await loadConfig();
   const tool = registry.get(opts.name);
   if (!tool) {
@@ -203,7 +204,7 @@ export async function toolsLogCommand(opts: { limit?: number; json?: boolean; ag
 }
 
 function filterAllowedTools(
-  tools: Array<{ name: string; description?: string }>,
+  tools: ToolSpec[],
   policy: Parameters<typeof resolveToolAllowlist>[0],
 ) {
   const allowlist = resolveToolAllowlist(policy, tools.map((tool) => tool.name));

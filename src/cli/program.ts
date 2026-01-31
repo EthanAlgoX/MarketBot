@@ -19,7 +19,7 @@ import { serverCommand } from "./commands/server.js";
 import { createDefaultDeps } from "./deps.js";
 import { guiCommand } from "./commands/gui.js";
 import { tuiCommand } from "./commands/tui.js";
-
+import { doctorCommand } from "./commands/doctor.js";
 import { createAuthCommand } from "./commands/auth.js";
 
 export function buildProgram() {
@@ -31,6 +31,7 @@ export function buildProgram() {
     .version("0.1.0");
 
   program.addCommand(createAuthCommand());
+  program.addCommand(doctorCommand());
 
   program
     .command("analyze [query]")

@@ -13,12 +13,14 @@ export interface ToolResult {
   data?: unknown;
 }
 
+import type { ToolDefinition } from "../core/agentTypes.js";
+
 export interface ToolSpec {
   name: string;
   description?: string;
   version?: string;
   tags?: string[];
-  inputSchema?: Record<string, unknown>;
+  inputSchema?: ToolDefinition["function"]["parameters"];
   outputSchema?: Record<string, unknown>;
   examples?: Array<{
     description?: string;
