@@ -11,6 +11,8 @@ import {
 import { webSearch } from "../web/webSearch.js";
 import { webFetch } from "../web/webFetch.js";
 import { analyzeWebContent, formatAnalysisReport } from "../web/webAnalyze.js";
+import { fetchQuoteSnapshot } from "../data/quotes.js";
+import { resolveSymbolFromText } from "../utils/symbols.js";
 import { NotificationService } from "../notification/service.js";
 
 /**
@@ -127,6 +129,15 @@ export class StockAnalysisPipeline {
 
     private async fetchIntelligence(ctx: PipelineContext): Promise<void> {
         const { symbol, query } = ctx.input;
+
+        const resolvedSymbol = resolveSymbolFromText(symbol) ?? symbol;
+        let priceSnapshot;
+        try {
+            priceSnapshot = await fetchQuoteSnapshot(resolvedSymbol);
+        } catch (error) {
+            console.warn(`Quote fetch failed for ${resolvedSymbol}:`, error);
+        }
+
         const searchQuery = query || `${symbol} stock analysis price news`;
 
         // Web search
@@ -169,6 +180,7 @@ export class StockAnalysisPipeline {
             query: query || `Analyze ${symbol}`,
             searchResults: stageData ? [stageData.searchResults] : undefined,
             fetchedPages: stageData?.fetchedPages,
+            priceSnapshot,
         });
 
         ctx.llmAnalysis = {
