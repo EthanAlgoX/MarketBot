@@ -50,7 +50,7 @@ export interface MarketBotConfig {
     port?: number;
   };
   llm?: {
-    provider?: "mock" | "openai-compatible";
+    provider?: "openai-compatible";
     model?: string;
     baseUrl?: string;
     apiKeyEnv?: string;

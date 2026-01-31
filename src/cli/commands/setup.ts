@@ -26,9 +26,6 @@ export async function setupCommand(cwd: string = process.cwd()): Promise<void> {
         },
       ],
     },
-    llm: {
-      provider: "mock",
-    },
   };
 
   const writtenPath = await ensureConfig(defaultConfig, cwd);

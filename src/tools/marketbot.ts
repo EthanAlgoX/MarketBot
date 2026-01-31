@@ -44,7 +44,7 @@ function marketFetchTool(): ToolSpec {
       };
 
       const dataOptions = {
-        mode: asString(input.mode) as "mock" | "auto" | "api" | "scrape" | undefined,
+        mode: asString(input.mode) as "auto" | "api" | "scrape" | undefined,
         enableSearch: asBoolean(input.enableSearch),
       };
 

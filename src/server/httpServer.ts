@@ -158,10 +158,6 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
         if (llmOverride) {
           config.llm = { ...(config.llm ?? {}), ...llmOverride };
         }
-        if (body.mockLlm === true) {
-          if (!config.llm) config.llm = {};
-          config.llm.provider = "mock";
-        }
         const provider = await createProviderFromConfigAsync(config);
         const agentId = (body.agentId as string | undefined)?.trim() || resolveDefaultAgentId(config);
 
@@ -248,7 +244,7 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
 function extractLlmOverride(body: Record<string, unknown>): Partial<NonNullable<MarketBotConfig["llm"]>> | null {
   if (!body.llm || typeof body.llm !== "object") return null;
   const raw = body.llm as Record<string, unknown>;
-  const allowedProvider = raw.provider === "openai-compatible" || raw.provider === "mock" ? raw.provider : undefined;
+  const allowedProvider = raw.provider === "openai-compatible" ? raw.provider : undefined;
   const model = typeof raw.model === "string" ? raw.model.trim() : undefined;
   const baseUrl = typeof raw.baseUrl === "string" ? raw.baseUrl.trim() : undefined;
   const apiKey = typeof raw.apiKey === "string" ? raw.apiKey.trim() : undefined;

@@ -27,7 +27,7 @@ export interface WebScraper {
 }
 
 export interface DataProviderConfig {
-    mode: "mock" | "auto" | "api" | "scrape";
+    mode: "auto" | "api" | "scrape";
     enableSearch?: boolean;
     apiKey?: string;
     baseUrl?: string;

@@ -493,13 +493,11 @@ export function renderGuiPage(options: GuiPageOptions): string {
               <option value="">auto</option>
               <option value="api">api</option>
               <option value="scrape">scrape</option>
-              <option value="mock">mock</option>
             </select>
             <label class="chip"><input id="search" type="checkbox" /> search</label>
             <label class="chip"><input id="scrape" type="checkbox" /> scrape</label>
             <label class="chip"><input id="traceToggle" type="checkbox" /> trace</label>
             <label class="chip"><input id="jsonToggle" type="checkbox" /> json</label>
-            <label class="chip"><input id="mockLlmToggle" type="checkbox" /> mock LLM</label>
           </div>
 
           <div class="option-grid" style="margin-top:12px;">
@@ -541,7 +539,6 @@ export function renderGuiPage(options: GuiPageOptions): string {
             <select id="llmProvider">
               <option value="">auto</option>
               <option value="openai-compatible">openai-compatible</option>
-              <option value="mock">mock</option>
             </select>
             <label class="chip" for="llmModel">Model</label>
             <input id="llmModel" type="text" placeholder="gpt-4o-mini" />
@@ -592,7 +589,6 @@ export function renderGuiPage(options: GuiPageOptions): string {
       const scrapeToggle = document.getElementById("scrape");
       const traceToggle = document.getElementById("traceToggle");
       const jsonToggle = document.getElementById("jsonToggle");
-      const mockLlmToggle = document.getElementById("mockLlmToggle");
       const agentIdInput = document.getElementById("agentId");
       const sessionKeyInput = document.getElementById("sessionKey");
       const copyBtn = document.getElementById("copy");
@@ -686,7 +682,6 @@ export function renderGuiPage(options: GuiPageOptions): string {
         scrapeToggle.checked = Boolean(settings.scrape);
         traceToggle.checked = Boolean(settings.trace);
         jsonToggle.checked = Boolean(settings.json);
-        mockLlmToggle.checked = Boolean(settings.mockLlm);
         agentIdInput.value = settings.agentId || "";
         sessionKeyInput.value = settings.sessionKey || "";
         themeSelect.value = settings.theme || "light";
@@ -712,7 +707,6 @@ export function renderGuiPage(options: GuiPageOptions): string {
           scrape: scrapeToggle.checked,
           trace: traceToggle.checked,
           json: jsonToggle.checked,
-          mockLlm: mockLlmToggle.checked,
           agentId: agentIdInput.value.trim(),
           sessionKey: sessionKeyInput.value.trim(),
           theme: themeSelect.value,
@@ -802,7 +796,6 @@ export function renderGuiPage(options: GuiPageOptions): string {
         if (settings.search) payload.search = true;
         if (settings.scrape) payload.scrape = true;
         if (settings.trace) payload.includeTrace = true;
-        if (settings.mockLlm) payload.mockLlm = true;
         const llmBuild = buildLlmPayload(settings);
         if (llmBuild.error) {
           status.textContent = llmBuild.error;

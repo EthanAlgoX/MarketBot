@@ -4,17 +4,16 @@ import type { IntentParsingOutput, MarketDataInput } from "../core/types.js";
 import { resolveSymbolFromText } from "../utils/symbols.js";
 import type { QuoteSnapshot } from "./types.js";
 import { fetchQuoteSnapshot } from "./quotes.js";
-import { mockMarketData } from "./mockMarketData.js";
 
 export interface MarketDataServiceOptions {
-    mode?: "mock" | "auto" | "api" | "scrape";
+    mode?: "auto" | "api" | "scrape";
     enableSearch?: boolean;
     apiKey?: string;
 }
 
 /**
  * Fetch market data based on the parsed intent.
- * Supports multiple data sources: mock, API, and scraping.
+ * Supports API and scraping modes (auto defaults to API).
  */
 export async function getMarketDataFromIntent(
     intent: IntentParsingOutput,
@@ -23,9 +22,6 @@ export async function getMarketDataFromIntent(
     const mode = options?.mode ?? "auto";
 
     switch (mode) {
-        case "mock":
-            return mockMarketData(intent.asset);
-
         case "api":
             return fetchFromApi(intent, options);
 
@@ -34,12 +30,11 @@ export async function getMarketDataFromIntent(
 
         case "auto":
         default:
-            // Try API first, fall back to mock
             try {
                 return await fetchFromApi(intent, options);
-            } catch {
-                console.warn("API fetch failed, falling back to mock data");
-                return mockMarketData(intent.asset);
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                throw new Error(`API fetch failed in auto mode: ${msg}`);
             }
     }
 }
@@ -53,11 +48,15 @@ async function fetchFromApi(
     _options?: MarketDataServiceOptions
 ): Promise<MarketDataInput> {
     const resolvedAsset = resolveSymbolFromText(intent.asset) ?? intent.asset;
-    const baseData = mockMarketData(resolvedAsset);
-
     const snapshot = await fetchQuoteSnapshot(resolvedAsset);
-    if (!snapshot) return baseData;
+    if (!snapshot) {
+        if (process.env.YAHOO_FINANCE_ENABLED === "false") {
+            throw new Error("Yahoo Finance is disabled. Set YAHOO_FINANCE_ENABLED=true to enable live quotes.");
+        }
+        throw new Error(`No quote snapshot available for ${resolvedAsset}`);
+    }
 
+    const baseData = buildBaselineMarketData(snapshot.price);
     return applySnapshotToMarketData(baseData, snapshot);
 }
 
@@ -91,4 +90,32 @@ function applySnapshotToMarketData(data: MarketDataInput, snapshot: QuoteSnapsho
 
 function round(value: number): number {
     return Math.round(value * 100) / 100;
+}
+
+function buildBaselineMarketData(price: number): MarketDataInput {
+    const support1 = round(price * 0.97);
+    const support2 = round(price * 0.94);
+    const resistance1 = round(price * 1.03);
+    const resistance2 = round(price * 1.06);
+
+    return {
+        price_structure: {
+            trend_1h: "range",
+            trend_4h: "range",
+            trend_1d: "range",
+            support_levels: [support1, support2],
+            resistance_levels: [resistance1, resistance2],
+        },
+        indicators: {
+            ema_alignment: "neutral",
+            rsi_1h: 50,
+            rsi_4h: 50,
+            macd_signal: "neutral",
+            atr_change: "stable",
+            volume_state: "stable",
+            bollinger_position: "middle",
+        },
+        current_price: price,
+        timestamp: new Date().toISOString(),
+    };
 }

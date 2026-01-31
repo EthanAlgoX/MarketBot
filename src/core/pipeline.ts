@@ -1,4 +1,5 @@
 import type { LLMProvider } from "./llm.js";
+import { detectLanguage, type Language } from "../utils/language.js";
 import type {
   HigherTimeframeBias,
   IntentParsingOutput,
@@ -34,6 +35,7 @@ export interface MarketBotInput {
   cwd?: string;
   higherTimeframeBias?: HigherTimeframeBias;
   provider: LLMProvider;
+  language?: Language;
   includeTrace?: boolean;
   onPhase?: (event: MarketBotRunPhaseEvent) => void;
   session?: {
@@ -62,10 +64,13 @@ export async function runMarketBot({
   cwd,
   higherTimeframeBias,
   provider,
+  language,
   includeTrace,
   onPhase,
   session,
 }: MarketBotInput): Promise<MarketBotOutputs> {
+  // Detect language from user query if not provided
+  const resolvedLanguage = language ?? detectLanguage(userQuery);
   const runStartedAt = new Date();
   let systemPrompt = await getSystemPrompt({ cwd, agentId });
 
@@ -162,7 +167,7 @@ export async function runMarketBot({
     reflection,
   };
 
-  const report = await runPhase("report", () => runReportGenerator(provider, context, systemPrompt));
+  const report = await runPhase("report", () => runReportGenerator(provider, context, systemPrompt, resolvedLanguage));
 
   if (sessionStore && sessionKey) {
     const now = new Date().toISOString();
@@ -180,10 +185,10 @@ export async function runMarketBot({
   const runEndedAt = new Date();
   const trace = recordTrace
     ? {
-        startedAt: runStartedAt.toISOString(),
-        endedAt: runEndedAt.toISOString(),
-        phases,
-      }
+      startedAt: runStartedAt.toISOString(),
+      endedAt: runEndedAt.toISOString(),
+      phases,
+    }
     : undefined;
 
   return {

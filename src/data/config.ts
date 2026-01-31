@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 export interface DataConfig {
-    defaultMode: "mock" | "auto" | "api" | "scrape";
+    defaultMode: "auto" | "api" | "scrape";
     enableSearch: boolean;
     providers: {
         crypto?: {
@@ -19,7 +19,7 @@ export interface DataConfig {
 }
 
 const DEFAULT_CONFIG: DataConfig = {
-    defaultMode: "mock",
+    defaultMode: "auto",
     enableSearch: false,
     providers: {},
 };
@@ -45,7 +45,7 @@ export function loadDataConfig(cwd: string = process.cwd()): DataConfig {
 
     if (process.env.MARKETBOT_DATA_MODE) {
         const mode = process.env.MARKETBOT_DATA_MODE;
-        if (mode === "mock" || mode === "auto" || mode === "api" || mode === "scrape") {
+        if (mode === "auto" || mode === "api" || mode === "scrape") {
             envConfig.defaultMode = mode;
         }
     }

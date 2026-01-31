@@ -37,8 +37,7 @@ export function buildProgram() {
     .description("Run a market analysis based on the user query")
     .option("--json", "Output JSON instead of the report", false)
     .option("--live", "Use live data providers", false)
-    .option("--mock", "Force mock data", false)
-    .option("--mode <mode>", "Data mode: mock | auto | api | scrape")
+    .option("--mode <mode>", "Data mode: auto | api | scrape")
     .option("--search", "Enable web search + scrape fallback", false)
     .option("--scrape", "Force scrape mode + enable web search", false)
     .option("--agent <id>", "Agent id (maps to workspace)")
@@ -56,7 +55,6 @@ export function buildProgram() {
         const result = await runAgenticAnalysis({
           query,
           verbose: Boolean(opts.verbose),
-          mock: Boolean(opts.mock),
         });
 
         if (result.error) {
@@ -82,7 +80,6 @@ export function buildProgram() {
           query,
           json: Boolean(opts.json),
           live: Boolean(opts.live),
-          mock: Boolean(opts.mock),
           mode: opts.mode,
           search: Boolean(opts.search),
           scrape: Boolean(opts.scrape),
@@ -140,8 +137,7 @@ export function buildProgram() {
     .description("Start MarketBot TUI (interactive terminal)")
     .option("--json", "Output JSON instead of the report", false)
     .option("--live", "Use live data providers", false)
-    .option("--mock", "Force mock data", false)
-    .option("--mode <mode>", "Data mode: mock | auto | api | scrape")
+    .option("--mode <mode>", "Data mode: auto | api | scrape")
     .option("--search", "Enable web search + scrape fallback", false)
     .option("--scrape", "Force scrape mode + enable web search", false)
     .option("--agent <id>", "Agent id (maps to workspace)")
@@ -150,7 +146,6 @@ export function buildProgram() {
       await tuiCommand({
         json: Boolean(opts.json),
         live: Boolean(opts.live),
-        mock: Boolean(opts.mock),
         mode: opts.mode,
         search: Boolean(opts.search),
         scrape: Boolean(opts.scrape),

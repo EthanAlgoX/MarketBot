@@ -1,9 +1,10 @@
 import type { ToolSpec, ToolContext } from "./types.js";
 import { fetchWithTimeout } from "../data/providers/providerUtils.js";
 import { createMarketBotTools } from "./marketbot.js";
+import { createWebTools } from "./web.js";
 
 export function createBuiltinTools(): ToolSpec[] {
-  return [echoTool(), httpGetTool(), ...createMarketBotTools()];
+  return [echoTool(), httpGetTool(), ...createMarketBotTools(), ...createWebTools()];
 }
 
 function echoTool(): ToolSpec {
