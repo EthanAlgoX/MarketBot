@@ -164,8 +164,8 @@ node dist/index.js web-analyze --asset ETH
 
 | 提供商 | 模型 | Base URL | API Key 变量 |
 |--------|------|----------|--------------|
-| **OpenAI** | `gpt-4o-mini` | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
-| **DeepSeek** ⭐ | `deepseek-chat` | `https://api.deepseek.com/v1` | `DEEPSEEK_API_KEY` |
+| **OpenAI** ⭐ | `gpt-4o-mini` | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
+| **DeepSeek** | `deepseek-chat` | `https://api.deepseek.com/v1` | `DEEPSEEK_API_KEY` |
 | **Gemini** | `gemini-2.0-flash` | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
 | **Claude** | `claude-3-5-sonnet-20241022` | `https://api.anthropic.com/v1` | `ANTHROPIC_API_KEY` |
 | **通义千问** | `qwen-turbo` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
