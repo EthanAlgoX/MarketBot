@@ -1,3 +1,0 @@
-# USER.md
-
-User: Analyst

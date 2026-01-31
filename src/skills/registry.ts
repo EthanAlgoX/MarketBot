@@ -49,6 +49,9 @@ export function resolveSkillDirs(config: MarketBotConfig, agentId: string, cwd: 
 
   dirs.push(resolveManagedSkillsDir(config));
 
+  const builtInDir = path.join(cwd, "src", "skills");
+  dirs.push(builtInDir);
+
   const envDirs =
     (process.env.MARKETBOT_SKILLS_DIRS ?? process.env.TRADEBOT_SKILLS_DIRS)?.split(",") ?? [];
   for (const dir of envDirs.map((value) => value.trim()).filter(Boolean)) {

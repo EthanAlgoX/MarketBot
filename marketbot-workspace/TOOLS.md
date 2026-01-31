@@ -1,3 +1,0 @@
-# TOOLS.md
-
-Use tools.

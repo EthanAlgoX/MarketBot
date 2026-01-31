@@ -219,7 +219,7 @@ graph TD
 
 ## 🧰 Default Skills
 
-Default skills are preloaded under `marketbot-workspace/main/skills`:
+Default skills are preloaded under `src/skills`:
 
 - `market-scan` (tool: `market_fetch`)
 - `market-summary` (tool: `market_summary`)
@@ -231,6 +231,11 @@ Default skills are preloaded under `marketbot-workspace/main/skills`:
 - `forex-analysis` (fetch/summary/report for FX)
 - `futures-analysis` (fetch/summary/report for futures)
 - `volatility-check` (quick ATR/volume/momentum summary)
+- `multi-timeframe-scan` (scan 15m/1h/4h/1d structure)
+- `trend-strength` (quick trend/momentum read)
+- `support-resistance` (nearest levels)
+- `pair-compare` (side-by-side asset comparison)
+- `risk-check` (risk-focused report)
 
 ## ⚙️ Configuration
 
