@@ -256,6 +256,12 @@ function extractLlmOverride(body: Record<string, unknown>): Partial<NonNullable<
   const jsonMode = typeof raw.jsonMode === "boolean" ? raw.jsonMode : undefined;
   const timeoutMs =
     typeof raw.timeoutMs === "number" && Number.isFinite(raw.timeoutMs) ? Math.max(1000, raw.timeoutMs) : undefined;
+  const headers =
+    raw.headers && typeof raw.headers === "object" && !Array.isArray(raw.headers)
+      ? Object.fromEntries(
+        Object.entries(raw.headers).filter((entry) => typeof entry[1] === "string"),
+      )
+      : undefined;
 
   const result: Partial<NonNullable<MarketBotConfig["llm"]>> = {};
   if (allowedProvider) result.provider = allowedProvider;
@@ -265,6 +271,7 @@ function extractLlmOverride(body: Record<string, unknown>): Partial<NonNullable<
   if (apiKeyEnv) result.apiKeyEnv = apiKeyEnv;
   if (jsonMode !== undefined) result.jsonMode = jsonMode;
   if (timeoutMs !== undefined) result.timeoutMs = timeoutMs;
+  if (headers && Object.keys(headers).length) result.headers = headers as Record<string, string>;
 
   return Object.keys(result).length ? result : null;
 }
