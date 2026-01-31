@@ -161,9 +161,22 @@ node dist/index.js web-analyze --asset ETH
 
 ### LLM 提供商
 
-创建 `marketbot.json`:
+创建 `marketbot.json` 选择你喜欢的提供商：
 
-**OpenAI (默认)**
+| 提供商 | 模型 | Base URL | API Key 变量 |
+|--------|------|----------|--------------|
+| **OpenAI** | `gpt-4o-mini` | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
+| **DeepSeek** ⭐ | `deepseek-chat` | `https://api.deepseek.com/v1` | `DEEPSEEK_API_KEY` |
+| **Gemini** | `gemini-2.0-flash` | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
+| **Claude** | `claude-3-5-sonnet-20241022` | `https://api.anthropic.com/v1` | `ANTHROPIC_API_KEY` |
+| **通义千问** | `qwen-turbo` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
+| **Moonshot** | `moonshot-v1-8k` | `https://api.moonshot.cn/v1` | `MOONSHOT_API_KEY` |
+| **Ollama** | `llama3.2` | `http://localhost:11434/v1` | - |
+
+**配置示例：**
+
+<details>
+<summary><b>OpenAI (默认)</b></summary>
 
 ```json
 {
@@ -176,7 +189,10 @@ node dist/index.js web-analyze --asset ETH
 }
 ```
 
-**DeepSeek (推荐)**
+</details>
+
+<details>
+<summary><b>DeepSeek (推荐 ⭐)</b></summary>
 
 ```json
 {
@@ -188,6 +204,90 @@ node dist/index.js web-analyze --asset ETH
   }
 }
 ```
+
+</details>
+
+<details>
+<summary><b>Google Gemini (免费额度)</b></summary>
+
+```json
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "gemini-2.0-flash",
+    "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "apiKeyEnv": "GEMINI_API_KEY"
+  }
+}
+```
+
+免费获取: [Google AI Studio](https://aistudio.google.com/)
+</details>
+
+<details>
+<summary><b>Anthropic Claude</b></summary>
+
+```json
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "claude-3-5-sonnet-20241022",
+    "baseUrl": "https://api.anthropic.com/v1",
+    "apiKeyEnv": "ANTHROPIC_API_KEY"
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>通义千问 (Qwen)</b></summary>
+
+```json
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "qwen-turbo",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "apiKeyEnv": "DASHSCOPE_API_KEY"
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Moonshot (Kimi)</b></summary>
+
+```json
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "moonshot-v1-8k",
+    "baseUrl": "https://api.moonshot.cn/v1",
+    "apiKeyEnv": "MOONSHOT_API_KEY"
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Ollama (本地部署)</b></summary>
+
+```json
+{
+  "llm": {
+    "provider": "openai-compatible",
+    "model": "llama3.2",
+    "baseUrl": "http://localhost:11434/v1",
+    "apiKeyEnv": ""
+  }
+}
+```
+
+先运行: `ollama pull llama3.2`
+</details>
 
 ### 浏览器配置
 
