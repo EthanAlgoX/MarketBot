@@ -3,11 +3,13 @@
 import type { LLMProvider } from "../core/llm.js";
 import type { WebSearchResult } from "./webSearch.js";
 import type { WebFetchResult } from "./webFetch.js";
+import type { QuoteSnapshot } from "../data/types.js";
 
 export interface WebAnalysisInput {
     query: string;
     searchResults?: WebSearchResult[];
     fetchedPages?: WebFetchResult[];
+    priceSnapshot?: QuoteSnapshot;
 }
 
 export interface WebAnalysisOutput {
@@ -18,6 +20,7 @@ export interface WebAnalysisOutput {
         sentiment?: "bullish" | "bearish" | "neutral";
         keyEvents?: string[];
     };
+    priceSnapshot?: QuoteSnapshot;
     technicalAnalysis?: {
         signal: "strong_buy" | "buy" | "hold" | "wait" | "sell" | "strong_sell";
         trend: string;
@@ -55,6 +58,8 @@ Output a JSON object with:
   "confidence": 0.0-1.0 (how confident you are in the analysis)
 }
 
+If a Price Snapshot is provided, treat it as the single source of truth for current price. Do not override it with web snippets.
+
 Focus on:
 - Price levels and movements
 - Market sentiment and trends
@@ -68,6 +73,30 @@ export async function analyzeWebContent(
 ): Promise<WebAnalysisOutput> {
     const sources: Array<{ title?: string; url: string }> = [];
     let contentBlock = "";
+
+    if (input.priceSnapshot) {
+        const snapshot = input.priceSnapshot;
+        contentBlock += "## Price Snapshot (Trusted)\n\n";
+        contentBlock += `Symbol: ${snapshot.symbol}\n`;
+        contentBlock += `Price: ${snapshot.price}\n`;
+        if (snapshot.currency) {
+            contentBlock += `Currency: ${snapshot.currency}\n`;
+        }
+        if (snapshot.exchange) {
+            contentBlock += `Exchange: ${snapshot.exchange}\n`;
+        }
+        if (snapshot.marketState) {
+            contentBlock += `Market State: ${snapshot.marketState}\n`;
+        }
+        if (snapshot.priceType) {
+            contentBlock += `Price Type: ${snapshot.priceType}\n`;
+        }
+        if (snapshot.timestamp) {
+            contentBlock += `Timestamp: ${snapshot.timestamp}\n`;
+        }
+        contentBlock += `Source: ${snapshot.source}\n\n`;
+    }
+
 
     if (input.searchResults?.length) {
         contentBlock += "## Search Results\n\n";
@@ -127,6 +156,7 @@ Analyze this content and provide a structured JSON response.`;
             summary: parsed.summary || "No summary available",
             keyFindings: parsed.keyFindings || [],
             marketData: parsed.marketData,
+            priceSnapshot: input.priceSnapshot,
             sources,
             confidence: parsed.confidence || 0.5,
             generatedAt: new Date().toISOString(),
@@ -136,6 +166,7 @@ Analyze this content and provide a structured JSON response.`;
         return {
             summary: response.content.slice(0, 500),
             keyFindings: [],
+            priceSnapshot: input.priceSnapshot,
             sources,
             confidence: 0.3,
             generatedAt: new Date().toISOString(),
