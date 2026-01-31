@@ -14,60 +14,63 @@ MarketBot Finance is an autonomous AI agent designed for financial analysis and 
 
 ---
 
-## Architecture
+## Architecture (MarketBot Focus)
 
-```mermaid
-flowchart LR
-    subgraph Input["� Input"]
-        direction TB
-        Discord((Discord))
-        Telegram((Telegram))
-        Signal((Signal))
-        Slack((Slack))
-        WhatsApp((WhatsApp))
-        iMessage((iMessage))
-        WebUI((Web))
-    end
+MarketBot is designed around a gateway-first runtime with a market analysis
+engine that can operate in real time, across channels, and with tool-assisted
+research. The focus is actionable market intelligence: structured analysis,
+clear risk/invalidation levels, and reproducible workflows.
 
-    subgraph Engine["⚙️ Engine"]
-        direction TB
-        Gateway["🔀 Gateway"]
-        AutoReply["💬 Auto-Reply"]
-        Agents["🧠 Multi-Agent<br/>Reasoning"]
-        Memory["📚 Memory"]
-    end
+### 1) Gateway-first control plane
+- The Gateway is the central WebSocket server for sessions, routing, and tool
+  execution.
+- CLI, TUI, and Web UI connect to the Gateway, or run embedded locally with
+  `--local` for single-machine use.
 
-    subgraph Capabilities["�️ Capabilities"]
-        direction TB
-        Browser["🌐 Browser"]
-        Skills["🔌 Skills"]
-        Media["🖼️ Media"]
-        Cron["⏰ Scheduler"]
-    end
+### 2) Analysis engine (agents + models)
+- Agents orchestrate model calls, enforce prompts, and structure outputs for
+  trading analysis.
+- Model providers and fallbacks are configured per agent, so you can mix
+  research models and execution models.
 
-    Input --> Gateway
-    Gateway --> AutoReply
-    AutoReply --> Agents
-    Agents <--> Memory
-    Agents <--> Capabilities
-    Agents --> Gateway
-```
+### 3) Tools and skills (market advantage)
+- Tools enable web search/fetch, browser automation, memory, and data parsing.
+- Skills encapsulate repeatable market workflows (reports, risk checklists,
+  catalyst tracking).
 
----
+### 4) Channels and nodes
+- Multi-channel messaging for alerts and delivery (Telegram, Slack, Discord,
+  WhatsApp, Signal, iMessage, Web).
+- Nodes (macOS/iOS/Android/headless) provide device-level capabilities such as
+  canvas, camera, screen, or location.
+
+### 5) Persistence and configuration
+- State lives under `~/.marketbot` (sessions, logs, caches).
+- Config is JSON5 and can be set via `MARKETBOT_CONFIG_PATH` or
+  `~/.marketbot/marketbot.json`.
 
 ## Core Components
 
-| Component | Description |
-|-----------|-------------|
-| **Gateway** | Central message routing, WebSocket server, session management |
-| **Agents** | Multi-agent LLM orchestration with model selection and failover |
-| **Auto-Reply** | Automated response logic and templating engine |
-| **Channels** | Discord, Telegram, Signal, Slack, WhatsApp, iMessage, LINE, Web |
-| **Browser** | Headless browser automation for web research |
-| **Skills** | 55+ extensible plugins (market-report, github, coding-agent, etc.) |
-| **Daemon** | Background service management and scheduling |
-| **TUI/CLI** | Interactive terminal interface and command-line tools |
-| **Web UI** | Dashboard for configuration and monitoring |
+- **Gateway**: WebSocket server for sessions, routing, and tool execution.
+- **Agents**: Market-focused prompt orchestration, model selection, and output shaping.
+- **Channels**: Multi-channel delivery and inbound routing.
+- **Tools**: Web search/fetch, browser automation, memory, media, and exec.
+- **Skills**: Reusable market workflows (reports, catalysts, risk checks).
+- **Nodes**: Device clients with UI/canvas/camera/screen capabilities.
+- **CLI/TUI**: Operator UX for analysis and command execution.
+
+## Repo Layout
+
+- `src/agents/`: agent runtime, prompts, compaction, tool wiring.
+- `src/gateway/`: WebSocket server, protocol handling, routing.
+- `src/channels/`: channel adapters (Telegram, Slack, Discord, etc.).
+- `src/cli/`: CLI/TUI commands and UX helpers.
+- `src/memory/`: memory store and retrieval.
+- `src/providers/`: model/provider integrations and adapters.
+- `extensions/`: plugin manifests and optional integrations.
+- `skills/`: reusable skills and workflows.
+- `apps/`: native clients (macOS, iOS, Android).
+- `docs/`: documentation sources.
 
 ---
 
