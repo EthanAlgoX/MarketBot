@@ -128,6 +128,18 @@ node dist/index.js analyze "分析苹果"
 node dist/index.js analyze "分析 BTC" --mock
 ```
 
+### 3b. GUI / TUI
+
+```bash
+# 启动 Web GUI（自动打开浏览器）
+node dist/index.js gui
+
+# 启动终端交互界面
+node dist/index.js tui
+```
+
+TUI 指令示例：`/help`、`/exit`、`/history`、`/use <n>`、`/json on|off`、`/mode <mock|auto|api|scrape|none>`、`/search on|off`、`/scrape on|off`、`/agent <id|clear>`、`/session <key|clear>`。
+
 ### 4. 完成
 
 首次运行会自动下载 Chromium 浏览器用于网页搜索。
@@ -224,6 +236,30 @@ graph TD
 | **WebDataAnalyzer** | 网页搜索+分析 | 搜索结果、分析报告 |
 
 ## ⚙️ 配置指南
+
+### 🔐 OAuth 认证 (Bring Your Own Identity)
+
+MarketBot 支持通过 OAuth 认证直接使用您的 Google Gemini 或 OpenAI 账户。
+
+```bash
+# 登录 Google (Gemini)
+npx tsx src/index.js auth login --provider google
+
+# 登录 OpenAI (Codex/ChatGPT 订阅)
+npx tsx src/index.js auth login --provider openai-codex
+```
+
+认证成功后，MarketBot 会**自动优先使用**您的 OAuth 凭证，覆盖本地 `marketbot.json` 或环境变量中的配置。
+
+**管理认证状态:**
+
+```bash
+# 查看状态
+npx tsx src/index.js auth status --provider all
+
+# 登出
+npx tsx src/index.js auth logout --provider google
+```
 
 ### 🤖 AI 模型配置 (免配置文件)
 

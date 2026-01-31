@@ -17,6 +17,8 @@ import { toolsInfoCommand, toolsListCommand, toolsRunCommand } from "./commands/
 import { setupCommand } from "./commands/setup.js";
 import { serverCommand } from "./commands/server.js";
 import { createDefaultDeps } from "./deps.js";
+import { guiCommand } from "./commands/gui.js";
+import { tuiCommand } from "./commands/tui.js";
 
 import { createAuthCommand } from "./commands/auth.js";
 
@@ -116,9 +118,45 @@ export function buildProgram() {
     .description("Start MarketBot HTTP gateway")
     .option("--host <host>", "Bind host")
     .option("--port <port>", "Bind port")
+    .option("--gui", "Serve the GUI on /", false)
     .action(async (opts) => {
       const port = opts.port ? Number(opts.port) : undefined;
-      await serverCommand({ host: opts.host, port });
+      await serverCommand({ host: opts.host, port, enableGui: Boolean(opts.gui) });
+    });
+
+  program
+    .command("gui")
+    .description("Start MarketBot GUI (web)")
+    .option("--host <host>", "Bind host")
+    .option("--port <port>", "Bind port")
+    .option("--no-open", "Do not open the browser automatically")
+    .action(async (opts) => {
+      const port = opts.port ? Number(opts.port) : undefined;
+      await guiCommand({ host: opts.host, port, open: Boolean(opts.open) });
+    });
+
+  program
+    .command("tui")
+    .description("Start MarketBot TUI (interactive terminal)")
+    .option("--json", "Output JSON instead of the report", false)
+    .option("--live", "Use live data providers", false)
+    .option("--mock", "Force mock data", false)
+    .option("--mode <mode>", "Data mode: mock | auto | api | scrape")
+    .option("--search", "Enable web search + scrape fallback", false)
+    .option("--scrape", "Force scrape mode + enable web search", false)
+    .option("--agent <id>", "Agent id (maps to workspace)")
+    .option("--session <key>", "Override session key")
+    .action(async (opts) => {
+      await tuiCommand({
+        json: Boolean(opts.json),
+        live: Boolean(opts.live),
+        mock: Boolean(opts.mock),
+        mode: opts.mode,
+        search: Boolean(opts.search),
+        scrape: Boolean(opts.scrape),
+        agentId: opts.agent,
+        sessionKey: opts.session,
+      });
     });
 
 

@@ -128,6 +128,18 @@ node dist/index.js analyze "Analyze Apple"
 node dist/index.js analyze "Analyze BTC" --mock
 ```
 
+### 3b. GUI / TUI
+
+```bash
+# Start web GUI (opens browser)
+node dist/index.js gui
+
+# Start terminal UI
+node dist/index.js tui
+```
+
+TUI commands: `/help`, `/exit`, `/history`, `/use <n>`, `/json on|off`, `/mode <mock|auto|api|scrape|none>`, `/search on|off`, `/scrape on|off`, `/agent <id|clear>`, `/session <key|clear>`.
+
 ### 4. Done
 
 First run will automatically download Chromium for web search.
@@ -255,6 +267,30 @@ Default skills are preloaded under `src/skills`:
 - `risk-check` (risk-focused report)
 
 ## ⚙️ Configuration
+
+### 🔐 OAuth (Bring Your Own Identity)
+
+MarketBot supports authenticating via OAuth to access LLM providers (Google Gemini, OpenAI Codex) directly with your own account.
+
+```bash
+# Login with Google (Gemini)
+npx tsx src/index.js auth login --provider google
+
+# Login with OpenAI (Codex/ChatGPT Subscription)
+npx tsx src/index.js auth login --provider openai-codex
+```
+
+Once authenticated, MarketBot **automatically prefers** your OAuth credentials over local configuration (`marketbot.json`) or environment variables.
+
+**Manage Authentication:**
+
+```bash
+# Check status
+npx tsx src/index.js auth status --provider all
+
+# Logout
+npx tsx src/index.js auth logout --provider google
+```
 
 ### 🤖 AI Model Configuration (Zero-Config)
 

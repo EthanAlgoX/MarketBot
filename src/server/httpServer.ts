@@ -1,5 +1,7 @@
 import http from "node:http";
 
+import { renderGuiPage } from "./guiPage.js";
+
 import { loadConfig } from "../config/io.js";
 import { createProviderFromConfigAsync } from "../core/providers/registry.js";
 import { runMarketBot } from "../core/pipeline.js";
@@ -13,11 +15,13 @@ import { isToolAllowed, resolveToolPolicy } from "../tools/policy.js";
 export interface HttpServerOptions {
   host?: string;
   port?: number;
+  enableGui?: boolean;
 }
 
 export async function startHttpServer(options: HttpServerOptions = {}): Promise<http.Server> {
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 8787;
+  const enableGui = options.enableGui ?? false;
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -27,6 +31,14 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
 
       if (req.method === "GET" && req.url === "/health") {
         return sendJson(res, 200, { ok: true });
+      }
+
+      if (enableGui && req.method === "GET" && req.url === "/") {
+        const html = renderGuiPage({ baseUrl: `http://${host}:${port}` });
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.end(html);
+        return;
       }
 
       if (req.method === "POST" && req.url === "/analyze") {
