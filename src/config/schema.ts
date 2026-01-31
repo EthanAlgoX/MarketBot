@@ -83,6 +83,7 @@ export const MarketBotConfigSchema = z
       .object({
         provider: z.enum(["openai-compatible"]).optional(),
         model: z.string().optional(),
+        models: z.array(z.string()).optional(),
         baseUrl: z.string().optional(),
         apiKeyEnv: z.string().optional(),
         apiKey: z.string().optional(),

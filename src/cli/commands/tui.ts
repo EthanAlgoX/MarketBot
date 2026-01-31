@@ -1,6 +1,6 @@
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { select, password } from "@inquirer/prompts";
+import { select, password, confirm } from "@inquirer/prompts";
 import { createDefaultDeps } from "../deps.js";
 import { loadConfig, writeConfig } from "../../config/io.js";
 import { resolveAgentConfig, resolveDefaultAgentId } from "../../agents/agentScope.js";
@@ -74,6 +74,7 @@ async function showProviderMenu(currentProvider?: string): Promise<string | null
         { name: "Gemini (Google AI)", value: "gemini" },
         { name: "Claude (Anthropic)", value: "claude" },
         { name: "DeepSeek (深度求索)", value: "deepseek" },
+        { name: "Kimi Code (月之暗面 Code)", value: "kimicode" },
         { name: "Qwen (阿里通义千问)", value: "qwen" },
         { name: "Moonshot (月之暗面 Kimi)", value: "moonshot" },
         { name: "Ollama (Local LLM)", value: "ollama" },
@@ -92,12 +93,14 @@ const PROVIDER_API_INFO: Record<string, { envVar: string; name: string; baseUrl:
   gemini: { envVar: "GEMINI_API_KEY", name: "Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", defaultModel: "gemini-2.0-flash" },
   claude: { envVar: "ANTHROPIC_API_KEY", name: "Claude/Anthropic", baseUrl: "https://api.anthropic.com/v1", defaultModel: "claude-3-haiku-20240307" },
   deepseek: { envVar: "DEEPSEEK_API_KEY", name: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", defaultModel: "deepseek-chat" },
+  kimicode: { envVar: "KIMICODE_API_KEY", name: "Kimi Code", baseUrl: "https://api.kimi.com/coding/v1", defaultModel: "kimi-for-coding" },
   qwen: { envVar: "DASHSCOPE_API_KEY", name: "Qwen/DashScope", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", defaultModel: "qwen-plus" },
   moonshot: { envVar: "MOONSHOT_API_KEY", name: "Moonshot", baseUrl: "https://api.moonshot.cn/v1", defaultModel: "moonshot-v1-8k" },
 };
 
 function inferProviderId(llm?: MarketBotConfig["llm"]): keyof typeof PROVIDER_API_INFO | undefined {
   const baseUrl = llm?.baseUrl?.toLowerCase() ?? "";
+  if (baseUrl.includes("api.kimi.com/coding")) return "kimicode";
   if (baseUrl.includes("api.deepseek.com")) return "deepseek";
   if (baseUrl.includes("generativelanguage.googleapis.com")) return "gemini";
   if (baseUrl.includes("api.anthropic.com")) return "claude";
@@ -192,6 +195,9 @@ async function testApiConnection(provider: string, apiKey: string): Promise<{ su
     if (chatRes.status === 401 || errorData.includes("invalid_api_key") || errorData.includes("Unauthorized")) {
       if (provider === "moonshot") {
         return { success: true, message: "Moonshot auth check failed (401). Key saved—try a real query to verify." };
+      }
+      if (provider === "kimicode") {
+        return { success: true, message: "Kimi Code auth check failed (401). Key saved—try a real query to verify." };
       }
       return { success: false, message: "Invalid API key. Please check and try again." };
     }
@@ -344,38 +350,78 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
       if (handled.action === "provider") {
         const selected = await showProviderMenu(state.llmProvider);
         if (selected && selected !== "auto") {
-          state.llmProvider = selected;
-          // Always prompt for API key for providers that need it
-          const info = PROVIDER_API_INFO[selected];
-          if (info && !state.apiKeys[selected]) {
+          let currentKey: string | undefined = state.apiKeys[selected];
+          let keepTrying = true;
+          let shouldSave = false;
+
+          while (keepTrying) {
+            // Check if we have a key (from env or session)
+            const info = PROVIDER_API_INFO[selected];
             const hasEnvKey = Boolean(process.env[info.envVar]);
-            if (hasEnvKey) {
-              console.log(`ℹ Using ${info.envVar} from environment. Press Enter to keep, or enter new key to override.`);
+
+            if (!currentKey && hasEnvKey) {
+              console.log(`ℹ Using ${info.envVar} from environment.`);
+              // We'll test with the env key below
+            } else if (!currentKey) {
+              // No key known, ask for it
+              const key = await promptForApiKey(selected);
+              if (!key) {
+                // User cancelled entry
+                keepTrying = false;
+                break;
+              }
+              currentKey = key;
             }
-            const key = await promptForApiKey(selected);
-            if (key) {
-              state.apiKeys[selected] = key;
-              // Test connection with the new API key
-              const testResult = await testApiConnection(selected, key);
-              if (testResult.success) {
-                console.log(`✓ ${testResult.message}`);
-              } else {
-                console.log(`✗ ${testResult.message}`);
-              }
+
+            // Test connection
+            let testResult;
+            if (currentKey) {
+              testResult = await testApiConnection(selected, currentKey);
             } else if (hasEnvKey) {
-              // Test connection with environment key
-              const testResult = await testApiConnection(selected, process.env[info.envVar]!);
-              if (testResult.success) {
-                console.log(`✓ ${testResult.message}`);
-              } else {
-                console.log(`✗ ${testResult.message}`);
-              }
+              testResult = await testApiConnection(selected, process.env[info.envVar]!);
             } else {
-              console.log(`⚠ No API key provided. Set ${info.envVar} or use /provider to enter again.`);
+              // Should not happen if promptForApiKey works
+              testResult = { success: false, message: "No API key available." };
+            }
+
+            if (testResult.success) {
+              console.log(`✓ ${testResult.message}`);
+              state.apiKeys[selected] = currentKey || ""; // Store it (empty if using env)
+              state.llmProvider = selected;
+              shouldSave = true;
+              keepTrying = false;
+            } else {
+              console.log(`✗ ${testResult.message}`);
+              // Ask user what to do
+              const action = await select({
+                message: "Connection failed. What would you like to do?",
+                choices: [
+                  { name: "Try entering API key again", value: "retry" },
+                  { name: "Save anyway (ignore error)", value: "force" },
+                  { name: "Cancel (do not change provider)", value: "cancel" },
+                ],
+              });
+
+              if (action === "retry") {
+                currentKey = undefined; // Clear so we prompt again
+                // Loop continues
+              } else if (action === "force") {
+                state.apiKeys[selected] = currentKey || "";
+                state.llmProvider = selected;
+                shouldSave = true;
+                keepTrying = false;
+              } else {
+                // Cancel
+                delete state.apiKeys[selected];
+                keepTrying = false;
+              }
             }
           }
-          await persistProviderSelection(selected, state.llmModel, state.apiKeys[selected], process.cwd());
-          console.log(`provider: ${state.llmProvider}`);
+
+          if (shouldSave) {
+            await persistProviderSelection(selected, state.llmModel, state.apiKeys[selected], process.cwd());
+            console.log(`provider: ${state.llmProvider}`);
+          }
         } else if (selected === "auto") {
           state.llmProvider = undefined;
           console.log("provider: auto");
@@ -411,37 +457,78 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
         const selected = await showProviderMenu(state.llmProvider);
         if (selected && selected !== "auto") {
           state.llmProvider = selected;
-          // Always prompt for API key for providers that need it
-          const info = PROVIDER_API_INFO[selected];
-          if (info && !state.apiKeys[selected]) {
+          let currentKey: string | undefined = state.apiKeys[selected];
+          let keepTrying = true;
+          let shouldSave = false;
+
+          while (keepTrying) {
+            // Check if we have a key (from env or session)
+            const info = PROVIDER_API_INFO[selected];
             const hasEnvKey = Boolean(process.env[info.envVar]);
-            if (hasEnvKey) {
-              console.log(`ℹ Using ${info.envVar} from environment. Press Enter to keep, or enter new key to override.`);
+
+            if (!currentKey && hasEnvKey) {
+              console.log(`ℹ Using ${info.envVar} from environment.`);
+              // We'll test with the env key below
+            } else if (!currentKey) {
+              // No key known, ask for it
+              const key = await promptForApiKey(selected);
+              if (!key) {
+                // User cancelled entry
+                keepTrying = false;
+                break;
+              }
+              currentKey = key;
             }
-            const key = await promptForApiKey(selected);
-            if (key) {
-              state.apiKeys[selected] = key;
-              // Test connection with the new API key
-              const testResult = await testApiConnection(selected, key);
-              if (testResult.success) {
-                console.log(`✓ ${testResult.message}`);
-              } else {
-                console.log(`✗ ${testResult.message}`);
-              }
+
+            // Test connection
+            let testResult;
+            if (currentKey) {
+              testResult = await testApiConnection(selected, currentKey);
             } else if (hasEnvKey) {
-              // Test connection with environment key
-              const testResult = await testApiConnection(selected, process.env[info.envVar]!);
-              if (testResult.success) {
-                console.log(`✓ ${testResult.message}`);
-              } else {
-                console.log(`✗ ${testResult.message}`);
-              }
+              testResult = await testApiConnection(selected, process.env[info.envVar]!);
             } else {
-              console.log(`⚠ No API key provided. Set ${info.envVar} or use /provider to enter again.`);
+              // Should not happen if promptForApiKey works
+              testResult = { success: false, message: "No API key available." };
+            }
+
+            if (testResult.success) {
+              console.log(`✓ ${testResult.message}`);
+              state.apiKeys[selected] = currentKey || ""; // Store it (empty if using env)
+              state.llmProvider = selected;
+              shouldSave = true;
+              keepTrying = false;
+            } else {
+              console.log(`✗ ${testResult.message}`);
+              // Ask user what to do
+              const action = await select({
+                message: "Connection failed. What would you like to do?",
+                choices: [
+                  { name: "Try entering API key again", value: "retry" },
+                  { name: "Save anyway (ignore error)", value: "force" },
+                  { name: "Cancel (do not change provider)", value: "cancel" },
+                ],
+              });
+
+              if (action === "retry") {
+                currentKey = undefined; // Clear so we prompt again
+                // Loop continues
+              } else if (action === "force") {
+                state.apiKeys[selected] = currentKey || "";
+                state.llmProvider = selected;
+                shouldSave = true;
+                keepTrying = false;
+              } else {
+                // Cancel
+                delete state.apiKeys[selected];
+                keepTrying = false;
+              }
             }
           }
-          await persistProviderSelection(selected, state.llmModel, state.apiKeys[selected], process.cwd());
-          console.log(`provider: ${state.llmProvider}`);
+
+          if (shouldSave) {
+            await persistProviderSelection(selected, state.llmModel, state.apiKeys[selected], process.cwd());
+            console.log(`provider: ${state.llmProvider}`);
+          }
         } else if (selected === "auto") {
           state.llmProvider = undefined;
           console.log("provider: auto");
@@ -499,7 +586,7 @@ function handleCommand(input: string, state: {
           "/session <key|clear>",
           "/models [filter]",
           "/model <id|clear|status|list>",
-          "/provider <openai|gemini|auto|status>",
+          "/provider <openai|gemini|kimicode|auto|status>",
         ].join("\n"),
       };
     case "options":
@@ -596,7 +683,7 @@ function handleCommand(input: string, state: {
     case "tools":
       return { action: "tools", filter: arg };
     case "provider": {
-      const VALID_PROVIDERS = ["openai", "gemini", "claude", "deepseek", "qwen", "moonshot", "ollama", "auto"];
+      const VALID_PROVIDERS = ["openai", "gemini", "claude", "deepseek", "kimicode", "qwen", "moonshot", "ollama", "auto"];
       if (!arg) {
         return { action: "provider" };
       }
@@ -725,6 +812,15 @@ async function runAnalysis(
         }
         if (sessionKey) config.llm.apiKey = sessionKey;
         else if (process.env.DEEPSEEK_API_KEY) config.llm.apiKey = process.env.DEEPSEEK_API_KEY;
+        break;
+      case "kimicode":
+        config.llm.provider = "openai-compatible";
+        config.llm.baseUrl = "https://api.kimi.com/coding/v1";
+        if (!config.llm.model || !config.llm.model.startsWith("kimi")) {
+          config.llm.model = "kimi-for-coding";
+        }
+        if (sessionKey) config.llm.apiKey = sessionKey;
+        else if (process.env.KIMICODE_API_KEY) config.llm.apiKey = process.env.KIMICODE_API_KEY;
         break;
       case "qwen":
         config.llm.provider = "openai-compatible";
@@ -1169,13 +1265,25 @@ async function openModelSelector(
 
   const res = await fetch(endpoint, { method: "GET", headers });
   if (!res.ok) {
+    if (Array.isArray(config.llm?.models) && config.llm.models.length > 0) {
+      return await renderModelListFromConfig(config.llm.models, state, rl, filter, "config");
+    }
     const text = await res.text();
+    if (res.status === 401 && (state.llmProvider === "moonshot" || context.baseUrl.includes("moonshot"))) {
+      return "Moonshot 模型列表无法获取（401）。请使用 /model 手动设置模型，或在 marketbot.json 里配置 llm.models。";
+    }
+    if (res.status === 401 && (state.llmProvider === "kimicode" || context.baseUrl.includes("api.kimi.com/coding"))) {
+      return "Kimi Code 模型列表无法获取（401）。请使用 /model kimi-for-coding，或在 marketbot.json 里配置 llm.models。";
+    }
     return formatModelListError(res.status, text);
   }
 
   const data = (await res.json()) as Record<string, unknown>;
   const models = extractModelIds(data);
   if (!models.length) {
+    if (Array.isArray(config.llm?.models) && config.llm.models.length > 0) {
+      return await renderModelListFromConfig(config.llm.models, state, rl, filter, "config");
+    }
     return "No models returned by the provider.";
   }
 
@@ -1196,6 +1304,79 @@ async function openModelSelector(
 
     console.log("");
     console.log(`Models (${filtered.length}${normalizedFilter ? ` of ${models.length}` : ""}) · ${context.source}`);
+    if (current) console.log(`Current: ${current}`);
+    console.log(`Filter: ${currentFilter || "none"} · Page ${page + 1}/${totalPages}`);
+    if (!pageItems.length) {
+      console.log("No matches. Enter a new filter or 'q' to quit.");
+    } else {
+      pageItems.forEach((model, idx) => {
+        const index = start + idx + 1;
+        console.log(`${index}. ${model}`);
+      });
+    }
+    console.log("Enter number to select, text to filter, n/p for page, q to quit.");
+
+    let answer = "";
+    try {
+      answer = await rl.question("models> ");
+    } catch (err) {
+      if (String(err).includes("readline was closed")) return "Model picker closed.";
+      throw err;
+    }
+
+    const trimmed = answer.trim();
+    if (!trimmed || trimmed.toLowerCase() === "q") {
+      return "Model picker cancelled.";
+    }
+    if (trimmed.toLowerCase() === "n") {
+      page += 1;
+      continue;
+    }
+    if (trimmed.toLowerCase() === "p") {
+      page -= 1;
+      continue;
+    }
+
+    const index = Number(trimmed);
+    if (Number.isFinite(index)) {
+      const target = filtered[index - 1];
+      if (!target) {
+        console.log("Invalid selection.");
+        continue;
+      }
+      state.llmModel = target;
+      return `model: ${target}`;
+    }
+
+    currentFilter = trimmed;
+    page = 0;
+  }
+}
+
+async function renderModelListFromConfig(
+  models: string[],
+  state: { llmModel?: string },
+  rl: readline.Interface,
+  filter?: string,
+  source: string = "config",
+): Promise<string | undefined> {
+  let currentFilter = filter?.trim() || "";
+  let page = 0;
+  const pageSize = 12;
+  const current = state.llmModel;
+
+  while (true) {
+    const normalizedFilter = currentFilter.toLowerCase();
+    const filtered = normalizedFilter
+      ? models.filter((model) => model.toLowerCase().includes(normalizedFilter))
+      : models;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(page, 0), totalPages - 1);
+    const start = page * pageSize;
+    const pageItems = filtered.slice(start, start + pageSize);
+
+    console.log("");
+    console.log(`Models (${filtered.length}${normalizedFilter ? ` of ${models.length}` : ""}) · ${source}`);
     if (current) console.log(`Current: ${current}`);
     console.log(`Filter: ${currentFilter || "none"} · Page ${page + 1}/${totalPages}`);
     if (!pageItems.length) {
@@ -1367,6 +1548,21 @@ async function resolveModelListContext(
       };
     }
     return { kind: "error", message: "DeepSeek selected but no credentials found. Set DEEPSEEK_API_KEY." };
+  }
+
+  if (state.llmProvider === "kimicode") {
+    const sessionKey = state.apiKeys?.kimicode;
+    const envKey = process.env.KIMICODE_API_KEY;
+    if (sessionKey || envKey) {
+      return {
+        kind: "openai-compatible",
+        baseUrl: "https://api.kimi.com/coding/v1",
+        apiKey: sessionKey ?? envKey!,
+        headers: llm.headers,
+        source: sessionKey ? "session" : "env:KIMICODE_API_KEY",
+      };
+    }
+    return { kind: "error", message: "Kimi Code selected but no credentials found. Set KIMICODE_API_KEY." };
   }
 
   if (state.llmProvider === "qwen") {

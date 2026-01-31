@@ -52,6 +52,7 @@ export interface MarketBotConfig {
   llm?: {
     provider?: "openai-compatible";
     model?: string;
+    models?: string[];
     baseUrl?: string;
     apiKeyEnv?: string;
     apiKey?: string;
