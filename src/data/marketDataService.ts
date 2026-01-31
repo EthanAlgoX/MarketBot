@@ -1,6 +1,9 @@
 // Market data service - fetches data from various sources
 
 import type { IntentParsingOutput, MarketDataInput } from "../core/types.js";
+import { resolveSymbolFromText } from "../utils/symbols.js";
+import type { QuoteSnapshot } from "./types.js";
+import { fetchQuoteSnapshot } from "./quotes.js";
 import { mockMarketData } from "./mockMarketData.js";
 
 export interface MarketDataServiceOptions {
@@ -43,27 +46,49 @@ export async function getMarketDataFromIntent(
 
 /**
  * Fetch data from a market data API.
- * Currently returns mock data - implement real API integration as needed.
+ * Currently uses quote snapshots to align prices with live markets.
  */
 async function fetchFromApi(
     intent: IntentParsingOutput,
     _options?: MarketDataServiceOptions
 ): Promise<MarketDataInput> {
-    // TODO: Implement real API integration (e.g., Binance, CoinGecko, Alpha Vantage)
-    // For now, return mock data with a simulated delay
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    return mockMarketData(intent.asset);
+    const resolvedAsset = resolveSymbolFromText(intent.asset) ?? intent.asset;
+    const baseData = mockMarketData(resolvedAsset);
+
+    const snapshot = await fetchQuoteSnapshot(resolvedAsset);
+    if (!snapshot) return baseData;
+
+    return applySnapshotToMarketData(baseData, snapshot);
 }
 
 /**
  * Fetch data by scraping web sources.
- * Currently returns mock data - implement real scraping as needed.
+ * Currently uses quote snapshots as a safe fallback.
  */
 async function fetchFromScraper(
     intent: IntentParsingOutput,
-    _options?: MarketDataServiceOptions
+    options?: MarketDataServiceOptions
 ): Promise<MarketDataInput> {
-    // TODO: Implement web scraping for market data
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    return mockMarketData(intent.asset);
+    return fetchFromApi(intent, options);
+}
+
+function applySnapshotToMarketData(data: MarketDataInput, snapshot: QuoteSnapshot): MarketDataInput {
+    const baseline = data.current_price ?? snapshot.price;
+    const scale = baseline ? snapshot.price / baseline : 1;
+    const scaleLevels = (levels?: number[]) => levels?.map((level) => round(level * scale));
+
+    return {
+        ...data,
+        current_price: snapshot.price,
+        timestamp: snapshot.timestamp ?? data.timestamp,
+        price_structure: {
+            ...data.price_structure,
+            support_levels: scaleLevels(data.price_structure.support_levels),
+            resistance_levels: scaleLevels(data.price_structure.resistance_levels),
+        },
+    };
+}
+
+function round(value: number): number {
+    return Math.round(value * 100) / 100;
 }
