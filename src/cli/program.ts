@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { analyzeCommand } from "../commands/analyze.js";
+import { runAgenticAnalysis } from "../commands/analyzeAgentic.js";
 import { webAnalyzeCommand } from "../commands/webAnalyze.js";
 import { configShowCommand, configValidateCommand } from "../commands/config.js";
 import { agentsAddCommand, agentsListCommand } from "../commands/agents.js";
@@ -36,7 +37,38 @@ export function buildProgram() {
     .option("--scrape", "Force scrape mode + enable web search", false)
     .option("--agent <id>", "Agent id (maps to workspace)")
     .option("--session <key>", "Override session key")
+    .option("--agentic", "Use agentic mode (LLM decides which tools to call)", false)
+    .option("--verbose", "Show detailed execution info", false)
     .action(async (query: string | undefined, opts) => {
+      // Agentic mode: LLM autonomously calls tools
+      if (opts.agentic) {
+        if (!query) {
+          console.error("Error: Query is required for agentic mode");
+          process.exit(1);
+        }
+        console.log("\n🤖 MarketBot Agentic Mode\n");
+        const result = await runAgenticAnalysis({
+          query,
+          verbose: Boolean(opts.verbose),
+        });
+
+        if (result.error) {
+          console.error(`\n❌ Error: ${result.error}`);
+        }
+
+        console.log("\n" + "=".repeat(60));
+        console.log("📊 ANALYSIS RESULT");
+        console.log("=".repeat(60) + "\n");
+        console.log(result.response || "(No response generated)");
+
+        if (result.toolCalls.length > 0) {
+          console.log("\n" + "-".repeat(40));
+          console.log(`📦 Tool Calls: ${result.iterations} iteration(s), ${result.toolCalls.length} tool(s)`);
+        }
+        return;
+      }
+
+      // Standard pipeline mode
       const deps = createDefaultDeps();
       await analyzeCommand(
         {

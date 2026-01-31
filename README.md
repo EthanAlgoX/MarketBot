@@ -143,14 +143,28 @@ First run will automatically download Chromium for web search.
 | ⭐⭐⭐⭐☆ (80/100) | TP: $350.00 | Bullish MA |
 | **Trending Up** | SL: $320.00 | MACD Cross |
 
+### 🧠 Agentic Mode (New)
+
+The agentic mode allows the LLM to autonomously decide which tools to use and how to analyze data, rather than following a fixed pipeline.
+
+```bash
+# Enable agentic mode with --agentic flag
+node dist/index.js analyze "Deep analysis of NVIDIA" --agentic
+
+# With verbose output to see tool calls
+node dist/index.js analyze "Compare BTC and ETH" --agentic --verbose
+```
+
 ## 🟩 Key Drivers
 
 ### 📊 Technical
+
 - MA: Bullish alignment
 - MACD: Golden cross
 - RSI: Normal range
 
 ### 📰 Events/Fundamentals
+
 - Earnings on 2/4
 - Analyst rating: Strong Buy
 
@@ -161,11 +175,13 @@ First run will automatically download Chromium for web search.
 
 ---
 ⚠️ Disclaimer: AI-generated report for research only, not investment advice.
+
 ```
 
 ## 🏗️ Architecture
 
 ```
+
 ┌────────────────────────────────────────────────────────────────┐
 │                         MarketBot                               │
 ├────────────────────────────────────────────────────────────────┤
@@ -189,6 +205,7 @@ First run will automatically download Chromium for web search.
 │  │  └────────────┘ └────────────┘ └─────────────────┘      │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────┘
+
 ```
 
 ### Agent Modules

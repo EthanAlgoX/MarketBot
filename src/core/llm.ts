@@ -1,8 +1,12 @@
 // LLM Provider interface and implementations
 
+import type { ToolDefinition, ToolCall, LLMToolResponse } from "./agentTypes.js";
+
 export interface LLMMessage {
-    role: "system" | "user" | "assistant";
-    content: string;
+    role: "system" | "user" | "assistant" | "tool";
+    content: string | null;
+    toolCalls?: ToolCall[];
+    toolCallId?: string;
 }
 
 export interface LLMResponse {
@@ -17,6 +21,8 @@ export interface LLMResponse {
 export interface LLMProvider {
     chat(messages: LLMMessage[]): Promise<LLMResponse>;
     complete(prompt: string): Promise<string>;
+    /** Chat with tool calling support */
+    chatWithTools?(messages: LLMMessage[], tools: ToolDefinition[]): Promise<LLMToolResponse>;
 }
 
 /**
@@ -44,6 +50,96 @@ export class MockProvider implements LLMProvider {
                 completion_tokens: 50,
                 total_tokens: 150,
             },
+        };
+    }
+
+    async chatWithTools(messages: LLMMessage[], tools: ToolDefinition[]): Promise<LLMToolResponse> {
+        const lastMessage = messages[messages.length - 1];
+        const prompt = lastMessage?.content ?? "";
+        const lowerPrompt = prompt.toLowerCase();
+
+        // Check if we should call a tool based on the query
+        const toolNames = tools.map(t => t.function.name);
+
+        // Simulate tool calling behavior for market analysis
+        if ((lowerPrompt.includes("分析") || lowerPrompt.includes("analyze")) &&
+            toolNames.includes("market_fetch")) {
+            // Extract asset from query
+            let asset = "BTC";
+            if (lowerPrompt.includes("google") || lowerPrompt.includes("googl")) {
+                asset = "GOOGL";
+            } else if (lowerPrompt.includes("btc") || lowerPrompt.includes("bitcoin")) {
+                asset = "BTC";
+            } else if (lowerPrompt.includes("eth") || lowerPrompt.includes("ethereum")) {
+                asset = "ETH";
+            }
+
+            const market = ["GOOGL", "AAPL", "MSFT", "TSLA"].includes(asset) ? "stocks" : "crypto";
+
+            return {
+                content: null,
+                toolCalls: [{
+                    id: `call_${Date.now()}`,
+                    name: "market_fetch",
+                    arguments: JSON.stringify({
+                        asset,
+                        market,
+                        timeframes: ["1h", "4h", "1d"],
+                        mode: "mock"
+                    })
+                }],
+                finishReason: "tool_calls",
+                usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 }
+            };
+        }
+
+        // Check for tool results in context - generate final response
+        const hasToolResult = messages.some(m => m.role === "tool");
+        if (hasToolResult) {
+            const toolResults = messages.filter(m => m.role === "tool");
+            const lastToolContent = toolResults[toolResults.length - 1]?.content ?? "";
+
+            // Parse tool result and generate analysis
+            try {
+                const data = JSON.parse(lastToolContent);
+                const trend1h = data.price_structure?.trend_1h ?? "neutral";
+                const trend4h = data.price_structure?.trend_4h ?? "neutral";
+                const ema = data.indicators?.ema_alignment ?? "neutral";
+                const rsi = data.indicators?.rsi_1h ?? 50;
+
+                const report = `# 市场分析报告
+
+## 技术分析摘要
+- **1小时趋势**: ${trend1h}
+- **4小时趋势**: ${trend4h}
+- **EMA 排列**: ${ema}
+- **RSI**: ${rsi}
+
+## 建议
+${rsi > 70 ? "⚠️ RSI 过高，可能超买" : rsi < 30 ? "💡 RSI 较低，可能超卖" : "📊 RSI 中性，观望为主"}
+
+*分析完成于 ${new Date().toISOString()}*`;
+
+                return {
+                    content: report,
+                    finishReason: "stop",
+                    usage: { prompt_tokens: 200, completion_tokens: 150, total_tokens: 350 }
+                };
+            } catch {
+                return {
+                    content: "分析完成。市场数据显示中性态势，建议观望。",
+                    finishReason: "stop",
+                    usage: { prompt_tokens: 200, completion_tokens: 50, total_tokens: 250 }
+                };
+            }
+        }
+
+        // Default: return text response
+        const content = await this.complete(prompt);
+        return {
+            content,
+            finishReason: "stop",
+            usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 }
         };
     }
 
