@@ -1,6 +1,21 @@
 # MarketBot (TypeScript)
 
-A multi-agent trading analysis system scaffold. This is an analysis engine, not a signal generator.
+MarketBot is a multi-agent **market analysis** system for crypto, stocks, and forex. It produces conditional, risk-aware reports and **does not** generate buy/sell signals.
+
+## Who it’s for
+
+- Developers building automated analysis pipelines or dashboards
+- MarketBot users who want repeatable, explainable market summaries
+
+## Key features
+
+- Multi-agent workflows with configurable agents and prompts
+- Supports crypto, stocks, and forex (plus any asset that can be searched)
+- Automatic web search + page fetching via browser automation
+- Skills + tools dispatch system with allowlists and policy profiles
+- Live data modes with providers and scrape fallbacks
+- Session history with configurable storage limits
+- HTTP server for programmatic access
 
 ## Quick start
 
@@ -17,9 +32,11 @@ Run tests:
 npm test
 ```
 
-## Web Search & Analysis (New!)
+Legacy CLI alias: `tradebot` (prints a deprecation warning).
 
-使用浏览器自动化搜索网页并分析交易相关信息，无需额外 API：
+## Web search & analysis
+
+使用浏览器自动化搜索网页并分析交易相关信息：
 
 ```bash
 # 自由查询
@@ -52,14 +69,27 @@ DEEPSEEK_API_KEY="..." node dist/compat/tradebot.js web-analyze "SOL price predi
 }
 ```
 
-功能特性：
+## Live data & scraping
 
-- 使用 Puppeteer 浏览器自动化搜索 DuckDuckGo
-- 自动抓取搜索结果页面内容
-- LLM 分析生成交易报告（价格、技术指标、市场情绪）
-- 支持中英文查询
+Live data uses providers by default and falls back to web search/scraping when enabled:
 
-## Agent Management
+```bash
+DATA_MODE=auto ENABLE_WEB_SEARCH=true \
+SCRAPE_ALLOWLIST="finance.yahoo.com,binance.com" \
+node dist/index.js analyze --live --search "Analyze AAPL swing"
+```
+
+Environment variables:
+
+- `DATA_MODE`: `mock` | `auto` | `api` | `scrape`
+- `ENABLE_WEB_SEARCH`: set to `true` to allow search + scrape fallback
+- `SCRAPE_ALLOWLIST`: comma-separated domains permitted for scraping
+- `DATA_TIMEOUT_MS`: request timeout (ms)
+- `SERPAPI_KEY` or `BING_SEARCH_KEY`: for web search providers
+- `BINANCE_ENABLED`: set to `false` to disable Binance provider
+- `YAHOO_FINANCE_ENABLED`: set to `false` to disable Yahoo Finance provider
+
+## Agents
 
 ```bash
 node dist/index.js agents list
@@ -67,15 +97,9 @@ node dist/index.js agents add analyst --name "Analyst" --default
 node dist/index.js analyze --agent analyst "Analyze AAPL swing"
 ```
 
-Legacy CLI alias: `tradebot` (prints a deprecation warning).
 If you pass `--agent`, make sure it exists in `marketbot.json` (use `marketbot agents add`).
 
-Config utilities:
-
-```bash
-node dist/index.js config show
-node dist/index.js config validate
-```
+## Skills & tools
 
 Skills:
 
@@ -101,12 +125,45 @@ node dist/index.js tools info market_fetch
 node dist/index.js tools run echo "hello"
 ```
 
-HTTP gateway:
+Tool policy profiles:
+
+- `minimal` (safe subset)
+- `analysis` (default)
+- `full` (all tools)
+
+Per-agent overrides are supported via `agents.list[].tools`.
+
+## HTTP server
 
 ```bash
 node dist/index.js server --port 8787
-curl -X POST http://127.0.0.1:8787/analyze   -H "Content-Type: application/json"   -d '{"query":"Analyze BTC short-term"}'
+
+curl -X POST http://127.0.0.1:8787/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Analyze BTC short-term"}'
 ```
+
+## Sessions
+
+MarketBot can store session history for each agent run. Configure via:
+
+- `sessions.enabled`
+- `sessions.dir`
+- `sessions.maxEntries`
+- `sessions.maxEntryChars`
+- `sessions.contextMaxChars`
+- `sessions.includeContext`
+
+## Config + workspace
+
+- Config file: `marketbot.json` in repo root (override with `MARKETBOT_CONFIG_PATH`)
+- Default workspace can be overridden with `MARKETBOT_WORKSPACE_DIR`
+- Extra skills directories: `MARKETBOT_SKILLS_DIRS` (comma-separated)
+- Managed skills dir: `MARKETBOT_MANAGED_SKILLS_DIR` or `skills.managedDir`
+- Skills allowlist/denylist: `skills.allowlist` / `skills.denylist`
+- Tools allow/deny: `tools.profile` or `tools.allow` / `tools.deny`
+- Skill watcher: `skills.watch` and `skills.watchDebounceMs`
+- HTTP server config: `server.host` / `server.port` or env `MARKETBOT_SERVER_HOST` / `MARKETBOT_SERVER_PORT`
 
 Sample `marketbot.json`:
 
@@ -140,67 +197,6 @@ Sample `marketbot.json`:
 }
 ```
 
-Live data (auto providers + optional web search/scrape):
-
-```bash
-DATA_MODE=auto ENABLE_WEB_SEARCH=true SCRAPE_ALLOWLIST="finance.yahoo.com,binance.com" \
-  node dist/index.js analyze --live --search "Analyze AAPL swing"
-```
-
-## Notes
-
-- The CLI defaults to mock market data unless `--live`/`DATA_MODE` is set.
-- Swap in a real LLM provider by implementing `LLMProvider` in `src/core/llm.ts`.
-- Prompts live in `src/prompts/`.
-- Workspace files (AGENTS.md/SOUL.md/TOOLS.md/etc) live under `marketbot-workspace/` by default.
-- If no `--agent` is passed, MarketBot uses the default agent from `marketbot.json`.
-
-## Data configuration
-
-Environment variables:
-
-- `DATA_MODE`: `mock` | `auto` | `api` | `scrape`
-- `ENABLE_WEB_SEARCH`: set to `true` to allow search + scrape fallback
-- `SCRAPE_ALLOWLIST`: comma-separated domains permitted for scraping
-- `DATA_TIMEOUT_MS`: request timeout (ms)
-- `SERPAPI_KEY` or `BING_SEARCH_KEY`: for web search providers
-- `BINANCE_ENABLED`: set to `false` to disable Binance provider
-- `YAHOO_FINANCE_ENABLED`: set to `false` to disable Yahoo Finance provider
-
-## Config + workspace
-
-- Config file: `marketbot.json` in repo root (override with `MARKETBOT_CONFIG_PATH`)
-- Default workspace can be overridden with `MARKETBOT_WORKSPACE_DIR`
-- Extra skills directories can be provided via `MARKETBOT_SKILLS_DIRS` (comma-separated)
-- Managed skills dir can be overridden with `MARKETBOT_MANAGED_SKILLS_DIR` or `skills.managedDir`
-- Skills can be allowlisted/denylisted in `marketbot.json` via `skills.allowlist` / `skills.denylist`
-- Tools can be allowlisted via `tools.profile` or `tools.allow` / `tools.deny`
-- Per-agent tool overrides: `agents.list[].tools`
-- Tool profiles: `minimal`, `analysis`, `full`
-- Skills watcher can be toggled via `skills.watch` (default: true) and `skills.watchDebounceMs`
-- Sessions can be tuned via `sessions.*` (storage dir + limits + includeContext)
-- HTTP server config: `server.host` / `server.port` or env `MARKETBOT_SERVER_HOST` / `MARKETBOT_SERVER_PORT`
-
-Skill metadata (in SKILL.md front-matter):
-
-```yaml
----
-name: chart-reader
-description: Read chart screenshots
-metadata: {"marketbot":{"skillKey":"chart-reader","emoji":"chart","invocation":{"userInvocable":true},"commands":[{"name":"analyze","description":"Analyze a chart","dispatch":{"kind":"tool","toolName":"chart_tool","argMode":"raw"}}]}}
----
-```
-
-Example MarketBot tool dispatch skill:
-
-```yaml
----
-name: market-scan
-description: Fetch and summarize market data
-metadata: {"marketbot":{"skillKey":"market-scan","commands":[{"name":"fetch","description":"Fetch BTC data","dispatch":{"kind":"tool","toolName":"market_fetch","argMode":"raw"}}]}}
----
-```
-
 ## LLM providers
 
 MarketBot ships with `mock` and `openai-compatible` providers.
@@ -218,6 +214,13 @@ Example:
   }
 }
 ```
+
+## Notes
+
+- This is **decision-support analysis**, not trading advice.
+- The CLI defaults to mock market data unless `--live`/`DATA_MODE` is set.
+- Prompts live in `src/prompts/` and agent runners live in `src/agents/`.
+- Workspace files (AGENTS.md/SOUL.md/TOOLS.md/etc) live under `marketbot-workspace/` by default.
 
 ## Structure
 
