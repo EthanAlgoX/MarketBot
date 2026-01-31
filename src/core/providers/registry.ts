@@ -6,13 +6,19 @@ import { OpenAICompatibleProvider } from "./openaiCompatible.js";
 import { getCredentials } from "../auth/oauth.js";
 
 export async function createProviderFromConfigAsync(config: MarketBotConfig): Promise<LLMProvider> {
+  const llm = config.llm ?? {};
+
+  if (llm.provider === "mock") {
+    return new MockProvider();
+  }
+
   // 1. Check for OAuth Credentials (Subscriptions) - Priority 1
   const openAiOAuth = await getCredentials("openai-codex");
   if (openAiOAuth && openAiOAuth.access_token) {
     return new OpenAICompatibleProvider({
       baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
       apiKey: openAiOAuth.access_token,
-      model: config.llm?.model ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+      model: llm.model ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini",
       timeoutMs: 30_000,
     });
   }
@@ -28,11 +34,8 @@ export async function createProviderFromConfigAsync(config: MarketBotConfig): Pr
     });
   }
 
-  const llm = config.llm ?? {};
-
   // 2. If provider is explicitly configured, use it
   if (llm.provider) {
-    if (llm.provider === "mock") return new MockProvider();
     return createExplicitProvider(llm);
   }
 

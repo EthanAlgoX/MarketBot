@@ -48,6 +48,10 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
         }
 
         const config = await loadConfig(process.cwd(), { validate: true });
+        if (body.mockLlm === true) {
+          if (!config.llm) config.llm = {};
+          config.llm.provider = "mock";
+        }
         const provider = await createProviderFromConfigAsync(config);
         const agentId = (body.agentId as string | undefined)?.trim() || resolveDefaultAgentId(config);
 

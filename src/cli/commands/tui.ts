@@ -1,7 +1,10 @@
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { analyzeCommand } from "./analyze.js";
 import { createDefaultDeps } from "../deps.js";
+import { loadConfig } from "../../config/io.js";
+import { resolveAgentConfig, resolveDefaultAgentId } from "../../agents/agentScope.js";
+import { SessionStore } from "../../session/store.js";
+import { runMarketBot } from "../../core/pipeline.js";
 
 export type TuiOptions = {
   json?: boolean;
@@ -41,7 +44,13 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
   });
 
   while (!exiting) {
-    const line = await rl.question("mb> ");
+    let line = "";
+    try {
+      line = await rl.question("mb> ");
+    } catch (err) {
+      if (String(err).includes("readline was closed")) break;
+      throw err;
+    }
     const trimmed = line.trim();
 
     if (!trimmed) continue;
@@ -51,12 +60,12 @@ export async function tuiCommand(opts: TuiOptions = {}): Promise<void> {
       if (handled.exit) break;
       if (handled.message) console.log(handled.message);
       if (handled.runQuery) {
-        await runQuery(handled.runQuery, state, deps);
+        await runQuery(handled.runQuery, state, deps, rl);
       }
       continue;
     }
 
-    await runQuery(trimmed, state, deps);
+    await runQuery(trimmed, state, deps, rl);
   }
 
   rl.close();
@@ -202,26 +211,115 @@ async function runQuery(
     history: string[];
   },
   deps: ReturnType<typeof createDefaultDeps>,
+  rl: readline.Interface,
 ): Promise<void> {
   try {
-    await analyzeCommand(
-      {
-        query,
-        json: state.json,
-        live: state.live,
-        mock: state.mock,
-        mode: state.mode,
-        search: state.search,
-        scrape: state.scrape,
-        agentId: state.agentId,
-        sessionKey: state.sessionKey,
-      },
-      deps,
-    );
+    const outputText = await runAnalysis(query, state, deps);
+    await pageOutput(outputText, rl, 22);
     state.history.unshift(query);
     if (state.history.length > 20) state.history.pop();
     console.log("");
   } catch (err) {
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+async function runAnalysis(
+  query: string,
+  state: {
+    json: boolean;
+    live: boolean;
+    mock: boolean;
+    mode?: string;
+    search: boolean;
+    scrape: boolean;
+    agentId?: string;
+    sessionKey?: string;
+  },
+  deps: ReturnType<typeof createDefaultDeps>,
+): Promise<string> {
+  const mode = parseMode(
+    state.mode ?? (state.scrape ? "scrape" : state.live ? "auto" : state.mock ? "mock" : undefined),
+  );
+  const enableSearch = state.search || state.scrape ? true : undefined;
+  const dataOptions = mode || enableSearch ? { mode, enableSearch } : undefined;
+
+  const config = await loadConfig(process.cwd(), { validate: true });
+  const defaultAgentId = resolveDefaultAgentId(config);
+  const agentId = state.agentId ?? defaultAgentId;
+
+  if (state.agentId) {
+    const entry = resolveAgentConfig(config, state.agentId);
+    if (config.agents?.list && !entry) {
+      throw new Error(`Unknown agent "${state.agentId}". Run "marketbot agents add ${state.agentId}" first.`);
+    }
+  }
+
+  if (state.mock) {
+    if (!config.llm) config.llm = {};
+    config.llm.provider = "mock";
+  }
+
+  const provider = await deps.createProviderAsync(config);
+  const sessionEnabled = config.sessions?.enabled !== false;
+  const sessionKey = state.sessionKey?.trim() || `agent:${agentId}:main`;
+  const sessionStore = sessionEnabled
+    ? new SessionStore({
+        agentId,
+        stateDir: config.sessions?.dir,
+        maxEntries: config.sessions?.maxEntries,
+        maxEntryChars: config.sessions?.maxEntryChars,
+        contextMaxChars: config.sessions?.contextMaxChars,
+      })
+    : undefined;
+
+  const outputs = await runMarketBot({
+    userQuery: query,
+    dataOptions,
+    agentId: agentId,
+    dataService: { getMarketDataFromIntent: deps.getMarketDataFromIntent },
+    provider,
+    session: sessionStore
+      ? {
+          key: sessionKey,
+          store: sessionStore,
+          includeContext: config.sessions?.includeContext,
+        }
+      : undefined,
+  });
+
+  if (state.json) {
+    return JSON.stringify(outputs, null, 2);
+  }
+  return outputs.report;
+}
+
+function parseMode(value?: string): "mock" | "auto" | "api" | "scrape" | undefined {
+  if (!value) return undefined;
+  if (value === "mock" || value === "auto" || value === "api" || value === "scrape") return value;
+  return undefined;
+}
+
+async function pageOutput(text: string, rl: readline.Interface, pageSize: number): Promise<void> {
+  const lines = text.split(/\r?\n/);
+  if (lines.length <= pageSize) {
+    console.log(text);
+    return;
+  }
+
+  let index = 0;
+  while (index < lines.length) {
+    const chunk = lines.slice(index, index + pageSize).join("\n");
+    console.log(chunk);
+    index += pageSize;
+    if (index >= lines.length) break;
+    let answer = "";
+    try {
+      answer = await rl.question("-- more -- (Enter to continue, q to stop) ");
+    } catch (err) {
+      if (String(err).includes("readline was closed")) break;
+      throw err;
+    }
+    if (answer.trim().toLowerCase() === "q") break;
   }
 }

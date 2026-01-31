@@ -11,114 +11,285 @@ export function renderGuiPage(options: GuiPageOptions): string {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MarketBot GUI</title>
     <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
       :root {
         color-scheme: light;
+        --ink: #121417;
+        --muted: #5a5f66;
+        --accent: #0f766e;
+        --accent-2: #f97316;
+        --surface: rgba(255, 255, 255, 0.9);
+        --surface-strong: #ffffff;
+        --border: rgba(15, 23, 42, 0.12);
+        --shadow: 0 22px 50px rgba(15, 23, 42, 0.12);
+        --mono: "IBM Plex Mono", "JetBrains Mono", "Fira Code", monospace;
+        --sans: "Space Grotesk", "Helvetica Neue", "Nimbus Sans", sans-serif;
+        --serif: "Fraunces", "Iowan Old Style", serif;
       }
       * {
         box-sizing: border-box;
       }
       body {
         margin: 0;
-        font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", monospace;
-        background: radial-gradient(circle at 10% 10%, #f7f5ff 0%, #eaf3ff 55%, #fdfdfd 100%);
-        color: #111111;
+        font-family: var(--sans);
+        background:
+          radial-gradient(circle at 12% 18%, rgba(15, 118, 110, 0.14), transparent 50%),
+          radial-gradient(circle at 82% 12%, rgba(249, 115, 22, 0.16), transparent 52%),
+          linear-gradient(135deg, #f8f2e8 0%, #e4f4f8 45%, #fffdf8 100%);
+        color: var(--ink);
+      }
+      body::before,
+      body::after {
+        content: "";
+        position: fixed;
+        inset: -20% auto auto -20%;
+        width: 320px;
+        height: 320px;
+        background: radial-gradient(circle, rgba(15, 118, 110, 0.18), transparent 60%);
+        filter: blur(20px);
+        z-index: 0;
+      }
+      body::after {
+        inset: auto -20% -10% auto;
+        width: 380px;
+        height: 380px;
+        background: radial-gradient(circle, rgba(249, 115, 22, 0.2), transparent 65%);
+      }
+      body[data-theme="dark"] {
+        background:
+          radial-gradient(circle at 15% 10%, rgba(34, 197, 94, 0.12), transparent 55%),
+          radial-gradient(circle at 85% 20%, rgba(56, 189, 248, 0.16), transparent 60%),
+          linear-gradient(160deg, #0b1220 0%, #0f172a 60%, #020617 100%);
+        color: #e2e8f0;
+      }
+      body[data-theme="dark"]::before,
+      body[data-theme="dark"]::after {
+        opacity: 0.5;
       }
       .wrap {
-        max-width: 1100px;
+        position: relative;
+        z-index: 1;
+        max-width: 1140px;
         margin: 0 auto;
-        padding: 28px 18px 60px;
+        padding: 32px 20px 70px;
       }
-      header {
-        display: flex;
+      header.hero {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        gap: 24px;
         align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        flex-wrap: wrap;
+        animation: fadeUp 0.7s ease both;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(15, 118, 110, 0.12);
+        color: #0f766e;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      body[data-theme="dark"] .pill {
+        background: rgba(56, 189, 248, 0.18);
+        color: #38bdf8;
       }
       h1 {
-        margin: 0;
-        font-size: 28px;
+        margin: 14px 0 6px;
+        font-family: var(--serif);
+        font-size: 34px;
         letter-spacing: -0.02em;
       }
       .subtitle {
-        font-size: 13px;
-        color: #4a4a4a;
+        font-size: 14px;
+        color: var(--muted);
       }
-      .grid {
-        margin-top: 16px;
+      body[data-theme="dark"] .subtitle {
+        color: #a7b1c2;
+      }
+      .meta-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 16px;
+        box-shadow: var(--shadow);
+      }
+      body[data-theme="dark"] .meta-card {
+        background: rgba(15, 23, 42, 0.86);
+        border-color: rgba(148, 163, 184, 0.2);
+      }
+      .meta-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      body[data-theme="dark"] .meta-label {
+        color: #94a3b8;
+      }
+      .meta-value {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .layout {
+        margin-top: 22px;
         display: grid;
-        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-        gap: 16px;
+        grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr);
+        gap: 18px;
       }
       .panel {
-        background: #ffffff;
-        border-radius: 16px;
-        padding: 16px;
-        box-shadow: 0 14px 32px rgba(17, 23, 40, 0.08);
+        background: var(--surface-strong);
+        border-radius: 20px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        animation: fadeUp 0.7s ease both;
       }
-      .row {
+      .panel-main {
+        animation-delay: 0.05s;
+      }
+      .panel-side {
+        animation-delay: 0.12s;
+      }
+      body[data-theme="dark"] .panel {
+        background: rgba(15, 23, 42, 0.92);
+        border-color: rgba(148, 163, 184, 0.2);
+      }
+      .input-bar {
         display: flex;
-        gap: 10px;
         flex-wrap: wrap;
+        gap: 10px;
         align-items: center;
       }
-      .row label {
+      .input-label {
         font-size: 12px;
-        color: #4a4a4a;
+        font-weight: 600;
+        color: var(--muted);
       }
       input[type="text"], select {
-        border: 1px solid #c9c9c9;
-        border-radius: 10px;
-        padding: 8px 10px;
-        font-size: 13px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 14px;
         min-width: 140px;
         background: #ffffff;
+        font-family: var(--sans);
+      }
+      body[data-theme="dark"] input[type="text"],
+      body[data-theme="dark"] select {
+        background: #0b1220;
+        border-color: rgba(148, 163, 184, 0.3);
+        color: #e2e8f0;
       }
       input[type="text"].query {
         flex: 1 1 420px;
-        min-width: 260px;
+        min-width: 240px;
       }
-      button {
-        background: #111111;
-        color: #ffffff;
+      .btn {
         border: none;
-        border-radius: 10px;
-        padding: 9px 14px;
-        cursor: pointer;
+        border-radius: 12px;
+        padding: 10px 16px;
         font-size: 13px;
+        cursor: pointer;
+        font-weight: 600;
+        font-family: var(--sans);
       }
-      button.secondary {
-        background: #e8e8e8;
-        color: #111111;
+      .btn.primary {
+        background: linear-gradient(120deg, var(--accent), #14b8a6);
+        color: #ffffff;
       }
-      button:disabled {
+      .btn.ghost {
+        background: #f1f5f9;
+        color: #0f172a;
+      }
+      body[data-theme="dark"] .btn.ghost {
+        background: #1f2937;
+        color: #e2e8f0;
+      }
+      .btn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
       }
       .hint {
         font-size: 12px;
-        color: #5f5f5f;
+        color: var(--muted);
         margin-top: 8px;
       }
-      .output {
-        margin-top: 14px;
-        padding: 14px;
-        border-radius: 12px;
-        background: #0f172a;
-        color: #e2e8f0;
-        font-size: 13px;
-        white-space: pre-wrap;
-        min-height: 160px;
+      .status-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
       }
       .status {
-        margin-top: 10px;
         font-size: 12px;
-        color: #334155;
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .output-shell {
+        margin-top: 12px;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: #0b1220;
+      }
+      .output-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        color: #cbd5f5;
+        background: rgba(15, 23, 42, 0.85);
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #f97316;
+      }
+      .output {
+        padding: 16px;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: #e2e8f0;
+        white-space: pre-wrap;
+        min-height: 180px;
+      }
+      body[data-theme="dark"] .output-shell {
+        border-color: rgba(148, 163, 184, 0.2);
       }
       .section-title {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
-        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+      }
+      .option-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+      }
+      .option-grid .action-row {
+        grid-column: 1 / -1;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .action-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
       }
       .history {
         display: flex;
@@ -127,23 +298,83 @@ export function renderGuiPage(options: GuiPageOptions): string {
       }
       .history button {
         text-align: left;
-        background: #f3f4f6;
-        color: #111111;
-        border-radius: 10px;
+        background: #f8fafc;
+        color: #0f172a;
+        border-radius: 12px;
         padding: 8px 10px;
         font-size: 12px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+      }
+      body[data-theme="dark"] .history button {
+        background: #111827;
+        color: #e2e8f0;
+        border-color: rgba(148, 163, 184, 0.2);
       }
       .history small {
-        color: #64748b;
+        color: #94a3b8;
+      }
+      .snapshot {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+      }
+      .card {
+        background: #f8fafc;
+        border-radius: 14px;
+        padding: 12px;
+        font-size: 12px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+      }
+      body[data-theme="dark"] .card {
+        background: #0b1220;
+        border-color: rgba(148, 163, 184, 0.2);
+      }
+      .meter {
+        position: relative;
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 999px;
+        margin-top: 6px;
+      }
+      body[data-theme="dark"] .meter {
+        background: #1e293b;
+      }
+      .meter span {
+        position: absolute;
+        top: -3px;
+        width: 10px;
+        height: 14px;
+        border-radius: 5px;
+        background: #22c55e;
+      }
+      .meter strong {
+        display: block;
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #ef4444, #f59e0b 45%, #22c55e);
       }
       .trace {
         margin-top: 12px;
         font-size: 12px;
-        color: #475569;
+        color: #64748b;
         white-space: pre-wrap;
       }
-      @media (max-width: 900px) {
-        .grid {
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @media (max-width: 980px) {
+        header.hero {
+          grid-template-columns: 1fr;
+        }
+        .layout {
           grid-template-columns: 1fr;
         }
       }
@@ -151,58 +382,87 @@ export function renderGuiPage(options: GuiPageOptions): string {
   </head>
   <body>
     <div class="wrap">
-      <header>
+      <header class="hero">
         <div>
-          <h1>MarketBot GUI</h1>
-          <div class="subtitle">Query, analyze, and inspect results.</div>
+          <div class="pill">MarketBot</div>
+          <h1>Market Intelligence Studio</h1>
+          <div class="subtitle">Run focused analysis and keep context in one place.</div>
         </div>
-        <div class="subtitle">API: ${apiBase}</div>
+        <div class="meta-card">
+          <div class="meta-label">API</div>
+          <div class="meta-value">${apiBase}</div>
+          <div class="meta-label" style="margin-top:10px;">Mode</div>
+          <div class="meta-value">Interactive GUI</div>
+        </div>
       </header>
 
-      <div class="grid">
-        <section class="panel">
-          <div class="row">
-            <label for="query">Query</label>
+      <div class="layout">
+        <section class="panel panel-main">
+          <div class="input-bar">
+            <span class="input-label">Query</span>
             <input id="query" class="query" type="text" placeholder="e.g. GOOGL stock analysis" />
-            <button id="run">Analyze</button>
-            <button id="clear" class="secondary">Clear</button>
+            <button id="run" class="btn primary">Analyze</button>
+            <button id="clear" class="btn ghost">Clear</button>
           </div>
-          <div class="hint">Press Enter to submit. Use the right panel to tweak options.</div>
+          <div class="hint">Press Enter to submit. Refine options on the right.</div>
 
-          <div id="status" class="status">Idle</div>
-          <div id="output" class="output">Waiting for input…</div>
+          <div class="status-row">
+            <div id="status" class="status">Idle</div>
+            <div class="subtitle">Snapshots update after each run.</div>
+          </div>
+
+          <div class="output-shell">
+            <div class="output-header">
+              <span class="dot"></span>
+              <span>Analysis Output</span>
+            </div>
+            <div id="output" class="output">Waiting for input…</div>
+          </div>
+
+          <div id="snapshot" class="snapshot"></div>
           <div id="trace" class="trace"></div>
         </section>
 
-        <section class="panel">
-          <div class="section-title">Options</div>
-          <div class="row">
-            <label for="mode">Mode</label>
+        <aside class="panel panel-side">
+          <div class="section-title">Control Deck</div>
+          <div class="option-grid">
+            <label class="chip" for="mode">Mode</label>
             <select id="mode">
               <option value="">auto</option>
               <option value="api">api</option>
               <option value="scrape">scrape</option>
               <option value="mock">mock</option>
             </select>
-            <label><input id="search" type="checkbox" /> search</label>
-            <label><input id="scrape" type="checkbox" /> scrape</label>
-            <label><input id="traceToggle" type="checkbox" /> trace</label>
-            <label><input id="jsonToggle" type="checkbox" /> json</label>
-          </div>
-          <div class="row" style="margin-top:10px;">
-            <label for="agentId">Agent</label>
-            <input id="agentId" type="text" placeholder="agent id" />
-            <label for="sessionKey">Session</label>
-            <input id="sessionKey" type="text" placeholder="session key" />
-          </div>
-          <div class="row" style="margin-top:10px;">
-            <button id="copy" class="secondary">Copy Output</button>
-            <button id="save" class="secondary">Save Settings</button>
+            <label class="chip"><input id="search" type="checkbox" /> search</label>
+            <label class="chip"><input id="scrape" type="checkbox" /> scrape</label>
+            <label class="chip"><input id="traceToggle" type="checkbox" /> trace</label>
+            <label class="chip"><input id="jsonToggle" type="checkbox" /> json</label>
+            <label class="chip"><input id="mockLlmToggle" type="checkbox" /> mock LLM</label>
           </div>
 
-          <div class="section-title" style="margin-top:16px;">History</div>
+          <div class="option-grid" style="margin-top:12px;">
+            <label class="chip" for="agentId">Agent</label>
+            <input id="agentId" type="text" placeholder="agent id" />
+            <label class="chip" for="sessionKey">Session</label>
+            <input id="sessionKey" type="text" placeholder="session key" />
+          </div>
+
+          <div class="option-grid" style="margin-top:12px;">
+            <label class="chip" for="theme">Theme</label>
+            <select id="theme">
+              <option value="light">light</option>
+              <option value="dark">dark</option>
+            </select>
+            <div class="action-row">
+              <button id="copy" class="btn ghost">Copy</button>
+              <button id="download" class="btn ghost">Download</button>
+              <button id="save" class="btn ghost">Save</button>
+            </div>
+          </div>
+
+          <div class="section-title" style="margin-top:18px;">History</div>
           <div id="history" class="history"></div>
-        </section>
+        </aside>
       </div>
     </div>
 
@@ -219,10 +479,14 @@ export function renderGuiPage(options: GuiPageOptions): string {
       const scrapeToggle = document.getElementById("scrape");
       const traceToggle = document.getElementById("traceToggle");
       const jsonToggle = document.getElementById("jsonToggle");
+      const mockLlmToggle = document.getElementById("mockLlmToggle");
       const agentIdInput = document.getElementById("agentId");
       const sessionKeyInput = document.getElementById("sessionKey");
       const copyBtn = document.getElementById("copy");
       const saveBtn = document.getElementById("save");
+      const downloadBtn = document.getElementById("download");
+      const themeSelect = document.getElementById("theme");
+      const snapshot = document.getElementById("snapshot");
 
       const STORAGE_KEY = "marketbot.gui.v1";
 
@@ -246,8 +510,11 @@ export function renderGuiPage(options: GuiPageOptions): string {
         scrapeToggle.checked = Boolean(settings.scrape);
         traceToggle.checked = Boolean(settings.trace);
         jsonToggle.checked = Boolean(settings.json);
+        mockLlmToggle.checked = Boolean(settings.mockLlm);
         agentIdInput.value = settings.agentId || "";
         sessionKeyInput.value = settings.sessionKey || "";
+        themeSelect.value = settings.theme || "light";
+        document.body.dataset.theme = themeSelect.value;
       }
 
       function collectSettings() {
@@ -257,8 +524,10 @@ export function renderGuiPage(options: GuiPageOptions): string {
           scrape: scrapeToggle.checked,
           trace: traceToggle.checked,
           json: jsonToggle.checked,
+          mockLlm: mockLlmToggle.checked,
           agentId: agentIdInput.value.trim(),
           sessionKey: sessionKeyInput.value.trim(),
+          theme: themeSelect.value,
         };
       }
 
@@ -280,6 +549,25 @@ export function renderGuiPage(options: GuiPageOptions): string {
         });
       }
 
+      function renderSnapshot(data) {
+        const market = data?.data?.market || {};
+        const regime = data?.data?.regime || {};
+        const risk = data?.data?.risk || {};
+
+        const momentum = String(market.momentum || "");
+        const momentumPct = momentumValue(momentum);
+        const volatility = String(market.volatility_state || "");
+
+        snapshot.innerHTML = [
+          '<div class="card"><strong>Momentum</strong>',
+          '<div class="meter"><strong></strong><span style="left:' + momentumPct + '%"></span></div>',
+          '<div>' + escapeHtml(momentum || "n/a") + '</div></div>',
+          '<div class="card"><strong>Regime</strong><div>' + escapeHtml(regime.regime || "n/a") + '</div></div>',
+          '<div class="card"><strong>Volatility</strong><div>' + escapeHtml(volatility || "n/a") + '</div></div>',
+          '<div class="card"><strong>Risk</strong><div>' + escapeHtml(risk.risk_level || "n/a") + '</div></div>',
+        ].join("");
+      }
+
       async function runQuery() {
         const query = queryInput.value.trim();
         if (!query) {
@@ -291,6 +579,7 @@ export function renderGuiPage(options: GuiPageOptions): string {
         status.textContent = "Running analysis…";
         output.textContent = "";
         trace.textContent = "";
+        snapshot.innerHTML = "";
 
         const settings = collectSettings();
         const payload = { query };
@@ -298,6 +587,7 @@ export function renderGuiPage(options: GuiPageOptions): string {
         if (settings.search) payload.search = true;
         if (settings.scrape) payload.scrape = true;
         if (settings.trace) payload.includeTrace = true;
+        if (settings.mockLlm) payload.mockLlm = true;
         if (settings.agentId) payload.agentId = settings.agentId;
         if (settings.sessionKey) payload.sessionKey = settings.sessionKey;
 
@@ -320,6 +610,8 @@ export function renderGuiPage(options: GuiPageOptions): string {
           } else {
             output.textContent = data?.data?.report || JSON.stringify(data, null, 2);
           }
+
+          renderSnapshot(data);
 
           if (data?.data?.trace?.phases?.length) {
             const lines = data.data.trace.phases.map(p => {
@@ -361,16 +653,56 @@ export function renderGuiPage(options: GuiPageOptions): string {
           status.textContent = "Copy failed.";
         }
       });
+      downloadBtn.addEventListener("click", () => {
+        const content = output.textContent || "";
+        if (!content) {
+          status.textContent = "Nothing to download.";
+          return;
+        }
+        const ext = jsonToggle.checked ? "json" : "txt";
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "marketbot-report." + ext;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        status.textContent = "Download started.";
+      });
       saveBtn.addEventListener("click", () => {
         const state = loadState();
         state.settings = collectSettings();
         saveState(state);
         status.textContent = "Settings saved.";
       });
+      themeSelect.addEventListener("change", () => {
+        document.body.dataset.theme = themeSelect.value;
+      });
 
       const initial = loadState();
       applySettings(initial.settings || {});
       renderHistory(initial.history || []);
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (ch) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[ch]);
+      }
+
+      function momentumValue(value) {
+        const map = {
+          strong_bearish: 5,
+          bearish: 20,
+          neutral: 50,
+          bullish: 80,
+          strong_bullish: 95,
+        };
+        return map[value] ?? 50;
+      }
     </script>
   </body>
 </html>`;
