@@ -225,11 +225,17 @@ export function renderGuiPage(options: GuiPageOptions): string {
         justify-content: space-between;
         align-items: center;
         margin-top: 10px;
+        gap: 12px;
+        flex-wrap: wrap;
       }
       .status {
         font-size: 12px;
         font-weight: 600;
         color: var(--accent);
+      }
+      .status-detail {
+        font-size: 12px;
+        color: var(--muted);
       }
       .output-shell {
         margin-top: 12px;
@@ -271,6 +277,27 @@ export function renderGuiPage(options: GuiPageOptions): string {
         letter-spacing: 0.08em;
         margin-bottom: 10px;
       }
+      .quick-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .quick-button {
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: rgba(255, 255, 255, 0.85);
+        color: #0f172a;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      body[data-theme="dark"] .quick-button {
+        background: rgba(15, 23, 42, 0.6);
+        color: #e2e8f0;
+        border-color: rgba(148, 163, 184, 0.2);
+      }
       .option-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -278,6 +305,15 @@ export function renderGuiPage(options: GuiPageOptions): string {
       }
       .option-grid .action-row {
         grid-column: 1 / -1;
+      }
+      .key-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        grid-column: 1 / -1;
+      }
+      .key-row input {
+        flex: 1 1 auto;
       }
       .chip {
         display: inline-flex;
@@ -304,6 +340,17 @@ export function renderGuiPage(options: GuiPageOptions): string {
         padding: 8px 10px;
         font-size: 12px;
         border: 1px solid rgba(15, 23, 42, 0.08);
+      }
+      .history button strong {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .history button small {
+        display: block;
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 4px;
       }
       body[data-theme="dark"] .history button {
         background: #111827;
@@ -405,10 +452,11 @@ export function renderGuiPage(options: GuiPageOptions): string {
             <button id="clear" class="btn ghost">Clear</button>
           </div>
           <div class="hint">Press Enter to submit. Refine options on the right.</div>
+          <div class="quick-row" id="quickRow"></div>
 
           <div class="status-row">
             <div id="status" class="status">Idle</div>
-            <div class="subtitle">Snapshots update after each run.</div>
+            <div id="statusDetail" class="status-detail">No runs yet.</div>
           </div>
 
           <div class="output-shell">
@@ -419,6 +467,7 @@ export function renderGuiPage(options: GuiPageOptions): string {
             <div id="output" class="output">Waiting for input…</div>
           </div>
 
+          <div class="section-title" style="margin-top:18px;">Snapshot</div>
           <div id="snapshot" class="snapshot"></div>
           <div id="trace" class="trace"></div>
         </section>
@@ -462,6 +511,39 @@ export function renderGuiPage(options: GuiPageOptions): string {
 
           <div class="section-title" style="margin-top:18px;">History</div>
           <div id="history" class="history"></div>
+
+          <div class="section-title" style="margin-top:18px;">LLM</div>
+          <div class="option-grid">
+            <label class="chip" for="llmProvider">Provider</label>
+            <select id="llmProvider">
+              <option value="">auto</option>
+              <option value="openai-compatible">openai-compatible</option>
+              <option value="mock">mock</option>
+            </select>
+            <label class="chip" for="llmModel">Model</label>
+            <input id="llmModel" type="text" placeholder="gpt-4o-mini" />
+            <label class="chip" for="llmBaseUrl">Base URL</label>
+            <input id="llmBaseUrl" type="text" placeholder="https://api.openai.com/v1" />
+            <label class="chip" for="llmApiKeyEnv">API Key Env</label>
+            <input id="llmApiKeyEnv" type="text" placeholder="OPENAI_API_KEY" />
+            <label class="chip" for="llmTimeout">Timeout (ms)</label>
+            <input id="llmTimeout" type="text" placeholder="60000" />
+            <label class="chip"><input id="llmJsonMode" type="checkbox" /> json mode</label>
+          </div>
+          <div class="key-row" style="margin-top:10px;">
+            <input id="llmApiKey" type="password" placeholder="API key (not stored)" />
+            <button id="toggleApiKey" class="btn ghost" type="button">Show</button>
+          </div>
+          <div class="option-grid" style="margin-top:12px;">
+            <div class="meta-card" style="grid-column: 1 / -1;">
+              <div class="meta-label">OpenAI OAuth (ChatGPT)</div>
+              <div class="meta-value" id="openAiStatus">Checking…</div>
+              <div class="action-row" style="margin-top:10px;">
+                <button id="openAiLogin" class="btn ghost" type="button">Sign in</button>
+                <button id="openAiLogout" class="btn ghost" type="button">Sign out</button>
+              </div>
+            </div>
+          </div>
         </aside>
       </div>
     </div>
@@ -472,8 +554,10 @@ export function renderGuiPage(options: GuiPageOptions): string {
       const clearBtn = document.getElementById("clear");
       const output = document.getElementById("output");
       const status = document.getElementById("status");
+      const statusDetail = document.getElementById("statusDetail");
       const trace = document.getElementById("trace");
       const historyEl = document.getElementById("history");
+      const quickRow = document.getElementById("quickRow");
       const mode = document.getElementById("mode");
       const searchToggle = document.getElementById("search");
       const scrapeToggle = document.getElementById("scrape");
@@ -487,6 +571,17 @@ export function renderGuiPage(options: GuiPageOptions): string {
       const downloadBtn = document.getElementById("download");
       const themeSelect = document.getElementById("theme");
       const snapshot = document.getElementById("snapshot");
+      const llmProvider = document.getElementById("llmProvider");
+      const llmModel = document.getElementById("llmModel");
+      const llmBaseUrl = document.getElementById("llmBaseUrl");
+      const llmApiKeyEnv = document.getElementById("llmApiKeyEnv");
+      const llmTimeout = document.getElementById("llmTimeout");
+      const llmJsonMode = document.getElementById("llmJsonMode");
+      const llmApiKey = document.getElementById("llmApiKey");
+      const toggleApiKey = document.getElementById("toggleApiKey");
+      const openAiStatus = document.getElementById("openAiStatus");
+      const openAiLogin = document.getElementById("openAiLogin");
+      const openAiLogout = document.getElementById("openAiLogout");
 
       const STORAGE_KEY = "marketbot.gui.v1";
 
@@ -515,9 +610,19 @@ export function renderGuiPage(options: GuiPageOptions): string {
         sessionKeyInput.value = settings.sessionKey || "";
         themeSelect.value = settings.theme || "light";
         document.body.dataset.theme = themeSelect.value;
+        llmProvider.value = settings.llmProvider || "";
+        llmModel.value = settings.llmModel || "";
+        llmBaseUrl.value = settings.llmBaseUrl || "";
+        llmApiKeyEnv.value = settings.llmApiKeyEnv || "";
+        llmTimeout.value = settings.llmTimeout || "";
+        llmJsonMode.checked = Boolean(settings.llmJsonMode);
+        if (settings.llmApiKey) {
+          llmApiKey.value = settings.llmApiKey;
+        }
       }
 
-      function collectSettings() {
+      function collectSettings(options) {
+        const includeSecrets = options && options.includeSecrets === true;
         return {
           mode: mode.value,
           search: searchToggle.checked,
@@ -528,6 +633,13 @@ export function renderGuiPage(options: GuiPageOptions): string {
           agentId: agentIdInput.value.trim(),
           sessionKey: sessionKeyInput.value.trim(),
           theme: themeSelect.value,
+          llmProvider: llmProvider.value,
+          llmModel: llmModel.value.trim(),
+          llmBaseUrl: llmBaseUrl.value.trim(),
+          llmApiKeyEnv: llmApiKeyEnv.value.trim(),
+          llmTimeout: llmTimeout.value.trim(),
+          llmJsonMode: llmJsonMode.checked,
+          llmApiKey: includeSecrets ? llmApiKey.value.trim() : "",
         };
       }
 
@@ -537,9 +649,9 @@ export function renderGuiPage(options: GuiPageOptions): string {
           historyEl.innerHTML = "<small>No history yet.</small>";
           return;
         }
-        history.slice(0, 8).forEach((entry, idx) => {
+        history.slice(0, 8).forEach((entry) => {
           const btn = document.createElement("button");
-          btn.textContent = entry.query;
+          btn.innerHTML = "<strong>" + escapeHtml(entry.query) + "</strong><small>" + formatTimestamp(entry.ts) + "</small>";
           btn.title = entry.query;
           btn.addEventListener("click", () => {
             queryInput.value = entry.query;
@@ -577,17 +689,22 @@ export function renderGuiPage(options: GuiPageOptions): string {
 
         runBtn.disabled = true;
         status.textContent = "Running analysis…";
+        statusDetail.textContent = "Working…";
         output.textContent = "";
         trace.textContent = "";
         snapshot.innerHTML = "";
+        const startedAt = Date.now();
 
-        const settings = collectSettings();
+        const settings = collectSettings({ includeSecrets: true });
+        const storedSettings = collectSettings({ includeSecrets: false });
         const payload = { query };
         if (settings.mode) payload.mode = settings.mode;
         if (settings.search) payload.search = true;
         if (settings.scrape) payload.scrape = true;
         if (settings.trace) payload.includeTrace = true;
         if (settings.mockLlm) payload.mockLlm = true;
+        const llmPayload = buildLlmPayload(settings);
+        if (llmPayload) payload.llm = llmPayload;
         if (settings.agentId) payload.agentId = settings.agentId;
         if (settings.sessionKey) payload.sessionKey = settings.sessionKey;
 
@@ -621,11 +738,16 @@ export function renderGuiPage(options: GuiPageOptions): string {
             trace.textContent = "Trace:\\n" + lines.join("\\n");
           }
 
+          const endedAt = Date.now();
+          const duration = data?.data?.trace?.phases?.reduce((sum, p) => sum + (p.durationMs || 0), 0);
+          const runtimeMs = duration && duration > 0 ? duration : endedAt - startedAt;
+          statusDetail.textContent = "Last run: " + runtimeMs + "ms";
+
           const state = loadState();
-          const nextEntry = { query, ts: Date.now(), settings };
+          const nextEntry = { query, ts: Date.now(), settings: storedSettings };
           const nextHistory = [nextEntry, ...state.history.filter(e => e.query !== query)];
           state.history = nextHistory.slice(0, 20);
-          state.settings = settings;
+          state.settings = storedSettings;
           saveState(state);
           renderHistory(state.history);
         } catch (err) {
@@ -671,17 +793,95 @@ export function renderGuiPage(options: GuiPageOptions): string {
       });
       saveBtn.addEventListener("click", () => {
         const state = loadState();
-        state.settings = collectSettings();
+        state.settings = collectSettings({ includeSecrets: false });
         saveState(state);
         status.textContent = "Settings saved.";
       });
       themeSelect.addEventListener("change", () => {
         document.body.dataset.theme = themeSelect.value;
       });
+      toggleApiKey.addEventListener("click", () => {
+        const isHidden = llmApiKey.type === "password";
+        llmApiKey.type = isHidden ? "text" : "password";
+        toggleApiKey.textContent = isHidden ? "Hide" : "Show";
+      });
+
+      async function refreshOpenAiStatus() {
+        try {
+          const res = await fetch("/auth/openai/status");
+          const data = await res.json();
+          if (!data.ok) throw new Error("status failed");
+          if (data.authenticated) {
+            const expires = data.expiresAt ? new Date(data.expiresAt).toLocaleString() : "unknown";
+            openAiStatus.textContent = "Authenticated · expires " + expires;
+          } else {
+            openAiStatus.textContent = "Not authenticated";
+          }
+        } catch (err) {
+          openAiStatus.textContent = "Status unavailable";
+        }
+      }
+
+      async function pollOpenAiStatus() {
+        const started = Date.now();
+        while (Date.now() - started < 120000) {
+          await new Promise((r) => setTimeout(r, 2000));
+          await refreshOpenAiStatus();
+          if (openAiStatus.textContent && openAiStatus.textContent.startsWith("Authenticated")) {
+            return;
+          }
+        }
+      }
+
+      openAiLogin.addEventListener("click", async () => {
+        openAiStatus.textContent = "Starting OAuth…";
+        try {
+          const res = await fetch("/auth/openai/start", { method: "POST" });
+          const data = await res.json();
+          if (!data.ok || !data.authUrl) {
+            openAiStatus.textContent = data.error || "OAuth start failed";
+            return;
+          }
+          window.open(data.authUrl, "_blank", "noopener");
+          openAiStatus.textContent = "Waiting for sign-in…";
+          await pollOpenAiStatus();
+        } catch (err) {
+          openAiStatus.textContent = "OAuth error";
+        }
+      });
+
+      openAiLogout.addEventListener("click", async () => {
+        try {
+          await fetch("/auth/openai/logout", { method: "POST" });
+        } catch {}
+        await refreshOpenAiStatus();
+      });
+
+      function renderQuickQueries() {
+        const presets = [
+          "GOOGL stock analysis",
+          "BTC breakout watch",
+          "AAPL earnings risk check",
+          "ETH trend strength",
+        ];
+        quickRow.innerHTML = "";
+        presets.forEach((preset) => {
+          const button = document.createElement("button");
+          button.className = "quick-button";
+          button.textContent = preset;
+          button.addEventListener("click", () => {
+            queryInput.value = preset;
+            runQuery();
+          });
+          quickRow.appendChild(button);
+        });
+      }
 
       const initial = loadState();
       applySettings(initial.settings || {});
       renderHistory(initial.history || []);
+      renderQuickQueries();
+      refreshOpenAiStatus();
 
       function escapeHtml(value) {
         return String(value).replace(/[&<>"']/g, (ch) => ({
@@ -693,6 +893,13 @@ export function renderGuiPage(options: GuiPageOptions): string {
         })[ch]);
       }
 
+      function formatTimestamp(ts) {
+        if (!ts) return "";
+        const date = new Date(ts);
+        if (Number.isNaN(date.getTime())) return "";
+        return date.toLocaleString();
+      }
+
       function momentumValue(value) {
         const map = {
           strong_bearish: 5,
@@ -702,6 +909,21 @@ export function renderGuiPage(options: GuiPageOptions): string {
           strong_bullish: 95,
         };
         return map[value] ?? 50;
+      }
+
+      function buildLlmPayload(settings) {
+        const llm = {};
+        if (settings.llmProvider) llm.provider = settings.llmProvider;
+        if (settings.llmModel) llm.model = settings.llmModel;
+        if (settings.llmBaseUrl) llm.baseUrl = settings.llmBaseUrl;
+        if (settings.llmApiKeyEnv) llm.apiKeyEnv = settings.llmApiKeyEnv;
+        if (settings.llmApiKey) llm.apiKey = settings.llmApiKey;
+        if (settings.llmJsonMode) llm.jsonMode = true;
+        if (settings.llmTimeout) {
+          const parsed = Number(settings.llmTimeout);
+          if (Number.isFinite(parsed)) llm.timeoutMs = parsed;
+        }
+        return Object.keys(llm).length ? llm : null;
       }
     </script>
   </body>
