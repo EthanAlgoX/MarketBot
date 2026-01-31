@@ -61,6 +61,7 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
   const commands: SlashCommand[] = [
     { name: "help", description: "Show slash command help" },
     { name: "status", description: "Show gateway status summary" },
+    { name: "dashboard", description: "Open the TUI dashboard" },
     { name: "agent", description: "Switch agent (or open picker)" },
     { name: "agents", description: "Open agent picker" },
     { name: "session", description: "Switch session (or open picker)" },
@@ -141,6 +142,7 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
     // Market Analysis Commands
     { name: "analyze", description: "📊 Quick market analysis for a symbol" },
     { name: "watch", description: "👁️ Add symbol to watchlist" },
+    { name: "unwatch", description: "🧹 Remove symbol from watchlist" },
     { name: "watchlist", description: "📋 Show current watchlist" },
     { name: "portfolio", description: "💼 Portfolio overview" },
     { name: "news", description: "📰 Recent market news" },
@@ -172,6 +174,7 @@ export function helpText(options: SlashCommandOptions = {}): string {
     "━━━ System Commands ━━━",
     "/help              Show this help",
     "/status            Gateway status summary",
+    "/dashboard         TUI dashboard",
     "/agent <id>        Switch agent",
     "/session <key>     Switch session",
     "/model <name>      Set model",
@@ -187,6 +190,7 @@ export function helpText(options: SlashCommandOptions = {}): string {
     "━━━ Market Analysis ━━━",
     "/analyze <symbol>  Quick analysis (e.g., /analyze NVDA)",
     "/watch <symbol>    Add to watchlist",
+    "/unwatch <symbol>  Remove from watchlist",
     "/watchlist         Show watchlist",
     "/portfolio         Portfolio overview",
     "/news              Recent market news",
