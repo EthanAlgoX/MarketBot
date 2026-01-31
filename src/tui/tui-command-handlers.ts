@@ -456,6 +456,68 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         tui.stop();
         process.exit(0);
         break;
+      // Market Analysis Commands
+      case "analyze":
+        if (!args) {
+          chatLog.addSystem("📊 Usage: /analyze <symbol> (e.g., /analyze NVDA)");
+          break;
+        }
+        await sendMessage(`Analyze ${args.toUpperCase()} with recent catalysts/news and macro drivers. Include:
+- Technical levels (support/resistance)
+- Key catalysts and upcoming events
+- Risk assessment
+- Actionable trade ideas with entry/exit levels`);
+        break;
+      case "watch":
+        if (!args) {
+          chatLog.addSystem("👁️ Usage: /watch <symbol> (e.g., /watch AAPL)");
+          break;
+        }
+        chatLog.addSystem(`👁️ Added ${args.toUpperCase()} to watchlist`);
+        break;
+      case "watchlist":
+        chatLog.addSystem("📋 Watchlist feature coming soon. Use /analyze <symbol> for now.");
+        break;
+      case "portfolio":
+        await sendMessage(
+          "Show my portfolio overview with current positions, P&L, and recommendations.",
+        );
+        break;
+      case "news":
+        if (!args) {
+          await sendMessage(
+            "What are the most important market news and events today that could impact trading?",
+          );
+        } else {
+          await sendMessage(`What are the latest news and developments for ${args.toUpperCase()}?`);
+        }
+        break;
+      case "alerts":
+        chatLog.addSystem("🔔 Price alerts feature coming soon.");
+        break;
+      case "technicals":
+        if (!args) {
+          chatLog.addSystem("📈 Usage: /technicals <symbol> (e.g., /technicals SPY)");
+          break;
+        }
+        await sendMessage(`Provide a detailed technical analysis for ${args.toUpperCase()}:
+- Trend direction and strength
+- Key support/resistance levels
+- RSI, MACD, moving averages
+- Volume analysis
+- Chart patterns`);
+        break;
+      case "sentiment":
+        if (!args) {
+          await sendMessage(
+            "Analyze overall market sentiment including fear/greed index, put/call ratios, and institutional positioning.",
+          );
+        } else {
+          await sendMessage(
+            `Analyze the market sentiment for ${args.toUpperCase()} including social media buzz, analyst ratings, and institutional activity.`,
+          );
+        }
+        break;
       default:
         await sendMessage(raw);
         break;

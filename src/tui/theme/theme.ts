@@ -50,6 +50,13 @@ const palette = {
   link: "#7DD3A5",
   error: "#F97066",
   success: "#7DD3A5",
+  // Market-specific colors
+  bullish: "#22C55E", // Green for positive/bullish
+  bearish: "#EF4444", // Red for negative/bearish
+  neutral: "#F59E0B", // Amber for neutral
+  marketInfo: "#3B82F6", // Blue for informational
+  warning: "#F97316", // Orange for warnings
+  highlight: "#A855F7", // Purple for highlights
 };
 
 const fg = (hex: string) => (text: string) => chalk.hex(hex)(text);
@@ -97,6 +104,19 @@ export const theme = {
   border: fg(palette.border),
   bold: (text: string) => chalk.bold(text),
   italic: (text: string) => chalk.italic(text),
+  // Market-specific styles
+  bullish: fg(palette.bullish),
+  bearish: fg(palette.bearish),
+  neutral: fg(palette.neutral),
+  marketInfo: fg(palette.marketInfo),
+  warning: fg(palette.warning),
+  highlight: fg(palette.highlight),
+  // Market signal formatting
+  priceUp: (text: string) => chalk.bold(fg(palette.bullish)(`▲ ${text}`)),
+  priceDown: (text: string) => chalk.bold(fg(palette.bearish)(`▼ ${text}`)),
+  priceNeutral: (text: string) => fg(palette.neutral)(`◆ ${text}`),
+  // Section headers for TUI
+  sectionHeader: (text: string) => chalk.bold(fg(palette.accent)(`━━━ ${text} ━━━`)),
 };
 
 export const markdownTheme: MarkdownTheme = {
