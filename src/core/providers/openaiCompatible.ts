@@ -1,4 +1,4 @@
-import type { LLMProvider } from "../llm.js";
+import type { LLMProvider, LLMMessage, LLMResponse } from "../llm.js";
 import { postJson } from "./http.js";
 
 export interface OpenAICompatibleConfig {
@@ -11,7 +11,25 @@ export interface OpenAICompatibleConfig {
 }
 
 export class OpenAICompatibleProvider implements LLMProvider {
-  constructor(private config: OpenAICompatibleConfig) {}
+  constructor(private config: OpenAICompatibleConfig) { }
+
+  async chat(messages: LLMMessage[]): Promise<LLMResponse> {
+    const content = await this.callChat({ messages });
+    return {
+      content,
+      usage: {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+      },
+    };
+  }
+
+  async complete(prompt: string): Promise<string> {
+    return this.callChat({
+      messages: [{ role: "user", content: prompt }],
+    });
+  }
 
   async generateText(args: { system: string; prompt: string; input?: unknown }): Promise<string> {
     const content = buildUserContent(args.prompt, args.input);
@@ -105,3 +123,4 @@ function safeJsonParse<T>(text: string): T | null {
 interface OpenAIChatResponse {
   choices?: Array<{ message?: { content?: string } }>;
 }
+

@@ -19,6 +19,8 @@ export interface MarketBotConfig {
     managedDir?: string;
     allowlist?: string[];
     denylist?: string[];
+    watch?: boolean;
+    watchDebounceMs?: number;
     entries?: Record<
       string,
       {
@@ -28,6 +30,12 @@ export interface MarketBotConfig {
         apiKey?: string;
       }
     >;
+  };
+  tools?: {
+    allow?: string[];
+    alsoAllow?: string[];
+    deny?: string[];
+    profile?: "minimal" | "analysis" | "full";
   };
   llm?: {
     provider?: "mock" | "openai-compatible";
@@ -39,4 +47,27 @@ export interface MarketBotConfig {
     jsonMode?: boolean;
     headers?: Record<string, string>;
   };
+  web?: {
+    search?: {
+      enabled?: boolean;
+      provider?: "perplexity" | "browser";
+      apiKey?: string;
+      apiKeyEnv?: string;
+      baseUrl?: string;
+      model?: string;
+      maxResults?: number;
+      timeoutSeconds?: number;
+      cacheTtlMinutes?: number;
+      headless?: boolean;
+    };
+    fetch?: {
+      enabled?: boolean;
+      maxChars?: number;
+      maxRedirects?: number;
+      timeoutSeconds?: number;
+      cacheTtlMinutes?: number;
+      userAgent?: string;
+    };
+  };
 }
+

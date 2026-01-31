@@ -33,6 +33,8 @@ export const MarketBotConfigSchema = z
         managedDir: z.string().optional(),
         allowlist: z.array(z.string()).optional(),
         denylist: z.array(z.string()).optional(),
+        watch: z.boolean().optional(),
+        watchDebounceMs: z.number().int().nonnegative().optional(),
         entries: z.record(
           z.object({
             enabled: z.boolean().optional(),
@@ -41,6 +43,15 @@ export const MarketBotConfigSchema = z
             apiKey: z.string().optional(),
           }),
         ).optional(),
+      })
+      .passthrough()
+      .optional(),
+    tools: z
+      .object({
+        allow: z.array(z.string()).optional(),
+        alsoAllow: z.array(z.string()).optional(),
+        deny: z.array(z.string()).optional(),
+        profile: z.enum(["minimal", "analysis", "full"]).optional(),
       })
       .passthrough()
       .optional(),

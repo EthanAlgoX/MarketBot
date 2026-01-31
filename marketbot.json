@@ -1,0 +1,23 @@
+{
+    "llm": {
+        "provider": "openai-compatible",
+        "model": "deepseek-chat",
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKeyEnv": "DEEPSEEK_API_KEY",
+        "timeoutMs": 60000,
+        "jsonMode": true
+    },
+    "web": {
+        "search": {
+            "enabled": true,
+            "provider": "browser",
+            "maxResults": 5,
+            "headless": true
+        },
+        "fetch": {
+            "enabled": true,
+            "maxChars": 30000,
+            "timeoutSeconds": 15
+        }
+    }
+}

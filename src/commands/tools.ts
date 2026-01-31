@@ -1,28 +1,51 @@
 import { buildToolContext } from "../tools/context.js";
 import { createDefaultToolRegistry } from "../tools/registry.js";
+import { loadConfig } from "../config/io.js";
+import { isToolAllowed, resolveToolAllowlist } from "../tools/policy.js";
 
 export async function toolsListCommand(opts: { json?: boolean } = {}): Promise<void> {
   const registry = createDefaultToolRegistry();
-  const tools = registry.list();
+  const config = await loadConfig();
+  const allTools = registry.list();
+  const allowed = filterAllowedTools(allTools, config.tools);
+
   if (opts.json) {
-    console.log(JSON.stringify({ tools: tools.map((tool) => ({ name: tool.name, description: tool.description })) }, null, 2));
+    console.log(
+      JSON.stringify(
+        { tools: allowed.map((tool) => ({ name: tool.name, description: tool.description })) },
+        null,
+        2,
+      ),
+    );
     return;
   }
-  if (tools.length === 0) {
-    console.log("No tools registered.");
+  if (allowed.length === 0) {
+    console.log("No tools allowed by policy.");
     return;
   }
-  for (const tool of tools) {
+  for (const tool of allowed) {
     const description = tool.description ? ` - ${tool.description}` : "";
     console.log(`${tool.name}${description}`);
   }
 }
 
-export async function toolsInfoCommand(opts: { name: string; json?: boolean } ): Promise<void> {
+export async function toolsInfoCommand(opts: { name: string; json?: boolean }): Promise<void> {
   const registry = createDefaultToolRegistry();
+  const config = await loadConfig();
   const tool = registry.get(opts.name);
   if (!tool) {
     const message = `Tool not found: ${opts.name}`;
+    if (opts.json) {
+      console.log(JSON.stringify({ error: message }, null, 2));
+      return;
+    }
+    console.log(message);
+    return;
+  }
+
+  const allTools = registry.list().map((entry) => entry.name);
+  if (!isToolAllowed(tool.name, config.tools, allTools)) {
+    const message = `Tool not allowed by policy: ${tool.name}`;
     if (opts.json) {
       console.log(JSON.stringify({ error: message }, null, 2));
       return;
@@ -42,9 +65,15 @@ export async function toolsInfoCommand(opts: { name: string; json?: boolean } ):
 
 export async function toolsRunCommand(opts: { name: string; args: string[]; json?: boolean }): Promise<void> {
   const registry = createDefaultToolRegistry();
+  const config = await loadConfig();
   const tool = registry.get(opts.name);
   if (!tool) {
     throw new Error(`Tool not found: ${opts.name}`);
+  }
+
+  const allTools = registry.list().map((entry) => entry.name);
+  if (!isToolAllowed(tool.name, config.tools, allTools)) {
+    throw new Error(`Tool not allowed by policy: ${tool.name}`);
   }
 
   const context = buildToolContext(opts.args.join(" "));
@@ -56,4 +85,13 @@ export async function toolsRunCommand(opts: { name: string; args: string[]; json
   }
 
   console.log(result.output);
+}
+
+function filterAllowedTools(
+  tools: Array<{ name: string; description?: string }>,
+  policy: Parameters<typeof resolveToolAllowlist>[0],
+) {
+  const allowlist = resolveToolAllowlist(policy, tools.map((tool) => tool.name));
+  const allowed = new Set(allowlist.map((name) => name.toLowerCase()));
+  return tools.filter((tool) => allowed.has(tool.name.toLowerCase()));
 }

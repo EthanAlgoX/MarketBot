@@ -4,6 +4,7 @@ import { normalizeAgentId, resolveAgentWorkspaceDir, resolveDefaultAgentId } fro
 import { ensureWorkspace, readWorkspaceContext } from "./workspace.js";
 import { loadSkills } from "../skills/registry.js";
 import { buildSkillStatus } from "../skills/status.js";
+import { ensureSkillsWatcher, getSkillsSnapshotVersion } from "../skills/refresh.js";
 
 const cachedPrompts = new Map<string, string>();
 
@@ -16,12 +17,16 @@ export async function getSystemPrompt(options: SystemPromptOptions = {}): Promis
   const cwd = options.cwd ?? process.cwd();
   const config = await loadConfig(cwd);
   const agentId = normalizeAgentId(options.agentId ?? resolveDefaultAgentId(config));
-  const cacheKey = `${cwd}::${agentId}`;
-  const cached = cachedPrompts.get(cacheKey);
-  if (cached) return cached;
 
   await ensureWorkspace(config, agentId, cwd);
   const workspaceDir = resolveAgentWorkspaceDir(config, agentId, cwd);
+
+  ensureSkillsWatcher({ config, agentId, cwd });
+  const version = getSkillsSnapshotVersion(workspaceDir);
+  const cacheKey = `${cwd}::${agentId}::${version}`;
+  const cached = cachedPrompts.get(cacheKey);
+  if (cached) return cached;
+
   const statusReport = await buildSkillStatus(config, { agentId, cwd });
   const eligiblePaths = new Set(
     statusReport.skills

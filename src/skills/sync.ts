@@ -4,6 +4,7 @@ import path from "node:path";
 import type { MarketBotConfig } from "../config/types.js";
 import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../agents/agentScope.js";
 import { resolveManagedSkillsDir } from "./paths.js";
+import { bumpSkillsSnapshotVersion } from "./refresh.js";
 
 export interface SyncSkillsOptions {
   agentId?: string;
@@ -44,6 +45,8 @@ export async function syncSkillsToWorkspace(
       }
     }
   }
+
+  bumpSkillsSnapshotVersion({ workspaceDir, reason: "manual" });
 
   return { copied, removed };
 }

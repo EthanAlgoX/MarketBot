@@ -1,4 +1,10 @@
-import type { SkillStatusReport } from "../skills/status.js";
+import type { SkillStatusEntry, SkillStatusReport } from "../skills/status.js";
+
+type SkillsCheckOptions = {
+  json?: boolean;
+  eligible?: boolean;
+  verbose?: boolean;
+};
 
 export function formatSkillsList(report: SkillStatusReport, opts: { json?: boolean } = {}): string {
   if (opts.json) {
@@ -68,15 +74,72 @@ export function formatSkillInfo(report: SkillStatusReport, name: string, opts: {
     }
   }
   if (!skill.eligible) {
-    const missing = [
-      ...skill.missing.bins.map((item) => `bin:${item}`),
-      ...skill.missing.anyBins.map((item) => `anyBin:${item}`),
-      ...skill.missing.env.map((item) => `env:${item}`),
-      ...skill.missing.os.map((item) => `os:${item}`),
-      ...skill.missing.config.map((item) => `config:${item}`),
-    ];
-    if (missing.length > 0) lines.push(`Missing: ${missing.join(", ")}`);
+    const missing = formatMissing(skill);
+    if (missing) lines.push(`Missing: ${missing}`);
   }
   lines.push(`Path: ${skill.filePath}`);
   return lines.join("\n");
+}
+
+export function formatSkillsCheck(report: SkillStatusReport, opts: SkillsCheckOptions = {}): string {
+  const skills = opts.eligible ? report.skills.filter((s) => s.eligible) : report.skills;
+
+  if (opts.json) {
+    return JSON.stringify({
+      workspaceDir: report.workspaceDir,
+      managedSkillsDir: report.managedSkillsDir,
+      skills: skills.map((skill) => ({
+        name: skill.name,
+        skillKey: skill.skillKey,
+        description: skill.description,
+        source: skill.source,
+        eligible: skill.eligible,
+        disabled: skill.disabled,
+        blockedByAllowlist: skill.blockedByAllowlist,
+        missing: skill.missing,
+      })),
+    }, null, 2);
+  }
+
+  if (skills.length === 0) {
+    return opts.eligible ? "No eligible skills found." : "No skills found.";
+  }
+
+  const lines: string[] = [];
+  lines.push(`Skills check (${skills.filter((s) => s.eligible).length}/${skills.length} ready)`);
+
+  for (const skill of skills) {
+    const status = skill.disabled
+      ? "disabled"
+      : skill.blockedByAllowlist
+        ? "blocked"
+        : skill.eligible
+          ? "ready"
+          : "missing";
+    const marker = skill.emoji ?? "[skill]";
+    const description = skill.description ? ` - ${skill.description}` : "";
+    lines.push(`${marker} ${skill.name}${description} (${status})`);
+
+    const missing = formatMissing(skill);
+    if (missing && (opts.verbose || !skill.eligible)) {
+      lines.push(`  missing: ${missing}`);
+    }
+
+    if (opts.verbose) {
+      lines.push(`  source: ${skill.source}`);
+      lines.push(`  path: ${skill.filePath}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function formatMissing(skill: SkillStatusEntry): string {
+  const missing: string[] = [];
+  if (skill.missing.bins.length > 0) missing.push(`bins=${skill.missing.bins.join(",")}`);
+  if (skill.missing.anyBins.length > 0) missing.push(`anyBins=${skill.missing.anyBins.join(",")}`);
+  if (skill.missing.env.length > 0) missing.push(`env=${skill.missing.env.join(",")}`);
+  if (skill.missing.config.length > 0) missing.push(`config=${skill.missing.config.join(",")}`);
+  if (skill.missing.os.length > 0) missing.push(`os=${skill.missing.os.join(",")}`);
+  return missing.join("; ");
 }

@@ -1,8 +1,10 @@
 import { Command } from "commander";
 import { analyzeCommand } from "../commands/analyze.js";
+import { webAnalyzeCommand } from "../commands/webAnalyze.js";
 import { configShowCommand, configValidateCommand } from "../commands/config.js";
 import { agentsAddCommand, agentsListCommand } from "../commands/agents.js";
 import {
+  skillsCheckCommand,
   skillsInfoCommand,
   skillsInstallCommand,
   skillsListCommand,
@@ -50,11 +52,25 @@ export function buildProgram() {
     });
 
   program
+    .command("web-analyze [query]")
+    .description("Search the web and analyze content for market insights")
+    .option("--asset <asset>", "Asset symbol to analyze (e.g., BTC, ETH)")
+    .option("--json", "Output JSON instead of report", false)
+    .action(async (query: string | undefined, opts) => {
+      await webAnalyzeCommand({
+        query,
+        asset: opts.asset,
+        json: Boolean(opts.json),
+      });
+    });
+
+  program
     .command("setup")
     .description("Initialize MarketBot workspace and config")
     .action(async () => {
       await setupCommand();
     });
+
 
   const agents = program
     .command("agents")
@@ -114,6 +130,22 @@ export function buildProgram() {
     .option("--agent <id>", "Agent id (maps to workspace)")
     .action(async (opts) => {
       await skillsListCommand({ json: Boolean(opts.json), agentId: opts.agent });
+    });
+
+  skills
+    .command("check")
+    .description("Check skill eligibility and requirements")
+    .option("--json", "Output JSON", false)
+    .option("--eligible", "Only show eligible skills", false)
+    .option("--verbose", "Show missing requirements and paths", false)
+    .option("--agent <id>", "Agent id (maps to workspace)")
+    .action(async (opts) => {
+      await skillsCheckCommand({
+        json: Boolean(opts.json),
+        eligible: Boolean(opts.eligible),
+        verbose: Boolean(opts.verbose),
+        agentId: opts.agent,
+      });
     });
 
   skills

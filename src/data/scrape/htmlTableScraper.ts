@@ -5,7 +5,7 @@ import { fetchWithTimeout } from "../providers/providerUtils.js";
 export class HtmlTableScraper implements WebScraper {
   id = "html_table";
 
-  constructor(private allowlist: string[], private timeoutMs: number = 8000) {}
+  constructor(private allowlist: string[], private timeoutMs: number = 8000) { }
 
   async fetch(url: string): Promise<string> {
     const domain = new URL(url).hostname;
@@ -13,7 +13,8 @@ export class HtmlTableScraper implements WebScraper {
       throw new Error(`Domain not in SCRAPE_ALLOWLIST: ${domain}`);
     }
 
-    const response = await fetchWithTimeout(url, this.timeoutMs, {
+    const response = await fetchWithTimeout(url, {
+      timeout: this.timeoutMs,
       headers: { "User-Agent": "MarketBot/0.1" },
     });
 
