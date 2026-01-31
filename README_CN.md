@@ -120,6 +120,12 @@ node dist/index.js web-analyze "BTC 今日走势"
 
 # 资产模式（自动搜索价格、新闻、情绪）
 node dist/index.js web-analyze --asset ETH
+
+# 标准分析 (仅市场数据)
+node dist/index.js analyze "分析苹果"
+
+# 无 API Key 测试 (Mock 模式)
+node dist/index.js analyze "分析 BTC" --mock
 ```
 
 ### 4. 完成

@@ -120,6 +120,12 @@ node dist/index.js web-analyze "BTC price prediction"
 
 # Asset mode (auto-search price, news, sentiment)
 node dist/index.js web-analyze --asset ETH
+
+# Standard Analysis (Market Data Only)
+node dist/index.js analyze "Analyze Apple"
+
+# Test without API Key (Mock Mode)
+node dist/index.js analyze "Analyze BTC" --mock
 ```
 
 ### 4. Done

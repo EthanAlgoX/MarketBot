@@ -50,6 +50,7 @@ export function buildProgram() {
         const result = await runAgenticAnalysis({
           query,
           verbose: Boolean(opts.verbose),
+          mock: Boolean(opts.mock),
         });
 
         if (result.error) {
