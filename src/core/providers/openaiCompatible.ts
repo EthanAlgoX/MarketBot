@@ -1,4 +1,5 @@
 import type { LLMProvider, LLMMessage, LLMResponse } from "../llm.js";
+import type { ToolDefinition, ToolCall, LLMToolResponse } from "../agentTypes.js";
 import { postJson } from "./http.js";
 
 export interface OpenAICompatibleConfig {
@@ -14,7 +15,11 @@ export class OpenAICompatibleProvider implements LLMProvider {
   constructor(private config: OpenAICompatibleConfig) { }
 
   async chat(messages: LLMMessage[]): Promise<LLMResponse> {
-    const content = await this.callChat({ messages });
+    // Filter to only standard chat messages for basic chat
+    const chatMessages = messages
+      .filter(m => m.role !== "tool" && m.content !== null)
+      .map(m => ({ role: m.role as "system" | "user" | "assistant", content: m.content as string }));
+    const content = await this.callChat({ messages: chatMessages });
     return {
       content,
       usage: {
@@ -98,6 +103,72 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
     return content.trim();
   }
+
+  async chatWithTools(messages: LLMMessage[], tools: ToolDefinition[]): Promise<LLMToolResponse> {
+    const endpoint = `${this.config.baseUrl.replace(/\/$/, "")}/chat/completions`;
+
+    // Convert messages for API
+    const apiMessages = messages.map(m => {
+      if (m.role === "tool") {
+        return {
+          role: "tool" as const,
+          tool_call_id: m.toolCallId ?? "",
+          content: m.content ?? "",
+        };
+      }
+      if (m.role === "assistant" && m.toolCalls) {
+        return {
+          role: "assistant" as const,
+          content: m.content,
+          tool_calls: m.toolCalls.map(tc => ({
+            id: tc.id,
+            type: "function" as const,
+            function: {
+              name: tc.name,
+              arguments: tc.arguments,
+            },
+          })),
+        };
+      }
+      return {
+        role: m.role,
+        content: m.content ?? "",
+      };
+    });
+
+    const body: Record<string, unknown> = {
+      model: this.config.model,
+      messages: apiMessages,
+      temperature: 0.2,
+      tools: tools,
+    };
+
+    const payload = await postJson<OpenAIChatResponseWithTools>(endpoint, body, {
+      timeoutMs: this.config.timeoutMs,
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        ...(this.config.extraHeaders ?? {}),
+      },
+    });
+
+    const choice = payload.choices?.[0];
+    const message = choice?.message;
+    const finishReason = choice?.finish_reason as LLMToolResponse["finishReason"];
+
+    // Parse tool calls if present
+    const toolCalls: ToolCall[] | undefined = message?.tool_calls?.map(tc => ({
+      id: tc.id,
+      name: tc.function.name,
+      arguments: tc.function.arguments,
+    }));
+
+    return {
+      content: message?.content ?? null,
+      toolCalls: toolCalls?.length ? toolCalls : undefined,
+      finishReason,
+      usage: payload.usage,
+    };
+  }
 }
 
 function buildUserContent(prompt: string, input?: unknown): string {
@@ -122,5 +193,27 @@ function safeJsonParse<T>(text: string): T | null {
 
 interface OpenAIChatResponse {
   choices?: Array<{ message?: { content?: string } }>;
+}
+
+interface OpenAIChatResponseWithTools {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+      tool_calls?: Array<{
+        id: string;
+        type: string;
+        function: {
+          name: string;
+          arguments: string;
+        };
+      }>;
+    };
+    finish_reason?: string;
+  }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
 }
 
