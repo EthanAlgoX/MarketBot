@@ -222,7 +222,7 @@ node dist/index.js analyze "Compare BTC and ETH" --agentic --verbose
 
 ## 🧰 Default Skills
 
-Default skills are preloaded under `marketbot-workspace/main/skills`:
+Default skills are built-in (source: `src/skills/defaults`) and available to all agents:
 
 - `market-scan` (tool: `market_fetch`)
 - `market-summary` (tool: `market_summary`)
@@ -393,21 +393,20 @@ curl -X POST http://127.0.0.1:8787/analyze \
 
 ## 📁 Project Structure
 
-```
 MarketBot/
 ├── src/
 │   ├── agents/          # Specialized Agents (7)
-│   ├── core/            # Pipeline, LLM interface
+│   ├── cli/             # CLI commands and entry point
+│   ├── config/          # Configuration and defaults
+│   ├── core/            # Pipeline, LLM interface, Prompts
 │   ├── pipeline/        # Stock analysis pipeline
-│   ├── service/         # Unified service layer
-│   ├── web/             # Browser search/scrape
+│   ├── server/          # HTTP server & Gateway
+│   ├── services/        # Unified service layer
+│   ├── skills/          # Skill system (defaults in /defaults)
 │   ├── tools/           # Tool dispatch
-│   ├── skills/          # Skill system
-│   ├── commands/        # CLI commands
-│   └── server/          # HTTP server
+│   └── web/             # Browser search/scrape
 ├── marketbot.json       # Config file
 └── package.json
-```
 
 ## 🗺️ Roadmap
 
