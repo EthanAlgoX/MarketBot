@@ -138,6 +138,7 @@ export class StockAnalysisPipeline {
             console.warn(`Quote fetch failed for ${resolvedSymbol}:`, error);
         }
 
+
         const searchQuery = query || `${symbol} stock analysis price news`;
 
         // Web search
@@ -166,6 +167,7 @@ export class StockAnalysisPipeline {
         ctx.stageResults.set(PipelineStage.INTELLIGENCE, {
             searchResults,
             fetchedPages,
+            priceSnapshot,
         });
     }
 
@@ -174,13 +176,14 @@ export class StockAnalysisPipeline {
         const stageData = ctx.stageResults.get(PipelineStage.INTELLIGENCE) as {
             searchResults: Awaited<ReturnType<typeof webSearch>>;
             fetchedPages: Awaited<ReturnType<typeof webFetch>>[];
+            priceSnapshot?: Awaited<ReturnType<typeof fetchQuoteSnapshot>>;
         } | undefined;
 
         const analysisResult = await analyzeWebContent(this.provider, {
             query: query || `Analyze ${symbol}`,
             searchResults: stageData ? [stageData.searchResults] : undefined,
             fetchedPages: stageData?.fetchedPages,
-            priceSnapshot,
+            priceSnapshot: stageData?.priceSnapshot ?? undefined,
         });
 
         ctx.llmAnalysis = {
