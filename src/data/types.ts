@@ -42,4 +42,6 @@ export interface QuoteSnapshot {
     exchange?: string;
     marketState?: string;
     priceType?: "regular" | "post" | "pre";
+    change?: number;
+    changePercent?: number;
 }
