@@ -39,9 +39,20 @@ export async function installSkill(config: MarketBotConfig, options: InstallSkil
     ? path.join(workspaceDir!, "skills")
     : resolveManagedSkillsDir(config);
 
+  // If source is a simple name (not path/git), try to find it in defaults
+  let resolvedSource = options.source;
+  const defaultsDir = path.resolve(__dirname, "./defaults");
+  if (!isGitSource(options.source) && !path.isAbsolute(options.source) && !options.source.startsWith(".")) {
+    try {
+      const potentialDefault = path.join(defaultsDir, options.source);
+      await fs.access(potentialDefault);
+      resolvedSource = potentialDefault;
+    } catch { }
+  }
+
   await fs.mkdir(targetRoot, { recursive: true });
 
-  const { dir: sourceDir, cleanup } = await stageSource(options.source, cwd);
+  const { dir: sourceDir, cleanup } = await stageSource(resolvedSource, cwd);
   try {
     const installed = await copySkillSource(sourceDir, targetRoot, {
       name: options.name,
@@ -95,7 +106,7 @@ async function stageSource(source: string, cwd: string): Promise<{ dir: string; 
   }
 
   const resolved = path.isAbsolute(trimmed) ? trimmed : path.join(cwd, trimmed);
-  return { dir: resolved, cleanup: async () => {} };
+  return { dir: resolved, cleanup: async () => { } };
 }
 
 async function copySkillSource(

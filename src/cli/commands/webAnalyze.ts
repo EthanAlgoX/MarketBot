@@ -1,9 +1,9 @@
 // Web analysis command - search and analyze web content
 
-import { loadConfig } from "../config/io.js";
-import { createProviderFromConfig } from "../core/providers/registry.js";
-import { runWebDataAnalyzer, marketWebAnalysis } from "../agents/webDataAnalyzer.js";
-import { resolveSymbolFromText } from "../utils/symbols.js";
+import { loadConfig } from "../../config/io.js";
+import { createProviderFromConfig } from "../../core/providers/registry.js";
+import { runWebDataAnalyzer, marketWebAnalysis } from "../../agents/webDataAnalyzer.js";
+import { resolveSymbolFromText } from "../../utils/symbols.js";
 
 export interface WebAnalyzeOptions {
     query?: string;

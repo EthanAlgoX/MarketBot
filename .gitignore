@@ -24,9 +24,7 @@ npm-debug.log*
 Thumbs.db
 
 # Reference projects - DO NOT UPLOAD
-moltbot-main/
-moltbot/
-daily_stock_analysis/
+other_reference_projects/
 
 # Local dev notes - DO NOT UPLOAD
 DEV.md
@@ -43,8 +41,6 @@ marketbot-workspace/
 
 # Keep default skills in repo
 !marketbot-workspace/
-!marketbot-workspace/main/
-marketbot-workspace/main/*
-!marketbot-workspace/main/skills/
-!marketbot-workspace/main/skills/**/
-!marketbot-workspace/main/skills/**/SKILL.md
+# Defaults in src
+!src/skills/defaults/
+!src/config/defaults/

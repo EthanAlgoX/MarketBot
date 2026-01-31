@@ -1,11 +1,11 @@
-import { loadConfig } from "../config/io.js";
-import { resolveDefaultAgentId } from "../agents/agentScope.js";
-import { buildSkillStatus } from "../skills/status.js";
-import { formatSkillInfo, formatSkillsCheck, formatSkillsList } from "../cli/skills-format.js";
-import { installSkill, removeSkill } from "../skills/installer.js";
-import { syncSkillsToWorkspace } from "../skills/sync.js";
-import { runSkillCommand } from "../skills/invocation.js";
-import { createDefaultToolRegistry } from "../tools/registry.js";
+import { loadConfig } from "../../config/io.js";
+import { resolveDefaultAgentId } from "../../agents/agentScope.js";
+import { buildSkillStatus } from "../../skills/status.js";
+import { formatSkillInfo, formatSkillsCheck, formatSkillsList } from "../skills-format.js";
+import { installSkill, removeSkill } from "../../skills/installer.js";
+import { syncSkillsToWorkspace } from "../../skills/sync.js";
+import { runSkillCommand } from "../../skills/invocation.js";
+import { createDefaultToolRegistry } from "../../tools/registry.js";
 
 export async function skillsListCommand(opts: { json?: boolean; agentId?: string } = {}): Promise<void> {
   const config = await loadConfig();

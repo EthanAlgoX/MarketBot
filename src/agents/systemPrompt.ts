@@ -1,4 +1,4 @@
-import { BASE_SYSTEM_PROMPT } from "../prompts/systemPrompt.js";
+import { BASE_SYSTEM_PROMPT } from "../core/prompts/systemPrompt.js";
 import { loadConfig } from "../config/io.js";
 import { normalizeAgentId, resolveAgentWorkspaceDir, resolveDefaultAgentId } from "./agentScope.js";
 import { ensureWorkspace, readWorkspaceContext } from "./workspace.js";
@@ -44,9 +44,9 @@ export async function getSystemPrompt(options: SystemPromptOptions = {}): Promis
   const contextFiles = await readWorkspaceContext(workspaceDir);
   const contextBlock = contextFiles.length
     ? [
-        "## Workspace Context",
-        ...contextFiles.map((entry) => `### ${entry.name}\n${entry.content}`),
-      ].join("\n\n")
+      "## Workspace Context",
+      ...contextFiles.map((entry) => `### ${entry.name}\n${entry.content}`),
+    ].join("\n\n")
     : "";
 
   const workspaceBlock = `## Workspace\n${workspaceDir}`;

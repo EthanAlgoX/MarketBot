@@ -1,10 +1,10 @@
 import path from "node:path";
 
-import type { MarketBotConfig } from "../config/types.js";
-import { ensureConfig, loadConfig } from "../config/io.js";
-import { resolveConfigPath, resolveWorkspaceRoot } from "../config/paths.js";
-import { ensureWorkspace } from "../agents/workspace.js";
-import { resolveDefaultAgentId } from "../agents/agentScope.js";
+import type { MarketBotConfig } from "../../config/types.js";
+import { ensureConfig, loadConfig } from "../../config/io.js";
+import { resolveConfigPath, resolveWorkspaceRoot } from "../../config/paths.js";
+import { ensureWorkspace } from "../../agents/workspace.js";
+import { resolveDefaultAgentId } from "../../agents/agentScope.js";
 
 export async function setupCommand(cwd: string = process.cwd()): Promise<void> {
   const configPath = resolveConfigPath(cwd);
