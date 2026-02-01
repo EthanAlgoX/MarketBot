@@ -61,6 +61,9 @@ export const XAI_DEFAULT_MODEL_REF = `xai/${XAI_DEFAULT_MODEL_ID}`;
 export const XIAOMI_DEFAULT_MODEL_ID = "mimo-v2-flash";
 export const XIAOMI_DEFAULT_MODEL_REF = `xiaomi/${XIAOMI_DEFAULT_MODEL_ID}`;
 
+export const ZAI_DEFAULT_MODEL_ID = "glm-4.7";
+export const ZAI_DEFAULT_MODEL_REF = `zai/${ZAI_DEFAULT_MODEL_ID}`;
+
 // Pricing: MiniMax doesn't publish public rates. Override in models.json for accurate costs.
 export const MINIMAX_API_COST = {
   input: 15,
@@ -218,6 +221,18 @@ export function buildXiaomiModelDefinition(): ModelDefinitionConfig {
     input: ["text"],
     cost: { input: 0.1, output: 0.3, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 262144,
+    maxTokens: 8192,
+  };
+}
+
+export function buildZaiModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: ZAI_DEFAULT_MODEL_ID,
+    name: "Z.AI GLM-4.7",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0.1, output: 0.1, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
     maxTokens: 8192,
   };
 }
