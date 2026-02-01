@@ -61,6 +61,8 @@ import {
   MOONSHOT_BASE_URL,
   MOONSHOT_DEFAULT_MODEL_ID,
   MOONSHOT_DEFAULT_MODEL_REF,
+  buildKimiCodingModelDefinition,
+  KIMI_CODING_MODEL_ID,
 } from "./onboard-auth.models.js";
 
 export function applyZaiConfig(cfg: MarketBotConfig): MarketBotConfig {
@@ -245,6 +247,26 @@ export function applyKimiCodeProviderConfig(cfg: MarketBotConfig): MarketBotConf
     alias: models[KIMI_CODING_MODEL_REF]?.alias ?? "Kimi K2.5",
   };
 
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers["kimi-coding"];
+  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const defaultModel = buildKimiCodingModelDefinition();
+  const hasDefaultModel = existingModels.some((model) => model.id === KIMI_CODING_MODEL_ID);
+  const mergedModels = hasDefaultModel ? existingModels : [...existingModels, defaultModel];
+  const { apiKey: existingApiKey, ...existingProviderRest } = (existingProvider ?? {}) as Record<
+    string,
+    unknown
+  > as { apiKey?: string };
+  const resolvedApiKey = typeof existingApiKey === "string" ? existingApiKey : undefined;
+  const normalizedApiKey = resolvedApiKey?.trim();
+  providers["kimi-coding"] = {
+    ...existingProviderRest,
+    baseUrl: MOONSHOT_BASE_URL,
+    api: "openai-completions",
+    ...(normalizedApiKey ? { apiKey: normalizedApiKey } : {}),
+    models: mergedModels.length > 0 ? mergedModels : [defaultModel],
+  };
+
   return {
     ...cfg,
     agents: {
@@ -253,6 +275,10 @@ export function applyKimiCodeProviderConfig(cfg: MarketBotConfig): MarketBotConf
         ...cfg.agents?.defaults,
         models,
       },
+    },
+    models: {
+      mode: cfg.models?.mode ?? "merge",
+      providers,
     },
   };
 }

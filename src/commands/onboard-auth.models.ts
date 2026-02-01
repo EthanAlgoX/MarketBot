@@ -138,6 +138,18 @@ export function buildMoonshotModelDefinition(): ModelDefinitionConfig {
   };
 }
 
+export function buildKimiCodingModelDefinition(): ModelDefinitionConfig {
+  return {
+    id: KIMI_CODING_MODEL_ID,
+    name: "Kimi K2.5",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 200000,
+    maxTokens: 8192,
+  };
+}
+
 export function buildDeepseekModelDefinition(): ModelDefinitionConfig {
   return {
     id: DEEPSEEK_DEFAULT_MODEL_ID,
