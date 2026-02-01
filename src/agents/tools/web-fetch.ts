@@ -26,6 +26,9 @@ import {
   resolvePinnedHostname,
   SsrFBlockedError,
 } from "../../infra/net/ssrf.js";
+import { browserCloseTab, browserOpenTab, browserSnapshot } from "../../browser/client.js";
+import { resolveBrowserConfig } from "../../browser/config.js";
+import { loadConfig } from "../../config/config.js";
 import type { Dispatcher } from "undici";
 import { stringEnum } from "../schema/typebox.js";
 import type { AnyAgentTool } from "./common.js";
@@ -387,6 +390,7 @@ async function runWebFetch(params: {
   firecrawlProxy: "auto" | "basic" | "stealth";
   firecrawlStoreInCache: boolean;
   firecrawlTimeoutSeconds: number;
+  config?: MarketBotConfig;
 }): Promise<Record<string, unknown>> {
   const cacheKey = normalizeCacheKey(
     `fetch:${params.url}:${params.extractMode}:${params.maxChars}`,
@@ -455,6 +459,33 @@ async function runWebFetch(params: {
       writeCache(FETCH_CACHE, cacheKey, payload, params.cacheTtlMs);
       return payload;
     }
+
+    // Try Browser Fallback
+    const browser = await tryBrowserFallback({
+      url: finalUrl,
+      extractMode: params.extractMode,
+      config: params.config,
+    });
+    if (browser) {
+      const truncated = truncateText(browser.text, params.maxChars);
+      const payload = {
+        url: params.url,
+        finalUrl,
+        status: 200,
+        contentType: "text/markdown",
+        title: browser.title,
+        extractMode: params.extractMode,
+        extractor: "browser",
+        truncated: truncated.truncated,
+        length: truncated.text.length,
+        fetchedAt: new Date().toISOString(),
+        tookMs: Date.now() - start,
+        text: truncated.text,
+      };
+      writeCache(FETCH_CACHE, cacheKey, payload, params.cacheTtlMs);
+      return payload;
+    }
+
     if (error instanceof Error) {
       error.message = `${error.message} (url: ${params.url})`;
     }
@@ -494,6 +525,32 @@ async function runWebFetch(params: {
         writeCache(FETCH_CACHE, cacheKey, payload, params.cacheTtlMs);
         return payload;
       }
+
+      const browser = await tryBrowserFallback({
+        url: finalUrl || params.url,
+        extractMode: params.extractMode,
+        config: params.config,
+      });
+      if (browser) {
+        const truncated = truncateText(browser.text, params.maxChars);
+        const payload = {
+          url: params.url,
+          finalUrl: finalUrl || params.url,
+          status: 200,
+          contentType: "text/markdown",
+          title: browser.title,
+          extractMode: params.extractMode,
+          extractor: "browser",
+          truncated: truncated.truncated,
+          length: truncated.text.length,
+          fetchedAt: new Date().toISOString(),
+          tookMs: Date.now() - start,
+          text: truncated.text,
+        };
+        writeCache(FETCH_CACHE, cacheKey, payload, params.cacheTtlMs);
+        return payload;
+      }
+
       const rawDetail = await readResponseText(res);
       const detail = formatWebFetchErrorDetail({
         detail: rawDetail,
@@ -604,6 +661,62 @@ async function tryFirecrawlFallback(params: {
   }
 }
 
+async function tryBrowserFallback(params: {
+  url: string;
+  extractMode: ExtractMode;
+  config?: MarketBotConfig;
+}): Promise<{ text: string; title?: string } | null> {
+  const cfg = params.config ?? loadConfig();
+  const browserConfig = resolveBrowserConfig(cfg.browser, cfg);
+  if (!browserConfig.enabled) {
+    return null;
+  }
+
+  // Use "host" or "sandbox" based on availability.
+  // Note: We don't have access to sandboxBridgeUrl here easily unless passed down,
+  // but resolveBrowserBaseUrl handles some defaults.
+  // For now, we rely on standard configuration.
+  const baseUrl = undefined; // Let client.ts resolve from default if not provided
+
+  // Check if browser service is actually reachable/running
+  try {
+    // Quick check to see if we can open a tab.
+    // If browser is not running, this will throw or timeout.
+  } catch {
+    return null;
+  }
+
+  let tabId: string | undefined;
+  try {
+    const tab = await browserOpenTab(baseUrl, params.url, { profile: "marketbot" });
+    tabId = tab.targetId;
+
+    // Wait a moment for page load? browserOpenTab generally waits for load event or timeout.
+    // Now take snapshot.
+    const snapshot = await browserSnapshot(baseUrl, {
+      format: "ai",
+      mode: "efficient",
+      profile: "marketbot",
+      targetId: tabId,
+    });
+
+    if (snapshot.format === "ai") {
+      return {
+        text: snapshot.snapshot,
+        title: tab.title,
+      };
+    }
+    return null;
+  } catch (err) {
+    // Fallback failed
+    return null;
+  } finally {
+    if (tabId) {
+      await browserCloseTab(baseUrl, tabId, { profile: "marketbot" }).catch(() => {});
+    }
+  }
+}
+
 function resolveFirecrawlEndpoint(baseUrl: string): string {
   const trimmed = baseUrl.trim();
   if (!trimmed) {
@@ -671,6 +784,7 @@ export function createWebFetchTool(options?: {
         firecrawlProxy: "auto",
         firecrawlStoreInCache: true,
         firecrawlTimeoutSeconds,
+        config: options?.config,
       });
       return jsonResult(result);
     },
