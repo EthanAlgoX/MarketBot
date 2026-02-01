@@ -455,6 +455,9 @@ async function runWebFetch(params: {
       writeCache(FETCH_CACHE, cacheKey, payload, params.cacheTtlMs);
       return payload;
     }
+    if (error instanceof Error) {
+      error.message = `${error.message} (url: ${params.url})`;
+    }
     throw error;
   }
 
@@ -497,7 +500,9 @@ async function runWebFetch(params: {
         contentType: res.headers.get("content-type"),
         maxChars: DEFAULT_ERROR_MAX_CHARS,
       });
-      throw new Error(`Web fetch failed (${res.status}): ${detail || res.statusText}`);
+      throw new Error(
+        `Web fetch failed (${res.status}): ${detail || res.statusText} (url: ${params.url})`,
+      );
     }
 
     const contentType = res.headers.get("content-type") ?? "application/octet-stream";
