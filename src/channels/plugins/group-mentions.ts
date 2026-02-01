@@ -425,3 +425,51 @@ export function resolveBlueBubblesGroupToolPolicy(
     senderE164: params.senderE164,
   });
 }
+
+export function resolveMSTeamsGroupRequireMention(params: GroupMentionParams): boolean {
+  return resolveChannelGroupRequireMention({
+    cfg: params.cfg,
+    channel: "msteams",
+    groupId: params.groupId,
+    accountId: params.accountId,
+  });
+}
+
+export function resolveMSTeamsGroupToolPolicy(
+  params: GroupMentionParams,
+): GroupToolPolicyConfig | undefined {
+  return resolveChannelGroupToolsPolicy({
+    cfg: params.cfg,
+    channel: "msteams",
+    groupId: params.groupId,
+    accountId: params.accountId,
+    senderId: params.senderId,
+    senderName: params.senderName,
+    senderUsername: params.senderUsername,
+    senderE164: params.senderE164,
+  });
+}
+
+export function resolveMattermostGroupRequireMention(params: GroupMentionParams): boolean {
+  return resolveChannelGroupRequireMention({
+    cfg: params.cfg,
+    channel: "mattermost",
+    groupId: params.groupId,
+    accountId: params.accountId,
+  });
+}
+
+export function resolveMattermostGroupToolPolicy(
+  params: GroupMentionParams,
+): GroupToolPolicyConfig | undefined {
+  return resolveChannelGroupToolsPolicy({
+    cfg: params.cfg,
+    channel: "mattermost",
+    groupId: params.groupId,
+    accountId: params.accountId,
+    senderId: params.senderId,
+    senderName: params.senderName,
+    senderUsername: params.senderUsername,
+    senderE164: params.senderE164,
+  });
+}

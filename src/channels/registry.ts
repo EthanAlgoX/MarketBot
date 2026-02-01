@@ -31,6 +31,9 @@ export const CHAT_CHANNEL_ORDER = [
   "slack",
   "signal",
   "imessage",
+  "bluebubbles",
+  "msteams",
+  "mattermost",
 ] as const;
 
 export type ChatChannelId = (typeof CHAT_CHANNEL_ORDER)[number];
@@ -116,6 +119,36 @@ const CHAT_CHANNEL_META: Record<ChatChannelId, ChannelMeta> = {
     docsLabel: "imessage",
     blurb: "this is still a work in progress.",
     systemImage: "message.fill",
+  },
+  bluebubbles: {
+    id: "bluebubbles",
+    label: "BlueBubbles",
+    selectionLabel: "BlueBubbles",
+    detailLabel: "BlueBubbles",
+    docsPath: "/channels/bluebubbles",
+    docsLabel: "bluebubbles",
+    blurb: "iMessage via BlueBubbles Server.",
+    systemImage: "bubble.right.fill",
+  },
+  msteams: {
+    id: "msteams",
+    label: "MS Teams",
+    selectionLabel: "MS Teams (Bot)",
+    detailLabel: "MS Teams",
+    docsPath: "/channels/msteams",
+    docsLabel: "msteams",
+    blurb: "Microsoft Teams via Azure Bot Service.",
+    systemImage: "person.2.fill",
+  },
+  mattermost: {
+    id: "mattermost",
+    label: "Mattermost",
+    selectionLabel: "Mattermost",
+    detailLabel: "Mattermost",
+    docsPath: "/channels/mattermost",
+    docsLabel: "mattermost",
+    blurb: "Mattermost via webhooks.",
+    systemImage: "bubble.left.and.bubble.right.fill",
   },
 };
 
