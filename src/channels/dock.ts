@@ -42,6 +42,10 @@ import {
   resolveTelegramGroupToolPolicy,
   resolveWhatsAppGroupRequireMention,
   resolveWhatsAppGroupToolPolicy,
+  resolveMSTeamsGroupRequireMention,
+  resolveMSTeamsGroupToolPolicy,
+  resolveMattermostGroupRequireMention,
+  resolveMattermostGroupToolPolicy,
 } from "./plugins/group-mentions.js";
 import type {
   ChannelCapabilities,
@@ -388,6 +392,70 @@ const DOCKS: Record<ChatChannelId, ChannelDock> = {
           hasRepliedRef,
         };
       },
+    },
+  },
+  bluebubbles: {
+    id: "bluebubbles",
+    capabilities: {
+      chatTypes: ["direct", "group"],
+      reactions: true,
+      media: true,
+    },
+    outbound: { textChunkLimit: 4000 },
+    config: {
+      resolveAllowFrom: ({ cfg, accountId }) => {
+        const allowFrom = cfg.channels?.bluebubbles?.allowFrom;
+        return (Array.isArray(allowFrom) ? allowFrom : []) as string[];
+      },
+      formatAllowFrom: ({ allowFrom }) =>
+        allowFrom.map((entry) => String(entry).trim()).filter(Boolean),
+    },
+    groups: {
+      resolveRequireMention: resolveBlueBubblesGroupRequireMention,
+      resolveToolPolicy: resolveBlueBubblesGroupToolPolicy,
+    },
+  },
+  msteams: {
+    id: "msteams",
+    capabilities: {
+      chatTypes: ["direct", "group", "channel", "thread"],
+      reactions: true,
+      media: true,
+      threads: true,
+    },
+    outbound: { textChunkLimit: 4000 },
+    config: {
+      resolveAllowFrom: ({ cfg, accountId }) => {
+        const allowFrom = cfg.channels?.msteams?.allowFrom;
+        return (Array.isArray(allowFrom) ? allowFrom : []) as string[];
+      },
+      formatAllowFrom: ({ allowFrom }) =>
+        allowFrom.map((entry) => String(entry).trim()).filter(Boolean),
+    },
+    groups: {
+      resolveRequireMention: resolveMSTeamsGroupRequireMention,
+      resolveToolPolicy: resolveMSTeamsGroupToolPolicy,
+    },
+  },
+  mattermost: {
+    id: "mattermost",
+    capabilities: {
+      chatTypes: ["direct", "group", "channel"],
+      reactions: true,
+      media: true,
+    },
+    outbound: { textChunkLimit: 4000 },
+    config: {
+      resolveAllowFrom: ({ cfg, accountId }) => {
+        const allowFrom = cfg.channels?.mattermost?.allowFrom;
+        return (Array.isArray(allowFrom) ? allowFrom : []) as string[];
+      },
+      formatAllowFrom: ({ allowFrom }) =>
+        allowFrom.map((entry) => String(entry).trim()).filter(Boolean),
+    },
+    groups: {
+      resolveRequireMention: resolveMattermostGroupRequireMention,
+      resolveToolPolicy: resolveMattermostGroupToolPolicy,
     },
   },
 };
