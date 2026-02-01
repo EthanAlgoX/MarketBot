@@ -20,9 +20,7 @@
 import {
   CombinedAutocompleteProvider,
   Container,
-  Loader,
   ProcessTerminal,
-  Text,
   TUI,
 } from "@mariozechner/pi-tui";
 import { resolveDefaultAgentId } from "../agents/agent-scope.js";
@@ -33,17 +31,16 @@ import {
   normalizeMainKey,
   parseAgentSessionKey,
 } from "../routing/session-key.js";
-import { formatRelativeTime } from "../utils/time-format.js";
 import { getSlashCommands } from "./commands.js";
 import { ChatLog } from "./components/chat-log.js";
 import { CustomEditor } from "./components/custom-editor.js";
+import { StatusBar } from "./components/status-bar.js";
 import { GatewayChatClient } from "./gateway-chat.js";
+import { StatusManager } from "./status-manager.js";
 import { editorTheme, theme } from "./theme/theme.js";
 import { createCommandHandlers } from "./tui-command-handlers.js";
 import { createEventHandlers } from "./tui-event-handlers.js";
-import { formatTokens } from "./tui-formatters.js";
 import { createLocalShellRunner } from "./tui-local-shell.js";
-import { buildWaitingStatusMessage, defaultWaitingPhrases } from "./tui-waiting.js";
 import { createOverlayHandlers } from "./tui-overlays.js";
 import { createSessionActions } from "./tui-session-actions.js";
 import type {
@@ -146,12 +143,8 @@ export async function runTui(opts: TuiOptions) {
   let autoMessageSent = false;
   let sessionInfo: SessionInfo = {};
   let lastCtrlCAt = 0;
-  let activityStatus = "idle";
-  let connectionStatus = "connecting";
-  let statusTimeout: NodeJS.Timeout | null = null;
-  let statusTimer: NodeJS.Timeout | null = null;
-  let statusStartedAt: number | null = null;
-  let lastActivityStatus = activityStatus;
+
+  const statusManager = new StatusManager();
 
   const state: TuiStateAccess = {
     get agentDefaultId() {
@@ -225,6 +218,7 @@ export async function runTui(opts: TuiOptions) {
     },
     set isConnected(value) {
       isConnected = value;
+      statusManager.setIsConnected(value);
     },
     get autoMessageSent() {
       return autoMessageSent;
@@ -245,22 +239,22 @@ export async function runTui(opts: TuiOptions) {
       showThinking = value;
     },
     get connectionStatus() {
-      return connectionStatus;
+      return statusManager.connectionStatus;
     },
     set connectionStatus(value) {
-      connectionStatus = value;
+      statusManager.setConnectionStatus(value);
     },
     get activityStatus() {
-      return activityStatus;
+      return statusManager.activityStatus;
     },
     set activityStatus(value) {
-      activityStatus = value;
+      statusManager.setActivityStatus(value);
     },
     get statusTimeout() {
-      return statusTimeout;
+      return null; // Not exposed directly anymore, managed by statusManager
     },
     set statusTimeout(value) {
-      statusTimeout = value;
+      // no-op
     },
     get lastCtrlCAt() {
       return lastCtrlCAt;
@@ -277,22 +271,13 @@ export async function runTui(opts: TuiOptions) {
   });
 
   const tui = new TUI(new ProcessTerminal());
-  const header = new Text("", 0, 0);
-  const subheader = new Text("", 0, 0);
-  const sessionBar = new Text("", 0, 0);
-  const watchlistBar = new Text("", 0, 0);
-  const statusContainer = new Container();
-  const shortcutsBar = new Text("", 0, 0);
+  const statusBar = new StatusBar(tui, statusManager);
   const chatLog = new ChatLog();
   const editor = new CustomEditor(tui, editorTheme);
   const root = new Container();
-  root.addChild(header);
-  root.addChild(subheader);
-  root.addChild(sessionBar);
-  root.addChild(watchlistBar);
+
+  root.addChild(statusBar);
   root.addChild(chatLog);
-  root.addChild(statusContainer);
-  root.addChild(shortcutsBar);
   root.addChild(editor);
 
   const updateAutocompleteProvider = () => {
@@ -346,110 +331,17 @@ export async function runTui(opts: TuiOptions) {
 
   currentSessionKey = resolveSessionKey(initialSessionInput);
 
-  const formatConnectionLabel = () => {
-    const lower = connectionStatus.toLowerCase();
-    if (lower.includes("disconnected") || lower.includes("error")) {
-      return theme.error(`o ${connectionStatus}`);
-    }
-    if (lower.includes("connecting") || lower.includes("reconnecting") || lower.includes("gap")) {
-      return theme.warning(`o ${connectionStatus}`);
-    }
-    if (lower.includes("connected")) {
-      return theme.success(`o ${connectionStatus}`);
-    }
-    return theme.neutral(`o ${connectionStatus}`);
-  };
-
-  const formatActivityLabel = () => {
-    const normalized = activityStatus || "idle";
-    if (normalized === "idle") {
-      return theme.dim(normalized);
-    }
-    if (normalized === "error") {
-      return theme.error(normalized);
-    }
-    if (normalized === "aborted") {
-      return theme.warning(normalized);
-    }
-    if (normalized === "waiting") {
-      return theme.neutral(normalized);
-    }
-    if (normalized === "streaming") {
-      return theme.accent(normalized);
-    }
-    if (normalized === "sending") {
-      return theme.accentSoft(normalized);
-    }
-    if (normalized === "running") {
-      return theme.marketInfo(normalized);
-    }
-    return theme.accentSoft(normalized);
-  };
-
   const updateHeader = () => {
-    header.setText(
-      `${theme.header("MarketBot TUI")} ${theme.dim("|")} ${theme.dim(client.connection.url)}`,
-    );
-  };
-
-  const updateSubheader = () => {
-    const updatedLabel =
-      typeof sessionInfo.updatedAt === "number" ? formatRelativeTime(sessionInfo.updatedAt) : "n/a";
-    subheader.setText(
-      `${formatConnectionLabel()} ${theme.dim("|")} ${theme.dim("activity")} ${formatActivityLabel()} ${theme.dim("|")} ${theme.dim("updated")} ${theme.dim(updatedLabel)}`,
-    );
+    statusBar.updateHeader(client.connection.url);
   };
 
   const updateSessionBar = () => {
-    const sessionKeyLabel = formatSessionKey(currentSessionKey);
-    const sessionLabel = sessionInfo.displayName
-      ? `${sessionKeyLabel} (${sessionInfo.displayName})`
-      : sessionKeyLabel;
-    const agentLabel = formatAgentLabel(currentAgentId);
-    const modelLabel = sessionInfo.model
-      ? sessionInfo.modelProvider
-        ? `${sessionInfo.modelProvider}/${sessionInfo.model}`
-        : sessionInfo.model
-      : "unknown";
-    const tokens = formatTokens(sessionInfo.totalTokens ?? null, sessionInfo.contextTokens ?? null);
-    const think = sessionInfo.thinkingLevel ?? "off";
-    const verbose = sessionInfo.verboseLevel ?? "off";
-    const reasoning = sessionInfo.reasoningLevel ?? "off";
-    const usage = sessionInfo.responseUsage ?? "off";
-    const reasoningLabel =
-      reasoning === "on" ? "reasoning" : reasoning === "stream" ? "reasoning:stream" : null;
-    const footerParts = [
-      `agent ${agentLabel}`,
-      `session ${sessionLabel}`,
-      modelLabel,
-      think !== "off" ? `think ${think}` : null,
-      verbose !== "off" ? `verbose ${verbose}` : null,
-      reasoningLabel,
-      usage !== "off" ? `usage ${usage}` : null,
-      tokens,
-    ].filter(Boolean);
-    sessionBar.setText(theme.dim(footerParts.join(" | ")));
-    updateSubheader();
-  };
-
-  const updateWatchlistBar = () => {
-    if (watchlist.length === 0) {
-      watchlistBar.setText(
-        `${theme.marketInfo("Watchlist")} ${theme.dim("|")} ${theme.dim("empty (use /watch <symbol>)")}`,
-      );
-      return;
-    }
-    const symbolList = watchlist.map((symbol) => theme.highlight(symbol)).join(", ");
-    watchlistBar.setText(
-      `${theme.marketInfo(`Watchlist (${watchlist.length})`)} ${theme.dim("|")} ${symbolList}`,
-    );
-  };
-
-  const updateShortcutsBar = () => {
-    shortcutsBar.setText(
-      theme.dim(
-        "Keys: Alt+Enter commands | Shift+Tab help | Ctrl+L model | Ctrl+G agent | Ctrl+P session | Ctrl+O tools | Ctrl+T thinking | Ctrl+C exit",
-      ),
+    statusBar.updateSessionBar(
+      sessionInfo,
+      currentSessionKey,
+      currentAgentId,
+      formatSessionKey,
+      formatAgentLabel,
     );
   };
 
@@ -468,7 +360,7 @@ export async function runTui(opts: TuiOptions) {
       return { ok: false, reason: "exists" as const, symbol };
     }
     watchlist.push(symbol);
-    updateWatchlistBar();
+    statusBar.updateWatchlistBar(watchlist);
     return { ok: true, symbol };
   };
 
@@ -482,7 +374,7 @@ export async function runTui(opts: TuiOptions) {
       return { ok: false, reason: "not_found" as const, symbol };
     }
     watchlist.splice(idx, 1);
-    updateWatchlistBar();
+    statusBar.updateWatchlistBar(watchlist);
     return { ok: true, symbol };
   };
 
@@ -490,172 +382,7 @@ export async function runTui(opts: TuiOptions) {
 
   const clearWatchlist = () => {
     watchlist.splice(0, watchlist.length);
-    updateWatchlistBar();
-  };
-
-  const busyStates = new Set(["sending", "waiting", "streaming", "running"]);
-  let statusText: Text | null = null;
-  let statusLoader: Loader | null = null;
-
-  const formatElapsed = (startMs: number) => {
-    const totalSeconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
-    if (totalSeconds < 60) {
-      return `${totalSeconds}s`;
-    }
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}m ${seconds}s`;
-  };
-
-  const ensureStatusText = () => {
-    if (statusText) {
-      return;
-    }
-    statusContainer.clear();
-    statusLoader?.stop();
-    statusLoader = null;
-    statusText = new Text("", 1, 0);
-    statusContainer.addChild(statusText);
-  };
-
-  const ensureStatusLoader = () => {
-    if (statusLoader) {
-      return;
-    }
-    statusContainer.clear();
-    statusText = null;
-    statusLoader = new Loader(
-      tui,
-      (spinner) => theme.accent(spinner),
-      (text) => theme.bold(theme.accentSoft(text)),
-      "",
-    );
-    statusContainer.addChild(statusLoader);
-  };
-
-  let waitingTick = 0;
-  let waitingTimer: NodeJS.Timeout | null = null;
-  let waitingPhrase: string | null = null;
-
-  const updateBusyStatusMessage = () => {
-    if (!statusLoader || !statusStartedAt) {
-      return;
-    }
-    const elapsed = formatElapsed(statusStartedAt);
-
-    if (activityStatus === "waiting") {
-      waitingTick++;
-      statusLoader.setMessage(
-        buildWaitingStatusMessage({
-          theme,
-          tick: waitingTick,
-          elapsed,
-          connectionStatus,
-          phrases: waitingPhrase ? [waitingPhrase] : undefined,
-        }),
-      );
-      return;
-    }
-
-    statusLoader.setMessage(`${activityStatus} | ${elapsed} | ${connectionStatus}`);
-  };
-
-  const startStatusTimer = () => {
-    if (statusTimer) {
-      return;
-    }
-    statusTimer = setInterval(() => {
-      if (!busyStates.has(activityStatus)) {
-        return;
-      }
-      updateBusyStatusMessage();
-    }, 1000);
-  };
-
-  const stopStatusTimer = () => {
-    if (!statusTimer) {
-      return;
-    }
-    clearInterval(statusTimer);
-    statusTimer = null;
-  };
-
-  const startWaitingTimer = () => {
-    if (waitingTimer) {
-      return;
-    }
-
-    // Pick a phrase once per waiting session.
-    if (!waitingPhrase) {
-      const idx = Math.floor(Math.random() * defaultWaitingPhrases.length);
-      waitingPhrase = defaultWaitingPhrases[idx] ?? defaultWaitingPhrases[0] ?? "waiting";
-    }
-
-    waitingTick = 0;
-
-    waitingTimer = setInterval(() => {
-      if (activityStatus !== "waiting") {
-        return;
-      }
-      updateBusyStatusMessage();
-    }, 120);
-  };
-
-  const stopWaitingTimer = () => {
-    if (!waitingTimer) {
-      return;
-    }
-    clearInterval(waitingTimer);
-    waitingTimer = null;
-    waitingPhrase = null;
-  };
-
-  const renderStatus = () => {
-    const isBusy = busyStates.has(activityStatus);
-    if (isBusy) {
-      if (!statusStartedAt || lastActivityStatus !== activityStatus) {
-        statusStartedAt = Date.now();
-      }
-      ensureStatusLoader();
-      if (activityStatus === "waiting") {
-        stopStatusTimer();
-        startWaitingTimer();
-      } else {
-        stopWaitingTimer();
-        startStatusTimer();
-      }
-      updateBusyStatusMessage();
-    } else {
-      statusStartedAt = null;
-      stopStatusTimer();
-      stopWaitingTimer();
-      statusLoader?.stop();
-      statusLoader = null;
-      ensureStatusText();
-      const text = activityStatus ? `${connectionStatus} | ${activityStatus}` : connectionStatus;
-      statusText?.setText(theme.dim(text));
-    }
-    lastActivityStatus = activityStatus;
-    updateSubheader();
-  };
-
-  const setConnectionStatus = (text: string, ttlMs?: number) => {
-    connectionStatus = text;
-    renderStatus();
-    if (statusTimeout) {
-      clearTimeout(statusTimeout);
-    }
-    if (ttlMs && ttlMs > 0) {
-      statusTimeout = setTimeout(() => {
-        connectionStatus = isConnected ? "connected" : "disconnected";
-        renderStatus();
-      }, ttlMs);
-    }
-  };
-
-  const setActivityStatus = (text: string) => {
-    activityStatus = text;
-    renderStatus();
+    statusBar.updateWatchlistBar(watchlist);
   };
 
   const { openOverlay, closeOverlay } = createOverlayHandlers(tui, editor);
@@ -681,7 +408,7 @@ export async function runTui(opts: TuiOptions) {
     updateHeader,
     updateSessionBar,
     updateAutocompleteProvider,
-    setActivityStatus,
+    setActivityStatus: (text) => statusManager.setActivityStatus(text),
   });
   const { refreshAgents, refreshSessionInfo, loadHistory, setSession, abortActive } =
     sessionActions;
@@ -690,7 +417,7 @@ export async function runTui(opts: TuiOptions) {
     chatLog,
     tui,
     state,
-    setActivityStatus,
+    setActivityStatus: (text) => statusManager.setActivityStatus(text),
     refreshSessionInfo,
   });
 
@@ -718,7 +445,7 @@ export async function runTui(opts: TuiOptions) {
     setSession,
     refreshAgents,
     abortActive,
-    setActivityStatus,
+    setActivityStatus: (text) => statusManager.setActivityStatus(text),
     formatSessionKey,
     setEditorText: (text: string) => {
       editor.setText(text);
@@ -753,7 +480,7 @@ export async function runTui(opts: TuiOptions) {
     const now = Date.now();
     if (editor.getText().trim().length > 0) {
       editor.setText("");
-      setActivityStatus("cleared input");
+      statusManager.setActivityStatus("cleared input");
       tui.requestRender();
       return;
     }
@@ -763,7 +490,7 @@ export async function runTui(opts: TuiOptions) {
       process.exit(0);
     }
     lastCtrlCAt = now;
-    setActivityStatus("press ctrl+c again to exit");
+    statusManager.setActivityStatus("press ctrl+c again to exit");
     tui.requestRender();
   };
   editor.onCtrlD = () => {
@@ -774,7 +501,7 @@ export async function runTui(opts: TuiOptions) {
   editor.onCtrlO = () => {
     toolsExpanded = !toolsExpanded;
     chatLog.setToolsExpanded(toolsExpanded);
-    setActivityStatus(toolsExpanded ? "tools expanded" : "tools collapsed");
+    statusManager.setActivityStatus(toolsExpanded ? "tools expanded" : "tools collapsed");
     tui.requestRender();
   };
   editor.onCtrlL = () => {
@@ -808,14 +535,18 @@ export async function runTui(opts: TuiOptions) {
 
   client.onConnected = () => {
     isConnected = true;
+    statusManager.setIsConnected(true);
     const reconnected = wasDisconnected;
     wasDisconnected = false;
-    setConnectionStatus("connected");
+    statusManager.setConnectionStatus("connected");
     void (async () => {
       await refreshAgents();
       updateHeader();
       await loadHistory();
-      setConnectionStatus(reconnected ? "gateway reconnected" : "gateway connected", 4000);
+      statusManager.setConnectionStatus(
+        reconnected ? "gateway reconnected" : "gateway connected",
+        4000,
+      );
       tui.requestRender();
       if (!autoMessageSent && autoMessage) {
         autoMessageSent = true;
@@ -838,24 +569,28 @@ export async function runTui(opts: TuiOptions) {
 
   client.onDisconnected = (reason) => {
     isConnected = false;
+    statusManager.setIsConnected(false);
     wasDisconnected = true;
     historyLoaded = false;
     const reasonLabel = reason?.trim() ? reason.trim() : "closed";
-    setConnectionStatus(`gateway disconnected: ${reasonLabel}`, 5000);
-    setActivityStatus("idle");
+    statusManager.setConnectionStatus(`gateway disconnected: ${reasonLabel}`, 5000);
+    statusManager.setActivityStatus("idle");
     updateSessionBar();
     tui.requestRender();
   };
 
   client.onGap = (info) => {
-    setConnectionStatus(`event gap: expected ${info.expected}, got ${info.received}`, 5000);
+    statusManager.setConnectionStatus(
+      `event gap: expected ${info.expected}, got ${info.received}`,
+      5000,
+    );
     tui.requestRender();
   };
 
   updateHeader();
-  updateShortcutsBar();
-  updateWatchlistBar();
-  setConnectionStatus("connecting");
+  statusBar.updateShortcutsBar();
+  statusBar.updateWatchlistBar(watchlist);
+  statusManager.setConnectionStatus("connecting");
   updateSessionBar();
   tui.start();
   client.start();
