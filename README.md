@@ -23,7 +23,7 @@ clear risk/invalidation levels, and reproducible workflows.
 
 ## Demo
 
-![MarketBot Video](docs/video_en.mp4)
+![MarketBot Video](docs/video_en.gif)
 
 ### 1) Gateway-first control plane
 
