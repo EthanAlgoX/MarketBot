@@ -70,6 +70,26 @@ const XIAOMI_DEFAULT_COST = {
   cacheWrite: 0,
 };
 
+const KIMI_CODING_BASE_URL = "https://api.moonshot.cn/v1";
+const KIMI_CODING_DEFAULT_CONTEXT_WINDOW = 200000;
+const KIMI_CODING_DEFAULT_MAX_TOKENS = 8192;
+const KIMI_CODING_DEFAULT_COST = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
+const ZAI_BASE_URL = "https://api.z-ai.cn/v1";
+const ZAI_DEFAULT_CONTEXT_WINDOW = 128000;
+const ZAI_DEFAULT_MAX_TOKENS = 8192;
+const ZAI_DEFAULT_COST = {
+  input: 0.1,
+  output: 0.1,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
 const MOONSHOT_BASE_URL = "https://api.moonshot.ai/v1";
 const MOONSHOT_DEFAULT_MODEL_ID = "kimi-k2.5";
 const MOONSHOT_DEFAULT_CONTEXT_WINDOW = 256000;
@@ -548,6 +568,42 @@ export function buildXiaomiProvider(): ProviderConfig {
   };
 }
 
+export function buildKimiCodeProvider(): ProviderConfig {
+  return {
+    baseUrl: KIMI_CODING_BASE_URL,
+    api: "openai-completions",
+    models: [
+      {
+        id: "k2p5",
+        name: "Kimi K2.5",
+        reasoning: false,
+        input: ["text"],
+        cost: KIMI_CODING_DEFAULT_COST,
+        contextWindow: KIMI_CODING_DEFAULT_CONTEXT_WINDOW,
+        maxTokens: KIMI_CODING_DEFAULT_MAX_TOKENS,
+      },
+    ],
+  };
+}
+
+export function buildZaiProvider(): ProviderConfig {
+  return {
+    baseUrl: ZAI_BASE_URL,
+    api: "openai-completions",
+    models: [
+      {
+        id: "glm-4.7",
+        name: "Z.AI GLM-4.7",
+        reasoning: false,
+        input: ["text"],
+        cost: ZAI_DEFAULT_COST,
+        contextWindow: ZAI_DEFAULT_CONTEXT_WINDOW,
+        maxTokens: ZAI_DEFAULT_MAX_TOKENS,
+      },
+    ],
+  };
+}
+
 async function buildVeniceProvider(): Promise<ProviderConfig> {
   const models = await discoverVeniceModels();
   return {
@@ -659,6 +715,16 @@ export async function resolveImplicitProviders(params: {
   if (xaiKey) {
     providers.xai = { ...buildXaiProvider(), apiKey: xaiKey };
   }
+
+  const kimiCodingKey =
+    resolveEnvApiKeyVarName("kimi-coding") ??
+    resolveApiKeyFromProfiles({ provider: "kimi-coding", store: authStore });
+  providers["kimi-coding"] = { ...buildKimiCodeProvider(), apiKey: kimiCodingKey };
+
+  const zaiKey =
+    resolveEnvApiKeyVarName("zai") ??
+    resolveApiKeyFromProfiles({ provider: "zai", store: authStore });
+  providers.zai = { ...buildZaiProvider(), apiKey: zaiKey };
 
   // Ollama provider - only add if explicitly configured
   const ollamaKey =
