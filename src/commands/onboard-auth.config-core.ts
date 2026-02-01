@@ -63,6 +63,8 @@ import {
   MOONSHOT_DEFAULT_MODEL_REF,
   buildKimiCodingModelDefinition,
   KIMI_CODING_MODEL_ID,
+  buildZaiModelDefinition,
+  ZAI_DEFAULT_MODEL_ID,
 } from "./onboard-auth.models.js";
 
 export function applyZaiConfig(cfg: MarketBotConfig): MarketBotConfig {
@@ -70,6 +72,28 @@ export function applyZaiConfig(cfg: MarketBotConfig): MarketBotConfig {
   models[ZAI_DEFAULT_MODEL_REF] = {
     ...models[ZAI_DEFAULT_MODEL_REF],
     alias: models[ZAI_DEFAULT_MODEL_REF]?.alias ?? "GLM",
+  };
+
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers.zai;
+  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const defaultModel = buildZaiModelDefinition();
+  const hasDefaultModel = existingModels.some((model) => model.id === ZAI_DEFAULT_MODEL_ID);
+  const mergedModels = hasDefaultModel ? existingModels : [...existingModels, defaultModel];
+  const { apiKey: existingApiKey, ...existingProviderRest } = (existingProvider ?? {}) as Record<
+    string,
+    unknown
+  > as { apiKey?: string };
+  const resolvedApiKey = typeof existingApiKey === "string" ? existingApiKey : undefined;
+  const normalizedApiKey = resolvedApiKey?.trim();
+
+  // Z.AI / GLM typically uses a specific base URL
+  providers.zai = {
+    ...existingProviderRest,
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4/",
+    api: "openai-completions",
+    ...(normalizedApiKey ? { apiKey: normalizedApiKey } : {}),
+    models: mergedModels.length > 0 ? mergedModels : [defaultModel],
   };
 
   const existingModel = cfg.agents?.defaults?.model;
@@ -90,6 +114,10 @@ export function applyZaiConfig(cfg: MarketBotConfig): MarketBotConfig {
         },
       },
     },
+    models: {
+      mode: cfg.models?.mode ?? "merge",
+      providers,
+    },
   };
 }
 
@@ -98,6 +126,23 @@ export function applyOpenrouterProviderConfig(cfg: MarketBotConfig): MarketBotCo
   models[OPENROUTER_DEFAULT_MODEL_REF] = {
     ...models[OPENROUTER_DEFAULT_MODEL_REF],
     alias: models[OPENROUTER_DEFAULT_MODEL_REF]?.alias ?? "OpenRouter",
+  };
+
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers.openrouter;
+  const { apiKey: existingApiKey, ...existingProviderRest } = (existingProvider ?? {}) as Record<
+    string,
+    unknown
+  > as { apiKey?: string };
+  const resolvedApiKey = typeof existingApiKey === "string" ? existingApiKey : undefined;
+  const normalizedApiKey = resolvedApiKey?.trim();
+
+  providers.openrouter = {
+    ...existingProviderRest,
+    baseUrl: "https://openrouter.ai/api/v1",
+    api: "openai-completions",
+    ...(normalizedApiKey ? { apiKey: normalizedApiKey } : {}),
+    models: [],
   };
 
   return {
@@ -109,6 +154,10 @@ export function applyOpenrouterProviderConfig(cfg: MarketBotConfig): MarketBotCo
         models,
       },
     },
+    models: {
+      mode: cfg.models?.mode ?? "merge",
+      providers,
+    },
   };
 }
 
@@ -119,6 +168,24 @@ export function applyVercelAiGatewayProviderConfig(cfg: MarketBotConfig): Market
     alias: models[VERCEL_AI_GATEWAY_DEFAULT_MODEL_REF]?.alias ?? "Vercel AI Gateway",
   };
 
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers["vercel-ai-gateway"];
+  const { apiKey: existingApiKey, ...existingProviderRest } = (existingProvider ?? {}) as Record<
+    string,
+    unknown
+  > as { apiKey?: string };
+  const resolvedApiKey = typeof existingApiKey === "string" ? existingApiKey : undefined;
+  const normalizedApiKey = resolvedApiKey?.trim();
+
+  // Vercel AI Gateway URL might vary, assuming a default or whatever is in existing config if customized
+  providers["vercel-ai-gateway"] = {
+    baseUrl: "https://gateway.ai.vercel.now.sh/v1", // Default guess if not provided
+    ...existingProviderRest,
+    api: "openai-completions",
+    ...(normalizedApiKey ? { apiKey: normalizedApiKey } : {}),
+    models: [],
+  };
+
   return {
     ...cfg,
     agents: {
@@ -127,6 +194,10 @@ export function applyVercelAiGatewayProviderConfig(cfg: MarketBotConfig): Market
         ...cfg.agents?.defaults,
         models,
       },
+    },
+    models: {
+      mode: cfg.models?.mode ?? "merge",
+      providers,
     },
   };
 }
