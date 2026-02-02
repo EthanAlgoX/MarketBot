@@ -8,7 +8,7 @@ import { IntentParser } from "../../executor/intent-parser.js";
 import { TaskExecutor } from "../../executor/task-executor.js";
 import { ErrorCodes, errorShape } from "../protocol/index.js";
 import type { GatewayRequestHandlers } from "./types.js";
-import { createMarketBotCodingTools } from "../../agents/pi-tools.js";
+import { createMarketBotTools } from "../../agents/marketbot-tools.js";
 import { loadConfig } from "../../config/config.js";
 
 const parser = new IntentParser();
@@ -16,7 +16,7 @@ const executor = new TaskExecutor();
 
 function registerToolsAsSkills() {
   const cfg = loadConfig();
-  const tools = createMarketBotCodingTools({ config: cfg });
+  const tools = createMarketBotTools({ config: cfg });
 
   for (const tool of tools) {
     executor.registerSkill({
