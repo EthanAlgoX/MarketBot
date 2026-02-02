@@ -46,6 +46,8 @@ import {
   resolveMSTeamsGroupToolPolicy,
   resolveMattermostGroupRequireMention,
   resolveMattermostGroupToolPolicy,
+  resolveBlueBubblesGroupRequireMention,
+  resolveBlueBubblesGroupToolPolicy,
 } from "./plugins/group-mentions.js";
 import type {
   ChannelCapabilities,

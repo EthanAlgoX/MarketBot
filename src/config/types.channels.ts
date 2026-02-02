@@ -25,6 +25,8 @@ import type { SignalConfig } from "./types.signal.js";
 import type { SlackConfig } from "./types.slack.js";
 import type { TelegramConfig } from "./types.telegram.js";
 import type { WhatsAppConfig } from "./types.whatsapp.js";
+import type { BlueBubblesConfig } from "./types.bluebubbles.js";
+import type { MattermostConfig } from "./types.mattermost.js";
 import type { GroupPolicy } from "./types.base.js";
 
 export type ChannelHeartbeatVisibilityConfig = {
@@ -52,5 +54,7 @@ export type ChannelsConfig = {
   signal?: SignalConfig;
   imessage?: IMessageConfig;
   msteams?: MSTeamsConfig;
+  bluebubbles?: BlueBubblesConfig;
+  mattermost?: MattermostConfig;
   [key: string]: unknown;
 };
