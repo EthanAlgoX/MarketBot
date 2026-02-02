@@ -256,17 +256,17 @@ const DOCKS: Record<ChatChannelId, ChannelDock> = {
       resolveAllowFrom: ({ cfg, accountId }) => {
         const channel = cfg.channels?.googlechat as
           | {
-              accounts?: Record<string, { dm?: { allowFrom?: Array<string | number> } }>;
-              dm?: { allowFrom?: Array<string | number> };
-            }
+            accounts?: Record<string, { dm?: { allowFrom?: Array<string | number> } }>;
+            dm?: { allowFrom?: Array<string | number> };
+          }
           | undefined;
         const normalized = normalizeAccountId(accountId);
         const account =
           channel?.accounts?.[normalized] ??
           channel?.accounts?.[
-            Object.keys(channel?.accounts ?? {}).find(
-              (key) => key.toLowerCase() === normalized.toLowerCase(),
-            ) ?? ""
+          Object.keys(channel?.accounts ?? {}).find(
+            (key) => key.toLowerCase() === normalized.toLowerCase(),
+          ) ?? ""
           ];
         return (account?.dm?.allowFrom ?? channel?.dm?.allowFrom ?? []).map((entry) =>
           String(entry),
@@ -500,9 +500,9 @@ function buildDockFromPlugin(plugin: ChannelPlugin): ChannelDock {
     elevated: plugin.elevated,
     config: plugin.config
       ? {
-          resolveAllowFrom: plugin.config.resolveAllowFrom,
-          formatAllowFrom: plugin.config.formatAllowFrom,
-        }
+        resolveAllowFrom: plugin.config.resolveAllowFrom,
+        formatAllowFrom: plugin.config.formatAllowFrom,
+      }
       : undefined,
     groups: plugin.groups,
     mentions: plugin.mentions,
