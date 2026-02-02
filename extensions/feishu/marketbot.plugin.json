@@ -1,0 +1,7 @@
+{
+    "id": "feishu",
+    "name": "Feishu",
+    "description": "Feishu/Lark channel plugin",
+    "kind": "channel",
+    "configSchema": true
+}

@@ -1,0 +1,52 @@
+{
+  "name": "@marketbot/feishu",
+  "version": "0.1.6",
+  "type": "module",
+  "description": "MarketBot Feishu/Lark channel plugin",
+  "license": "MIT",
+  "files": [
+    "index.ts",
+    "src",
+    "skills",
+    "marketbot.plugin.json"
+  ],
+  "keywords": [
+    "marketbot",
+    "feishu",
+    "lark",
+    "飞书",
+    "chatbot",
+    "ai"
+  ],
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "feishu",
+      "label": "Feishu",
+      "selectionLabel": "Feishu/Lark (飞书)",
+      "docsPath": "/channels/feishu",
+      "docsLabel": "feishu",
+      "blurb": "飞书/Lark enterprise messaging.",
+      "aliases": [
+        "lark"
+      ],
+      "order": 70
+    }
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.30.0",
+    "@sinclair/typebox": "^0.34.48",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10",
+    "marketbot": "workspace:*",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "marketbot": "workspace:*"
+  }
+}
