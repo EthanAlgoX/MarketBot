@@ -1,6 +1,6 @@
 import type { ChannelHeartbeatVisibilityConfig } from "./types.channels.js";
 import type { DmConfig } from "./types.messages.js";
-import type { MarkdownConfig, DmPolicy, GroupPolicy } from "./types.base.js";
+import type { DmPolicy, GroupPolicy } from "./types.base.js";
 
 export type MattermostConfig = {
   enabled?: boolean;

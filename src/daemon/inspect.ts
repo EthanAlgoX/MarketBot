@@ -35,7 +35,7 @@ export type ExtraGatewayService = {
   label: string;
   detail: string;
   scope: "user" | "system";
-  marker?: "marketbot" | "marketbotbot" | "marketbot";
+  marker?: "marketbot" | "marketbotbot";
   legacy?: boolean;
 };
 
@@ -43,7 +43,7 @@ export type FindExtraGatewayServicesOptions = {
   deep?: boolean;
 };
 
-const EXTRA_MARKERS = ["marketbot", "marketbotbot", "marketbot"] as const;
+const EXTRA_MARKERS = ["marketbot", "marketbotbot"] as const;
 const execFileAsync = promisify(execFile);
 
 export function renderGatewayServiceCleanupHints(

@@ -147,14 +147,21 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     provider?: string,
     cfg?: any,
   ): { status: "Configured" | "Unconfigured" | "Warning"; message?: string } => {
-    if (!provider) return { status: "Unconfigured" };
+    if (!provider) {
+      return { status: "Unconfigured" };
+    }
     const p = provider.toLowerCase();
 
     let envKey = "";
-    if (p.includes("deepseek")) envKey = process.env.DEEPSEEK_API_KEY ?? "";
-    else if (p.includes("openai")) envKey = process.env.OPENAI_API_KEY ?? "";
-    else if (p.includes("anthropic")) envKey = process.env.ANTHROPIC_API_KEY ?? "";
-    else if (p.includes("gemini")) envKey = process.env.GEMINI_API_KEY ?? "";
+    if (p.includes("deepseek")) {
+      envKey = process.env.DEEPSEEK_API_KEY ?? "";
+    } else if (p.includes("openai")) {
+      envKey = process.env.OPENAI_API_KEY ?? "";
+    } else if (p.includes("anthropic")) {
+      envKey = process.env.ANTHROPIC_API_KEY ?? "";
+    } else if (p.includes("gemini")) {
+      envKey = process.env.GEMINI_API_KEY ?? "";
+    }
 
     const envIsPlaceholder = /placeholder/i.test(envKey);
 
@@ -185,15 +192,6 @@ export function createCommandHandlers(context: CommandHandlerContext) {
   const checkProviderConfigured = (provider?: string, cfg?: any): boolean => {
     const res = checkProviderStatus(provider, cfg);
     return res.status === "Configured" || res.status === "Warning";
-  };
-
-  const getProviderEnvVar = (provider: string): string | undefined => {
-    const p = provider.toLowerCase();
-    if (p.includes("deepseek")) return "DEEPSEEK_API_KEY";
-    if (p.includes("openai")) return "OPENAI_API_KEY";
-    if (p.includes("anthropic")) return "ANTHROPIC_API_KEY";
-    if (p.includes("gemini")) return "GEMINI_API_KEY";
-    return undefined;
   };
 
   const promptApiKey = async (provider: string, onDone: () => Promise<void>) => {
@@ -276,7 +274,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
       const cfg = snapshot?.config;
 
       const items = Array.from(providerSet)
-        .sort()
+        .toSorted()
         .map((provider) => ({
           value: provider,
           label: provider,
