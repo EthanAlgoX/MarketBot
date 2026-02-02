@@ -20,6 +20,8 @@ async function main() {
     for (const tool of tools) {
         executor.registerSkill({
             name: tool.name,
+            description: tool.description || "",
+            schema: tool.parameters || {},
             execute: async (input) => {
                 // Bridge AgentTool to Skill
                 const result = await tool.execute("test-call", input);
@@ -40,7 +42,8 @@ async function main() {
         }
     });
 
-    const testPrompt = "Capture a desktop screenshot and click near the bottom dock center";
+    const defaultPrompt = "Capture a desktop screenshot and click near the bottom dock center";
+    const testPrompt = process.argv[2] || defaultPrompt;
     console.log(`\n💬 Prompt: "${testPrompt}"`);
 
     try {
