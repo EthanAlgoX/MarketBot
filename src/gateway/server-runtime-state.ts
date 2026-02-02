@@ -61,6 +61,8 @@ export async function createGatewayRuntimeState(params: {
   log: { info: (msg: string) => void; warn: (msg: string) => void };
   logHooks: ReturnType<typeof createSubsystemLogger>;
   logPlugins: ReturnType<typeof createSubsystemLogger>;
+  extraHandlers: import("./server-methods/types.js").GatewayRequestHandlers;
+  getContext: () => import("./server-methods/types.js").GatewayRequestContext;
 }): Promise<{
   canvasHost: CanvasHostHandler | null;
   httpServer: HttpServer;
@@ -138,6 +140,8 @@ export async function createGatewayRuntimeState(params: {
       handlePluginRequest,
       resolvedAuth: params.resolvedAuth,
       tlsOptions: params.gatewayTls?.enabled ? params.gatewayTls.tlsOptions : undefined,
+      extraHandlers: params.extraHandlers,
+      getContext: params.getContext,
     });
     try {
       await listenGatewayHttpServer({
