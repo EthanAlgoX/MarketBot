@@ -1,12 +1,12 @@
 {
   "meta": {
     "lastTouchedVersion": "2026.1.30",
-    "lastTouchedAt": "2026-01-31T19:55:21.713Z"
+    "lastTouchedAt": "2026-02-02T18:19:37.987Z"
   },
   "wizard": {
-    "lastRunAt": "2026-01-31T19:04:01.242Z",
+    "lastRunAt": "2026-02-02T18:19:37.974Z",
     "lastRunVersion": "2026.1.30",
-    "lastRunCommand": "onboard",
+    "lastRunCommand": "doctor",
     "lastRunMode": "local"
   },
   "models": {
