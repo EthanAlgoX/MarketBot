@@ -23,6 +23,7 @@ import { agentsHandlers } from "./server-methods/agents.js";
 import { browserHandlers } from "./server-methods/browser.js";
 import { channelsHandlers } from "./server-methods/channels.js";
 import { chatHandlers } from "./server-methods/chat.js";
+import { executorHandlers } from "./server-methods/executor.js";
 import { configHandlers } from "./server-methods/config.js";
 import { connectHandlers } from "./server-methods/connect.js";
 import { cronHandlers } from "./server-methods/cron.js";
@@ -106,6 +107,8 @@ const WRITE_METHODS = new Set([
   "node.invoke",
   "chat.send",
   "chat.abort",
+  "executor.parse",
+  "executor.run",
   "browser.request",
 ]);
 
@@ -185,6 +188,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...healthHandlers,
   ...channelsHandlers,
   ...chatHandlers,
+  ...executorHandlers,
   ...cronHandlers,
   ...deviceHandlers,
   ...execApprovalsHandlers,
