@@ -73,4 +73,6 @@ USER.md
 
 # local tooling
 .serena/
+
+# config backups
 marketbot.json.bak*
