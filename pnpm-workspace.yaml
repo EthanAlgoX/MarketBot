@@ -2,6 +2,7 @@ packages:
   - .
   - ui
   - extensions/*
+  - dashboard
 
 onlyBuiltDependencies:
   - '@whiskeysockets/baileys'
