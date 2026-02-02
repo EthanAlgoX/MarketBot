@@ -48,6 +48,7 @@ import {
 import { applyHookMappings } from "./hooks-mapping.js";
 import { handleOpenAiHttpRequest } from "./openai-http.js";
 import { handleOpenResponsesHttpRequest } from "./openresponses-http.js";
+import { handleRpcHttpRequest } from "./server-rpc-http.js";
 import { handleToolsInvokeHttpRequest } from "./tools-invoke-http.js";
 
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
@@ -232,6 +233,8 @@ export function createGatewayHttpServer(opts: {
   handlePluginRequest?: HooksRequestHandler;
   resolvedAuth: import("./auth.js").ResolvedGatewayAuth;
   tlsOptions?: TlsOptions;
+  extraHandlers: import("./server-methods/types.js").GatewayRequestHandlers;
+  getContext: () => import("./server-methods/types.js").GatewayRequestContext;
 }): HttpServer {
   const {
     canvasHost,
@@ -243,6 +246,8 @@ export function createGatewayHttpServer(opts: {
     handleHooksRequest,
     handlePluginRequest,
     resolvedAuth,
+    extraHandlers,
+    getContext,
   } = opts;
   const httpServer: HttpServer = opts.tlsOptions
     ? createHttpsServer(opts.tlsOptions, (req, res) => {
@@ -262,6 +267,17 @@ export function createGatewayHttpServer(opts: {
       const configSnapshot = loadConfig();
       const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
       if (await handleHooksRequest(req, res)) {
+        return;
+      }
+      if (
+        await handleRpcHttpRequest(req, res, {
+          extraHandlers,
+          broadcast: (event, payload) => {
+            getContext().broadcast(event, payload);
+          },
+          context: getContext(),
+        })
+      ) {
         return;
       }
       if (
