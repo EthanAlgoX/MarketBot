@@ -143,6 +143,7 @@
     "protocol:gen:swift": "node --import tsx scripts/protocol-gen-swift.ts",
     "protocol:check": "pnpm protocol:gen && pnpm protocol:gen:swift && git diff --exit-code -- dist/protocol.schema.json apps/macos/Sources/MarketBotProtocol/GatewayModels.swift",
     "canvas:a2ui:bundle": "bash scripts/bundle-a2ui.sh",
+    "dashboard:dev": "pnpm --dir dashboard run dev",
     "check:loc": "node --import tsx scripts/check-ts-max-loc.ts --max 500"
   },
   "keywords": [
@@ -241,7 +242,6 @@
     "tar": "7.5.4"
   },
   "pnpm": {
-    "minimumReleaseAge": 2880,
     "overrides": {
       "@sinclair/typebox": "0.34.47",
       "tar": "7.5.4"
