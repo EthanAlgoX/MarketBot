@@ -37,7 +37,7 @@ import { CustomEditor } from "./components/custom-editor.js";
 import { StatusBar } from "./components/status-bar.js";
 import { GatewayChatClient } from "./gateway-chat.js";
 import { StatusManager } from "./status-manager.js";
-import { editorTheme, theme } from "./theme/theme.js";
+import { editorTheme } from "./theme/theme.js";
 import { createCommandHandlers } from "./tui-command-handlers.js";
 import { createEventHandlers } from "./tui-event-handlers.js";
 import { createLocalShellRunner } from "./tui-local-shell.js";
@@ -99,7 +99,9 @@ export async function runTui(opts: TuiOptions) {
 
   // Helper to check if a provider has a valid key configured in env or config
   const checkProviderConfiguredAtStart = (provider?: string): boolean => {
-    if (!provider) return false;
+    if (!provider) {
+      return false;
+    }
     const p = provider.toLowerCase();
 
     // Check initial config first
@@ -111,13 +113,21 @@ export async function runTui(opts: TuiOptions) {
     }
 
     let key = "";
-    if (p.includes("deepseek")) key = process.env.DEEPSEEK_API_KEY ?? "";
-    else if (p.includes("openai")) key = process.env.OPENAI_API_KEY ?? "";
-    else if (p.includes("anthropic")) key = process.env.ANTHROPIC_API_KEY ?? "";
-    else if (p.includes("gemini")) key = process.env.GEMINI_API_KEY ?? "";
-    else return true;
+    if (p.includes("deepseek")) {
+      key = process.env.DEEPSEEK_API_KEY ?? "";
+    } else if (p.includes("openai")) {
+      key = process.env.OPENAI_API_KEY ?? "";
+    } else if (p.includes("anthropic")) {
+      key = process.env.ANTHROPIC_API_KEY ?? "";
+    } else if (p.includes("gemini")) {
+      key = process.env.GEMINI_API_KEY ?? "";
+    } else {
+      return true;
+    }
 
-    if (!key || /placeholder/i.test(key) || key === "") return false;
+    if (!key || /placeholder/i.test(key) || key === "") {
+      return false;
+    }
     return true;
   };
   const initialSessionInput = (opts.session ?? "").trim();
@@ -346,7 +356,7 @@ export async function runTui(opts: TuiOptions) {
   };
 
   const normalizeSymbol = (raw: string) => raw.trim().toUpperCase();
-  const isValidSymbol = (symbol: string) => /^[A-Z0-9.\-]{1,12}$/.test(symbol);
+  const isValidSymbol = (symbol: string) => /^[A-Z0-9.-]{1,12}$/.test(symbol);
 
   const addWatchSymbol = (raw: string) => {
     const symbol = normalizeSymbol(raw);

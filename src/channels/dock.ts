@@ -405,7 +405,7 @@ const DOCKS: Record<ChatChannelId, ChannelDock> = {
     },
     outbound: { textChunkLimit: 4000 },
     config: {
-      resolveAllowFrom: ({ cfg, accountId }) => {
+      resolveAllowFrom: ({ cfg }) => {
         const allowFrom = cfg.channels?.bluebubbles?.allowFrom;
         return (Array.isArray(allowFrom) ? allowFrom : []) as string[];
       },
@@ -427,9 +427,9 @@ const DOCKS: Record<ChatChannelId, ChannelDock> = {
     },
     outbound: { textChunkLimit: 4000 },
     config: {
-      resolveAllowFrom: ({ cfg, accountId }) => {
+      resolveAllowFrom: ({ cfg }) => {
         const allowFrom = cfg.channels?.msteams?.allowFrom;
-        return (Array.isArray(allowFrom) ? allowFrom : []) as string[];
+        return Array.isArray(allowFrom) ? allowFrom : [];
       },
       formatAllowFrom: ({ allowFrom }) =>
         allowFrom.map((entry) => String(entry).trim()).filter(Boolean),
@@ -448,9 +448,9 @@ const DOCKS: Record<ChatChannelId, ChannelDock> = {
     },
     outbound: { textChunkLimit: 4000 },
     config: {
-      resolveAllowFrom: ({ cfg, accountId }) => {
+      resolveAllowFrom: ({ cfg }) => {
         const allowFrom = cfg.channels?.mattermost?.allowFrom;
-        return (Array.isArray(allowFrom) ? allowFrom : []) as string[];
+        return Array.isArray(allowFrom) ? allowFrom : [];
       },
       formatAllowFrom: ({ allowFrom }) =>
         allowFrom.map((entry) => String(entry).trim()).filter(Boolean),

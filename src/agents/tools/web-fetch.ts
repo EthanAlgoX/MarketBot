@@ -707,7 +707,7 @@ async function tryBrowserFallback(params: {
       };
     }
     return null;
-  } catch (err) {
+  } catch {
     // Fallback failed
     return null;
   } finally {

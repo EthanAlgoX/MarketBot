@@ -48,7 +48,6 @@ import {
   buildMistralModelDefinition,
   buildCerebrasModelDefinition,
   buildXaiModelDefinition,
-  buildXiaomiModelDefinition,
   buildMoonshotModelDefinition,
   DEEPSEEK_BASE_URL,
   DEEPSEEK_DEFAULT_MODEL_ID,

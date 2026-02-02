@@ -69,7 +69,7 @@ export async function loadModelCatalog(params?: {
   }
 
   modelCatalogPromise = (async () => {
-    const models: ModelCatalogEntry[] = [];
+    const models = new Map<string, ModelCatalogEntry>();
     const sortModels = (entries: ModelCatalogEntry[]) =>
       entries.sort((a, b) => {
         const p = a.provider.localeCompare(b.provider);
@@ -111,15 +111,16 @@ export async function loadModelCatalog(params?: {
             : undefined;
         const reasoning = typeof entry?.reasoning === "boolean" ? entry.reasoning : undefined;
         const input = Array.isArray(entry?.input) ? entry.input : undefined;
-        models.push({ id, name, provider, contextWindow, reasoning, input });
+        models.set(id, { id, name, provider, contextWindow, reasoning, input });
       }
 
-      if (models.length === 0) {
+      const uniqueModels = Array.from(models.values());
+      if (uniqueModels.length === 0) {
         // If we found nothing, don't cache this result so we can try again.
         modelCatalogPromise = null;
       }
 
-      return sortModels(models);
+      return sortModels(uniqueModels);
     } catch (error) {
       if (!hasLoggedModelCatalogError) {
         hasLoggedModelCatalogError = true;
@@ -127,8 +128,8 @@ export async function loadModelCatalog(params?: {
       }
       // Don't poison the cache on transient dependency/filesystem issues.
       modelCatalogPromise = null;
-      if (models.length > 0) {
-        return sortModels(models);
+      if (models.size > 0) {
+        return sortModels(Array.from(models.values()));
       }
       return [];
     }
