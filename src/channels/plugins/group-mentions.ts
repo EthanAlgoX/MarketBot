@@ -470,6 +470,29 @@ export function resolveMattermostGroupToolPolicy(
     senderId: params.senderId,
     senderName: params.senderName,
     senderUsername: params.senderUsername,
+  });
+}
+
+export function resolveFeishuGroupRequireMention(params: GroupMentionParams): boolean {
+  return resolveChannelGroupRequireMention({
+    cfg: params.cfg,
+    channel: "feishu",
+    groupId: params.groupId,
+    accountId: params.accountId,
+  });
+}
+
+export function resolveFeishuGroupToolPolicy(
+  params: GroupMentionParams,
+): GroupToolPolicyConfig | undefined {
+  return resolveChannelGroupToolsPolicy({
+    cfg: params.cfg,
+    channel: "feishu",
+    groupId: params.groupId,
+    accountId: params.accountId,
+    senderId: params.senderId,
+    senderName: params.senderName,
+    senderUsername: params.senderUsername,
     senderE164: params.senderE164,
   });
 }

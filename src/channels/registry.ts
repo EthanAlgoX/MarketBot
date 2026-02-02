@@ -34,6 +34,7 @@ export const CHAT_CHANNEL_ORDER = [
   "bluebubbles",
   "msteams",
   "mattermost",
+  "feishu",
 ] as const;
 
 export type ChatChannelId = (typeof CHAT_CHANNEL_ORDER)[number];
@@ -150,12 +151,23 @@ const CHAT_CHANNEL_META: Record<ChatChannelId, ChannelMeta> = {
     blurb: "Mattermost via webhooks.",
     systemImage: "bubble.left.and.bubble.right.fill",
   },
+  feishu: {
+    id: "feishu",
+    label: "Feishu",
+    selectionLabel: "Feishu/Lark (飞书)",
+    detailLabel: "Feishu/Lark",
+    docsPath: "/channels/feishu",
+    docsLabel: "feishu",
+    blurb: "Feishu/Lark enterprise messaging.",
+    systemImage: "message.circle",
+  },
 };
 
 export const CHAT_CHANNEL_ALIASES: Record<string, ChatChannelId> = {
   imsg: "imessage",
   "google-chat": "googlechat",
   gchat: "googlechat",
+  lark: "feishu",
 };
 
 const normalizeChannelKey = (raw?: string | null): string | undefined => {

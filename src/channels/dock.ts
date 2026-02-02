@@ -48,6 +48,8 @@ import {
   resolveMattermostGroupToolPolicy,
   resolveBlueBubblesGroupRequireMention,
   resolveBlueBubblesGroupToolPolicy,
+  resolveFeishuGroupRequireMention,
+  resolveFeishuGroupToolPolicy,
 } from "./plugins/group-mentions.js";
 import type {
   ChannelCapabilities,
@@ -458,6 +460,28 @@ const DOCKS: Record<ChatChannelId, ChannelDock> = {
     groups: {
       resolveRequireMention: resolveMattermostGroupRequireMention,
       resolveToolPolicy: resolveMattermostGroupToolPolicy,
+    },
+  },
+  feishu: {
+    id: "feishu",
+    capabilities: {
+      chatTypes: ["direct", "group"],
+      reactions: true,
+      media: true,
+      threads: true,
+    },
+    outbound: { textChunkLimit: 4000 },
+    config: {
+      resolveAllowFrom: ({ cfg }) => {
+        const allowFrom = (cfg.channels as any)?.feishu?.allowFrom;
+        return Array.isArray(allowFrom) ? allowFrom : [];
+      },
+      formatAllowFrom: ({ allowFrom }) =>
+        allowFrom.map((entry) => String(entry).trim()).filter(Boolean),
+    },
+    groups: {
+      resolveRequireMention: resolveFeishuGroupRequireMention,
+      resolveToolPolicy: resolveFeishuGroupToolPolicy,
     },
   },
 };

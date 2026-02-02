@@ -49,3 +49,4 @@ export * from "./types.telegram.js";
 export * from "./types.tts.js";
 export * from "./types.tools.js";
 export * from "./types.whatsapp.js";
+export * from "./types.feishu.js";
