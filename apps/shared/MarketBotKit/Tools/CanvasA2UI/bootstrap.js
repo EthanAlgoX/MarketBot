@@ -15,15 +15,15 @@ const modalStyles = css`
     margin: 0;
     padding: 24px;
     border: none;
-    background: rgba(5, 8, 16, 0.65);
-    backdrop-filter: blur(6px);
+    background: rgba(15, 23, 42, 0.18);
+    backdrop-filter: blur(8px) saturate(140%);
     display: grid;
     place-items: center;
   }
 
   dialog::backdrop {
-    background: rgba(5, 8, 16, 0.65);
-    backdrop-filter: blur(6px);
+    background: rgba(15, 23, 42, 0.18);
+    backdrop-filter: blur(8px) saturate(140%);
   }
 `;
 
@@ -34,12 +34,32 @@ if (modalElement && Array.isArray(modalElement.styles)) {
 
 const empty = Object.freeze({});
 const emptyClasses = () => ({});
-const textHintStyles = () => ({ h1: {}, h2: {}, h3: {}, h4: {}, h5: {}, body: {}, caption: {} });
+const textHintStyles = () => ({
+  h1: {},
+  h2: {},
+  h3: {},
+  h4: {},
+  h5: {},
+  h6: {},
+  body: {},
+  caption: {},
+});
 
 const isAndroid = /Android/i.test(globalThis.navigator?.userAgent ?? "");
-const cardShadow = isAndroid ? "0 2px 10px rgba(0,0,0,.18)" : "0 10px 30px rgba(0,0,0,.35)";
-const buttonShadow = isAndroid ? "0 2px 10px rgba(6, 182, 212, 0.14)" : "0 10px 25px rgba(6, 182, 212, 0.18)";
-const statusShadow = isAndroid ? "0 2px 10px rgba(0, 0, 0, 0.18)" : "0 10px 24px rgba(0, 0, 0, 0.25)";
+const baseFont =
+  '"Satoshi", "Avenir Next", "SF Pro Display", "Segoe UI Variable", "Helvetica Neue", sans-serif';
+const uiText = "#0f172a";
+const uiMuted = "#475569";
+const surfaceBorder = "rgba(15, 23, 42, 0.08)";
+const cardShadow = isAndroid
+  ? "0 6px 18px rgba(15, 23, 42, 0.16)"
+  : "0 16px 32px rgba(15, 23, 42, 0.18)";
+const buttonShadow = isAndroid
+  ? "0 6px 16px rgba(37, 99, 235, 0.26)"
+  : "0 14px 28px rgba(37, 99, 235, 0.24)";
+const statusShadow = isAndroid
+  ? "0 6px 16px rgba(15, 23, 42, 0.16)"
+  : "0 12px 24px rgba(15, 23, 42, 0.2)";
 const statusBlur = isAndroid ? "10px" : "14px";
 
 const marketbotTheme = {
@@ -113,42 +133,104 @@ const marketbotTheme = {
   },
   additionalStyles: {
     Card: {
-      background: "linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03))",
-      border: "1px solid rgba(255,255,255,.09)",
-      borderRadius: "14px",
-      padding: "14px",
-      boxShadow: cardShadow,
-    },
-    Modal: {
-      background: "rgba(12, 16, 24, 0.92)",
-      border: "1px solid rgba(255,255,255,.12)",
+      background: "linear-gradient(180deg, rgba(255,255,255,0.94), rgba(248,250,252,0.9))",
+      border: `1px solid ${surfaceBorder}`,
       borderRadius: "16px",
       padding: "16px",
-      boxShadow: "0 30px 80px rgba(0,0,0,.6)",
-      width: "min(520px, calc(100vw - 48px))",
+      boxShadow: cardShadow,
+      color: uiText,
     },
-    Column: { gap: "10px" },
-    Row: { gap: "10px", alignItems: "center" },
-    Divider: { opacity: "0.25" },
+    Modal: {
+      background: "rgba(255, 255, 255, 0.96)",
+      border: "1px solid rgba(15, 23, 42, 0.12)",
+      borderRadius: "18px",
+      padding: "18px",
+      boxShadow: "0 30px 80px rgba(15, 23, 42, 0.25)",
+      width: "min(560px, calc(100vw - 48px))",
+      color: uiText,
+    },
+    Column: { gap: "12px" },
+    Row: { gap: "12px", alignItems: "center" },
+    Divider: { opacity: "0.22" },
     Button: {
-      background: "linear-gradient(135deg, #22c55e 0%, #06b6d4 100%)",
+      background: "linear-gradient(135deg, #2563eb 0%, #38bdf8 100%)",
       border: "0",
       borderRadius: "12px",
-      padding: "10px 14px",
-      color: "#071016",
+      padding: "10px 16px",
+      color: "#f8fafc",
+      fontFamily: baseFont,
       fontWeight: "650",
+      letterSpacing: "0.01em",
       cursor: "pointer",
       boxShadow: buttonShadow,
     },
     Text: {
       ...textHintStyles(),
-      h1: { fontSize: "20px", fontWeight: "750", margin: "0 0 6px 0" },
-      h2: { fontSize: "16px", fontWeight: "700", margin: "0 0 6px 0" },
-      body: { fontSize: "13px", lineHeight: "1.4" },
-      caption: { opacity: "0.8" },
+      h1: {
+        fontFamily: baseFont,
+        fontSize: "20px",
+        fontWeight: "700",
+        margin: "0 0 6px 0",
+        color: uiText,
+      },
+      h2: {
+        fontFamily: baseFont,
+        fontSize: "16px",
+        fontWeight: "650",
+        margin: "0 0 6px 0",
+        color: uiText,
+      },
+      h3: {
+        fontFamily: baseFont,
+        fontSize: "14px",
+        fontWeight: "650",
+        margin: "0 0 4px 0",
+        color: uiText,
+      },
+      h4: {
+        fontFamily: baseFont,
+        fontSize: "13px",
+        fontWeight: "650",
+        margin: "0 0 4px 0",
+        color: uiText,
+      },
+      h5: {
+        fontFamily: baseFont,
+        fontSize: "12px",
+        fontWeight: "650",
+        margin: "0 0 4px 0",
+        color: uiText,
+      },
+      h6: {
+        fontFamily: baseFont,
+        fontSize: "12px",
+        fontWeight: "600",
+        margin: "0 0 4px 0",
+        color: uiText,
+      },
+      body: {
+        fontFamily: baseFont,
+        fontSize: "13px",
+        lineHeight: "1.5",
+        color: uiText,
+      },
+      caption: {
+        fontFamily: baseFont,
+        fontSize: "12px",
+        lineHeight: "1.4",
+        color: uiMuted,
+      },
     },
-    TextField: { display: "grid", gap: "6px" },
-    Image: { borderRadius: "12px" },
+    TextField: {
+      background: "rgba(255, 255, 255, 0.92)",
+      border: "1px solid rgba(15, 23, 42, 0.12)",
+      borderRadius: "10px",
+      padding: "8px 10px",
+      color: uiText,
+      fontFamily: baseFont,
+      boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.7)",
+    },
+    Image: { borderRadius: "14px" },
   },
 };
 
@@ -186,7 +268,7 @@ class MarketBotA2UIHost extends LitElement {
     #surfaces {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 12px;
+      gap: 14px;
       height: 100%;
       overflow: auto;
       padding-bottom: var(--marketbot-a2ui-scroll-pad-bottom, 0px);
@@ -202,13 +284,13 @@ class MarketBotA2UIHost extends LitElement {
       gap: 8px;
       padding: 8px 10px;
       border-radius: 12px;
-      background: rgba(0, 0, 0, 0.45);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      color: rgba(255, 255, 255, 0.92);
-      font: 13px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Roboto", sans-serif;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      color: ${unsafeCSS(uiText)};
+      font: 12px/1.2 ${unsafeCSS(baseFont)};
       pointer-events: none;
-      backdrop-filter: blur(${unsafeCSS(statusBlur)});
-      -webkit-backdrop-filter: blur(${unsafeCSS(statusBlur)});
+      backdrop-filter: blur(${unsafeCSS(statusBlur)}) saturate(140%);
+      -webkit-backdrop-filter: blur(${unsafeCSS(statusBlur)}) saturate(140%);
       box-shadow: ${unsafeCSS(statusShadow)};
       z-index: 5;
     }
@@ -223,20 +305,20 @@ class MarketBotA2UIHost extends LitElement {
       gap: 8px;
       padding: 8px 10px;
       border-radius: 12px;
-      background: rgba(0, 0, 0, 0.45);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      color: rgba(255, 255, 255, 0.92);
-      font: 13px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Roboto", sans-serif;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      color: ${unsafeCSS(uiText)};
+      font: 12px/1.2 ${unsafeCSS(baseFont)};
       pointer-events: none;
-      backdrop-filter: blur(${unsafeCSS(statusBlur)});
-      -webkit-backdrop-filter: blur(${unsafeCSS(statusBlur)});
+      backdrop-filter: blur(${unsafeCSS(statusBlur)}) saturate(140%);
+      -webkit-backdrop-filter: blur(${unsafeCSS(statusBlur)}) saturate(140%);
       box-shadow: ${unsafeCSS(statusShadow)};
       z-index: 5;
     }
 
     .toast.error {
-      border-color: rgba(255, 109, 109, 0.35);
-      color: rgba(255, 223, 223, 0.98);
+      border-color: rgba(248, 113, 113, 0.45);
+      color: #b91c1c;
     }
 
     .empty {
