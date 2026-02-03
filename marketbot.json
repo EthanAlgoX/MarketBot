@@ -14,7 +14,7 @@
     "providers": {
       "deepseek": {
         "baseUrl": "https://api.deepseek.com/v1",
-        "apiKey": "sk-6d68eaf84a5c49919cd7c42bd9dd7aaf",
+        "apiKey": "REDACTED",
         "api": "openai-completions",
         "models": [
           {
@@ -86,7 +86,7 @@
     "bind": "loopback",
     "auth": {
       "mode": "token",
-      "token": "9fd93dbe21dcb3a2886459771b359ca8aecd6786d409e3a2"
+      "token": "REDACTED"
     },
     "tailscale": {
       "mode": "off",
