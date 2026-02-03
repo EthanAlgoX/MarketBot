@@ -29,8 +29,8 @@ clear risk/invalidation levels, and reproducible workflows.
 
 - The Gateway is the central WebSocket server for sessions, routing, and tool
   execution.
-- CLI, TUI, and Web UI connect to the Gateway, or run embedded locally with
-  `--local` for single-machine use.
+- The GUI (web Control UI) connects to the Gateway over WebSocket and is served
+  by the Gateway on the same port.
 
 ### 2) Analysis engine (agents + models)
 
@@ -66,14 +66,12 @@ clear risk/invalidation levels, and reproducible workflows.
 - **Tools**: Web search/fetch, browser automation, memory, media, and exec.
 - **Skills**: Reusable market workflows (reports, catalysts, risk checks).
 - **Nodes**: Device clients with UI/canvas/camera/screen capabilities.
-- **CLI/TUI**: Operator UX for analysis and command execution.
 
 ## Repo Layout
 
 - `src/agents/`: agent runtime, prompts, compaction, tool wiring.
 - `src/gateway/`: WebSocket server, protocol handling, routing.
 - `src/channels/`: channel adapters (Telegram, Slack, Discord, etc.).
-- `src/cli/`: CLI/TUI commands and UX helpers.
 - `src/memory/`: memory store and retrieval.
 - `src/providers/`: model/provider integrations and adapters.
 - `extensions/`: plugin manifests and optional integrations.
@@ -92,6 +90,7 @@ git clone https://github.com/EthanAlgoX/MarketBot.git
 cd MarketBot
 pnpm install
 pnpm build
+pnpm ui:build
 ```
 
 #### 1. Configure MarketBot
@@ -113,55 +112,13 @@ The Gateway manages your sessions and model connections. **You must leave this p
 pnpm start -- gateway
 ```
 
-#### 3. Connect via TUI
+#### 3. Open the GUI (web)
 
-Open a **new terminal window or tab**, and connect to your gateway. It will automatically use the token from your `.env`.
+Open the Control UI in your browser:
 
-```bash
-pnpm tui
-```
+`http://127.0.0.1:18789/` (or `http://localhost:18789/`)
 
-#### 3. One-off Analysis
-
-Run structured analysis directly from the CLI.
-
-```bash
-pnpm start -- analyze --asset BTC --timeframe 1h
-```
-
----
-
-## TUI Commands
-
-The Terminal UI provides market-focused slash commands:
-
-### System Commands
-
-| Command | Description |
-|---------|-------------|
-| `/help` | Show all commands |
-| `/status` | Gateway status |
-| `/model <name>` | Switch model |
-| `/agent <id>` | Switch agent |
-| `/session <key>` | Switch session |
-
-### Market Analysis
-
-| Command | Description |
-|---------|-------------|
-| `/analyze <symbol>` | Quick market analysis with catalysts |
-| `/technicals <symbol>` | Technical analysis (RSI, MACD, S/R) |
-| `/sentiment [symbol]` | Sentiment analysis |
-| `/news [symbol]` | Latest market news |
-| `/portfolio` | Portfolio overview |
-| `/watch <symbol>` | Add to watchlist |
-
-**Example:**
-
-```bash
-/analyze NVDA
-/technicals SPY
-```
+If the page fails to load, confirm the Gateway is running and the UI is built with `pnpm ui:build`.
 
 ---
 
@@ -170,8 +127,6 @@ MarketBot is best configured using the interactive onboarding wizard:
 ```bash
 pnpm start -- onboard
 ```
-
-Alternatively, you can manage providers directly in the TUI using the `/provider` command.
 
 ### Environment Variables
 
@@ -228,10 +183,10 @@ sudo systemctl start marketbot
 
 ## Documentation
 
-- [CLI Reference](docs/cli/index.md)
-- [Agent Configuration](docs/concepts/agent.md)
-- [Skill Development](docs/cli/skills.md)
-- [Channel Setup](docs/concepts/group-messages.md)
+- [Agent Configuration](https://docs.marketbot.ai/concepts/agent)
+- [Skill Development](https://docs.marketbot.ai/cli/skills)
+- [Channel Setup](https://docs.marketbot.ai/concepts/group-messages)
+- [Control UI (Web)](https://docs.marketbot.ai/web/control-ui)
 
 ---
 
