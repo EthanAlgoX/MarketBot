@@ -53,6 +53,7 @@ export default function App() {
     const [inputText, setInputText] = useState('');
     const [isParsing, setIsParsing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [currentStepIdx, setCurrentStepIdx] = useState<number>(-1);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Filtered intents for sidebar search
@@ -69,6 +70,15 @@ export default function App() {
             setSelectedIntentId(intents[0].id);
         }
     }, [intents]);
+
+    useEffect(() => {
+        // Reset current step index when selected intent changes
+        if (selectedIntent) {
+            setCurrentStepIdx(selectedIntent.steps.length - 1);
+        } else {
+            setCurrentStepIdx(-1);
+        }
+    }, [selectedIntentId, intents]);
 
     const handleRun = async () => {
         if (!inputText.trim()) return;
@@ -99,39 +109,50 @@ export default function App() {
         }
     };
 
-    const getLatestScreenshot = (steps: Action[]) => {
-        for (let i = steps.length - 1; i >= 0; i--) {
-            if (steps[i].screenshots && steps[i].screenshots!.length > 0) {
-                return {
-                    url: steps[i].screenshots![0],
-                    stepIdx: i,
-                    point: steps[i].point,
-                    actionType: steps[i].actionType || steps[i].action
-                };
-            }
-        }
-        return null;
+    const handleNewTask = () => {
+        setSelectedIntentId(null);
+        setInputText('');
     };
 
-    const latestVisual = selectedIntent ? getLatestScreenshot(selectedIntent.steps) : null;
+    const visualSteps = selectedIntent
+        ? selectedIntent.steps.filter(s => s.screenshots && s.screenshots.length > 0)
+        : [];
+
+    const currentVisual = currentStepIdx >= 0 && selectedIntent?.steps[currentStepIdx]?.screenshots?.length
+        ? {
+            url: selectedIntent.steps[currentStepIdx].screenshots![0],
+            stepIdx: currentStepIdx,
+            point: selectedIntent.steps[currentStepIdx].point,
+            actionType: selectedIntent.steps[currentStepIdx].actionType || selectedIntent.steps[currentStepIdx].action
+        }
+        : null;
 
     return (
-        <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
+        <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans selection:bg-primary/30">
             {/* Sidebar: Task Sessions */}
             <aside className="w-80 border-r border-border flex flex-col glass z-20">
                 <div className="p-6 border-b border-border space-y-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                            <Cpu className="text-white w-5 h-5" />
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
+                                <Cpu className="text-white w-5 h-5" />
+                            </div>
+                            <h1 className="text-sm font-bold tracking-widest uppercase">MarketBot <span className="text-primary">Core</span></h1>
                         </div>
-                        <h1 className="text-sm font-bold tracking-widest uppercase">MarketBot <span className="text-blue-500">Core</span></h1>
+                        <button
+                            onClick={handleNewTask}
+                            className="p-2 rounded-lg hover:bg-white/5 transition-colors group"
+                            title="New Task"
+                        >
+                            <Layout className="w-4 h-4 text-slate-500 group-hover:text-primary transition-colors" />
+                        </button>
                     </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                         <input
                             type="text"
                             placeholder="Search tasks..."
-                            className="w-full bg-white/[0.03] border border-white/5 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-blue-500/50 transition-colors"
+                            className="w-full bg-white/[0.02] border border-white/5 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary/50 transition-colors placeholder:text-slate-600"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -149,100 +170,139 @@ export default function App() {
                             )}
                         >
                             <div className="flex-1 min-w-0">
-                                <p className="truncate text-white">{intent.intent}</p>
+                                <p className="truncate text-white font-semibold">{intent.intent}</p>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <Clock className="w-3 h-3" />
-                                    <span className="text-[10px] opacity-60">
-                                        {intent.timestamp ? new Date(intent.timestamp).toLocaleTimeString() : 'Just now'}
+                                    <Clock className="w-3 h-3 text-slate-500" />
+                                    <span className="text-[10px] text-slate-500 font-medium">
+                                        {intent.timestamp ? new Date(intent.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
                                     </span>
                                 </div>
                             </div>
-                            <ChevronRight className={cn("w-4 h-4 opacity-0 transition-opacity", selectedIntentId === intent.id && "opacity-100")} />
+                            <ChevronRight className={cn("w-4 h-4 text-slate-600 transition-all", selectedIntentId === intent.id && "translate-x-1 text-primary")} />
                         </div>
                     ))}
                     {filteredIntents.length === 0 && (
-                        <div className="py-12 text-center text-slate-600 space-y-3">
-                            <Compass className="w-8 h-8 mx-auto opacity-20" />
-                            <p className="text-xs">No tasks found</p>
+                        <div className="py-24 text-center text-slate-600 space-y-4">
+                            <Compass className="w-10 h-10 mx-auto opacity-10 animate-spin-slow" />
+                            <p className="text-xs font-medium tracking-wide">No active missions</p>
                         </div>
                     )}
                 </div>
 
-                <div className="p-4 border-t border-border flex items-center justify-between">
+                <div className="p-4 border-t border-border flex items-center justify-between glass">
                     <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-tighter opacity-60">Gateway Ready</span>
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" />
+                        <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-40">System Healthy</span>
                     </div>
-                    <Settings className="w-4 h-4 text-slate-500 cursor-pointer hover:text-white transition-colors" />
+                    <Settings className="w-4 h-4 text-slate-600 cursor-pointer hover:text-white transition-colors" />
                 </div>
             </aside>
 
             {/* Main Workspace */}
-            <main className="flex-1 flex overflow-hidden relative">
+            <main className="flex-1 flex overflow-hidden relative bg-slate-950/20">
                 {/* Left Panel: Action Trace */}
                 <section className="flex-1 flex flex-col border-r border-border relative">
                     <header className="h-16 px-8 border-b border-border flex items-center justify-between glass z-10">
                         <div className="flex items-center gap-4">
-                            <MessageSquare className="w-4 h-4 text-blue-400" />
-                            <h2 className="text-sm font-semibold tracking-tight">
-                                {selectedIntent ? selectedIntent.intent : 'Select a process'}
-                            </h2>
+                            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                                <MessageSquare className="w-4 h-4 text-primary" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-bold tracking-tight text-white/90">
+                                    {selectedIntent ? selectedIntent.intent : 'Intel Stream'}
+                                </h2>
+                                <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest mt-0.5">
+                                    Autonomous reasoning active
+                                </p>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold border border-blue-500/20 uppercase tracking-widest">
-                                Live Trace
-                            </span>
+                        <div className="flex items-center gap-3">
+                            <div className="flex -space-x-2">
+                                <div className="w-6 h-6 rounded-full border-2 border-background bg-slate-800 flex items-center justify-center">
+                                    <Activity className="w-3 h-3 text-primary" />
+                                </div>
+                            </div>
                         </div>
                     </header>
 
                     <div className="flex-1 overflow-y-auto p-12 space-y-12 scroll-hide" ref={scrollRef}>
                         {!selectedIntent ? (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-4">
-                                <Activity className="w-12 h-12 opacity-10 animate-pulse" />
-                                <p className="text-sm">Initiate a request to see the execution trace.</p>
+                            <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-6">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
+                                    <Activity className="relative w-16 h-16 opacity-20 animate-pulse text-primary" />
+                                </div>
+                                <div className="text-center space-y-2">
+                                    <p className="text-sm font-semibold tracking-widest uppercase text-slate-500">Awaiting Signal</p>
+                                    <p className="text-xs text-slate-600">Transmit a command to begin observation.</p>
+                                </div>
                             </div>
                         ) : (
-                            <div className="max-w-2xl mx-auto w-full">
+                            <div className="max-w-2xl mx-auto w-full space-y-1 hover:space-y-4 transition-all duration-500">
                                 {selectedIntent.steps.map((step, idx) => (
-                                    <div key={step.id} className="trace-card group animate-in">
+                                    <div
+                                        key={step.id}
+                                        className={cn(
+                                            "trace-card group animate-in",
+                                            currentStepIdx === idx && "opacity-100",
+                                            currentStepIdx !== idx && "opacity-40 hover:opacity-100"
+                                        )}
+                                        onClick={() => setCurrentStepIdx(idx)}
+                                    >
                                         <div className={cn(
-                                            "trace-dot",
-                                            step.status === 'COMPLETED' ? "bg-green-500/20 text-green-500 border-green-500/30" :
-                                                step.status === 'RUNNING' ? "bg-blue-500 animate-pulse border-blue-500/30" :
-                                                    step.status === 'FAILED' ? "bg-red-500/20 text-red-500 border-red-500/30" : "bg-slate-800 border-white/5"
+                                            "trace-dot transition-all duration-300",
+                                            step.status === 'COMPLETED' ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500" :
+                                                step.status === 'RUNNING' ? "bg-primary border-primary/50 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]" :
+                                                    step.status === 'FAILED' ? "bg-destructive/10 border-destructive/50 text-destructive" :
+                                                        "bg-slate-900 border-white/5 text-slate-600"
                                         )}>
-                                            {step.status === 'COMPLETED' ? <CheckCircle2 className="w-4 h-4" /> :
-                                                step.status === 'RUNNING' ? <Zap className="w-4 h-4 text-blue-400" /> :
-                                                    step.status === 'FAILED' ? <XCircle className="w-4 h-4" /> : null}
+                                            {step.status === 'COMPLETED' ? <CheckCircle2 className="w-3 h-3" /> :
+                                                step.status === 'RUNNING' ? <Loader2 className="w-3 h-3 animate-spin" /> :
+                                                    step.status === 'FAILED' ? <XCircle className="w-3 h-3" /> :
+                                                        <span className="text-[8px] font-bold">{idx + 1}</span>}
                                         </div>
 
                                         <div className="space-y-6">
                                             {step.thought && (
-                                                <div className="flex gap-4 items-start">
-                                                    <Eye className="w-4 h-4 text-blue-400/40 mt-1 shrink-0" />
-                                                    <p className="text-sm text-slate-400 leading-relaxed font-medium">
+                                                <div className="flex gap-4 items-start pl-2">
+                                                    <div className="mt-1.5 p-1 rounded-md bg-primary/5 border border-primary/10">
+                                                        <Compass className="w-3 h-3 text-primary/60" />
+                                                    </div>
+                                                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
                                                         {step.thought}
                                                     </p>
                                                 </div>
                                             )}
 
-                                            <div className="glass-card p-4 space-y-4 group-hover:border-white/20 transition-colors">
-                                                <div className="flex items-center justify-between">
+                                            <div className={cn(
+                                                "glass-card p-5 space-y-4 group-hover:border-primary/30 transition-all duration-500 relative overflow-hidden",
+                                                currentStepIdx === idx && "border-primary/40 bg-white/[0.04] shadow-[0_0_30px_rgba(99,102,241,0.05)]"
+                                            )}>
+                                                {currentStepIdx === idx && <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-3xl -mr-12 -mt-12" />}
+
+                                                <div className="flex items-center justify-between relative z-10">
                                                     <div className="flex items-center gap-3">
                                                         <span className="action-badge">{step.action}</span>
-                                                        <span className="text-[10px] font-mono text-slate-500">ID: {step.id}</span>
+                                                        <span className="text-[10px] font-mono text-slate-600 tracking-tighter">TASK_{step.id.slice(0, 8)}</span>
                                                     </div>
-                                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Step {idx + 1}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        {step.screenshots && step.screenshots.length > 0 && (
+                                                            <ImageIcon className="w-3 h-3 text-primary animate-pulse" />
+                                                        )}
+                                                        <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Phase {idx + 1}</span>
+                                                    </div>
                                                 </div>
-                                                <pre className="text-xs font-mono text-slate-500 overflow-x-auto p-3 bg-black/20 rounded-lg">
+                                                <pre className="text-[11px] font-mono text-slate-500 overflow-x-auto p-4 bg-black/40 rounded-xl border border-white/[0.03] scroll-hide">
                                                     {JSON.stringify(step.input, null, 2)}
                                                 </pre>
                                             </div>
 
                                             {step.observation && (
-                                                <div className="flex gap-4 items-start pl-4 py-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
-                                                    <ChevronRight className="w-4 h-4 text-emerald-500 mt-1 shrink-0" />
-                                                    <p className="text-sm text-emerald-400/80 font-medium">
+                                                <div className="flex gap-4 items-start pl-6 py-4 bg-emerald-500/[0.02] rounded-2xl border border-emerald-500/10 group-hover:border-emerald-500/20 transition-all duration-500">
+                                                    <div className="mt-1 p-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                                                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                                    </div>
+                                                    <p className="text-sm text-emerald-400/70 font-medium leading-relaxed">
                                                         {step.observation}
                                                     </p>
                                                 </div>
@@ -252,94 +312,160 @@ export default function App() {
                                 ))}
                             </div>
                         )}
+                        <div className="h-32" /> {/* Bottom Spacing */}
                     </div>
 
                     {/* Floating Command Bar */}
-                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-30">
+                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-30">
                         <div className="relative group">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
-                            <div className="relative flex glass rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+                            <div className="absolute -inset-1 bg-gradient-to-r from-primary via-accent to-primary rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000 animate-tilt"></div>
+                            <div className="relative flex glass rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 ring-1 ring-white/5 bg-slate-900/40">
+                                <div className="pl-6 flex items-center">
+                                    <Zap className={cn("w-4 h-4 text-primary", isParsing && "animate-pulse")} />
+                                </div>
                                 <input
-                                    className="flex-1 bg-transparent px-6 py-4 outline-none text-sm placeholder:text-slate-500"
-                                    placeholder="What should MarketBot do next?"
+                                    className="flex-1 bg-transparent px-4 py-5 outline-none text-sm placeholder:text-slate-600 font-medium"
+                                    placeholder="Direct MarketBot intelligence..."
                                     value={inputText}
                                     onChange={e => setInputText(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && handleRun()}
                                 />
-                                <button
-                                    onClick={handleRun}
-                                    disabled={isParsing || !inputText.trim()}
-                                    className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-colors px-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
-                                >
-                                    {isParsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-                                    Run
-                                </button>
+                                <div className="pr-2 flex items-center">
+                                    <button
+                                        onClick={handleRun}
+                                        disabled={isParsing || !inputText.trim()}
+                                        className="bg-primary hover:bg-primary/80 disabled:opacity-30 transition-all duration-300 px-6 py-3 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-primary/20"
+                                    >
+                                        {isParsing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
+                                        Run
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
                 {/* Right Panel: Visual Workspace (UI-TARS Style) */}
-                <section className="w-[40%] flex flex-col glass overflow-hidden translate-x-0 transition-transform">
-                    <header className="h-16 px-6 border-b border-border flex items-center justify-between glass z-10">
+                <section className="w-[45%] flex flex-col glass overflow-hidden border-l border-border bg-black/40">
+                    <header className="h-16 px-8 border-b border-border flex items-center justify-between glass z-10">
                         <div className="flex items-center gap-4">
-                            <ImageIcon className="w-4 h-4 text-emerald-400" />
-                            <h2 className="text-xs font-bold uppercase tracking-widest">Visual Feedback</h2>
+                            <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                <Eye className="w-4 h-4 text-emerald-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-white/80">Optical Feedback</h2>
+                                {currentVisual && (
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        <span className="text-[9px] text-emerald-500 font-bold uppercase">Real-time Optic Sync</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Layout className="w-4 h-4 text-slate-500 cursor-pointer" />
-                            <Maximize2 className="w-4 h-4 text-slate-500 cursor-pointer" />
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center bg-white/5 rounded-full p-1 border border-white/5">
+                                <button className="p-1.5 rounded-full hover:bg-white/5 text-slate-500 transition-colors">
+                                    <Maximize2 className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
                         </div>
                     </header>
 
-                    <div className="flex-1 overflow-hidden flex flex-col">
-                        {latestVisual ? (
-                            <div className="flex-1 relative flex items-center justify-center p-8 bg-slate-950/50">
+                    <div className="flex-1 overflow-hidden flex flex-col relative">
+                        {/* Step Browser / Navigator */}
+                        {visualSteps.length > 1 && (
+                            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur-xl border border-white/10 rounded-full z-40 shadow-2xl scale-90 hover:scale-100 transition-transform">
+                                <button
+                                    onClick={() => {
+                                        const prev = [...visualSteps].reverse().find(s => selectedIntent?.steps.indexOf(s) < (currentStepIdx === -1 ? selectedIntent.steps.length : currentStepIdx));
+                                        if (prev) setCurrentStepIdx(selectedIntent!.steps.indexOf(prev));
+                                    }}
+                                    className="p-1 hover:text-primary transition-colors disabled:opacity-20"
+                                    disabled={currentStepIdx <= selectedIntent!.steps.indexOf(visualSteps[0])}
+                                >
+                                    <ChevronRight className="w-4 h-4 rotate-180" />
+                                </button>
+                                <div className="h-3 w-px bg-white/10 mx-1" />
+                                <span className="text-[9px] font-black uppercase tracking-widest px-2">
+                                    Capture {visualSteps.findIndex(s => selectedIntent?.steps.indexOf(s) === currentStepIdx) + 1} / {visualSteps.length}
+                                </span>
+                                <div className="h-3 w-px bg-white/10 mx-1" />
+                                <button
+                                    onClick={() => {
+                                        const next = visualSteps.find(s => selectedIntent?.steps.indexOf(s) > currentStepIdx);
+                                        if (next) setCurrentStepIdx(selectedIntent!.steps.indexOf(next));
+                                    }}
+                                    className="p-1 hover:text-primary transition-colors disabled:opacity-20"
+                                    disabled={currentStepIdx >= selectedIntent!.steps.indexOf(visualSteps[visualSteps.length - 1])}
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+
+                        {currentVisual ? (
+                            <div className="flex-1 relative flex items-center justify-center p-12 group bg-[#020205]">
                                 <div className="relative w-full h-full flex items-center justify-center">
+                                    {/* Glass Frame */}
+                                    <div className="absolute inset-0 border border-white/10 rounded-2xl pointer-events-none z-10" />
+
                                     <img
-                                        src={latestVisual.url.startsWith('http') || latestVisual.url.startsWith('data:') ? latestVisual.url : `/media/${latestVisual.url}`}
-                                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-white/5"
-                                        alt="Current screen"
+                                        src={currentVisual.url.startsWith('http') || currentVisual.url.startsWith('data:') ? currentVisual.url : `/media/${currentVisual.url}`}
+                                        className="max-w-full max-h-full object-contain rounded-xl shadow-[0_0_100px_rgba(0,0,0,0.8)] border border-white/5"
+                                        alt="Current optic frame"
                                     />
 
-                                    {/* UI-TARS Coordinate Marker */}
-                                    {latestVisual.point && (
+                                    {/* Interaction Point / Coordinate Tracer */}
+                                    {currentVisual.point && (
                                         <div
                                             className="absolute z-30"
                                             style={{
-                                                left: `${(latestVisual.point.x / 1000) * 100}%`,
-                                                top: `${(latestVisual.point.y / 1000) * 100}%`,
+                                                left: `${(currentVisual.point.x / 1000) * 100}%`,
+                                                top: `${(currentVisual.point.y / 1000) * 100}%`,
                                                 transform: 'translate(-50%, -50%)'
                                             }}
                                         >
                                             <div className="relative group/marker">
-                                                <div className="absolute inset-0 w-12 h-12 -m-6 bg-red-500/30 rounded-full animate-ping" />
-                                                <div className="w-5 h-5 bg-red-600 rounded-full border-2 border-white shadow-2xl flex items-center justify-center">
-                                                    <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                                {/* Pulsing Aura */}
+                                                <div className="absolute inset-0 w-24 h-24 -m-12 bg-primary/20 rounded-full animate-ping-slow" />
+                                                <div className="absolute inset-0 w-16 h-16 -m-8 bg-primary/30 rounded-full animate-pulse" />
+
+                                                {/* The Core Dot */}
+                                                <div className="w-8 h-8 rounded-full bg-slate-950 border-2 border-primary shadow-[0_0_20px_rgba(99,102,241,0.8)] flex items-center justify-center scale-100 group-hover/marker:scale-125 transition-transform duration-500">
+                                                    <div className="w-2 h-2 bg-primary rounded-full shadow-[0_0_5px_rgba(99,102,241,1)]" />
                                                 </div>
 
-                                                {/* Tooltip */}
-                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 px-3 py-1.5 bg-black/90 backdrop-blur rounded-lg border border-white/10 text-[10px] text-white whitespace-nowrap shadow-2xl pointer-events-none transition-all scale-90 opacity-0 group-hover/marker:scale-100 group-hover/marker:opacity-100 uppercase font-bold tracking-tighter">
-                                                    {latestVisual.actionType}: [{latestVisual.point.x}, {latestVisual.point.y}]
+                                                {/* Identity Shield / Tooltip */}
+                                                <div className="absolute top-12 left-1/2 -translate-x-1/2 px-4 py-2 bg-slate-900/90 backdrop-blur-xl rounded-xl border border-primary/30 text-[9px] text-white/90 whitespace-nowrap shadow-2xl pointer-events-none transition-all duration-500 scale-75 opacity-0 group-hover/marker:scale-100 group-hover/marker:opacity-100 border-b-2 border-b-primary">
+                                                    <div className="flex flex-col gap-1 items-center">
+                                                        <span className="font-black uppercase tracking-[0.2em]">{currentVisual.actionType}</span>
+                                                        <div className="h-px i-full bg-white/10" />
+                                                        <span className="font-mono text-primary">COORD: {currentVisual.point.x}, {currentVisual.point.y}</span>
+                                                    </div>
                                                 </div>
 
-                                                {/* Magnifier: UI-TARS Style Detail View */}
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 w-48 h-48 rounded-2xl border-2 border-blue-500 bg-slate-950 shadow-[0_0_50px_rgba(59,130,246,0.3)] overflow-hidden pointer-events-none opacity-0 group-hover/marker:opacity-100 transition-all duration-500 scale-50 group-hover/marker:scale-100 origin-bottom border-dashed">
+                                                {/* Optical Detailing / Magnifier */}
+                                                <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-64 h-64 rounded-3xl border-2 border-primary/50 bg-[#05050a] shadow-[0_0_60px_rgba(99,102,241,0.4)] overflow-hidden pointer-events-none opacity-0 group-hover/marker:opacity-100 transition-all duration-700 scale-50 group-hover/marker:scale-100 origin-bottom border-dashed ring-8 ring-black/50">
+                                                    <div className="absolute inset-0 bg-primary/5 z-10 pointer-events-none opacity-20" />
                                                     <img
-                                                        src={latestVisual.url.startsWith('http') || latestVisual.url.startsWith('data:') ? latestVisual.url : `/media/${latestVisual.url}`}
-                                                        className="absolute max-w-none"
+                                                        src={currentVisual.url.startsWith('http') || currentVisual.url.startsWith('data:') ? currentVisual.url : `/media/${currentVisual.url}`}
+                                                        className="absolute max-w-none grayscale-[0.2]"
                                                         style={{
-                                                            width: '800%', // 8x zoom
-                                                            left: `${-(latestVisual.point.x / 1000) * 800 + 50}%`,
-                                                            top: `${-(latestVisual.point.y / 1000) * 800 + 50}%`,
-                                                            imageRendering: 'pixelated'
+                                                            width: '1000%', // 10x Optical Zoom
+                                                            left: `${-(currentVisual.point.x / 1000) * 1000 + 50}%`,
+                                                            top: `${-(currentVisual.point.y / 1000) * 1000 + 50}%`,
+                                                            imageRendering: 'crisp-edges'
                                                         }}
-                                                        alt="Zoomed detail"
+                                                        alt="X-Ray optic detail"
                                                     />
-                                                    {/* Crosshair */}
-                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                        <div className="w-full h-[1px] bg-red-400 opacity-50 shadow-[0_0_5px_rgba(248,113,113,0.8)]" />
-                                                        <div className="absolute h-full w-[1px] bg-red-400 opacity-50 shadow-[0_0_5px_rgba(248,113,113,0.8)]" />
+                                                    {/* Reticle Control */}
+                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                                                        <div className="w-full h-[1px] bg-primary/40 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                                                        <div className="absolute h-full w-[1px] bg-primary/40 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                                                        <div className="w-12 h-12 rounded-full border border-primary/60 scale-150 opacity-20" />
+                                                    </div>
+                                                    <div className="absolute bottom-4 left-4 right-4 h-1 bg-white/10 rounded-full overflow-hidden">
+                                                        <div className="h-full w-2/3 bg-primary animate-pulse" />
                                                     </div>
                                                 </div>
                                             </div>
@@ -348,23 +474,34 @@ export default function App() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-600 space-y-6">
-                                <div className="w-24 h-24 rounded-3xl border-2 border-dashed border-white/5 flex items-center justify-center">
-                                    <Layout className="w-10 h-10 opacity-10" />
+                            <div className="flex-1 flex flex-col items-center justify-center p-24 text-slate-700 space-y-8">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-white/5 blur-2xl rounded-full" />
+                                    <div className="relative w-32 h-32 rounded-[2rem] border-2 border-dashed border-white/5 flex items-center justify-center group overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent rotate-45 translate-x-12 group-hover:-translate-x-12 transition-transform duration-1000" />
+                                        <Eye className="w-12 h-12 opacity-5 text-white" />
+                                    </div>
                                 </div>
-                                <div className="text-center space-y-1">
-                                    <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest">No visual data</p>
-                                    <p className="text-xs opacity-50">Visual steps will appear here in real-time.</p>
+                                <div className="text-center space-y-3">
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">No Optic Feed</p>
+                                    <p className="text-[10px] opacity-30 font-medium max-w-[200px] leading-relaxed">Agent has not initiated any visual interactions in the current session.</p>
                                 </div>
                             </div>
                         )}
 
-                        <footer className="h-12 border-t border-border/40 flex items-center px-6 justify-between text-[9px] text-slate-600 font-bold uppercase tracking-[0.2em] glass">
-                            <div>Step Observation Feed</div>
-                            <div className="flex items-center gap-4">
+                        <footer className="h-14 border-t border-border/40 flex items-center px-8 justify-between text-[8px] text-slate-600 font-black uppercase tracking-[0.3em] glass relative">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1 h-1 rounded-full bg-primary" />
+                                OS STREAM v2.4
+                            </div>
+                            <div className="flex items-center gap-6">
                                 <div className="flex items-center gap-2">
-                                    <Activity className="w-3 h-3 text-blue-500" />
-                                    <span>Sync: 12ms</span>
+                                    <Activity className="w-3 h-3 text-primary/60" />
+                                    <span>LATENCY: 4.2ms</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Cpu className="w-3 h-3 text-emerald-500/60" />
+                                    <span>FPS: 14.1</span>
                                 </div>
                             </div>
                         </footer>

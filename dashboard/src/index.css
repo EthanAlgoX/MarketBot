@@ -3,26 +3,26 @@
 @tailwind utilities;
 
 :root {
-    --background: 240 10% 3.9%;
+    --background: 240 10% 2%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 4.9%;
+    --card: 240 10% 4%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
+    --popover: 240 10% 3%;
     --popover-foreground: 0 0% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 240 3.7% 15.9%;
+    --primary: 250 100% 63%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 10%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
+    --muted: 240 5% 10%;
+    --muted-foreground: 240 5% 60%;
+    --accent: 260 100% 60%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --radius: 0.75rem;
+    --border: 240 5% 12%;
+    --input: 240 5% 12%;
+    --ring: 250 100% 63%;
+    --radius: 1rem;
 
     font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
     line-height: 1.5;
@@ -37,6 +37,10 @@ body {
     margin: 0;
     color: hsl(var(--foreground));
     background-color: hsl(var(--background));
+    background-image:
+        radial-gradient(at 0% 0%, hsla(250, 100%, 63%, 0.1) 0, transparent 50%),
+        radial-gradient(at 100% 0%, hsla(280, 100%, 60%, 0.1) 0, transparent 50%),
+        radial-gradient(at 50% 100%, hsla(220, 100%, 50%, 0.05) 0, transparent 50%);
     min-height: 100vh;
 }
 
@@ -46,31 +50,35 @@ body {
 
 @layer components {
     .glass {
-        @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.05];
+        @apply bg-white/[0.01] backdrop-blur-2xl border border-white/[0.04] shadow-[inset_0_1px_1px_rgba(255, 255, 255, 0.05)];
     }
 
     .glass-card {
-        @apply bg-white/[0.02] backdrop-blur-md border border-white/[0.08] rounded-2xl shadow-2xl;
+        @apply bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl transition-all duration-300;
     }
 
     .sidebar-item {
-        @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:bg-white/[0.05] cursor-pointer text-sm font-medium text-slate-400 hover:text-white;
+        @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 hover:bg-white/[0.04] cursor-pointer text-sm font-medium text-slate-400 hover:text-white border border-transparent;
     }
 
     .sidebar-item.active {
-        @apply bg-blue-600/10 text-blue-400 border border-blue-500/20;
+        @apply bg-primary/10 text-primary border-primary/20 shadow-[0_0_20px_rgba(99, 102, 241, 0.1)];
     }
 
     .trace-card {
-        @apply relative pl-12 pb-8 border-l border-white/5 last:pb-0;
+        @apply relative pl-8 pb-12 border-l border-white/5 last:pb-0;
     }
 
     .trace-dot {
-        @apply absolute -left-[17px] top-0 w-8 h-8 rounded-full flex items-center justify-center bg-slate-900 border-4 border-background z-10;
+        @apply absolute -left-[13px] top-0 w-6 h-6 rounded-full flex items-center justify-center bg-background border border-white/10 z-10 shadow-lg;
     }
 
     .action-badge {
-        @apply px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px] uppercase tracking-wider border border-emerald-500/20;
+        @apply px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[9px] uppercase tracking-wider border border-primary/20;
+    }
+
+    .obs-badge {
+        @apply px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-[9px] uppercase tracking-wider border border-emerald-500/20;
     }
 
     .scroll-hide::-webkit-scrollbar {
