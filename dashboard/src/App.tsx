@@ -463,19 +463,41 @@ export default function App() {
         setProviderModels((prev) => prev.filter((model) => model.id !== id));
     };
 
+    const createPendingIntent = (text: string): Intent => {
+        const now = Date.now();
+        return {
+            id: `pending-${now}`,
+            intent: text,
+            timestamp: now,
+            steps: [
+                {
+                    id: `pending-step-${now}`,
+                    action: 'PARSE',
+                    input: { text },
+                    thought: 'Preparing task plan...',
+                    status: 'RUNNING'
+                }
+            ]
+        };
+    };
+
     const handleRun = async () => {
-        if (!inputText.trim()) return;
+        const trimmed = inputText.trim();
+        if (!trimmed || isParsing) return;
+        const pending = createPendingIntent(trimmed);
+        setIntents([pending]);
+        setSelectedIntentId(pending.id);
         setIsParsing(true);
         try {
             const resp = await fetch('/api/executor.parse', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ params: { text: inputText } })
+                body: JSON.stringify({ params: { text: trimmed } })
             });
             const data = await resp.json();
             if (data.ok) {
                 const intent = { ...data.result, timestamp: Date.now() };
-                setIntents(prev => [intent, ...prev]);
+                setIntents([intent]);
                 setSelectedIntentId(intent.id);
 
                 await fetch('/api/executor.run', {
@@ -483,9 +505,30 @@ export default function App() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ params: intent })
                 });
+            } else {
+                setIntents([
+                    {
+                        ...pending,
+                        steps: pending.steps.map((step) => ({
+                            ...step,
+                            status: 'FAILED',
+                            error: data?.error?.message ?? 'Failed to parse task.'
+                        }))
+                    }
+                ]);
             }
         } catch (err) {
             console.error(err);
+            setIntents([
+                {
+                    ...pending,
+                    steps: pending.steps.map((step) => ({
+                        ...step,
+                        status: 'FAILED',
+                        error: String(err)
+                    }))
+                }
+            ]);
         } finally {
             setIsParsing(false);
             setInputText('');
@@ -493,6 +536,7 @@ export default function App() {
     };
 
     const handleNewTask = () => {
+        setIntents([]);
         setSelectedIntentId(null);
         setInputText('');
     };
