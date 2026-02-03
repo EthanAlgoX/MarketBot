@@ -3,25 +3,40 @@
 @tailwind utilities;
 
 :root {
-    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 4.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --radius: 0.75rem;
+
+    font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
     line-height: 1.5;
     font-weight: 400;
 
     color-scheme: dark;
-    color: rgba(255, 255, 255, 0.87);
-    background-color: #0c0c0e;
-
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
 body {
     margin: 0;
-    display: flex;
-    place-items: center;
-    min-width: 320px;
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
     min-height: 100vh;
 }
 
@@ -29,17 +44,57 @@ body {
     width: 100%;
 }
 
-.glass {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+@layer components {
+    .glass {
+        @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.05];
+    }
+
+    .glass-card {
+        @apply bg-white/[0.02] backdrop-blur-md border border-white/[0.08] rounded-2xl shadow-2xl;
+    }
+
+    .sidebar-item {
+        @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:bg-white/[0.05] cursor-pointer text-sm font-medium text-slate-400 hover:text-white;
+    }
+
+    .sidebar-item.active {
+        @apply bg-blue-600/10 text-blue-400 border border-blue-500/20;
+    }
+
+    .trace-card {
+        @apply relative pl-12 pb-8 border-l border-white/5 last:pb-0;
+    }
+
+    .trace-dot {
+        @apply absolute -left-[17px] top-0 w-8 h-8 rounded-full flex items-center justify-center bg-slate-900 border-4 border-background z-10;
+    }
+
+    .action-badge {
+        @apply px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px] uppercase tracking-wider border border-emerald-500/20;
+    }
+
+    .scroll-hide::-webkit-scrollbar {
+        display: none;
+    }
+
+    .scroll-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
 }
 
-.step-card {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+.animate-in {
+    animation: animate-in 0.3s ease-out;
 }
 
-.step-card:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
+@keyframes animate-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
