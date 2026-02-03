@@ -165,6 +165,11 @@ cd dashboard && pnpm dev
 
 If the page fails to load, confirm the Gateway is running and the UI is built with `pnpm ui:build`.
 
+#### Web UI Screenshots
+
+![Web Control UI](docs/webui.png)
+![Web Config](docs/web_config.png)
+
 ---
 
 ### Desktop Automation (macOS)
