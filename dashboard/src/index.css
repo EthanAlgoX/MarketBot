@@ -50,7 +50,7 @@ body {
 
 @layer components {
     .glass {
-        @apply bg-white/[0.01] backdrop-blur-2xl border border-white/[0.04] shadow-[inset_0_1px_1px_rgba(255, 255, 255, 0.05)];
+        @apply bg-white/[0.01] backdrop-blur-2xl border border-white/[0.04] shadow-[inset_0_1px_1px_#ffffff0d];
     }
 
     .glass-card {
@@ -62,7 +62,7 @@ body {
     }
 
     .sidebar-item.active {
-        @apply bg-primary/10 text-primary border-primary/20 shadow-[0_0_20px_rgba(99, 102, 241, 0.1)];
+        @apply bg-[#6366f11a] text-primary border-[#6366f133] shadow-[0_0_20px_#6366f11a];
     }
 
     .trace-card {
