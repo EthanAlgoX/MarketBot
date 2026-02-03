@@ -54,6 +54,18 @@ export default function App() {
     const [isParsing, setIsParsing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentStepIdx, setCurrentStepIdx] = useState<number>(-1);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [settingsLoading, setSettingsLoading] = useState(false);
+    const [settingsError, setSettingsError] = useState<string | null>(null);
+    const [settingsData, setSettingsData] = useState<{
+        agentId?: string;
+        agentName?: string;
+        agentAvatar?: string;
+        configPath?: string;
+        defaultModel?: string;
+        gatewayMode?: string;
+        providers?: string[];
+    } | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Filtered intents for sidebar search
@@ -79,6 +91,97 @@ export default function App() {
             setCurrentStepIdx(-1);
         }
     }, [selectedIntentId, intents]);
+
+    useEffect(() => {
+        if (!isSettingsOpen) {
+            return;
+        }
+        let cancelled = false;
+        const fetchSettings = async () => {
+            setSettingsLoading(true);
+            setSettingsError(null);
+            try {
+                const [identityRes, configRes] = await Promise.all([
+                    fetch('/api/agent.identity.get', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ params: {} })
+                    }).then(r => r.json()),
+                    fetch('/api/config.get', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ params: {} })
+                    }).then(r => r.json())
+                ]);
+
+                if (cancelled) return;
+
+                const next: {
+                    agentId?: string;
+                    agentName?: string;
+                    agentAvatar?: string;
+                    configPath?: string;
+                    defaultModel?: string;
+                    gatewayMode?: string;
+                    providers?: string[];
+                } = {};
+                const errors: string[] = [];
+
+                if (identityRes?.ok && identityRes.result) {
+                    next.agentId = identityRes.result.agentId;
+                    next.agentName = identityRes.result.name;
+                    next.agentAvatar = identityRes.result.avatar;
+                } else {
+                    errors.push('Failed to load agent identity');
+                }
+
+                if (configRes?.ok && configRes.result) {
+                    const cfg = configRes.result.config ?? {};
+                    const defaultsModel = typeof cfg.agents?.defaults?.model === 'string'
+                        ? cfg.agents.defaults.model
+                        : cfg.agents?.defaults?.model?.primary;
+                    const agents = Array.isArray(cfg.agents?.list) ? cfg.agents.list : [];
+                    const defaultAgent = agents.find((agent: any) => agent?.default) ?? agents[0];
+                    const agentModel = typeof defaultAgent?.model === 'string'
+                        ? defaultAgent.model
+                        : defaultAgent?.model?.primary;
+                    next.defaultModel = agentModel || defaultsModel || 'unset';
+                    next.gatewayMode = cfg.gateway?.mode ?? 'unknown';
+                    next.providers = Object.keys(cfg.models?.providers ?? {});
+                    next.configPath = configRes.result.path;
+                } else {
+                    errors.push('Failed to load config');
+                }
+
+                setSettingsData(next);
+                setSettingsError(errors.length > 0 ? errors.join('. ') : null);
+            } catch (err) {
+                if (cancelled) return;
+                setSettingsError(String(err));
+            } finally {
+                if (!cancelled) {
+                    setSettingsLoading(false);
+                }
+            }
+        };
+
+        fetchSettings();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isSettingsOpen]);
+
+    useEffect(() => {
+        if (!isSettingsOpen) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsSettingsOpen(false);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isSettingsOpen]);
 
     const handleRun = async () => {
         if (!inputText.trim()) return;
@@ -194,7 +297,14 @@ export default function App() {
                         <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" />
                         <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-40">System Healthy</span>
                     </div>
-                    <Settings className="w-4 h-4 text-slate-600 cursor-pointer hover:text-white transition-colors" />
+                    <button
+                        type="button"
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="p-1 rounded-md hover:bg-white/5 transition-colors"
+                        aria-label="Open settings"
+                    >
+                        <Settings className="w-4 h-4 text-slate-600 hover:text-white transition-colors" />
+                    </button>
                 </div>
             </aside>
 
@@ -508,6 +618,90 @@ export default function App() {
                     </div>
                 </section>
             </main>
+            {isSettingsOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => setIsSettingsOpen(false)}
+                    />
+                    <div className="relative w-full max-w-xl mx-4 glass-card p-6 space-y-6 border border-white/10">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                                    <Settings className="w-4 h-4 text-primary" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold tracking-tight text-white/90">Settings</h3>
+                                    <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest mt-0.5">
+                                        Runtime configuration
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsSettingsOpen(false)}
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] bg-white/5 hover:bg-white/10 text-slate-300 transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+
+                        {settingsLoading && (
+                            <div className="flex items-center gap-3 text-slate-500 text-xs">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Loading settings…
+                            </div>
+                        )}
+
+                        {!settingsLoading && settingsError && (
+                            <div className="text-xs text-destructive border border-destructive/30 bg-destructive/5 rounded-xl p-3">
+                                {settingsError}
+                            </div>
+                        )}
+
+                        {!settingsLoading && settingsData && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-400">
+                                <div className="space-y-1">
+                                    <div className="uppercase tracking-[0.2em] text-[9px] text-slate-600 font-bold">
+                                        Agent
+                                    </div>
+                                    <div className="text-slate-300 font-medium">
+                                        {settingsData.agentAvatar ? `${settingsData.agentAvatar} ` : ''}{settingsData.agentName ?? 'Unknown'} ({settingsData.agentId ?? 'n/a'})
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="uppercase tracking-[0.2em] text-[9px] text-slate-600 font-bold">
+                                        Default Model
+                                    </div>
+                                    <div className="text-slate-300 font-medium">{settingsData.defaultModel ?? 'unset'}</div>
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="uppercase tracking-[0.2em] text-[9px] text-slate-600 font-bold">
+                                        Gateway Mode
+                                    </div>
+                                    <div className="text-slate-300 font-medium">{settingsData.gatewayMode ?? 'unknown'}</div>
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="uppercase tracking-[0.2em] text-[9px] text-slate-600 font-bold">
+                                        Providers
+                                    </div>
+                                    <div className="text-slate-300 font-medium">
+                                        {(settingsData.providers && settingsData.providers.length > 0)
+                                            ? settingsData.providers.join(', ')
+                                            : 'none'}
+                                    </div>
+                                </div>
+                                <div className="space-y-1 md:col-span-2">
+                                    <div className="uppercase tracking-[0.2em] text-[9px] text-slate-600 font-bold">
+                                        Config Path
+                                    </div>
+                                    <div className="text-slate-300 font-medium break-all">{settingsData.configPath ?? 'unknown'}</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
