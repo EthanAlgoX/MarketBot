@@ -47,6 +47,31 @@ interface Intent {
     timestamp?: number;
 }
 
+type ProviderModelDraft = {
+    id: string;
+    name: string;
+    reasoning?: boolean;
+    input?: Array<'text' | 'image'>;
+    cost?: {
+        input?: number;
+        output?: number;
+        cacheRead?: number;
+        cacheWrite?: number;
+    };
+    contextWindow?: number;
+    maxTokens?: number;
+    headers?: Record<string, string>;
+    compat?: Record<string, unknown>;
+};
+
+type ProviderEntry = {
+    baseUrl?: string;
+    apiKey?: string;
+    auth?: string;
+    api?: string;
+    models?: ProviderModelDraft[];
+};
+
 export default function App() {
     const [intents, setIntents] = useState<Intent[]>([]);
     const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null);
@@ -66,7 +91,106 @@ export default function App() {
         gatewayMode?: string;
         providers?: string[];
     } | null>(null);
+    const [settingsConfig, setSettingsConfig] = useState<Record<string, unknown> | null>(null);
+    const [settingsHash, setSettingsHash] = useState<string | null>(null);
+    const [modelProvider, setModelProvider] = useState('');
+    const [modelId, setModelId] = useState('');
+    const [authProvider, setAuthProvider] = useState('');
+    const [authApiKey, setAuthApiKey] = useState('');
+    const [providerBaseUrl, setProviderBaseUrl] = useState('');
+    const [providerApi, setProviderApi] = useState('');
+    const [providerAuthMode, setProviderAuthMode] = useState('');
+    const [providerModels, setProviderModels] = useState<ProviderModelDraft[]>([]);
+    const [newModelId, setNewModelId] = useState('');
+    const [newModelName, setNewModelName] = useState('');
+    const [newModelReasoning, setNewModelReasoning] = useState(false);
+    const [newModelInputText, setNewModelInputText] = useState(true);
+    const [newModelInputImage, setNewModelInputImage] = useState(false);
+    const [newModelContextWindow, setNewModelContextWindow] = useState('');
+    const [newModelMaxTokens, setNewModelMaxTokens] = useState('');
+    const [settingsSaveState, setSettingsSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null);
+    const [settingsSaveNote, setSettingsSaveNote] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    const KNOWN_PROVIDERS = [
+        'openai',
+        'openai-codex',
+        'anthropic',
+        'google',
+        'deepseek',
+        'groq',
+        'mistral',
+        'cerebras',
+        'xai',
+        'moonshot',
+        'openrouter',
+        'vercel-ai-gateway',
+        'kimi-coding',
+        'zai',
+        'xiaomi',
+        'synthetic',
+        'venice',
+        'minimax',
+        'minimax-portal',
+        'qwen-portal',
+        'opencode',
+        'ollama'
+    ];
+
+    const resolveProviders = (config: Record<string, unknown> | null): string[] => {
+        const models = config?.models;
+        if (!models || typeof models !== 'object') return [];
+        const providers = (models as { providers?: unknown }).providers;
+        if (!providers || typeof providers !== 'object') return [];
+        return Object.keys(providers as Record<string, unknown>);
+    };
+
+    const resolveProviderEntry = (config: Record<string, unknown> | null, provider: string): ProviderEntry | null => {
+        const models = config?.models;
+        if (!models || typeof models !== 'object') return null;
+        const providers = (models as { providers?: unknown }).providers;
+        if (!providers || typeof providers !== 'object') return null;
+        return (providers as Record<string, ProviderEntry>)[provider] ?? null;
+    };
+
+    const resolveModelsForProvider = (config: Record<string, unknown> | null, provider: string): string[] => {
+        if (!provider) return [];
+        const entry = resolveProviderEntry(config, provider) as { models?: unknown } | null;
+        const list = Array.isArray(entry?.models) ? entry?.models : [];
+        return list
+            .map((model) => (model && typeof model === 'object' ? (model as { id?: string }).id : undefined))
+            .filter((id): id is string => Boolean(id));
+    };
+
+    const resolveProviderOptions = (config: Record<string, unknown> | null): string[] => {
+        const fromConfig = resolveProviders(config);
+        const combined = new Set<string>([...fromConfig, ...KNOWN_PROVIDERS]);
+        return Array.from(combined).sort((a, b) => a.localeCompare(b));
+    };
+
+    const splitModelRef = (ref: string | undefined, fallbackProvider: string | undefined) => {
+        if (!ref) {
+            return { provider: fallbackProvider ?? '', model: '' };
+        }
+        const trimmed = ref.trim();
+        if (!trimmed) {
+            return { provider: fallbackProvider ?? '', model: '' };
+        }
+        const parts = trimmed.split('/');
+        if (parts.length >= 2) {
+            return { provider: parts[0], model: parts.slice(1).join('/') };
+        }
+        return { provider: fallbackProvider ?? '', model: trimmed };
+    };
+
+    const hydrateProviderState = (config: Record<string, unknown> | null, provider: string) => {
+        const entry = resolveProviderEntry(config, provider);
+        setProviderBaseUrl(entry?.baseUrl ?? '');
+        setProviderApi(entry?.api ?? '');
+        setProviderAuthMode(entry?.auth ?? '');
+        setProviderModels(Array.isArray(entry?.models) ? entry?.models : []);
+    };
 
     // Filtered intents for sidebar search
     const filteredIntents = intents.filter(i =>
@@ -92,85 +216,102 @@ export default function App() {
         }
     }, [selectedIntentId, intents]);
 
+    const loadSettings = async () => {
+        setSettingsLoading(true);
+        setSettingsError(null);
+        try {
+            const [identityRes, configRes] = await Promise.all([
+                fetch('/api/agent.identity.get', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ params: {} })
+                }).then(r => r.json()),
+                fetch('/api/config.get', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ params: {} })
+                }).then(r => r.json())
+            ]);
+
+            const next: {
+                agentId?: string;
+                agentName?: string;
+                agentAvatar?: string;
+                configPath?: string;
+                defaultModel?: string;
+                gatewayMode?: string;
+                providers?: string[];
+            } = {};
+            const errors: string[] = [];
+
+            if (identityRes?.ok && identityRes.result) {
+                next.agentId = identityRes.result.agentId;
+                next.agentName = identityRes.result.name;
+                next.agentAvatar = identityRes.result.avatar;
+            } else {
+                errors.push('Failed to load agent identity');
+            }
+
+            if (configRes?.ok && configRes.result) {
+                const cfg = configRes.result.config ?? {};
+                const defaultsModel = typeof cfg.agents?.defaults?.model === 'string'
+                    ? cfg.agents.defaults.model
+                    : cfg.agents?.defaults?.model?.primary;
+                const agents = Array.isArray(cfg.agents?.list) ? cfg.agents.list : [];
+                const defaultAgent = agents.find((agent: any) => agent?.default) ?? agents[0];
+                const agentModel = typeof defaultAgent?.model === 'string'
+                    ? defaultAgent.model
+                    : defaultAgent?.model?.primary;
+                next.defaultModel = agentModel || defaultsModel || 'unset';
+                next.gatewayMode = cfg.gateway?.mode ?? 'unknown';
+                next.providers = Object.keys(cfg.models?.providers ?? {});
+                next.configPath = configRes.result.path;
+                setSettingsConfig(cfg);
+                setSettingsHash(configRes.result.hash ?? null);
+
+                const providers = resolveProviders(cfg);
+                const { provider, model } = splitModelRef(next.defaultModel, providers[0]);
+                const nextProvider = provider || providers[0] || '';
+                const models = resolveModelsForProvider(cfg, nextProvider);
+                const nextModel = model && models.includes(model) ? model : (models[0] ?? '');
+                setModelProvider(nextProvider);
+                setModelId(nextModel);
+                const nextAuthProvider = nextProvider || providers[0] || '';
+                setAuthProvider(nextAuthProvider);
+                hydrateProviderState(cfg, nextAuthProvider);
+            } else {
+                errors.push('Failed to load config');
+            }
+
+            setSettingsData(next);
+            setSettingsError(errors.length > 0 ? errors.join('. ') : null);
+        } catch (err) {
+            setSettingsError(String(err));
+        } finally {
+            setSettingsLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!isSettingsOpen) {
             return;
         }
-        let cancelled = false;
-        const fetchSettings = async () => {
-            setSettingsLoading(true);
-            setSettingsError(null);
-            try {
-                const [identityRes, configRes] = await Promise.all([
-                    fetch('/api/agent.identity.get', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ params: {} })
-                    }).then(r => r.json()),
-                    fetch('/api/config.get', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ params: {} })
-                    }).then(r => r.json())
-                ]);
-
-                if (cancelled) return;
-
-                const next: {
-                    agentId?: string;
-                    agentName?: string;
-                    agentAvatar?: string;
-                    configPath?: string;
-                    defaultModel?: string;
-                    gatewayMode?: string;
-                    providers?: string[];
-                } = {};
-                const errors: string[] = [];
-
-                if (identityRes?.ok && identityRes.result) {
-                    next.agentId = identityRes.result.agentId;
-                    next.agentName = identityRes.result.name;
-                    next.agentAvatar = identityRes.result.avatar;
-                } else {
-                    errors.push('Failed to load agent identity');
-                }
-
-                if (configRes?.ok && configRes.result) {
-                    const cfg = configRes.result.config ?? {};
-                    const defaultsModel = typeof cfg.agents?.defaults?.model === 'string'
-                        ? cfg.agents.defaults.model
-                        : cfg.agents?.defaults?.model?.primary;
-                    const agents = Array.isArray(cfg.agents?.list) ? cfg.agents.list : [];
-                    const defaultAgent = agents.find((agent: any) => agent?.default) ?? agents[0];
-                    const agentModel = typeof defaultAgent?.model === 'string'
-                        ? defaultAgent.model
-                        : defaultAgent?.model?.primary;
-                    next.defaultModel = agentModel || defaultsModel || 'unset';
-                    next.gatewayMode = cfg.gateway?.mode ?? 'unknown';
-                    next.providers = Object.keys(cfg.models?.providers ?? {});
-                    next.configPath = configRes.result.path;
-                } else {
-                    errors.push('Failed to load config');
-                }
-
-                setSettingsData(next);
-                setSettingsError(errors.length > 0 ? errors.join('. ') : null);
-            } catch (err) {
-                if (cancelled) return;
-                setSettingsError(String(err));
-            } finally {
-                if (!cancelled) {
-                    setSettingsLoading(false);
-                }
-            }
-        };
-
-        fetchSettings();
-
-        return () => {
-            cancelled = true;
-        };
+        loadSettings();
     }, [isSettingsOpen]);
+
+    useEffect(() => {
+        if (!settingsConfig || !modelProvider) return;
+        const models = resolveModelsForProvider(settingsConfig, modelProvider);
+        if (models.length > 0 && !models.includes(modelId)) {
+            setModelId(models[0]);
+        }
+    }, [settingsConfig, modelProvider, modelId]);
+
+    useEffect(() => {
+        if (!settingsConfig || !authProvider) return;
+        hydrateProviderState(settingsConfig, authProvider);
+        setAuthApiKey('');
+    }, [settingsConfig, authProvider]);
 
     useEffect(() => {
         if (!isSettingsOpen) return;
@@ -182,6 +323,145 @@ export default function App() {
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [isSettingsOpen]);
+
+    const handleSaveSettings = async () => {
+        setSettingsSaveState('saving');
+        setSettingsSaveError(null);
+        setSettingsSaveNote(null);
+        const patch: Record<string, unknown> = {};
+        if (modelProvider && modelId) {
+            patch.agents = {
+                defaults: {
+                    model: { primary: `${modelProvider}/${modelId}` }
+                }
+            };
+        }
+        const existingProvider = authProvider ? resolveProviderEntry(settingsConfig, authProvider) : null;
+        const existingModels = Array.isArray(existingProvider?.models) ? existingProvider?.models : [];
+        const modelsChanged =
+            JSON.stringify(providerModels ?? []) !== JSON.stringify(existingModels ?? []);
+        const baseUrlChanged = providerBaseUrl.trim() && providerBaseUrl.trim() !== (existingProvider?.baseUrl ?? '');
+        const apiChanged = providerApi !== (existingProvider?.api ?? '');
+        const authChanged = providerAuthMode !== (existingProvider?.auth ?? '');
+        const apiKeyChanged = authApiKey.trim().length > 0;
+
+        if (authProvider && (modelsChanged || baseUrlChanged || apiChanged || authChanged || apiKeyChanged)) {
+            const providerPatch: ProviderEntry = {};
+            const resolvedBaseUrl = providerBaseUrl.trim() || existingProvider?.baseUrl;
+            if (resolvedBaseUrl) {
+                providerPatch.baseUrl = resolvedBaseUrl;
+            }
+            if (providerApi.trim()) {
+                providerPatch.api = providerApi.trim();
+            } else if (existingProvider?.api && !providerApi.trim()) {
+                providerPatch.api = existingProvider.api;
+            }
+            if (providerAuthMode.trim()) {
+                providerPatch.auth = providerAuthMode.trim();
+            } else if (existingProvider?.auth && !providerAuthMode.trim()) {
+                providerPatch.auth = existingProvider.auth;
+            }
+            providerPatch.models = providerModels ?? [];
+            if (apiKeyChanged) {
+                providerPatch.apiKey = authApiKey.trim();
+            }
+            if (!providerPatch.baseUrl) {
+                setSettingsSaveState('error');
+                setSettingsSaveError('Provider base URL is required.');
+                return;
+            }
+            patch.models = {
+                providers: {
+                    [authProvider]: providerPatch
+                }
+            };
+        }
+        if (Object.keys(patch).length === 0) {
+            setSettingsSaveState('error');
+            setSettingsSaveError('No changes to apply.');
+            return;
+        }
+        if (!settingsHash) {
+            setSettingsSaveState('error');
+            setSettingsSaveError('Missing config base hash. Reopen settings and try again.');
+            return;
+        }
+        try {
+            const resp = await fetch('/api/config.patch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    params: {
+                        baseHash: settingsHash,
+                        raw: JSON.stringify(patch),
+                        note: 'Updated from dashboard settings'
+                    }
+                })
+            });
+            const data = await resp.json();
+            if (!data?.ok) {
+                const message = data?.error?.message ?? 'Failed to update config';
+                setSettingsSaveState('error');
+                setSettingsSaveError(message);
+                return;
+            }
+            if (data?.result?.restart?.scheduled) {
+                setSettingsSaveNote('Gateway restart scheduled.');
+            } else if (data?.result?.restart?.skipped) {
+                setSettingsSaveNote('Gateway restart skipped.');
+            }
+            setSettingsSaveState('saved');
+            setAuthApiKey('');
+            await loadSettings();
+        } catch (err) {
+            setSettingsSaveState('error');
+            setSettingsSaveError(String(err));
+        } finally {
+            setTimeout(() => setSettingsSaveState('idle'), 2000);
+        }
+    };
+
+    const addModelToProvider = () => {
+        const id = newModelId.trim();
+        const name = newModelName.trim();
+        if (!id || !name) {
+            setSettingsSaveState('error');
+            setSettingsSaveError('Model id and name are required.');
+            return;
+        }
+        if (providerModels.some((model) => model.id === id)) {
+            setSettingsSaveState('error');
+            setSettingsSaveError(`Model id "${id}" already exists.`);
+            return;
+        }
+        const input: Array<'text' | 'image'> = [];
+        if (newModelInputText) input.push('text');
+        if (newModelInputImage) input.push('image');
+        const contextWindow = newModelContextWindow.trim() ? Number(newModelContextWindow) : undefined;
+        const maxTokens = newModelMaxTokens.trim() ? Number(newModelMaxTokens) : undefined;
+        const next: ProviderModelDraft = {
+            id,
+            name,
+            reasoning: newModelReasoning,
+            input: input.length > 0 ? input : undefined,
+            contextWindow: Number.isFinite(contextWindow) ? contextWindow : undefined,
+            maxTokens: Number.isFinite(maxTokens) ? maxTokens : undefined
+        };
+        setProviderModels((prev) => [...prev, next]);
+        setNewModelId('');
+        setNewModelName('');
+        setNewModelReasoning(false);
+        setNewModelInputText(true);
+        setNewModelInputImage(false);
+        setNewModelContextWindow('');
+        setNewModelMaxTokens('');
+        setSettingsSaveState('idle');
+        setSettingsSaveError(null);
+    };
+
+    const removeModelFromProvider = (id: string) => {
+        setProviderModels((prev) => prev.filter((model) => model.id !== id));
+    };
 
     const handleRun = async () => {
         if (!inputText.trim()) return;
@@ -696,6 +976,257 @@ export default function App() {
                                         Config Path
                                     </div>
                                     <div className="text-slate-300 font-medium break-all">{settingsData.configPath ?? 'unknown'}</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {!settingsLoading && settingsConfig && (
+                            <div className="space-y-4">
+                                <div className="uppercase tracking-[0.2em] text-[9px] text-slate-600 font-bold">
+                                    Provider Status
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-400">
+                                    {resolveProviders(settingsConfig).length === 0 && (
+                                        <div className="text-slate-500">No providers configured.</div>
+                                    )}
+                                    {resolveProviders(settingsConfig).map((provider) => {
+                                        const entry = resolveProviderEntry(settingsConfig, provider) as { apiKey?: string; models?: unknown } | null;
+                                        const hasModels = Array.isArray(entry?.models) && entry?.models?.length > 0;
+                                        const hasKey = Boolean(entry?.apiKey);
+                                        return (
+                                            <div key={provider} className="flex items-center justify-between bg-black/30 border border-white/5 rounded-lg px-3 py-2">
+                                                <span className="text-slate-300 font-medium">{provider}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={cn('text-[9px] uppercase tracking-[0.2em] px-2 py-1 rounded-full border', hasModels ? 'border-emerald-500/30 text-emerald-400' : 'border-slate-600/40 text-slate-500')}>
+                                                        {hasModels ? `${(entry?.models as any[]).length} models` : 'no models'}
+                                                    </span>
+                                                    <span className={cn('text-[9px] uppercase tracking-[0.2em] px-2 py-1 rounded-full border', hasKey ? 'border-primary/30 text-primary' : 'border-slate-600/40 text-slate-500')}>
+                                                        {hasKey ? 'auth set' : 'auth missing'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {!settingsLoading && settingsConfig && (
+                            <div className="space-y-4">
+                                <div className="uppercase tracking-[0.2em] text-[9px] text-slate-600 font-bold">
+                                    Model Provider
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest text-slate-500">Provider</label>
+                                        <select
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                            value={modelProvider}
+                                            onChange={(e) => setModelProvider(e.target.value)}
+                                        >
+                                            {resolveProviderOptions(settingsConfig).map((provider) => (
+                                                <option key={provider} value={provider}>{provider}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest text-slate-500">Model</label>
+                                        <select
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                            value={modelId}
+                                            onChange={(e) => setModelId(e.target.value)}
+                                        >
+                                            {resolveModelsForProvider(settingsConfig, modelProvider).map((id) => (
+                                                <option key={id} value={id}>{id}</option>
+                                            ))}
+                                        </select>
+                                        {resolveModelsForProvider(settingsConfig, modelProvider).length === 0 && (
+                                            <div className="text-[10px] text-slate-500">
+                                                No models configured for this provider.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="uppercase tracking-[0.2em] text-[9px] text-slate-600 font-bold">
+                                    Auth Provider
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest text-slate-500">Provider</label>
+                                        <select
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                            value={authProvider}
+                                            onChange={(e) => setAuthProvider(e.target.value)}
+                                        >
+                                            {resolveProviderOptions(settingsConfig).map((provider) => (
+                                                <option key={provider} value={provider}>{provider}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest text-slate-500">API Key (leave blank to keep)</label>
+                                        <input
+                                            type="password"
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                            value={authApiKey}
+                                            onChange={(e) => setAuthApiKey(e.target.value)}
+                                            placeholder="sk-••••••••••"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest text-slate-500">Base URL</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                            value={providerBaseUrl}
+                                            onChange={(e) => setProviderBaseUrl(e.target.value)}
+                                            placeholder="https://api.provider.com/v1"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest text-slate-500">API Type</label>
+                                        <select
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                            value={providerApi}
+                                            onChange={(e) => setProviderApi(e.target.value)}
+                                        >
+                                            <option value="">inherit</option>
+                                            <option value="openai-completions">openai-completions</option>
+                                            <option value="openai-responses">openai-responses</option>
+                                            <option value="anthropic-messages">anthropic-messages</option>
+                                            <option value="google-generative-ai">google-generative-ai</option>
+                                            <option value="github-copilot">github-copilot</option>
+                                            <option value="bedrock-converse-stream">bedrock-converse-stream</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest text-slate-500">Auth Mode</label>
+                                        <select
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                            value={providerAuthMode}
+                                            onChange={(e) => setProviderAuthMode(e.target.value)}
+                                        >
+                                            <option value="">inherit</option>
+                                            <option value="api-key">api-key</option>
+                                            <option value="oauth">oauth</option>
+                                            <option value="token">token</option>
+                                            <option value="aws-sdk">aws-sdk</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest text-slate-500">Models ({providerModels.length})</label>
+                                        <div className="max-h-32 overflow-y-auto border border-white/10 rounded-lg bg-black/30">
+                                            {providerModels.length === 0 && (
+                                                <div className="px-3 py-2 text-[10px] text-slate-500">No models configured.</div>
+                                            )}
+                                            {providerModels.map((model) => (
+                                                <div key={model.id} className="flex items-center justify-between px-3 py-2 border-b border-white/5 last:border-b-0">
+                                                    <div className="text-[10px] text-slate-300">
+                                                        <div className="font-semibold">{model.id}</div>
+                                                        <div className="text-slate-500">{model.name}</div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeModelFromProvider(model.id)}
+                                                        className="text-[9px] uppercase tracking-[0.2em] text-destructive hover:text-destructive/80"
+                                                    >
+                                                        remove
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] uppercase tracking-widest text-slate-500">Add Model</label>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <input
+                                            type="text"
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                            placeholder="model-id"
+                                            value={newModelId}
+                                            onChange={(e) => setNewModelId(e.target.value)}
+                                        />
+                                        <input
+                                            type="text"
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                            placeholder="Model name"
+                                            value={newModelName}
+                                            onChange={(e) => setNewModelName(e.target.value)}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={addModelToProvider}
+                                            className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] bg-white/5 hover:bg-white/10 text-slate-300 transition-colors"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        <label className="flex items-center gap-2 text-[10px] text-slate-400">
+                                            <input type="checkbox" checked={newModelReasoning} onChange={(e) => setNewModelReasoning(e.target.checked)} />
+                                            Reasoning
+                                        </label>
+                                        <label className="flex items-center gap-2 text-[10px] text-slate-400">
+                                            <input type="checkbox" checked={newModelInputText} onChange={(e) => setNewModelInputText(e.target.checked)} />
+                                            Input: text
+                                        </label>
+                                        <label className="flex items-center gap-2 text-[10px] text-slate-400">
+                                            <input type="checkbox" checked={newModelInputImage} onChange={(e) => setNewModelInputImage(e.target.checked)} />
+                                            Input: image
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                                placeholder="Context"
+                                                value={newModelContextWindow}
+                                                onChange={(e) => setNewModelContextWindow(e.target.value)}
+                                            />
+                                            <input
+                                                type="number"
+                                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200"
+                                                placeholder="MaxTokens"
+                                                value={newModelMaxTokens}
+                                                onChange={(e) => setNewModelMaxTokens(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveSettings}
+                                        disabled={settingsSaveState === 'saving'}
+                                        className="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] bg-primary/80 hover:bg-primary text-white transition-colors disabled:opacity-50"
+                                    >
+                                        {settingsSaveState === 'saving' ? 'Saving…' : 'Apply Changes'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={loadSettings}
+                                        className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] bg-white/5 hover:bg-white/10 text-slate-300 transition-colors"
+                                    >
+                                        Refresh
+                                    </button>
+                                    {settingsSaveState === 'saved' && (
+                                        <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-400">Saved</span>
+                                    )}
+                                    {settingsSaveState === 'error' && settingsSaveError && (
+                                        <span className="text-[10px] uppercase tracking-[0.2em] text-destructive">{settingsSaveError}</span>
+                                    )}
+                                    {settingsSaveNote && (
+                                        <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{settingsSaveNote}</span>
+                                    )}
                                 </div>
                             </div>
                         )}
