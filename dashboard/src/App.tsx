@@ -10,7 +10,14 @@ import {
     ChevronRight,
     Eye,
     Compass,
-    Zap
+    Zap,
+    Clock,
+    Search,
+    Settings,
+    Layout,
+    Maximize2,
+    MessageSquare,
+    Image as ImageIcon
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -37,21 +44,31 @@ interface Intent {
     id: string;
     intent: string;
     steps: Action[];
+    timestamp?: number;
 }
 
 export default function App() {
     const [intents, setIntents] = useState<Intent[]>([]);
+    const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null);
     const [inputText, setInputText] = useState('');
     const [isParsing, setIsParsing] = useState(false);
-    const [playbackIndex, setPlaybackIndex] = useState<number>(-1);
-    const [isPlaybackActive, setIsPlaybackActive] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Simple WebSocket mock for demo or implementation skeleton
+    // Filtered intents for sidebar search
+    const filteredIntents = intents.filter(i =>
+        i.intent.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        i.id.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const selectedIntent = intents.find(i => i.id === selectedIntentId) || intents[0];
+
     useEffect(() => {
-        // In real implementation, connect to MarketBot Gateway WS
-        console.log("Connecting to MarketBot Gateway...");
-    }, []);
+        // Initial selection
+        if (intents.length > 0 && !selectedIntentId) {
+            setSelectedIntentId(intents[0].id);
+        }
+    }, [intents]);
 
     const handleRun = async () => {
         if (!inputText.trim()) return;
@@ -64,9 +81,9 @@ export default function App() {
             });
             const data = await resp.json();
             if (data.ok) {
-                // Start execution
-                const intent = data.result;
+                const intent = { ...data.result, timestamp: Date.now() };
                 setIntents(prev => [intent, ...prev]);
+                setSelectedIntentId(intent.id);
 
                 await fetch('/api/executor.run', {
                     method: 'POST',
@@ -82,269 +99,278 @@ export default function App() {
         }
     };
 
+    const getLatestScreenshot = (steps: Action[]) => {
+        for (let i = steps.length - 1; i >= 0; i--) {
+            if (steps[i].screenshots && steps[i].screenshots!.length > 0) {
+                return {
+                    url: steps[i].screenshots![0],
+                    stepIdx: i,
+                    point: steps[i].point,
+                    actionType: steps[i].actionType || steps[i].action
+                };
+            }
+        }
+        return null;
+    };
+
+    const latestVisual = selectedIntent ? getLatestScreenshot(selectedIntent.steps) : null;
+
     return (
-        <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-blue-500/30">
-            {/* Header */}
-            <header className="h-16 border-b border-border glass flex items-center px-8 justify-between sticky top-0 z-50">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <Cpu className="text-white w-5 h-5" />
+        <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
+            {/* Sidebar: Task Sessions */}
+            <aside className="w-80 border-r border-border flex flex-col glass z-20">
+                <div className="p-6 border-b border-border space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <Cpu className="text-white w-5 h-5" />
+                        </div>
+                        <h1 className="text-sm font-bold tracking-widest uppercase">MarketBot <span className="text-blue-500">Core</span></h1>
                     </div>
-                    <h1 className="text-lg font-semibold tracking-tight">MarketBot <span className="text-blue-500">Trace</span></h1>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                            type="text"
+                            placeholder="Search tasks..."
+                            className="w-full bg-white/[0.03] border border-white/5 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-blue-500/50 transition-colors"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-6 text-sm text-slate-400">
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        Gateway Connected
-                    </div>
-                    <Activity className="w-4 h-4" />
-                </div>
-            </header>
-
-            <main className="flex-1 max-w-5xl mx-auto w-full p-8 space-y-12">
-                {/* Input Area */}
-                <section className="space-y-4">
-                    <div className="relative group">
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-                        <div className="relative flex glass rounded-2xl overflow-hidden shadow-2xl">
-                            <input
-                                className="flex-1 bg-transparent px-6 py-5 outline-none text-lg placeholder:text-slate-600"
-                                placeholder="What should MarketBot do next?"
-                                value={inputText}
-                                onChange={e => setInputText(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleRun()}
-                            />
-                            <button
-                                onClick={handleRun}
-                                disabled={isParsing || !inputText.trim()}
-                                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors px-8 flex items-center gap-2 font-medium"
-                            >
-                                {isParsing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
-                                Run
-                            </button>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Trace List */}
-                <div className="space-y-16" ref={scrollRef}>
-                    {intents.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-24 text-slate-500 space-y-4 border border-dashed border-border rounded-3xl">
-                            <Compass className="w-12 h-12 opacity-20" />
-                            <p>No active execution traces.</p>
-                        </div>
-                    )}
-
-                    {intents.map(intent => (
-                        <div key={intent.id} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <h2 className="text-2xl font-bold text-white tracking-tight">{intent.intent}</h2>
-                                    <p className="text-slate-500 text-sm font-mono">ID: {intent.id}</p>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    {intent.steps.length > 1 && (
-                                        <div className="flex items-center bg-slate-800/50 rounded-lg p-1 border border-white/5">
-                                            <button
-                                                onClick={() => {
-                                                    setIsPlaybackActive(true);
-                                                    setPlaybackIndex(0);
-                                                }}
-                                                className={cn(
-                                                    "px-3 py-1 rounded-md text-xs font-bold transition-all",
-                                                    isPlaybackActive ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
-                                                )}
-                                            >
-                                                Playback Mode
-                                            </button>
-                                            {isPlaybackActive && (
-                                                <div className="flex items-center gap-2 px-3 border-l border-white/10 ml-2">
-                                                    <button
-                                                        disabled={playbackIndex <= 0}
-                                                        onClick={() => setPlaybackIndex(prev => prev - 1)}
-                                                        className="text-slate-400 hover:text-white disabled:opacity-30"
-                                                    >
-                                                        Prev
-                                                    </button>
-                                                    <span className="text-[10px] font-mono text-blue-400 w-8 text-center">{playbackIndex + 1}/{intent.steps.length}</span>
-                                                    <button
-                                                        disabled={playbackIndex >= intent.steps.length - 1}
-                                                        onClick={() => setPlaybackIndex(prev => prev + 1)}
-                                                        className="text-slate-400 hover:text-white disabled:opacity-30"
-                                                    >
-                                                        Next
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setIsPlaybackActive(false);
-                                                            setPlaybackIndex(-1);
-                                                        }}
-                                                        className="ml-2 text-red-400 hover:text-red-300"
-                                                    >
-                                                        Exit
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    <div className="px-3 py-1 bg-blue-500/10 text-blue-400 rounded-full text-xs font-semibold border border-blue-500/20 uppercase tracking-wider">
-                                        {intent.steps.some(s => s.status === 'RUNNING') ? 'Executing' : 'Completed'}
-                                    </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-1 scroll-hide">
+                    {filteredIntents.map(intent => (
+                        <div
+                            key={intent.id}
+                            onClick={() => setSelectedIntentId(intent.id)}
+                            className={cn(
+                                "sidebar-item",
+                                selectedIntentId === intent.id && "active"
+                            )}
+                        >
+                            <div className="flex-1 min-w-0">
+                                <p className="truncate text-white">{intent.intent}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <Clock className="w-3 h-3" />
+                                    <span className="text-[10px] opacity-60">
+                                        {intent.timestamp ? new Date(intent.timestamp).toLocaleTimeString() : 'Just now'}
+                                    </span>
                                 </div>
                             </div>
+                            <ChevronRight className={cn("w-4 h-4 opacity-0 transition-opacity", selectedIntentId === intent.id && "opacity-100")} />
+                        </div>
+                    ))}
+                    {filteredIntents.length === 0 && (
+                        <div className="py-12 text-center text-slate-600 space-y-3">
+                            <Compass className="w-8 h-8 mx-auto opacity-20" />
+                            <p className="text-xs">No tasks found</p>
+                        </div>
+                    )}
+                </div>
 
-                            <div className="relative pl-8 space-y-12 border-l border-border/50 translate-x-3">
-                                {intent.steps.filter((_, i) => !isPlaybackActive || i === playbackIndex).map((step, idx) => (
-                                    <div key={step.id} className="relative group">
-                                        {/* Step Icon Node */}
+                <div className="p-4 border-t border-border flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-tighter opacity-60">Gateway Ready</span>
+                    </div>
+                    <Settings className="w-4 h-4 text-slate-500 cursor-pointer hover:text-white transition-colors" />
+                </div>
+            </aside>
+
+            {/* Main Workspace */}
+            <main className="flex-1 flex overflow-hidden relative">
+                {/* Left Panel: Action Trace */}
+                <section className="flex-1 flex flex-col border-r border-border relative">
+                    <header className="h-16 px-8 border-b border-border flex items-center justify-between glass z-10">
+                        <div className="flex items-center gap-4">
+                            <MessageSquare className="w-4 h-4 text-blue-400" />
+                            <h2 className="text-sm font-semibold tracking-tight">
+                                {selectedIntent ? selectedIntent.intent : 'Select a process'}
+                            </h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold border border-blue-500/20 uppercase tracking-widest">
+                                Live Trace
+                            </span>
+                        </div>
+                    </header>
+
+                    <div className="flex-1 overflow-y-auto p-12 space-y-12 scroll-hide" ref={scrollRef}>
+                        {!selectedIntent ? (
+                            <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-4">
+                                <Activity className="w-12 h-12 opacity-10 animate-pulse" />
+                                <p className="text-sm">Initiate a request to see the execution trace.</p>
+                            </div>
+                        ) : (
+                            <div className="max-w-2xl mx-auto w-full">
+                                {selectedIntent.steps.map((step, idx) => (
+                                    <div key={step.id} className="trace-card group animate-in">
                                         <div className={cn(
-                                            "absolute -left-12 top-0 w-8 h-8 rounded-full flex items-center justify-center z-10 border-4 border-background transition-colors duration-500",
-                                            step.status === 'COMPLETED' ? "bg-green-500" :
-                                                step.status === 'RUNNING' ? "bg-blue-500 animate-pulse" :
-                                                    step.status === 'FAILED' ? "bg-red-500" : "bg-slate-800"
+                                            "trace-dot",
+                                            step.status === 'COMPLETED' ? "bg-green-500/20 text-green-500 border-green-500/30" :
+                                                step.status === 'RUNNING' ? "bg-blue-500 animate-pulse border-blue-500/30" :
+                                                    step.status === 'FAILED' ? "bg-red-500/20 text-red-500 border-red-500/30" : "bg-slate-800 border-white/5"
                                         )}>
-                                            {step.status === 'COMPLETED' ? <CheckCircle2 className="w-4 h-4 text-white" /> :
-                                                step.status === 'RUNNING' ? <Zap className="w-4 h-4 text-white" /> :
-                                                    step.status === 'FAILED' ? <XCircle className="w-4 h-4 text-white" /> :
-                                                        <div className="w-2 h-2 rounded-full bg-slate-400" />}
+                                            {step.status === 'COMPLETED' ? <CheckCircle2 className="w-4 h-4" /> :
+                                                step.status === 'RUNNING' ? <Zap className="w-4 h-4 text-blue-400" /> :
+                                                    step.status === 'FAILED' ? <XCircle className="w-4 h-4" /> : null}
                                         </div>
 
-                                        <div className="space-y-4">
-                                            {/* Reasoning Card */}
+                                        <div className="space-y-6">
                                             {step.thought && (
-                                                <div className="flex gap-4 items-start translate-y-1">
-                                                    <Eye className="w-5 h-5 text-blue-400/50 mt-1 shrink-0" />
-                                                    <div className="glass p-4 rounded-xl text-slate-400 italic text-sm leading-relaxed border-l-2 border-l-blue-500 group-hover:text-slate-300 transition-colors">
+                                                <div className="flex gap-4 items-start">
+                                                    <Eye className="w-4 h-4 text-blue-400/40 mt-1 shrink-0" />
+                                                    <p className="text-sm text-slate-400 leading-relaxed font-medium">
                                                         {step.thought}
-                                                    </div>
+                                                    </p>
                                                 </div>
                                             )}
 
-                                            {/* Action Card */}
-                                            <div className="glass rounded-xl overflow-hidden border border-border group-hover:border-border/40 transition-all shadow-lg">
-                                                <div className="px-5 py-3 border-b border-border flex items-center justify-between bg-white/[0.01]">
+                                            <div className="glass-card p-4 space-y-4 group-hover:border-white/20 transition-colors">
+                                                <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
-                                                        <Terminal className="w-4 h-4 text-emerald-400" />
-                                                        <span className="font-mono text-sm font-medium text-emerald-400">{step.action}</span>
+                                                        <span className="action-badge">{step.action}</span>
+                                                        <span className="text-[10px] font-mono text-slate-500">ID: {step.id}</span>
                                                     </div>
-                                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest leading-none">Step {idx + 1}</span>
+                                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Step {idx + 1}</span>
                                                 </div>
-                                                <div className="p-5 overflow-x-auto">
-                                                    <pre className="text-xs font-mono text-slate-400">
-                                                        {JSON.stringify(step.input, null, 2)}
-                                                    </pre>
-                                                </div>
+                                                <pre className="text-xs font-mono text-slate-500 overflow-x-auto p-3 bg-black/20 rounded-lg">
+                                                    {JSON.stringify(step.input, null, 2)}
+                                                </pre>
                                             </div>
 
-                                            {/* Observation Card */}
-                                            {step.status === 'COMPLETED' && (step.observation || step.output) && (
-                                                <div className="flex gap-4 items-start">
-                                                    <ChevronRight className="w-5 h-5 text-green-400/50 mt-1 shrink-0" />
-                                                    <div className="bg-green-500/5 border border-green-500/10 p-4 rounded-xl w-full">
-                                                        <div className="text-xs font-bold text-green-500 uppercase mb-2 flex items-center gap-2 tracking-tighter">
-                                                            Observation
-                                                        </div>
-                                                        <div className="text-sm text-slate-300 leading-relaxed font-medium">
-                                                            {step.observation || "Operation completed successfully."}
-                                                        </div>
-
-                                                        {/* Screenshots Grid */}
-                                                        {step.screenshots && step.screenshots.length > 0 && (
-                                                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                {step.screenshots.map((s, si) => (
-                                                                    <div key={si} className="relative aspect-video rounded-lg overflow-hidden border border-white/10 group/img bg-slate-900">
-                                                                        <img
-                                                                            src={s.startsWith('http') || s.startsWith('data:') ? s : `/media/${s}`}
-                                                                            alt={`Step ${idx + 1} screenshot ${si + 1}`}
-                                                                            className="w-full h-full object-contain transition-transform duration-500 group-hover/img:scale-105"
-                                                                        />
-
-                                                                        {/* Coordinate-based Action Marker (UI-TARS style) */}
-                                                                        {step.point && (
-                                                                            <div
-                                                                                className="absolute z-20"
-                                                                                style={{
-                                                                                    left: `${(step.point.x / 1000) * 100}%`,
-                                                                                    top: `${(step.point.y / 1000) * 100}%`,
-                                                                                    transform: 'translate(-50%, -50%)'
-                                                                                }}
-                                                                            >
-                                                                                <div className="relative group/marker">
-                                                                                    <div className="absolute inset-0 w-8 h-8 -m-4 bg-red-500/40 rounded-full animate-ping" />
-                                                                                    <div className="w-4 h-4 bg-red-600 rounded-full border-2 border-white shadow-lg shadow-red-500/50" />
-
-                                                                                    {/* Popover label on hover */}
-                                                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-black/80 backdrop-blur rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover/marker:opacity-100 transition-opacity z-30 uppercase font-bold tracking-tighter">
-                                                                                        {step.actionType || step.action}: [{step.point.x}, {step.point.y}]
-                                                                                    </div>
-
-                                                                                    {/* Interaction Zoom (Magnifying Glass) */}
-                                                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-32 h-32 rounded-full border-2 border-blue-500 bg-slate-950 shadow-2xl shadow-blue-500/20 overflow-hidden pointer-events-none opacity-0 group-hover/marker:opacity-100 transition-all duration-300 z-50 scale-50 group-hover/marker:scale-100 origin-bottom">
-                                                                                        <img
-                                                                                            src={s.startsWith('http') || s.startsWith('data:') ? s : `/media/${s}`}
-                                                                                            alt="Zoomed"
-                                                                                            className="absolute max-w-none"
-                                                                                            style={{
-                                                                                                width: '800%', // Magnify 8x
-                                                                                                left: `${-(step.point.x / 1000) * 800 + 50}%`,
-                                                                                                top: `${-(step.point.y / 1000) * 800 + 50}%`,
-                                                                                                imageRendering: 'pixelated'
-                                                                                            }}
-                                                                                        />
-                                                                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                                            <div className="w-full h-[0.5px] bg-red-400 opacity-40" />
-                                                                                            <div className="absolute h-full w-[0.5px] bg-red-400 opacity-40" />
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
-
-                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                                                            <button className="text-white text-xs font-bold uppercase tracking-widest bg-blue-600 px-3 py-1.5 rounded-full shadow-xl transform translate-y-2 group-hover/img:translate-y-0 transition-transform">View Full</button>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-
-                                                        {step.output && (
-                                                            <div className="mt-4 p-3 bg-black/40 rounded-lg border border-white/5 overflow-x-auto max-h-48">
-                                                                <pre className="text-[10px] font-mono text-green-400/80">
-                                                                    {JSON.stringify(step.output, null, 2)}
-                                                                </pre>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {step.status === 'FAILED' && (
-                                                <div className="bg-red-500/10 border border-red-500/20 p-5 rounded-xl text-red-400 flex items-start gap-4">
-                                                    <XCircle className="w-5 h-5 shrink-0" />
-                                                    <div className="space-y-1">
-                                                        <p className="font-bold text-sm">Execution Failed</p>
-                                                        <p className="text-sm opacity-80 font-mono break-all">{step.error}</p>
-                                                    </div>
+                                            {step.observation && (
+                                                <div className="flex gap-4 items-start pl-4 py-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                                                    <ChevronRight className="w-4 h-4 text-emerald-500 mt-1 shrink-0" />
+                                                    <p className="text-sm text-emerald-400/80 font-medium">
+                                                        {step.observation}
+                                                    </p>
                                                 </div>
                                             )}
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    ))}
-                </div>
-            </main>
+                        )}
+                    </div>
 
-            <footer className="h-12 border-t border-border/40 flex items-center px-8 justify-between text-[10px] text-slate-600 font-medium uppercase tracking-widest glass">
-                <div>MarketBot v1.0.0-alpha</div>
-                <div className="flex gap-4">
-                    <a href="#" className="hover:text-slate-400 transition-colors">Documentation</a>
-                    <a href="#" className="hover:text-slate-400 transition-colors">Support</a>
-                </div>
-            </footer>
+                    {/* Floating Command Bar */}
+                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-30">
+                        <div className="relative group">
+                            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+                            <div className="relative flex glass rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+                                <input
+                                    className="flex-1 bg-transparent px-6 py-4 outline-none text-sm placeholder:text-slate-500"
+                                    placeholder="What should MarketBot do next?"
+                                    value={inputText}
+                                    onChange={e => setInputText(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleRun()}
+                                />
+                                <button
+                                    onClick={handleRun}
+                                    disabled={isParsing || !inputText.trim()}
+                                    className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-colors px-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+                                >
+                                    {isParsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+                                    Run
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Right Panel: Visual Workspace (UI-TARS Style) */}
+                <section className="w-[40%] flex flex-col glass overflow-hidden translate-x-0 transition-transform">
+                    <header className="h-16 px-6 border-b border-border flex items-center justify-between glass z-10">
+                        <div className="flex items-center gap-4">
+                            <ImageIcon className="w-4 h-4 text-emerald-400" />
+                            <h2 className="text-xs font-bold uppercase tracking-widest">Visual Feedback</h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Layout className="w-4 h-4 text-slate-500 cursor-pointer" />
+                            <Maximize2 className="w-4 h-4 text-slate-500 cursor-pointer" />
+                        </div>
+                    </header>
+
+                    <div className="flex-1 overflow-hidden flex flex-col">
+                        {latestVisual ? (
+                            <div className="flex-1 relative flex items-center justify-center p-8 bg-slate-950/50">
+                                <div className="relative w-full h-full flex items-center justify-center">
+                                    <img
+                                        src={latestVisual.url.startsWith('http') || latestVisual.url.startsWith('data:') ? latestVisual.url : `/media/${latestVisual.url}`}
+                                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-white/5"
+                                        alt="Current screen"
+                                    />
+
+                                    {/* UI-TARS Coordinate Marker */}
+                                    {latestVisual.point && (
+                                        <div
+                                            className="absolute z-30"
+                                            style={{
+                                                left: `${(latestVisual.point.x / 1000) * 100}%`,
+                                                top: `${(latestVisual.point.y / 1000) * 100}%`,
+                                                transform: 'translate(-50%, -50%)'
+                                            }}
+                                        >
+                                            <div className="relative group/marker">
+                                                <div className="absolute inset-0 w-12 h-12 -m-6 bg-red-500/30 rounded-full animate-ping" />
+                                                <div className="w-5 h-5 bg-red-600 rounded-full border-2 border-white shadow-2xl flex items-center justify-center">
+                                                    <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                                </div>
+
+                                                {/* Tooltip */}
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 px-3 py-1.5 bg-black/90 backdrop-blur rounded-lg border border-white/10 text-[10px] text-white whitespace-nowrap shadow-2xl pointer-events-none transition-all scale-90 opacity-0 group-hover/marker:scale-100 group-hover/marker:opacity-100 uppercase font-bold tracking-tighter">
+                                                    {latestVisual.actionType}: [{latestVisual.point.x}, {latestVisual.point.y}]
+                                                </div>
+
+                                                {/* Magnifier: UI-TARS Style Detail View */}
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 w-48 h-48 rounded-2xl border-2 border-blue-500 bg-slate-950 shadow-[0_0_50px_rgba(59,130,246,0.3)] overflow-hidden pointer-events-none opacity-0 group-hover/marker:opacity-100 transition-all duration-500 scale-50 group-hover/marker:scale-100 origin-bottom border-dashed">
+                                                    <img
+                                                        src={latestVisual.url.startsWith('http') || latestVisual.url.startsWith('data:') ? latestVisual.url : `/media/${latestVisual.url}`}
+                                                        className="absolute max-w-none"
+                                                        style={{
+                                                            width: '800%', // 8x zoom
+                                                            left: `${-(latestVisual.point.x / 1000) * 800 + 50}%`,
+                                                            top: `${-(latestVisual.point.y / 1000) * 800 + 50}%`,
+                                                            imageRendering: 'pixelated'
+                                                        }}
+                                                        alt="Zoomed detail"
+                                                    />
+                                                    {/* Crosshair */}
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <div className="w-full h-[1px] bg-red-400 opacity-50 shadow-[0_0_5px_rgba(248,113,113,0.8)]" />
+                                                        <div className="absolute h-full w-[1px] bg-red-400 opacity-50 shadow-[0_0_5px_rgba(248,113,113,0.8)]" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-600 space-y-6">
+                                <div className="w-24 h-24 rounded-3xl border-2 border-dashed border-white/5 flex items-center justify-center">
+                                    <Layout className="w-10 h-10 opacity-10" />
+                                </div>
+                                <div className="text-center space-y-1">
+                                    <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest">No visual data</p>
+                                    <p className="text-xs opacity-50">Visual steps will appear here in real-time.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <footer className="h-12 border-t border-border/40 flex items-center px-6 justify-between text-[9px] text-slate-600 font-bold uppercase tracking-[0.2em] glass">
+                            <div>Step Observation Feed</div>
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <Activity className="w-3 h-3 text-blue-500" />
+                                    <span>Sync: 12ms</span>
+                                </div>
+                            </div>
+                        </footer>
+                    </div>
+                </section>
+            </main>
         </div>
     );
 }
