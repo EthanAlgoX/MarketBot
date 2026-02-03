@@ -21,7 +21,7 @@
     </script>
     <style>
       :root {
-        color-scheme: dark;
+        color-scheme: light;
       }
       @media (prefers-reduced-motion: reduce) {
         body::before,
@@ -36,25 +36,26 @@
       }
       body {
         font:
-          14px system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          "Roboto",
+          14px "Satoshi",
+          "Avenir Next",
+          "SF Pro Display",
+          "Segoe UI Variable",
+          "Helvetica Neue",
           sans-serif;
         background:
-          radial-gradient(1200px 900px at 15% 20%, rgba(42, 113, 255, 0.18), rgba(0, 0, 0, 0) 55%),
-          radial-gradient(900px 700px at 85% 30%, rgba(255, 0, 138, 0.14), rgba(0, 0, 0, 0) 60%),
-          radial-gradient(1000px 900px at 60% 90%, rgba(0, 209, 255, 0.1), rgba(0, 0, 0, 0) 60%),
-          #000;
-        color: #e5e7eb;
+          radial-gradient(920px 720px at 18% 14%, rgba(56, 189, 248, 0.28), rgba(15, 23, 42, 0) 60%),
+          radial-gradient(860px 680px at 82% 22%, rgba(59, 130, 246, 0.22), rgba(15, 23, 42, 0) 62%),
+          radial-gradient(980px 880px at 52% 86%, rgba(14, 165, 233, 0.2), rgba(15, 23, 42, 0) 65%),
+          #f8fafc;
+        color: #0f172a;
         overflow: hidden;
       }
       :root[data-platform="android"] body {
         background:
-          radial-gradient(1200px 900px at 15% 20%, rgba(42, 113, 255, 0.62), rgba(0, 0, 0, 0) 55%),
-          radial-gradient(900px 700px at 85% 30%, rgba(255, 0, 138, 0.52), rgba(0, 0, 0, 0) 60%),
-          radial-gradient(1000px 900px at 60% 90%, rgba(0, 209, 255, 0.48), rgba(0, 0, 0, 0) 60%),
-          #0b1328;
+          radial-gradient(920px 720px at 18% 14%, rgba(56, 189, 248, 0.38), rgba(15, 23, 42, 0) 60%),
+          radial-gradient(860px 680px at 82% 22%, rgba(59, 130, 246, 0.32), rgba(15, 23, 42, 0) 62%),
+          radial-gradient(980px 880px at 52% 86%, rgba(14, 165, 233, 0.3), rgba(15, 23, 42, 0) 65%),
+          #eef2f7;
       }
       body::before {
         content: "";
@@ -63,39 +64,39 @@
         background:
           repeating-linear-gradient(
             0deg,
-            rgba(255, 255, 255, 0.03) 0,
-            rgba(255, 255, 255, 0.03) 1px,
+            rgba(15, 23, 42, 0.04) 0,
+            rgba(15, 23, 42, 0.04) 1px,
             transparent 1px,
-            transparent 48px
+            transparent 56px
           ),
           repeating-linear-gradient(
             90deg,
-            rgba(255, 255, 255, 0.03) 0,
-            rgba(255, 255, 255, 0.03) 1px,
+            rgba(15, 23, 42, 0.04) 0,
+            rgba(15, 23, 42, 0.04) 1px,
             transparent 1px,
-            transparent 48px
+            transparent 56px
           );
         transform: translate3d(0, 0, 0) rotate(-7deg);
         will-change: transform, opacity;
         -webkit-backface-visibility: hidden;
         backface-visibility: hidden;
-        opacity: 0.45;
+        opacity: 0.16;
         pointer-events: none;
         animation: marketbot-grid-drift 140s ease-in-out infinite alternate;
       }
       :root[data-platform="android"] body::before {
-        opacity: 0.8;
+        opacity: 0.28;
       }
       body::after {
         content: "";
         position: fixed;
         inset: -35%;
         background:
-          radial-gradient(900px 700px at 30% 30%, rgba(42, 113, 255, 0.16), rgba(0, 0, 0, 0) 60%),
-          radial-gradient(800px 650px at 70% 35%, rgba(255, 0, 138, 0.12), rgba(0, 0, 0, 0) 62%),
-          radial-gradient(900px 800px at 55% 75%, rgba(0, 209, 255, 0.1), rgba(0, 0, 0, 0) 62%);
-        filter: blur(28px);
-        opacity: 0.52;
+          radial-gradient(900px 700px at 28% 28%, rgba(56, 189, 248, 0.24), rgba(15, 23, 42, 0) 60%),
+          radial-gradient(800px 650px at 72% 34%, rgba(59, 130, 246, 0.2), rgba(15, 23, 42, 0) 62%),
+          radial-gradient(900px 800px at 55% 74%, rgba(14, 165, 233, 0.18), rgba(15, 23, 42, 0) 62%);
+        filter: blur(32px);
+        opacity: 0.5;
         will-change: transform, opacity;
         -webkit-backface-visibility: hidden;
         backface-visibility: hidden;
@@ -104,16 +105,16 @@
         animation: marketbot-glow-drift 110s ease-in-out infinite alternate;
       }
       :root[data-platform="android"] body::after {
-        opacity: 0.85;
+        opacity: 0.68;
       }
-      @supports (mix-blend-mode: screen) {
+      @supports (mix-blend-mode: multiply) {
         body::after {
-          mix-blend-mode: screen;
+          mix-blend-mode: multiply;
         }
       }
-      @supports not (mix-blend-mode: screen) {
+      @supports not (mix-blend-mode: multiply) {
         body::after {
-          opacity: 0.7;
+          opacity: 0.58;
         }
       }
       @keyframes marketbot-grid-drift {
@@ -176,35 +177,37 @@
         width: min(560px, 88vw);
         text-align: left;
         padding: 14px 16px 12px;
-        border-radius: 16px;
-        background: linear-gradient(140deg, rgba(23, 24, 35, 0.78), rgba(18, 19, 28, 0.55));
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 18px;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.9));
+        border: 1px solid rgba(15, 23, 42, 0.12);
         box-shadow:
-          0 16px 46px rgba(0, 0, 0, 0.52),
-          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+          0 18px 42px rgba(15, 23, 42, 0.18),
+          inset 0 1px 0 rgba(255, 255, 255, 0.8);
         -webkit-backdrop-filter: blur(18px) saturate(140%);
         backdrop-filter: blur(18px) saturate(140%);
       }
       #marketbot-status .title {
         font:
-          600 12px/1.2 -apple-system,
-          BlinkMacSystemFont,
+          600 12px/1.2 "Satoshi",
+          "Avenir Next",
           "SF Pro Text",
-          system-ui,
+          "Segoe UI Variable",
+          "Helvetica Neue",
           sans-serif;
-        letter-spacing: 0.45px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgba(15, 23, 42, 0.6);
       }
       #marketbot-status .subtitle {
         margin-top: 8px;
         font:
-          500 13px/1.45 -apple-system,
-          BlinkMacSystemFont,
+          500 13px/1.45 "Satoshi",
+          "Avenir Next",
           "SF Pro Text",
-          system-ui,
+          "Segoe UI Variable",
+          "Helvetica Neue",
           sans-serif;
-        color: rgba(255, 255, 255, 0.9);
+        color: rgba(15, 23, 42, 0.88);
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }
@@ -215,11 +218,11 @@
         inset: 0;
         z-index: 4;
         --marketbot-a2ui-inset-top: 28px;
-        --marketbot-a2ui-inset-right: 0px;
-        --marketbot-a2ui-inset-bottom: 0px;
-        --marketbot-a2ui-inset-left: 0px;
-        --marketbot-a2ui-scroll-pad-bottom: 0px;
-        --marketbot-a2ui-status-top: calc(50% - 18px);
+        --marketbot-a2ui-inset-right: 24px;
+        --marketbot-a2ui-inset-bottom: 24px;
+        --marketbot-a2ui-inset-left: 24px;
+        --marketbot-a2ui-scroll-pad-bottom: 12px;
+        --marketbot-a2ui-status-top: 18px;
         --marketbot-a2ui-empty-top: 18px;
       }
     </style>
