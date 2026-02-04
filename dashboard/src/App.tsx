@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     Play,
     Terminal,
@@ -112,6 +112,25 @@ export default function App() {
     const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null);
     const [settingsSaveNote, setSettingsSaveNote] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const wsRef = useRef<WebSocket | null>(null);
+    const wsReconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const gatewayToken = useMemo(() => {
+        if (typeof window === 'undefined') return '';
+        return new URLSearchParams(window.location.search).get('token')?.trim() ?? '';
+    }, []);
+
+    type ExecutorUpdate = {
+        intentId: string;
+        actionId: string;
+        status: Action['status'];
+        thought?: string;
+        observation?: string;
+        screenshots?: string[];
+        point?: { x: number; y: number };
+        actionType?: string;
+        output?: unknown;
+        error?: string;
+    };
 
     const KNOWN_PROVIDERS = [
         'openai',
@@ -463,6 +482,149 @@ export default function App() {
         setProviderModels((prev) => prev.filter((model) => model.id !== id));
     };
 
+    const applyExecutorUpdate = (update: ExecutorUpdate) => {
+        setIntents((prev) => {
+            const idx = prev.findIndex((intent) => intent.id === update.intentId);
+            if (idx === -1) return prev;
+            const target = prev[idx];
+            const steps = target.steps.map((step) => {
+                if (step.id !== update.actionId) return step;
+                const next = { ...step, status: update.status };
+                if (update.thought !== undefined) next.thought = update.thought;
+                if (update.observation !== undefined) next.observation = update.observation;
+                if (update.screenshots !== undefined) next.screenshots = update.screenshots;
+                if (update.point !== undefined) next.point = update.point;
+                if (update.actionType !== undefined) next.actionType = update.actionType;
+                if (update.output !== undefined) next.output = update.output;
+                if (update.error !== undefined) next.error = update.error;
+                return next;
+            });
+            const nextIntent = { ...target, steps };
+            const next = [...prev];
+            next[idx] = nextIntent;
+            return next;
+        });
+    };
+
+    const buildGatewayWsUrl = () => {
+        if (typeof window === 'undefined') return null;
+        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        return `${proto}://${window.location.host}/api`;
+    };
+
+    useEffect(() => {
+        let disposed = false;
+        const connect = () => {
+            if (disposed) return;
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+            const wsUrl = buildGatewayWsUrl();
+            if (!wsUrl) return;
+            const ws = new WebSocket(wsUrl);
+            wsRef.current = ws;
+            let connectSent = false;
+            const connectId = `connect-${Date.now()}`;
+            const sendConnect = () => {
+                if (connectSent || ws.readyState !== WebSocket.OPEN) return;
+                connectSent = true;
+                const params = {
+                    minProtocol: 3,
+                    maxProtocol: 3,
+                    client: {
+                        id: 'marketbot-control-ui',
+                        version: 'dev',
+                        platform: navigator.platform || 'web',
+                        mode: 'ui'
+                    },
+                    role: 'operator',
+                    scopes: ['operator.admin'],
+                    auth: gatewayToken ? { token: gatewayToken } : undefined
+                };
+                ws.send(JSON.stringify({ type: 'req', id: connectId, method: 'connect', params }));
+            };
+            const handleMessage = (raw: string) => {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (parsed?.type === 'event') {
+                        if (parsed.event === 'connect.challenge' && !connectSent) {
+                            sendConnect();
+                            return;
+                        }
+                        if (parsed.event === 'executor.update' && parsed.payload) {
+                            applyExecutorUpdate(parsed.payload as ExecutorUpdate);
+                        }
+                        return;
+                    }
+                    if (parsed?.type === 'res' && parsed.id === connectId && !parsed.ok) {
+                        console.error(parsed.error?.message ?? 'Gateway connect failed.');
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+            ws.addEventListener('open', sendConnect);
+            ws.addEventListener('message', (event) => {
+                if (typeof event.data === 'string') {
+                    handleMessage(event.data);
+                } else if (event.data instanceof Blob) {
+                    event.data.text().then(handleMessage).catch(console.error);
+                } else if (event.data instanceof ArrayBuffer) {
+                    handleMessage(new TextDecoder().decode(event.data));
+                }
+            });
+            ws.addEventListener('close', () => {
+                if (disposed) return;
+                if (wsRef.current === ws) {
+                    wsRef.current = null;
+                }
+                if (wsReconnectRef.current) {
+                    clearTimeout(wsReconnectRef.current);
+                }
+                wsReconnectRef.current = setTimeout(connect, 1000);
+            });
+            ws.addEventListener('error', (err) => {
+                console.error(err);
+            });
+        };
+        connect();
+        return () => {
+            disposed = true;
+            if (wsReconnectRef.current) {
+                clearTimeout(wsReconnectRef.current);
+                wsReconnectRef.current = null;
+            }
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
+            }
+        };
+    }, [gatewayToken]);
+
+    const formatStepOutput = (output: unknown): { mode: 'text' | 'json'; value: string } | null => {
+        if (output === null || output === undefined) return null;
+        if (typeof output === 'string') {
+            return { mode: 'text', value: output };
+        }
+        if (typeof output === 'object') {
+            const outputObj = output as Record<string, unknown>;
+            const report = outputObj.report;
+            if (typeof report === 'string') {
+                return { mode: 'text', value: report };
+            }
+            const content = outputObj.content;
+            if (Array.isArray(content)) {
+                const textChunks = content
+                    .map((entry) => (entry && typeof entry === 'object' ? (entry as { text?: unknown }).text : null))
+                    .filter((text): text is string => typeof text === 'string' && text.trim().length > 0);
+                if (textChunks.length > 0) {
+                    return { mode: 'text', value: textChunks.join('\n') };
+                }
+            }
+        }
+        return { mode: 'json', value: JSON.stringify(output, null, 2) };
+    };
+
     const createPendingIntent = (text: string): Intent => {
         const now = Date.now();
         return {
@@ -673,77 +835,104 @@ export default function App() {
                             </div>
                         ) : (
                             <div className="max-w-2xl mx-auto w-full space-y-1 hover:space-y-4 transition-all duration-500">
-                                {selectedIntent.steps.map((step, idx) => (
-                                    <div
-                                        key={step.id}
-                                        className={cn(
-                                            "trace-card group animate-in",
-                                            currentStepIdx === idx && "opacity-100",
-                                            currentStepIdx !== idx && "opacity-40 hover:opacity-100"
-                                        )}
-                                        onClick={() => setCurrentStepIdx(idx)}
-                                    >
-                                        <div className={cn(
-                                            "trace-dot transition-all duration-300",
-                                            step.status === 'COMPLETED' ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500" :
-                                                step.status === 'RUNNING' ? "bg-primary border-primary/50 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]" :
-                                                    step.status === 'FAILED' ? "bg-destructive/10 border-destructive/50 text-destructive" :
-                                                        "bg-slate-900 border-white/5 text-slate-600"
-                                        )}>
-                                            {step.status === 'COMPLETED' ? <CheckCircle2 className="w-3 h-3" /> :
-                                                step.status === 'RUNNING' ? <Loader2 className="w-3 h-3 animate-spin" /> :
-                                                    step.status === 'FAILED' ? <XCircle className="w-3 h-3" /> :
-                                                        <span className="text-[8px] font-bold">{idx + 1}</span>}
-                                        </div>
-
-                                        <div className="space-y-6">
-                                            {step.thought && (
-                                                <div className="flex gap-4 items-start pl-2">
-                                                    <div className="mt-1.5 p-1 rounded-md bg-primary/5 border border-primary/10">
-                                                        <Compass className="w-3 h-3 text-primary/60" />
-                                                    </div>
-                                                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
-                                                        {step.thought}
-                                                    </p>
-                                                </div>
+                                {selectedIntent.steps.map((step, idx) => {
+                                    const formattedOutput = formatStepOutput(step.output);
+                                    return (
+                                        <div
+                                            key={step.id}
+                                            className={cn(
+                                                "trace-card group animate-in",
+                                                currentStepIdx === idx && "opacity-100",
+                                                currentStepIdx !== idx && "opacity-40 hover:opacity-100"
                                             )}
-
+                                            onClick={() => setCurrentStepIdx(idx)}
+                                        >
                                             <div className={cn(
-                                                "glass-card p-5 space-y-4 group-hover:border-primary/30 transition-all duration-500 relative overflow-hidden",
-                                                currentStepIdx === idx && "border-primary/40 bg-white/[0.04] shadow-[0_0_30px_rgba(99,102,241,0.05)]"
+                                                "trace-dot transition-all duration-300",
+                                                step.status === 'COMPLETED' ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500" :
+                                                    step.status === 'RUNNING' ? "bg-primary border-primary/50 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]" :
+                                                        step.status === 'FAILED' ? "bg-destructive/10 border-destructive/50 text-destructive" :
+                                                            "bg-slate-900 border-white/5 text-slate-600"
                                             )}>
-                                                {currentStepIdx === idx && <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-3xl -mr-12 -mt-12" />}
-
-                                                <div className="flex items-center justify-between relative z-10">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="action-badge">{step.action}</span>
-                                                        <span className="text-[10px] font-mono text-slate-600 tracking-tighter">TASK_{step.id.slice(0, 8)}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        {step.screenshots && step.screenshots.length > 0 && (
-                                                            <ImageIcon className="w-3 h-3 text-primary animate-pulse" />
-                                                        )}
-                                                        <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Phase {idx + 1}</span>
-                                                    </div>
-                                                </div>
-                                                <pre className="text-[11px] font-mono text-slate-500 overflow-x-auto p-4 bg-black/40 rounded-xl border border-white/[0.03] scroll-hide">
-                                                    {JSON.stringify(step.input, null, 2)}
-                                                </pre>
+                                                {step.status === 'COMPLETED' ? <CheckCircle2 className="w-3 h-3" /> :
+                                                    step.status === 'RUNNING' ? <Loader2 className="w-3 h-3 animate-spin" /> :
+                                                        step.status === 'FAILED' ? <XCircle className="w-3 h-3" /> :
+                                                            <span className="text-[8px] font-bold">{idx + 1}</span>}
                                             </div>
 
-                                            {step.observation && (
-                                                <div className="flex gap-4 items-start pl-6 py-4 bg-emerald-500/[0.02] rounded-2xl border border-emerald-500/10 group-hover:border-emerald-500/20 transition-all duration-500">
-                                                    <div className="mt-1 p-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-                                                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                            <div className="space-y-6">
+                                                {step.thought && (
+                                                    <div className="flex gap-4 items-start pl-2">
+                                                        <div className="mt-1.5 p-1 rounded-md bg-primary/5 border border-primary/10">
+                                                            <Compass className="w-3 h-3 text-primary/60" />
+                                                        </div>
+                                                        <p className="text-sm text-slate-300 leading-relaxed font-medium">
+                                                            {step.thought}
+                                                        </p>
                                                     </div>
-                                                    <p className="text-sm text-emerald-400/70 font-medium leading-relaxed">
-                                                        {step.observation}
-                                                    </p>
+                                                )}
+
+                                                <div className={cn(
+                                                    "glass-card p-5 space-y-4 group-hover:border-primary/30 transition-all duration-500 relative overflow-hidden",
+                                                    currentStepIdx === idx && "border-primary/40 bg-white/[0.04] shadow-[0_0_30px_rgba(99,102,241,0.05)]"
+                                                )}>
+                                                    {currentStepIdx === idx && <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-3xl -mr-12 -mt-12" />}
+
+                                                    <div className="flex items-center justify-between relative z-10">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="action-badge">{step.action}</span>
+                                                            <span className="text-[10px] font-mono text-slate-600 tracking-tighter">TASK_{step.id.slice(0, 8)}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            {step.screenshots && step.screenshots.length > 0 && (
+                                                                <ImageIcon className="w-3 h-3 text-primary animate-pulse" />
+                                                            )}
+                                                            <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">Phase {idx + 1}</span>
+                                                        </div>
+                                                    </div>
+                                                    <pre className="text-[11px] font-mono text-slate-500 overflow-x-auto p-4 bg-black/40 rounded-xl border border-white/[0.03] scroll-hide">
+                                                        {JSON.stringify(step.input, null, 2)}
+                                                    </pre>
+
+                                                    {formattedOutput && (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+                                                                <Terminal className="w-3 h-3 text-primary/70" />
+                                                                Output
+                                                            </div>
+                                                            <pre className="text-[11px] font-mono text-slate-300 overflow-x-auto p-4 bg-black/60 rounded-xl border border-white/[0.04] scroll-hide max-h-96 whitespace-pre-wrap">
+                                                                {formattedOutput.value}
+                                                            </pre>
+                                                        </div>
+                                                    )}
+
+                                                    {step.error && (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-destructive">
+                                                                <XCircle className="w-3 h-3" />
+                                                                Error
+                                                            </div>
+                                                            <pre className="text-[11px] font-mono text-destructive/80 overflow-x-auto p-4 bg-destructive/10 rounded-xl border border-destructive/20 scroll-hide whitespace-pre-wrap">
+                                                                {step.error}
+                                                            </pre>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
+
+                                                {step.observation && (
+                                                    <div className="flex gap-4 items-start pl-6 py-4 bg-emerald-500/[0.02] rounded-2xl border border-emerald-500/10 group-hover:border-emerald-500/20 transition-all duration-500">
+                                                        <div className="mt-1 p-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                                                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                                        </div>
+                                                        <p className="text-sm text-emerald-400/70 font-medium leading-relaxed">
+                                                            {step.observation}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                         <div className="h-32" /> {/* Bottom Spacing */}
