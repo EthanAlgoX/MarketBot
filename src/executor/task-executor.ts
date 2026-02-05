@@ -120,7 +120,7 @@ export class TaskExecutor extends EventEmitter {
         step.endTime = Date.now();
         this.emitUpdate(intent.id, step.id, "FAILED", undefined, String(err), step.thought);
         logger.error(`Action ${step.id} (${step.action}) failed: ${String(err)}`);
-        break; // Stop execution on failure
+        continue; // Allow later steps to run even if one fails
       }
     }
 

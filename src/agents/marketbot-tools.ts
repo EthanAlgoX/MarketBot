@@ -38,6 +38,7 @@ import { createSessionsSpawnTool } from "./tools/sessions-spawn-tool.js";
 import { createWebFetchTool, createWebSearchTool } from "./tools/web-tools.js";
 import { createTtsTool } from "./tools/tts-tool.js";
 import { createDesktopTool } from "./tools/desktop-tool.js";
+import { createExecTool } from "./bash-tools.exec.js";
 
 export function createMarketBotTools(options?: {
   sandboxBrowserBridgeUrl?: string;
@@ -94,6 +95,10 @@ export function createMarketBotTools(options?: {
     createBrowserTool({
       sandboxBridgeUrl: options?.sandboxBrowserBridgeUrl,
       allowHostControl: options?.allowHostBrowserControl,
+    }),
+    createExecTool({
+      ...(options?.config?.tools?.exec ?? {}),
+      sessionKey: options?.agentSessionKey,
     }),
     createCanvasTool(),
     createNodesTool({

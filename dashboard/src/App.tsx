@@ -509,7 +509,10 @@ export default function App() {
     const buildGatewayWsUrl = () => {
         if (typeof window === 'undefined') return null;
         const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        return `${proto}://${window.location.host}/api`;
+        const port = window.location.port;
+        const host = window.location.hostname;
+        const resolvedPort = port === '3002' ? '19001' : port;
+        return resolvedPort ? `${proto}://${host}:${resolvedPort}` : `${proto}://${host}`;
     };
 
     useEffect(() => {
@@ -532,7 +535,7 @@ export default function App() {
                     minProtocol: 3,
                     maxProtocol: 3,
                     client: {
-                        id: 'marketbot-control-ui',
+                        id: 'gateway-client',
                         version: 'dev',
                         platform: navigator.platform || 'web',
                         mode: 'ui'

@@ -153,11 +153,9 @@ export async function resolveGatewayBindHost(
   const mode = bind ?? "loopback";
 
   if (mode === "loopback") {
-    // 127.0.0.1 rarely fails, but handle gracefully
-    if (await canBindToHost("127.0.0.1")) {
-      return "127.0.0.1";
-    }
-    return "0.0.0.0"; // extreme fallback
+    // Prefer loopback unconditionally; probing can fail under sandboxing and
+    // cause an unsafe fallback to 0.0.0.0 even though loopback works.
+    return "127.0.0.1";
   }
 
   if (mode === "tailnet") {
