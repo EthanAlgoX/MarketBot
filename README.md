@@ -170,7 +170,6 @@ If the page fails to load, confirm the Gateway is running and the UI is built wi
 The Web Control UI (webui.png) is the primary interface for running tasks, monitoring step-by-step execution, and opening Settings to configure model and auth providers.
 
 ![Web Control UI](docs/webui.png)
-![Web Config](docs/web_config.png)
 
 ---
 
