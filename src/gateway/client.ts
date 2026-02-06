@@ -55,6 +55,7 @@ type Pending = {
   resolve: (value: unknown) => void;
   reject: (err: unknown) => void;
   expectFinal: boolean;
+  timeout?: NodeJS.Timeout | null;
 };
 
 export type GatewayClientOptions = {
@@ -265,7 +266,8 @@ export class GatewayClient {
       device,
     };
 
-    void this.request<HelloOk>("connect", params)
+    // Connect must not hang forever: if the server doesn't reply, surface an error and reconnect.
+    void this.request<HelloOk>("connect", params, { timeoutMs: 10_000 })
       .then((helloOk) => {
         const authInfo = helloOk?.auth;
         if (authInfo?.deviceToken && this.opts.deviceIdentity) {
@@ -379,6 +381,9 @@ export class GatewayClient {
 
   private flushPendingErrors(err: Error) {
     for (const [, p] of this.pending) {
+      if (p.timeout) {
+        clearTimeout(p.timeout);
+      }
       p.reject(err);
     }
     this.pending.clear();
@@ -433,7 +438,7 @@ export class GatewayClient {
   async request<T = Record<string, unknown>>(
     method: string,
     params?: unknown,
-    opts?: { expectFinal?: boolean },
+    opts?: { expectFinal?: boolean; timeoutMs?: number },
   ): Promise<T> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("gateway not connected");
@@ -446,11 +451,32 @@ export class GatewayClient {
       );
     }
     const expectFinal = opts?.expectFinal === true;
+    const timeoutMs = opts?.timeoutMs && opts.timeoutMs > 0 ? opts.timeoutMs : undefined;
     const p = new Promise<T>((resolve, reject) => {
+      let timeout: NodeJS.Timeout | null = null;
+      if (timeoutMs) {
+        timeout = setTimeout(() => {
+          if (this.pending.has(id)) {
+            this.pending.delete(id);
+            reject(new Error(`gateway request timeout after ${timeoutMs}ms`));
+          }
+        }, timeoutMs);
+      }
       this.pending.set(id, {
-        resolve: (value) => resolve(value as T),
-        reject,
+        resolve: (value) => {
+          if (timeout) {
+            clearTimeout(timeout);
+          }
+          resolve(value as T);
+        },
+        reject: (err) => {
+          if (timeout) {
+            clearTimeout(timeout);
+          }
+          reject(err);
+        },
         expectFinal,
+        timeout,
       });
     });
     this.ws.send(JSON.stringify(frame));

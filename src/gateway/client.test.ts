@@ -194,4 +194,52 @@ r1USnb+wUdA7Zoj/mQ==
 
     expect(String(error)).toContain("tls fingerprint mismatch");
   });
+
+  test("rejects request when gateway does not respond within timeout", async () => {
+    const port = await getFreePort();
+    wss = new WebSocketServer({ port, host: "127.0.0.1" });
+
+    wss.on("connection", (socket) => {
+      socket.on("message", (data) => {
+        const frame = JSON.parse(rawDataToString(data)) as { id?: string; method?: string };
+        if (frame.method !== "connect") {
+          // Intentionally ignore all non-connect requests.
+          return;
+        }
+        const id = frame.id ?? "connect";
+        const helloOk = {
+          type: "hello-ok",
+          protocol: 2,
+          server: { version: "dev", connId: "c1" },
+          features: { methods: ["never.responds"], events: [] },
+          snapshot: {
+            presence: [],
+            health: {},
+            stateVersion: { presence: 1, health: 1 },
+            uptimeMs: 1,
+          },
+          policy: {
+            maxPayload: 512 * 1024,
+            maxBufferedBytes: 1024 * 1024,
+            tickIntervalMs: 30_000,
+          },
+        };
+        socket.send(JSON.stringify({ type: "res", id, ok: true, payload: helloOk }));
+      });
+    });
+
+    const client = await new Promise<GatewayClient>((resolve) => {
+      const c = new GatewayClient({
+        url: `ws://127.0.0.1:${port}`,
+        onHelloOk: () => resolve(c),
+      });
+      c.start();
+    });
+
+    await expect(client.request("never.responds", { ok: true }, { timeoutMs: 50 })).rejects.toThrow(
+      /timeout/i,
+    );
+
+    client.stop();
+  });
 });

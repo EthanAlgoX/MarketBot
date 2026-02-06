@@ -173,14 +173,19 @@ export class GatewayChatClient {
 
   async sendChat(opts: ChatSendOptions): Promise<{ runId: string }> {
     const runId = randomUUID();
-    await this.client.request("chat.send", {
-      sessionKey: opts.sessionKey,
-      message: opts.message,
-      thinking: opts.thinking,
-      deliver: opts.deliver,
-      timeoutMs: opts.timeoutMs,
-      idempotencyKey: runId,
-    });
+    const requestTimeoutMs = Math.min(30_000, opts.timeoutMs ?? 30_000);
+    await this.client.request(
+      "chat.send",
+      {
+        sessionKey: opts.sessionKey,
+        message: opts.message,
+        thinking: opts.thinking,
+        deliver: opts.deliver,
+        timeoutMs: opts.timeoutMs,
+        idempotencyKey: runId,
+      },
+      { timeoutMs: requestTimeoutMs },
+    );
     return { runId };
   }
 
