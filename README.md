@@ -150,20 +150,39 @@ The Gateway manages your sessions and model connections. **You must leave this p
 pnpm start -- gateway
 ```
 
-#### 3. Open the GUI (web)
+#### 3. Choose a Start Mode (CLI / TUI / Web GUI)
 
-Open the Control UI in your browser:
+All interfaces connect to the Gateway. Pick one or run multiple in parallel.
+
+**CLI (one-off commands)**
 
 ```bash
-# Option 1: Web Control UI (main interface)
-http://127.0.0.1:18789/
+pnpm start -- analyze --asset BTC --timeframe 1h
+```
 
-# Option 2: Task Execution Dashboard (for executor workflows)
-cd dashboard && pnpm dev
-# Then open http://localhost:3000
+**TUI (interactive terminal UI)**
+
+```bash
+pnpm tui
+```
+
+**Web GUI (Control UI)**
+
+Open in your browser:
+
+```bash
+http://127.0.0.1:18789/
 ```
 
 If the page fails to load, confirm the Gateway is running and the UI is built with `pnpm ui:build`.
+
+**Optional: Task Execution Dashboard (executor workflows)**
+
+```bash
+pnpm dashboard:dev
+```
+
+Then open `http://localhost:3000`.
 
 #### Web UI Screenshots
 
