@@ -1,3 +1,5 @@
+<video controls src="docs/video.mp4"></video>
+
 <p align="center">
   <img src="assets/logo.png" width="120" alt="MarketBot Finance Logo">
 </p>
