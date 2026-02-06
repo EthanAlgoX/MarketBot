@@ -477,40 +477,32 @@ export function registerBrowserManageCommands(
     .requiredOption("--name <name>", "Profile name (lowercase, numbers, hyphens)")
     .option("--color <hex>", "Profile color (hex format, e.g. #0066CC)")
     .option("--cdp-url <url>", "CDP URL for remote Chrome (http/https)")
-    .option("--driver <driver>", "Profile driver (marketbot|extension). Default: marketbot")
-    .action(
-      async (opts: { name: string; color?: string; cdpUrl?: string; driver?: string }, cmd) => {
-        const parent = parentOpts(cmd);
-        await runBrowserCommand(async () => {
-          const result = await callBrowserRequest<BrowserCreateProfileResult>(
-            parent,
-            {
-              method: "POST",
-              path: "/profiles/create",
-              body: {
-                name: opts.name,
-                color: opts.color,
-                cdpUrl: opts.cdpUrl,
-                driver: opts.driver === "extension" ? "extension" : undefined,
-              },
+    .action(async (opts: { name: string; color?: string; cdpUrl?: string }, cmd) => {
+      const parent = parentOpts(cmd);
+      await runBrowserCommand(async () => {
+        const result = await callBrowserRequest<BrowserCreateProfileResult>(
+          parent,
+          {
+            method: "POST",
+            path: "/profiles/create",
+            body: {
+              name: opts.name,
+              color: opts.color,
+              cdpUrl: opts.cdpUrl,
             },
-            { timeoutMs: 10_000 },
-          );
-          if (parent?.json) {
-            defaultRuntime.log(JSON.stringify(result, null, 2));
-            return;
-          }
-          const loc = result.isRemote ? `  cdpUrl: ${result.cdpUrl}` : `  port: ${result.cdpPort}`;
-          defaultRuntime.log(
-            info(
-              `📈 Created profile "${result.profile}"\n${loc}\n  color: ${result.color}${
-                opts.driver === "extension" ? "\n  driver: extension" : ""
-              }`,
-            ),
-          );
-        });
-      },
-    );
+          },
+          { timeoutMs: 10_000 },
+        );
+        if (parent?.json) {
+          defaultRuntime.log(JSON.stringify(result, null, 2));
+          return;
+        }
+        const loc = result.isRemote ? `  cdpUrl: ${result.cdpUrl}` : `  port: ${result.cdpPort}`;
+        defaultRuntime.log(
+          info(`📈 Created profile "${result.profile}"\n${loc}\n  color: ${result.color}`),
+        );
+      });
+    });
 
   browser
     .command("delete-profile")

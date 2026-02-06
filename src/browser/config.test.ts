@@ -30,15 +30,10 @@ describe("browser config", () => {
     expect(resolved.cdpHost).toBe("127.0.0.1");
     expect(resolved.cdpProtocol).toBe("http");
     const profile = resolveProfile(resolved, resolved.defaultProfile);
-    expect(profile?.name).toBe("chrome");
-    expect(profile?.driver).toBe("extension");
-    expect(profile?.cdpPort).toBe(18792);
-    expect(profile?.cdpUrl).toBe("http://127.0.0.1:18792");
-
-    const marketbot = resolveProfile(resolved, "marketbot");
-    expect(marketbot?.driver).toBe("marketbot");
-    expect(marketbot?.cdpPort).toBe(18800);
-    expect(marketbot?.cdpUrl).toBe("http://127.0.0.1:18800");
+    expect(profile?.name).toBe("marketbot");
+    expect(profile?.driver).toBe("marketbot");
+    expect(profile?.cdpPort).toBe(18800);
+    expect(profile?.cdpUrl).toBe("http://127.0.0.1:18800");
     expect(resolved.remoteCdpTimeoutMs).toBe(1500);
     expect(resolved.remoteCdpHandshakeTimeoutMs).toBe(3000);
   });
@@ -49,11 +44,6 @@ describe("browser config", () => {
     try {
       const resolved = resolveBrowserConfig(undefined);
       expect(resolved.controlPort).toBe(19003);
-      const chrome = resolveProfile(resolved, "chrome");
-      expect(chrome?.driver).toBe("extension");
-      expect(chrome?.cdpPort).toBe(19004);
-      expect(chrome?.cdpUrl).toBe("http://127.0.0.1:19004");
-
       const marketbot = resolveProfile(resolved, "marketbot");
       expect(marketbot?.cdpPort).toBe(19012);
       expect(marketbot?.cdpUrl).toBe("http://127.0.0.1:19012");
@@ -72,11 +62,6 @@ describe("browser config", () => {
     try {
       const resolved = resolveBrowserConfig(undefined, { gateway: { port: 19011 } });
       expect(resolved.controlPort).toBe(19013);
-      const chrome = resolveProfile(resolved, "chrome");
-      expect(chrome?.driver).toBe("extension");
-      expect(chrome?.cdpPort).toBe(19014);
-      expect(chrome?.cdpUrl).toBe("http://127.0.0.1:19014");
-
       const marketbot = resolveProfile(resolved, "marketbot");
       expect(marketbot?.cdpPort).toBe(19022);
       expect(marketbot?.cdpUrl).toBe("http://127.0.0.1:19022");
@@ -157,15 +142,5 @@ describe("browser config", () => {
 
   it("rejects unsupported protocols", () => {
     expect(() => resolveBrowserConfig({ cdpUrl: "ws://127.0.0.1:18791" })).toThrow(/must be http/i);
-  });
-
-  it("does not add the built-in chrome extension profile if the derived relay port is already used", () => {
-    const resolved = resolveBrowserConfig({
-      profiles: {
-        marketbot: { cdpPort: 18792, color: "#FF4500" },
-      },
-    });
-    expect(resolveProfile(resolved, "chrome")).toBe(null);
-    expect(resolved.defaultProfile).toBe("marketbot");
   });
 });
