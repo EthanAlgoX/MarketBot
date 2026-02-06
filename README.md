@@ -142,47 +142,29 @@ pnpm start -- onboard
 > [!TIP]
 > This will guide you through setting up your AI providers (DeepSeek, OpenAI, etc.) and save the configuration to `marketbot.json`.
 
-#### 2. Start the Gateway
+#### 2. Start the Gateway (Local Web GUI backend)
 
-The Gateway manages your sessions and model connections. **You must leave this process running.**
-
-```bash
-pnpm start -- gateway
-```
-
-#### 3. Choose a Start Mode (CLI / TUI / Web GUI)
-
-All interfaces connect to the Gateway. Pick one or run multiple in parallel.
-
-**CLI (one-off commands)**
+The local Web GUI connects to the Gateway over WebSocket. **Leave this process running.**
 
 ```bash
-pnpm start -- analyze --asset BTC --timeframe 1h
+MARKETBOT_GATEWAY_PORT=19001 pnpm start -- gateway
 ```
 
-**TUI (interactive terminal UI)**
+#### 3. Start Local Web GUI (recommended)
+
+Run the local Web GUI on port 3002 and connect it to the Gateway:
 
 ```bash
-pnpm tui
+pnpm --dir dashboard dev -- --port 3002 --host
 ```
 
-**Web GUI (Control UI)**
-
-Open in your browser:
+Then open:
 
 ```bash
-http://127.0.0.1:18789/
+http://localhost:3002/?token=<gateway-token>
 ```
 
-If the page fails to load, confirm the Gateway is running and the UI is built with `pnpm ui:build`.
-
-**Optional: Task Execution Dashboard (executor workflows)**
-
-```bash
-pnpm dashboard:dev
-```
-
-Then open `http://localhost:3000`.
+If the page fails to connect, confirm the Gateway is running on `19001` and the token matches `marketbot.json`.
 
 #### Web UI Screenshots
 
@@ -208,15 +190,15 @@ MarketBot includes a **Desktop Tool** for macOS automation, enabling AI agents t
 
 ---
 
-### Dashboard Development
+### Web GUI Development
 
-The Task Execution Dashboard provides visual tracking of AI task execution with step-by-step screenshots:
+The local Web GUI provides visual tracking of AI task execution with step-by-step screenshots:
 
 ```bash
-# Start dashboard development server
-pnpm dashboard:dev
+# Start local Web GUI (port 3002)
+pnpm --dir dashboard dev -- --port 3002 --host
 
-# Dashboard features:
+# Web GUI features:
 # - Visual step-by-step task execution tracking
 # - Screenshot timeline for desktop automation
 # - Search and filter task history
@@ -306,7 +288,7 @@ sudo systemctl start marketbot
 - ✅ **Desktop Tool (macOS)**: AI-powered desktop automation (screenshot, click, type, move)
 - ✅ **Feishu Channel**: Full integration with Feishu/Lark messaging platform
 - ✅ **Executor Engine**: Multi-step task orchestration with intent parsing
-- ✅ **Dashboard Development Mode**: `pnpm dashboard:dev` for local dashboard development
+- ✅ **Web GUI Development Mode**: `pnpm --dir dashboard dev -- --port 3002 --host` for local Web GUI
 
 ---
 
