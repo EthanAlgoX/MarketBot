@@ -14,7 +14,7 @@ MarketBot Finance is an autonomous AI agent designed for financial analysis and 
 
 ---
 
-<video controls src="docs/video.mp4"></video>
+**Demo video:** [Play video](docs/video.gif)
 
 ## Architecture (MarketBot Focus)
 
