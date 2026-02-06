@@ -2,7 +2,6 @@
 summary: "Integrated browser control service + action commands"
 read_when:
   - Adding agent-controlled browser automation
-  - Debugging why marketbot is interfering with your own Chrome
   - Implementing browser settings + lifecycle in the macOS app
 ---
 
@@ -16,8 +15,6 @@ Beginner view:
 - Think of it as a **separate, agent-only browser**.
 - The `marketbot` profile does **not** touch your personal browser profile.
 - The agent can **open tabs, read pages, click, and type** in a safe lane.
-- The default `chrome` profile uses the **system default Chromium browser** via the
-  extension relay; switch to `marketbot` for the isolated managed browser.
 
 ## What you get
 
@@ -41,13 +38,12 @@ marketbot browser --browser-profile marketbot snapshot
 If you get “Browser disabled”, enable it in config (see below) and restart the
 Gateway.
 
-## Profiles: `marketbot` vs `chrome`
+## Profiles: `marketbot` vs remote
 
 - `marketbot`: managed, isolated browser (no extension required).
-- `chrome`: extension relay to your **system browser** (requires the MarketBot
-  extension to be attached to a tab).
+- `remote`: connect to a Chromium-based browser via a CDP URL you control.
 
-Set `browser.defaultProfile: "marketbot"` if you want managed mode by default.
+Set `browser.defaultProfile: "marketbot"` to keep the managed browser as the default.
 
 ## Configuration
 
@@ -57,10 +53,10 @@ Browser settings live in `~/.marketbot/marketbot.json`.
 {
   browser: {
     enabled: true,                    // default: true
-    // cdpUrl: "http://127.0.0.1:18792", // legacy single-profile override
+    // cdpUrl: "http://127.0.0.1:18800", // legacy single-profile override
     remoteCdpTimeoutMs: 1500,         // remote CDP HTTP timeout (ms)
     remoteCdpHandshakeTimeoutMs: 3000, // remote CDP WebSocket handshake timeout (ms)
-    defaultProfile: "chrome",
+    defaultProfile: "marketbot",
     color: "#FF4500",
     headless: false,
     noSandbox: false,
@@ -77,15 +73,15 @@ Browser settings live in `~/.marketbot/marketbot.json`.
 
 Notes:
 - The browser control service binds to loopback on a port derived from `gateway.port`
-  (default: `18791`, which is gateway + 2). The relay uses the next port (`18792`).
+  (default: `18791`, which is gateway + 2). CDP ports start at `18800`.
 - If you override the Gateway port (`gateway.port` or `MARKETBOT_GATEWAY_PORT`),
   the derived browser ports shift to stay in the same “family”.
-- `cdpUrl` defaults to the relay port when unset.
+- `cdpUrl` defaults to the first CDP port when unset.
 - `remoteCdpTimeoutMs` applies to remote (non-loopback) CDP reachability checks.
 - `remoteCdpHandshakeTimeoutMs` applies to remote CDP WebSocket reachability checks.
 - `attachOnly: true` means “never launch a local browser; only attach if it is already running.”
 - `color` + per-profile `color` tint the browser UI so you can see which profile is active.
-- Default profile is `chrome` (extension relay). Use `defaultProfile: "marketbot"` for the managed browser.
+- Default profile is `marketbot` (managed browser).
 - Auto-detect order: system default browser if Chromium-based; otherwise Chrome → Brave → Edge → Chromium → Chrome Canary.
 - Local `marketbot` profiles auto-assign `cdpPort`/`cdpUrl` — set those only for remote CDP.
 
@@ -196,66 +192,13 @@ Remote CDP tips:
 MarketBot supports multiple named profiles (routing configs). Profiles can be:
 - **marketbot-managed**: a dedicated Chromium-based browser instance with its own user data directory + CDP port
 - **remote**: an explicit CDP URL (Chromium-based browser running elsewhere)
-- **extension relay**: your existing Chrome tab(s) via the local relay + Chrome extension
 
 Defaults:
 - The `marketbot` profile is auto-created if missing.
-- The `chrome` profile is built-in for the Chrome extension relay (points at `http://127.0.0.1:18792` by default).
 - Local CDP ports allocate from **18800–18899** by default.
 - Deleting a profile moves its local data directory to Trash.
 
 All control endpoints accept `?profile=<name>`; the CLI uses `--browser-profile`.
-
-## Chrome extension relay (use your existing Chrome)
-
-MarketBot can also drive **your existing Chrome tabs** (no separate “marketbot” Chrome instance) via a local CDP relay + a Chrome extension.
-
-Full guide: [Chrome extension](/tools/chrome-extension)
-
-Flow:
-- The Gateway runs locally (same machine) or a node host runs on the browser machine.
-- A local **relay server** listens at a loopback `cdpUrl` (default: `http://127.0.0.1:18792`).
-- You click the **MarketBot Browser Relay** extension icon on a tab to attach (it does not auto-attach).
-- The agent controls that tab via the normal `browser` tool, by selecting the right profile.
-
-If the Gateway runs elsewhere, run a node host on the browser machine so the Gateway can proxy browser actions.
-
-### Sandboxed sessions
-
-If the agent session is sandboxed, the `browser` tool may default to `target="sandbox"` (sandbox browser).
-Chrome extension relay takeover requires host browser control, so either:
-- run the session unsandboxed, or
-- set `agents.defaults.sandbox.browser.allowHostControl: true` and use `target="host"` when calling the tool.
-
-### Setup
-
-1) Load the extension (dev/unpacked):
-
-```bash
-marketbot browser extension install
-```
-
-- Chrome → `chrome://extensions` → enable “Developer mode”
-- “Load unpacked” → select the directory printed by `marketbot browser extension path`
-- Pin the extension, then click it on the tab you want to control (badge shows `ON`).
-
-2) Use it:
-- CLI: `marketbot browser --browser-profile chrome tabs`
-- Agent tool: `browser` with `profile="chrome"`
-
-Optional: if you want a different name or relay port, create your own profile:
-
-```bash
-marketbot browser create-profile \
-  --name my-chrome \
-  --driver extension \
-  --cdp-url http://127.0.0.1:18792 \
-  --color "#00AA00"
-```
-
-Notes:
-- This mode relies on Playwright-on-CDP for most operations (screenshots/snapshots/actions).
-- Detach by clicking the extension icon again.
 
 ## Isolation guarantees
 
@@ -303,7 +246,6 @@ All endpoints accept `?profile=<name>`.
 Some features (navigate/act/AI snapshot/role snapshot, element screenshots, PDF) require
 Playwright. If Playwright isn’t installed, those endpoints return a clear 501
 error. ARIA snapshots and basic screenshots still work for marketbot-managed Chrome.
-For the Chrome extension relay driver, ARIA snapshots and screenshots require Playwright.
 
 If you see `Playwright is not available in this gateway build`, install the full
 Playwright package (not `playwright-core`) and restart the gateway, or reinstall
@@ -527,7 +469,7 @@ How it maps:
 - `browser act` uses the snapshot `ref` IDs to click/type/drag/select.
 - `browser screenshot` captures pixels (full page or element).
 - `browser` accepts:
-  - `profile` to choose a named browser profile (marketbot, chrome, or remote CDP).
+  - `profile` to choose a named browser profile (marketbot or a remote CDP profile).
   - `target` (`sandbox` | `host` | `node`) to select where the browser lives.
   - In sandboxed sessions, `target: "host"` requires `agents.defaults.sandbox.browser.allowHostControl=true`.
   - If `target` is omitted: sandboxed sessions default to `sandbox`, non-sandbox sessions default to `host`.

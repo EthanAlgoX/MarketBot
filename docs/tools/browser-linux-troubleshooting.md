@@ -112,18 +112,3 @@ curl -s http://127.0.0.1:18791/tabs
 | `browser.noSandbox` | Add `--no-sandbox` flag (needed for some Linux setups) | `false` |
 | `browser.attachOnly` | Don't launch browser, only attach to existing | `false` |
 | `browser.cdpPort` | Chrome DevTools Protocol port | `18800` |
-
-### Problem: "Chrome extension relay is running, but no tab is connected"
-
-You’re using the `chrome` profile (extension relay). It expects the MarketBot
-browser extension to be attached to a live tab.
-
-Fix options:
-1. **Use the managed browser:** `marketbot browser start --browser-profile marketbot`
-   (or set `browser.defaultProfile: "marketbot"`).
-2. **Use the extension relay:** install the extension, open a tab, and click the
-   MarketBot extension icon to attach it.
-
-Notes:
-- The `chrome` profile uses your **system default Chromium browser** when possible.
-- Local `marketbot` profiles auto-assign `cdpPort`/`cdpUrl`; only set those for remote CDP.

@@ -100,11 +100,6 @@ describe("createMarketBotCodingTools", () => {
     expect(schema.type).toBe("object");
     expect(schema.anyOf).toBeUndefined();
   });
-  it("mentions Chrome extension relay in browser tool description", () => {
-    const browser = createBrowserTool();
-    expect(browser.description).toMatch(/Chrome extension/i);
-    expect(browser.description).toMatch(/profile="chrome"/i);
-  });
   it("keeps browser tool schema properties after normalization", () => {
     const browser = defaultTools.find((tool) => tool.name === "browser");
     expect(browser).toBeDefined();

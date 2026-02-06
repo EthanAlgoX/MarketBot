@@ -411,7 +411,7 @@ async function findPageByTargetId(
       return page;
     }
   }
-  // If CDP sessions fail (e.g., extension relay blocks Target.attachToBrowserTarget),
+  // If CDP sessions fail (e.g., remote CDP blocks Target.attachToBrowserTarget),
   // fall back to URL-based matching using the /json/list endpoint
   if (cdpUrl) {
     try {

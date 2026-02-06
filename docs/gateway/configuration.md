@@ -2748,7 +2748,7 @@ Defaults:
 - enabled: `true`
 - evaluateEnabled: `true` (set `false` to disable `act:evaluate` and `wait --fn`)
 - control service: loopback only (port derived from `gateway.port`, default `18791`)
-- CDP URL: `http://127.0.0.1:18792` (control service + 1, legacy single-profile)
+- CDP URL: `http://127.0.0.1:18800` (first CDP port, legacy single-profile)
 - profile color: `#FF4500` (lobster-orange)
 - Note: the control server is started by the running gateway (MarketBot.app menubar, or `marketbot gateway`).
 - Auto-detect order: default browser if Chromium-based; otherwise Chrome → Brave → Edge → Chromium → Chrome Canary.
@@ -2758,8 +2758,8 @@ Defaults:
   browser: {
     enabled: true,
     evaluateEnabled: true,
-    // cdpUrl: "http://127.0.0.1:18792", // legacy single-profile override
-    defaultProfile: "chrome",
+    // cdpUrl: "http://127.0.0.1:18800", // legacy single-profile override
+    defaultProfile: "marketbot",
     profiles: {
       marketbot: { cdpPort: 18800, color: "#FF4500" },
       work: { cdpPort: 18801, color: "#0066CC" },

@@ -135,24 +135,20 @@ pnpm ui:build
 
 Launch the interactive onboarding wizard to configure your model providers and API keys.
 
-```bash
-pnpm start -- onboard
-```
-
 > [!TIP]
 > This will guide you through setting up your AI providers (DeepSeek, OpenAI, etc.) and save the configuration to `marketbot.json`.
 
-#### 2. Start the Gateway (Local Web GUI backend)
+#### 2. Start TUI (recommended)
 
-The local Web GUI connects to the Gateway over WebSocket. **Leave this process running.**
+Make sure the Gateway is running, then start the TUI with your DeepSeek key and gateway token:
 
 ```bash
-MARKETBOT_GATEWAY_PORT=19001 pnpm start -- gateway
+DEEPSEEK_API_KEY=<deepseek_api_key> pnpm tui --token <gateway-token> --url ws://127.0.0.1:18789
 ```
 
-#### 3. Start Local Web GUI (recommended)
+#### 3. Start Local Web GUI
 
-Run the local Web GUI on port 3002 and connect it to the Gateway:
+Make sure the Gateway is running, then run the local Web GUI on port 3002 and connect it to the Gateway:
 
 ```bash
 pnpm --dir dashboard dev -- --port 3002 --host
@@ -163,8 +159,6 @@ Then open:
 ```bash
 http://localhost:3002/?token=<gateway-token>
 ```
-
-If the page fails to connect, confirm the Gateway is running on `19001` and the token matches `marketbot.json`.
 
 #### Web UI Screenshots
 
@@ -207,11 +201,28 @@ pnpm --dir dashboard dev -- --port 3002 --host
 
 ---
 
-MarketBot is best configured using the interactive onboarding wizard:
+## TUI Test Case (Gold Trend)
 
+This is a quick TUI smoke test that verifies the built-in browser is used to search gold trends and summarize the latest moves.
+
+1. Ensure the Gateway is running, then start the TUI (use your DeepSeek key and gateway token).
 ```bash
-pnpm start -- onboard
+DEEPSEEK_API_KEY=<deepseek_api_key> pnpm tui --token <gateway-token> --url ws://127.0.0.1:18789
 ```
+
+2. In the TUI, send this message:
+```text
+分析黄金行情（XAUUSD）。请使用内置浏览器获取最新数据与新闻，给出简要总结与关键驱动因素。
+```
+
+Expected behavior:
+1. The TUI connects to the Gateway.
+2. The agent starts the built-in browser (marketbot-managed profile).
+3. The reply includes a short summary of current gold trend and key drivers, based on the latest sources.
+
+---
+
+MarketBot is best configured using the interactive onboarding wizard.
 
 ### Environment Variables
 
@@ -238,34 +249,7 @@ MarketBot supports 55+ extensible skills:
 | **Media** | video-frames, openai-whisper, camsnap |
 | **Utilities** | weather, 1password, tmux, **desktop** (macOS) |
 
-```bash
-# List available skills
-pnpm start -- skills list
-
-# Install a skill
-pnpm start -- skills install <skill-name>
-
-# Example: Install Feishu channel
-pnpm start -- skills install feishu
-```
-
----
-
-## Deployment
-
-### Docker
-
-```bash
-docker-compose up -d
-```
-
-### Systemd (Linux)
-
-```bash
-pnpm start -- gateway install
-sudo systemctl enable marketbot
-sudo systemctl start marketbot
-```
+See docs for skill install and management.
 
 ---
 

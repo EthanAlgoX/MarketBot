@@ -401,6 +401,7 @@ export function buildAgentSystemPrompt(params: {
     "Narrate only when it helps: multi-step work, complex/challenging problems, sensitive actions (e.g., deletions), or when the user explicitly asks.",
     "Keep narration brief and value-dense; avoid repeating obvious steps.",
     "Use plain human language for narration unless in a technical context.",
+    "When the user asks for the latest news (market or asset-specific), always start the built-in browser and fetch sources using the browser tool (profile: marketbot). Do not answer from memory.",
     "",
     "## Financial Analysis Principles",
     "As a financial analysis assistant, follow these core principles:",

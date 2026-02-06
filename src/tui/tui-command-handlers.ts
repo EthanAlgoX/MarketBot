@@ -951,10 +951,12 @@ export function createCommandHandlers(context: CommandHandlerContext) {
       case "news":
         if (!args) {
           await sendMessage(
-            "What are the most important market news and events today that could impact trading?",
+            "What are the most important market news and events today that could impact trading? Use the built-in browser tool (profile: marketbot) to search and cite the latest sources.",
           );
         } else {
-          await sendMessage(`What are the latest news and developments for ${args.toUpperCase()}?`);
+          await sendMessage(
+            `What are the latest news and developments for ${args.toUpperCase()}? Use the built-in browser tool (profile: marketbot) to search and cite the latest sources.`,
+          );
         }
         break;
       case "alerts":

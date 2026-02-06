@@ -74,7 +74,6 @@ Quick answers plus deeper troubleshooting for real-world setups (local dev, VPS,
   - [Can MarketBot run tasks on a schedule or continuously in the background?](#can-marketbot-run-tasks-on-a-schedule-or-continuously-in-the-background)
   - [Can I run Apple/macOS-only skills from Linux?](#can-i-run-applemacosonly-skills-from-linux)
   - [Do you have a Notion or HeyGen integration?](#do-you-have-a-notion-or-heygen-integration)
-  - [How do I install the Chrome extension for browser takeover?](#how-do-i-install-the-chrome-extension-for-browser-takeover)
 - [Sandboxing and memory](#sandboxing-and-memory)
   - [Is there a dedicated sandboxing doc?](#is-there-a-dedicated-sandboxing-doc)
   - [How do I bind a host folder into the sandbox?](#how-do-i-bind-a-host-folder-into-the-sandbox)
@@ -1082,23 +1081,6 @@ markethub update --all
 
 MarketHub installs into `./skills` under your current directory (or falls back to your configured MarketBot workspace); MarketBot treats that as `<workspace>/skills` on the next session. For shared skills across agents, place them in `~/.marketbot/skills/<name>/SKILL.md`. Some skills expect binaries installed via Homebrew; on Linux that means Linuxbrew (see the Homebrew Linux FAQ entry above). See [Skills](/tools/skills) and [MarketHub](/tools/markethub).
 
-### How do I install the Chrome extension for browser takeover
-
-Use the built-in installer, then load the unpacked extension in Chrome:
-
-```bash
-marketbot browser extension install
-marketbot browser extension path
-```
-
-Then Chrome → `chrome://extensions` → enable “Developer mode” → “Load unpacked” → pick that folder.
-
-Full guide (including remote Gateway + security notes): [Chrome extension](/tools/chrome-extension)
-
-If the Gateway runs on the same machine as Chrome (default setup), you usually **do not** need anything extra.
-If the Gateway runs elsewhere, run a node host on the browser machine so the Gateway can proxy browser actions.
-You still need to click the extension button on the tab you want to control (it doesn’t auto-attach).
-
 ## Sandboxing and memory
 
 ### Is there a dedicated sandboxing doc
@@ -1479,13 +1461,13 @@ setup is an always‑on host plus your laptop as a node.
 - **No inbound SSH required.** Nodes connect out to the Gateway WebSocket and use device pairing.
 - **Safer execution controls.** `system.run` is gated by node allowlists/approvals on that laptop.
 - **More device tools.** Nodes expose `canvas`, `camera`, and `screen` in addition to `system.run`.
-- **Local browser automation.** Keep the Gateway on a VPS, but run Chrome locally and relay control
-  with the Chrome extension + a node host on the laptop.
+- **Local browser automation.** Keep the Gateway on a VPS, but run the MarketBot-managed browser
+  on the laptop via a node host.
 
 SSH is fine for ad‑hoc shell access, but nodes are simpler for ongoing agent workflows and
 device automation.
 
-Docs: [Nodes](/nodes), [Nodes CLI](/cli/nodes), [Chrome extension](/tools/chrome-extension).
+Docs: [Nodes](/nodes), [Nodes CLI](/cli/nodes).
 
 ### Should I install on a second laptop or just add a node
 
@@ -1834,17 +1816,17 @@ Yes. Use **Multi‑Agent Routing** to run multiple isolated agents and route inb
 channel/account/peer. Slack is supported as a channel and can be bound to specific agents.
 
 Browser access is powerful but not “do anything a human can” - anti‑bot, CAPTCHAs, and MFA can
-still block automation. For the most reliable browser control, use the Chrome extension relay
-on the machine that runs the browser (and keep the Gateway anywhere).
+still block automation. For the most reliable browser control, run the MarketBot-managed browser
+on the machine that runs the browser (and keep the Gateway anywhere) via a node host.
 
 Best‑practice setup:
 - Always‑on Gateway host (VPS/Mac mini).
 - One agent per role (bindings).
 - Slack channel(s) bound to those agents.
-- Local browser via extension relay (or a node) when needed.
+- Local browser via a node host when needed.
 
 Docs: [Multi‑Agent Routing](/concepts/multi-agent), [Slack](/channels/slack),
-[Browser](/tools/browser), [Chrome extension](/tools/chrome-extension), [Nodes](/nodes).
+[Browser](/tools/browser), [Nodes](/nodes).
 
 ## Models: defaults, selection, aliases, switching
 

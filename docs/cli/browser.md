@@ -1,9 +1,8 @@
 ---
-summary: "CLI reference for `marketbot browser` (profiles, tabs, actions, extension relay)"
+summary: "CLI reference for `marketbot browser` (profiles, tabs, actions)"
 read_when:
   - You use `marketbot browser` and want examples for common tasks
   - You want to control a browser running on another machine via a node host
-  - You want to use the Chrome extension relay (attach/detach via toolbar button)
 ---
 
 # `marketbot browser`
@@ -12,7 +11,6 @@ Manage MarketBot’s browser control server and run browser actions (tabs, snaps
 
 Related:
 - Browser tool + API: [Browser tool](/tools/browser)
-- Chrome extension relay: [Chrome extension](/tools/chrome-extension)
 
 ## Common flags
 
@@ -25,7 +23,6 @@ Related:
 ## Quick start (local)
 
 ```bash
-marketbot browser --browser-profile chrome tabs
 marketbot browser --browser-profile marketbot start
 marketbot browser --browser-profile marketbot open https://example.com
 marketbot browser --browser-profile marketbot snapshot
@@ -35,7 +32,6 @@ marketbot browser --browser-profile marketbot snapshot
 
 Profiles are named browser routing configs. In practice:
 - `marketbot`: launches/attaches to a dedicated MarketBot-managed Chrome instance (isolated user data dir).
-- `chrome`: controls your existing Chrome tab(s) via the Chrome extension relay.
 
 ```bash
 marketbot browser profiles
@@ -79,21 +75,6 @@ marketbot browser navigate https://example.com
 marketbot browser click <ref>
 marketbot browser type <ref> "hello"
 ```
-
-## Chrome extension relay (attach via toolbar button)
-
-This mode lets the agent control an existing Chrome tab that you attach manually (it does not auto-attach).
-
-Install the unpacked extension to a stable path:
-
-```bash
-marketbot browser extension install
-marketbot browser extension path
-```
-
-Then Chrome → `chrome://extensions` → enable “Developer mode” → “Load unpacked” → select the printed folder.
-
-Full guide: [Chrome extension](/tools/chrome-extension)
 
 ## Remote browser control (node host proxy)
 

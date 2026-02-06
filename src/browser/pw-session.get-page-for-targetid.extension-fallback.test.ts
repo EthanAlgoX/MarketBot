@@ -20,7 +20,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 describe("pw-session getPageForTargetId", () => {
-  it("falls back to the only page when CDP session attachment is blocked (extension relays)", async () => {
+  it("falls back to the only page when CDP session attachment is blocked", async () => {
     vi.resetModules();
 
     const pageOn = vi.fn();

@@ -187,18 +187,6 @@ describe("browser tool snapshot maxChars", () => {
     expect(opts?.mode).toBeUndefined();
   });
 
-  it("defaults to host when using profile=chrome (even in sandboxed sessions)", async () => {
-    const tool = createBrowserTool({ sandboxBridgeUrl: "http://127.0.0.1:9999" });
-    await tool.execute?.(null, { action: "snapshot", profile: "chrome", snapshotFormat: "ai" });
-
-    expect(browserClientMocks.browserSnapshot).toHaveBeenCalledWith(
-      undefined,
-      expect.objectContaining({
-        profile: "chrome",
-      }),
-    );
-  });
-
   it("routes to node proxy when target=node", async () => {
     nodesUtilsMocks.listNodes.mockResolvedValue([
       {
@@ -239,26 +227,6 @@ describe("browser tool snapshot maxChars", () => {
     expect(browserClientMocks.browserStatus).toHaveBeenCalledWith(
       "http://127.0.0.1:9999",
       expect.objectContaining({ profile: undefined }),
-    );
-    expect(gatewayMocks.callGatewayTool).not.toHaveBeenCalled();
-  });
-
-  it("keeps chrome profile on host when node proxy is available", async () => {
-    nodesUtilsMocks.listNodes.mockResolvedValue([
-      {
-        nodeId: "node-1",
-        displayName: "Browser Node",
-        connected: true,
-        caps: ["browser"],
-        commands: ["browser.proxy"],
-      },
-    ]);
-    const tool = createBrowserTool();
-    await tool.execute?.(null, { action: "status", profile: "chrome" });
-
-    expect(browserClientMocks.browserStatus).toHaveBeenCalledWith(
-      undefined,
-      expect.objectContaining({ profile: "chrome" }),
     );
     expect(gatewayMocks.callGatewayTool).not.toHaveBeenCalled();
   });
