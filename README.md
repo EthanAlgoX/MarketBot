@@ -7,6 +7,7 @@
 Finance-first autonomous agent for market research and multi-channel delivery.
 
 MarketBot is designed around 2 primary surfaces:
+
 - Web Control UI (Finance Desk): daily stocks, research chat, and delivery ops
 - TUI: local file analysis and interactive workflows
 
@@ -48,6 +49,7 @@ flowchart LR
 ```
 
 Key design choices:
+
 - Browser-first data capture: market endpoints and pages are fetched through a managed browser to reduce request blocking and to keep capture behavior consistent.
 - Report outputs: primary outputs are markdown reports intended to read like research notes.
 - Separation of concerns: finance calculations are deterministic; agent writing and summarization is layered on top.
@@ -58,12 +60,14 @@ Key design choices:
 Daily Stocks is a first-class workflow (think: a built-in skill).
 
 Inputs:
+
 - Watchlist (one symbol per line)
 - Timeframe
 - Report mode (simple/full)
 - Optional fundamentals toggle
 
 Outputs:
+
 - Decision dashboard summary
 - Research-style markdown report per symbol
 - Persisted "last run" snapshot for the Desk
@@ -73,6 +77,7 @@ Outputs:
 Research is optimized for "browse, capture, synthesize" with citations and clear assumptions.
 
 File analysis supports local datasets:
+
 - CSV/JSON: quick schema + anomalies + key stats
 - PDFs: extract relevant sections and summarize for finance use cases
 
@@ -88,7 +93,39 @@ pnpm build
 pnpm ui:build
 ```
 
-Initialize config/workspace (dev-friendly):
+### Quick Start with Local LLM (Recommended)
+
+MarketBot works out-of-the-box with **Qwen3-0.6B** via Ollama.
+
+```bash
+# 1. Automatic Setup (Installs Ollama, pulls model, creates config)
+./setup-local.sh
+
+# 2. Start (Gateway + UI)
+pnpm start
+```
+
+### Manual Local LLM Setup
+
+If you prefer to set up manually:
+
+1. **Install Ollama**: [Download from ollama.com](https://ollama.com) or `brew install ollama`.
+2. **Pull Model**: `ollama pull qwen3:0.6b` (or any other model you prefer).
+3. **Configure**: Copy `marketbot.json.example` to `marketbot.json`.
+4. **Start**: `pnpm start`.
+
+### configuration
+
+MarketBot uses `marketbot.json` for configuration. The default local setup uses **Qwen3** via Ollama.
+
+To use cloud APIs (like DeepSeek or OpenAI):
+
+1. Edit `marketbot.json`.
+2. Uncomment the provider configuration (e.g., `deepseek`).
+3. Add your API key.
+4. Change `agents.defaults.model.primary` to the cloud model ID.
+
+Or continue with manual dev setup:
 
 ```bash
 pnpm -s marketbot setup
@@ -109,6 +146,7 @@ http://127.0.0.1:18789/
 ```
 
 Notes:
+
 - The Web Control UI is served by the Gateway (no separate web server in the product).
 - `pnpm ui:dev` is only for Control UI frontend development.
 - Gateway auth is required by default. If you see `unauthorized`, paste the value of `gateway.auth.token` into the Control UI "Gateway Token" field, then click Connect.
@@ -158,6 +196,7 @@ pnpm -s marketbot tui --url ws://127.0.0.1:18789 --token "<gateway-token>" --mes
 ## Channels + Messaging
 
 Use the Web Control UI Ops pages first:
+
 - Channels: `/channels`
 - Sessions: `/sessions`
 - Cron: `/cron`
@@ -234,16 +273,16 @@ pnpm build
 
 ## Documentation
 
-- CLI overview: https://docs.marketbot.ai/cli
-- Gateway: https://docs.marketbot.ai/cli/gateway
-- Browser: https://docs.marketbot.ai/cli/browser
-- Finance: https://docs.marketbot.ai/cli/finance
-- Analyze: https://docs.marketbot.ai/cli/analyze
-- Channels: https://docs.marketbot.ai/cli/channels
-- Message: https://docs.marketbot.ai/cli/message
-- Plugins: https://docs.marketbot.ai/cli/plugins
-- Skills: https://docs.marketbot.ai/cli/skills
-- Control UI: https://docs.marketbot.ai/web/control-ui
+- CLI overview: <https://docs.marketbot.ai/cli>
+- Gateway: <https://docs.marketbot.ai/cli/gateway>
+- Browser: <https://docs.marketbot.ai/cli/browser>
+- Finance: <https://docs.marketbot.ai/cli/finance>
+- Analyze: <https://docs.marketbot.ai/cli/analyze>
+- Channels: <https://docs.marketbot.ai/cli/channels>
+- Message: <https://docs.marketbot.ai/cli/message>
+- Plugins: <https://docs.marketbot.ai/cli/plugins>
+- Skills: <https://docs.marketbot.ai/cli/skills>
+- Control UI: <https://docs.marketbot.ai/web/control-ui>
 
 ## License
 
