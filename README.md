@@ -111,6 +111,7 @@ http://127.0.0.1:18789/
 Notes:
 - The Web Control UI is served by the Gateway (no separate web server in the product).
 - `pnpm ui:dev` is only for Control UI frontend development.
+- Gateway auth is required by default. If you see `unauthorized`, paste the value of `gateway.auth.token` into the Control UI "Gateway Token" field, then click Connect.
 
 Primary pages:
 
@@ -137,7 +138,7 @@ pnpm -s marketbot config set gateway.mode local
 The TUI supports slash commands and can summarize local CSV/JSON/text files without any model:
 
 ```bash
-pnpm -s marketbot tui --url ws://127.0.0.1:18789 --token test-token
+pnpm -s marketbot tui --url ws://127.0.0.1:18789 --token "<gateway-token>"
 ```
 
 Inside the TUI:
@@ -151,7 +152,7 @@ Inside the TUI:
 Non-interactive (execute a slash command at startup):
 
 ```bash
-pnpm -s marketbot tui --url ws://127.0.0.1:18789 --token test-token --message "/file example/portfolio_holdings.csv"
+pnpm -s marketbot tui --url ws://127.0.0.1:18789 --token "<gateway-token>" --message "/file example/portfolio_holdings.csv"
 ```
 
 ## Channels + Messaging
