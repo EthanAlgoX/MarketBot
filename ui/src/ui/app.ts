@@ -24,6 +24,8 @@ import type {
   StatusSummary,
   NostrProfile,
   DailyStockRunResult,
+  TraceRunEvent,
+  TraceRunMeta,
 } from "./types";
 import { type ChatAttachment, type ChatQueueItem, type CronFormState } from "./ui-types";
 import type { EventLogEntry } from "./app-events";
@@ -253,6 +255,18 @@ export class MarketBotApp extends LitElement {
   @state() logsMaxBytes = 250_000;
   @state() logsAtBottom = true;
 
+  @state() runsLoading = false;
+  @state() runsError: string | null = null;
+  @state() runs: TraceRunMeta[] = [];
+  @state() runsSelectedRunId: string | null = null;
+
+  @state() runLoading = false;
+  @state() runError: string | null = null;
+  @state() runEvents: TraceRunEvent[] = [];
+  @state() runTruncated = false;
+  @state() runStreamsFilter: Record<string, boolean> = {};
+  @state() runReplayIndex = 0;
+
   @state() stocksLoading = false;
   @state() stocksRunning = false;
   @state() stocksError: string | null = null;
@@ -271,6 +285,7 @@ export class MarketBotApp extends LitElement {
   private chatUserNearBottom = true;
   private nodesPollInterval: number | null = null;
   private logsPollInterval: number | null = null;
+  private runsPollInterval: number | null = null;
   private debugPollInterval: number | null = null;
   private logsScrollFrame: number | null = null;
   private toolStreamById = new Map<string, ToolStreamEntry>();

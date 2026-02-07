@@ -18,6 +18,8 @@ import type {
   SessionsListResult,
   SkillStatusReport,
   StatusSummary,
+  TraceRunEvent,
+  TraceRunMeta,
 } from "./types";
 import type { ChatAttachment, ChatQueueItem, CronFormState } from "./ui-types";
 import type { EventLogEntry } from "./app-events";
@@ -147,6 +149,16 @@ export type AppViewState = {
   logsLevelFilters: Record<LogLevel, boolean>;
   logsAutoFollow: boolean;
   logsTruncated: boolean;
+  runsLoading: boolean;
+  runsError: string | null;
+  runs: TraceRunMeta[];
+  runsSelectedRunId: string | null;
+  runLoading: boolean;
+  runError: string | null;
+  runEvents: TraceRunEvent[];
+  runTruncated: boolean;
+  runStreamsFilter: Record<string, boolean>;
+  runReplayIndex: number;
   client: GatewayBrowserClient | null;
   stocksLoading: boolean;
   stocksRunning: boolean;

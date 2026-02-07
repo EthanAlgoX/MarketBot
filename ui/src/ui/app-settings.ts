@@ -2,13 +2,14 @@ import { loadConfig, loadConfigSchema } from "./controllers/config";
 import { loadCronJobs, loadCronStatus } from "./controllers/cron";
 import { loadChannels } from "./controllers/channels";
 import { loadLogs } from "./controllers/logs";
+import { loadRun, loadRuns } from "./controllers/runs";
 import { loadSessions } from "./controllers/sessions";
 import { inferBasePathFromPathname, normalizeBasePath, normalizePath, pathForTab, tabFromPath, type Tab } from "./navigation";
 import { saveSettings, type UiSettings } from "./storage";
 import { resolveTheme, type ResolvedTheme, type ThemeMode } from "./theme";
 import { startThemeTransition, type ThemeTransitionContext } from "./theme-transition";
 import { scheduleChatScroll, scheduleLogsScroll } from "./app-scroll";
-import { startLogsPolling, stopLogsPolling } from "./app-polling";
+import { startLogsPolling, startRunsPolling, stopLogsPolling, stopRunsPolling } from "./app-polling";
 import { refreshChat } from "./app-chat";
 import type { MarketBotApp } from "./app";
 
@@ -111,6 +112,9 @@ export function setTab(host: SettingsHost, next: Tab) {
   if (next === "logs")
     startLogsPolling(host as unknown as Parameters<typeof startLogsPolling>[0]);
   else stopLogsPolling(host as unknown as Parameters<typeof stopLogsPolling>[0]);
+  if (next === "runs")
+    startRunsPolling(host as unknown as Parameters<typeof startRunsPolling>[0]);
+  else stopRunsPolling(host as unknown as Parameters<typeof stopRunsPolling>[0]);
   void refreshActiveTab(host);
   syncUrlWithTab(host, next, false);
 }
@@ -139,6 +143,14 @@ export async function refreshActiveTab(host: SettingsHost) {
   if (host.tab === "channels") await loadChannelsTab(host);
   if (host.tab === "sessions") await loadSessions(host as unknown as MarketBotApp);
   if (host.tab === "cron") await loadCron(host);
+  if (host.tab === "runs") {
+    await loadRuns(host as unknown as import("./controllers/runs").RunsState);
+    const selectedRunId = (host as unknown as { runsSelectedRunId?: string | null })
+      .runsSelectedRunId;
+    if (selectedRunId) {
+      await loadRun(host as unknown as import("./controllers/runs").RunsState, selectedRunId);
+    }
+  }
   if (host.tab === "chat") {
     await refreshChat(host as unknown as Parameters<typeof refreshChat>[0]);
     scheduleChatScroll(

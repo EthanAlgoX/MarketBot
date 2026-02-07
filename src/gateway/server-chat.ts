@@ -22,6 +22,7 @@ import { loadConfig } from "../config/config.js";
 import { type AgentEventPayload, getAgentRunContext } from "../infra/agent-events.js";
 import { resolveHeartbeatVisibility } from "../infra/heartbeat-visibility.js";
 import { loadSessionEntry } from "./session-utils.js";
+import { recordTraceAgentEvent } from "./trace-store.js";
 import { formatForLog } from "./ws-log.js";
 
 /**
@@ -262,6 +263,16 @@ export function createAgentEventHandler({
       chatRunState.abortedRuns.has(clientRunId) || chatRunState.abortedRuns.has(evt.runId);
     // Include sessionKey so Control UI can filter tool streams per session.
     const agentPayload = sessionKey ? { ...evt, sessionKey } : evt;
+
+    // Persist agent events for replay/debug, even if we suppress broadcasting some streams.
+    void recordTraceAgentEvent({
+      runId: clientRunId,
+      evt: agentPayload,
+      sourceRunId: evt.runId !== clientRunId ? evt.runId : undefined,
+      clientRunId,
+      sessionKey,
+    });
+
     const last = agentRunSeq.get(evt.runId) ?? 0;
     if (evt.stream === "tool" && !shouldEmitToolEvents(evt.runId, sessionKey)) {
       agentRunSeq.set(evt.runId, evt.seq);

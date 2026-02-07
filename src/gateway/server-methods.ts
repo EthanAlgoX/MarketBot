@@ -40,6 +40,7 @@ import { skillsHandlers } from "./server-methods/skills.js";
 import { systemHandlers } from "./server-methods/system.js";
 import { talkHandlers } from "./server-methods/talk.js";
 import { ttsHandlers } from "./server-methods/tts.js";
+import { traceHandlers } from "./server-methods/trace.js";
 import type { GatewayRequestHandlers, GatewayRequestOptions } from "./server-methods/types.js";
 import { updateHandlers } from "./server-methods/update.js";
 import { usageHandlers } from "./server-methods/usage.js";
@@ -95,6 +96,8 @@ const READ_METHODS = new Set([
   "chat.history",
   "finance.watchlist.get",
   "finance.daily.last",
+  "trace.runs.list",
+  "trace.run.get",
 ]);
 const WRITE_METHODS = new Set([
   "send",
@@ -215,6 +218,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...agentsHandlers,
   ...browserHandlers,
   ...financeHandlers,
+  ...traceHandlers,
 };
 
 export async function handleGatewayRequest(

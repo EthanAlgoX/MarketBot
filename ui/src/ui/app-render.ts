@@ -36,6 +36,7 @@ import { renderChat } from "./views/chat";
 import { renderChannels } from "./views/channels";
 import { renderCron } from "./views/cron";
 import { renderLogs } from "./views/logs";
+import { renderRuns } from "./views/runs";
 import { renderOverview } from "./views/overview";
 import { renderSessions } from "./views/sessions";
 import { renderExecApprovalPrompt } from "./views/exec-approval";
@@ -51,6 +52,7 @@ import {
 } from "./controllers/config";
 import { loadCronRuns, toggleCronJob, runCronJob, removeCronJob, addCronJob } from "./controllers/cron";
 import { loadLogs } from "./controllers/logs";
+import { loadRun, loadRuns } from "./controllers/runs";
 
 const AVATAR_DATA_RE = /^data:/i;
 const AVATAR_HTTP_RE = /^https?:\/\//i;
@@ -438,6 +440,36 @@ export function renderApp(state: AppViewState) {
               onRefresh: () => loadLogs(state, { reset: true }),
               onExport: (lines, label) => state.exportLogs(lines, label),
               onScroll: (event) => state.handleLogsScroll(event),
+            })
+          : nothing}
+
+        ${state.tab === "runs"
+          ? renderRuns({
+              loading: state.runsLoading,
+              error: state.runsError,
+              runs: state.runs,
+              selectedRunId: state.runsSelectedRunId,
+              runLoading: state.runLoading,
+              runError: state.runError,
+              runEvents: state.runEvents,
+              runTruncated: state.runTruncated,
+              streamsFilter: state.runStreamsFilter,
+              replayIndex: state.runReplayIndex,
+              onRefreshRuns: () => loadRuns(state),
+              onSelectRun: (runId) => {
+                state.runsSelectedRunId = runId;
+                state.runReplayIndex = 0;
+                void loadRun(state, runId);
+              },
+              onRefreshRun: () => {
+                const runId = state.runsSelectedRunId;
+                if (!runId) return;
+                void loadRun(state, runId);
+              },
+              onToggleStream: (stream, enabled) => {
+                state.runStreamsFilter = { ...state.runStreamsFilter, [stream]: enabled };
+              },
+              onReplayIndex: (next) => (state.runReplayIndex = next),
             })
           : nothing}
       </main>

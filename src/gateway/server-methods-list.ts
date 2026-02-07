@@ -102,6 +102,8 @@ const BASE_METHODS = [
   "finance.daily.last",
   "finance.daily.run",
   "finance.report.run",
+  "trace.runs.list",
+  "trace.run.get",
   // WebChat WebSocket-native chat methods
   "chat.history",
   "chat.abort",

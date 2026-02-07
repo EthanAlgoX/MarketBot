@@ -37,6 +37,7 @@ import {
 import { listChannelAgentTools } from "./channel-tools.js";
 import { createMarketBotTools } from "./marketbot-tools.js";
 import type { ModelAuthMode } from "./model-auth.js";
+import { emitAgentEvent } from "../infra/agent-events.js";
 import { wrapToolWithAbortSignal } from "./pi-tools.abort.js";
 import { wrapToolWithBeforeToolCallHook } from "./pi-tools.before-tool-call.js";
 import {
@@ -138,6 +139,8 @@ export function createMarketBotCodingTools(options?: {
   messageThreadId?: string | number;
   sandbox?: SandboxContext | null;
   sessionKey?: string;
+  /** Optional run id for emitting policy/trace events. */
+  runId?: string;
   agentDir?: string;
   workspaceDir?: string;
   config?: MarketBotConfig;
@@ -456,5 +459,35 @@ export function createMarketBotCodingTools(options?: {
   // NOTE: Keep canonical (lowercase) tool names here.
   // pi-ai's Anthropic OAuth transport remaps tool names to Claude Code-style names
   // on the wire and maps them back for tool dispatch.
+  const runId = options?.runId?.trim();
+  if (runId) {
+    try {
+      emitAgentEvent({
+        runId,
+        sessionKey: options?.sessionKey,
+        stream: "policy",
+        data: {
+          phase: "tools_resolved",
+          toolCount: withAbort.length,
+          tools: withAbort.map((tool) => tool.name),
+          profile: profile ?? null,
+          providerProfile: providerProfile ?? null,
+          sandboxEnabled: Boolean(sandbox?.enabled),
+          selectedPolicies: {
+            global: globalPolicyExpanded ?? null,
+            globalProvider: globalProviderExpanded ?? null,
+            agent: agentPolicyExpanded ?? null,
+            agentProvider: agentProviderExpanded ?? null,
+            group: groupPolicyExpanded ?? null,
+            sandbox: sandboxPolicyExpanded ?? null,
+            subagent: subagentPolicyExpanded ?? null,
+          },
+        },
+      });
+    } catch {
+      // never block tool creation on trace/policy emission
+    }
+  }
+
   return withAbort;
 }

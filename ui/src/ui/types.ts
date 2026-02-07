@@ -543,3 +543,28 @@ export type LogEntry = {
   message?: string | null;
   meta?: Record<string, unknown> | null;
 };
+
+export type TraceRunMeta = {
+  runId: string;
+  sessionKey?: string;
+  createdAtMs: number;
+  startedAtMs: number | null;
+  endedAtMs: number | null;
+  lastEventAtMs: number;
+  status: "running" | "ended";
+  streams: Record<string, number>;
+  toolCalls: number;
+  toolErrors: number;
+};
+
+export type TraceRunEvent = {
+  type: "agent";
+  runId: string;
+  sourceRunId?: string;
+  clientRunId?: string;
+  sessionKey?: string;
+  seq: number;
+  stream: string;
+  ts: number;
+  data: Record<string, unknown>;
+};

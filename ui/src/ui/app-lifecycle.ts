@@ -12,6 +12,8 @@ import { observeTopbar, scheduleChatScroll, scheduleLogsScroll } from "./app-scr
 import {
   startLogsPolling,
   stopLogsPolling,
+  startRunsPolling,
+  stopRunsPolling,
 } from "./app-polling";
 
 type LifecycleHost = {
@@ -25,6 +27,8 @@ type LifecycleHost = {
   logsAutoFollow: boolean;
   logsAtBottom: boolean;
   logsEntries: unknown[];
+  runsPollInterval: number | null;
+  logsPollInterval: number | null;
   popStateHandler: () => void;
   topbarObserver: ResizeObserver | null;
 };
@@ -49,6 +53,9 @@ export function handleConnected(host: LifecycleHost) {
   if (host.tab === "logs") {
     startLogsPolling(host as unknown as Parameters<typeof startLogsPolling>[0]);
   }
+  if (host.tab === "runs") {
+    startRunsPolling(host as unknown as Parameters<typeof startRunsPolling>[0]);
+  }
 }
 
 export function handleFirstUpdated(host: LifecycleHost) {
@@ -58,6 +65,7 @@ export function handleFirstUpdated(host: LifecycleHost) {
 export function handleDisconnected(host: LifecycleHost) {
   window.removeEventListener("popstate", host.popStateHandler);
   stopLogsPolling(host as unknown as Parameters<typeof stopLogsPolling>[0]);
+  stopRunsPolling(host as unknown as Parameters<typeof stopRunsPolling>[0]);
   detachThemeListener(
     host as unknown as Parameters<typeof detachThemeListener>[0],
   );

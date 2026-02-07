@@ -8,7 +8,7 @@ export const TAB_GROUPS = [
   },
   {
     label: "Ops",
-    tabs: ["channels", "sessions", "cron", "logs"],
+    tabs: ["channels", "sessions", "cron", "runs", "logs"],
   },
   { label: "Research", tabs: ["chat"] },
   { label: "Settings", tabs: ["overview"] },
@@ -21,6 +21,7 @@ export type Tab =
   | "channels"
   | "sessions"
   | "cron"
+  | "runs"
   | "chat"
   | "logs";
 
@@ -31,6 +32,7 @@ const TAB_PATHS: Record<Tab, string> = {
   channels: "/channels",
   sessions: "/sessions",
   cron: "/cron",
+  runs: "/runs",
   chat: "/chat",
   logs: "/logs",
 };
@@ -114,6 +116,8 @@ export function iconForTab(tab: Tab): IconName {
       return "fileText";
     case "cron":
       return "loader";
+    case "runs":
+      return "activity";
     case "logs":
       return "scrollText";
     default:
@@ -135,6 +139,8 @@ export function titleForTab(tab: Tab) {
       return "Sessions";
     case "cron":
       return "Cron Jobs";
+    case "runs":
+      return "Runs";
     case "chat":
       return "Chat";
     case "logs":
@@ -158,6 +164,8 @@ export function subtitleForTab(tab: Tab) {
       return "Inspect active sessions and adjust per-session defaults.";
     case "cron":
       return "Schedule wakeups and recurring agent runs.";
+    case "runs":
+      return "Traceable and replayable run graphs (tools, policies, and lifecycle).";
     case "chat":
       return "Direct gateway chat session for quick interventions.";
     case "logs":
