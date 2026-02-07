@@ -186,8 +186,16 @@ function parseMessageContent(content: string, messageType: string): string {
 function checkBotMentioned(event: FeishuMessageEvent, botOpenId?: string): boolean {
   const mentions = event.message.mentions ?? [];
   if (mentions.length === 0) return false;
-  if (!botOpenId) return mentions.length > 0;
-  return mentions.some((m) => m.id.open_id === botOpenId);
+  if (!botOpenId) return true;
+
+  // Prefer a strict open_id match when available.
+  if (mentions.some((m) => m.id.open_id === botOpenId)) return true;
+
+  // Some tenants/clients omit open_id in the mentions payload. In those cases,
+  // the mention "key" often still contains an identifier we can match against.
+  if (mentions.some((m) => typeof m.key === "string" && m.key.includes(botOpenId))) return true;
+
+  return false;
 }
 
 function stripBotMention(text: string, mentions?: FeishuMessageEvent["message"]["mentions"]): string {
@@ -517,7 +525,9 @@ export async function handleFeishuMessage(params: {
 
     if (now - lastNotified > PERMISSION_ERROR_COOLDOWN_MS) {
       permissionErrorNotifiedAt.set(appKey, now);
-      permissionErrorForAgent = senderResult.permissionError;
+      // Sender name lookup isn't required for replying. Avoid spamming the user with
+      // admin permission grant links for an optional feature.
+      permissionErrorForAgent = undefined;
     }
   }
 

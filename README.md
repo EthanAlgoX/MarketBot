@@ -105,7 +105,8 @@ MarketBot works out-of-the-box with **Qwen3-0.6B** via Ollama.
 pnpm start
 ```
 
-### Manual Local LLM Setup
+<details>
+<summary>Manual Local LLM Setup (Click to expand)</summary>
 
 If you prefer to set up manually:
 
@@ -113,6 +114,8 @@ If you prefer to set up manually:
 2. **Pull Model**: `ollama pull qwen3:0.6b` (or any other model you prefer).
 3. **Configure**: Copy `marketbot.json.example` to `marketbot.json`.
 4. **Start**: `pnpm start`.
+
+</details>
 
 ### configuration
 
@@ -228,7 +231,133 @@ Available channels (built-in + extensions):
 | Zalo | Extension | Zalo OA |
 | Zalo Personal | Extension | personal Zalo bridge |
 
-CLI examples (dev/automation):
+## IM Platform Setup
+
+<details>
+<summary><b>Feishu/Lark (飞书)</b></summary>
+
+### 1. Create App & Get Credentials
+
+1. Go to [Feishu Open Platform](https://open.feishu.cn/) -> Create Custom App.
+2. Add capability: **Bot**.
+3. Get **App ID** and **App Secret**.
+4. Enable Permissions (see below).
+5. Configure Event Subscription (see below).
+
+### 2. Required Permissions
+
+| Permission | Scope | Reason |
+|---|---|---|
+| `contact:user.base:readonly` | User Info | Parse sender names |
+| `contact:contact.base:readonly` | Contacts | Basic info |
+| `im:message` | Message | Send/Receive |
+| `im:message.p2p_msg:readonly` | Private | Read DMs |
+| `im:message.group_at_msg:readonly` | Group | Read @bot messages |
+| `im:message:send_as_bot` | Send | Send as bot |
+| `im:resource` | Media | Upload/Download files |
+
+### 3. Event Subscription (Crucial!)
+
+1. Go to **Event Subscriptions**.
+2. Encrypt Key / Verification Token are optional but recommended.
+3. Add events:
+   - `im.message.receive_v1` (Receive messages)
+   - `im.chat.member.bot.added_v1`
+   - `im.chat.member.bot.deleted_v1`
+4. Apply for publication and version release.
+
+### 4. Configuration (`marketbot.json`)
+
+```json
+"channels": {
+  "feishu": {
+    "enabled": true,
+    "appId": "cli_...",        // or "${FEISHU_APP_ID}"
+    "appSecret": "..."         // or "${FEISHU_APP_SECRET}"
+    // "encryptKey": "...",    // Optional
+    // "verificationToken": "..." // Optional
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>DingTalk (钉钉)</b></summary>
+
+### 1. Create App
+
+1. Go to [DingTalk Developer](https://open-dev.dingtalk.com/).
+2. Create **Internal App**.
+3. Add **Bot** capability.
+4. Set Message Receive Mode to **Stream Mode**.
+5. Publish.
+
+### 2. Configuration (`marketbot.json`)
+
+```json
+"channels": {
+  "dingtalk": {
+    "enabled": true,
+    "clientId": "...",     // AppKey
+    "clientSecret": "..."  // AppSecret
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>QQ Bot (QQ 机器人)</b></summary>
+
+### 1. Create App
+
+1. Go to [QQ Open Platform](https://q.qq.com/).
+2. Create Bot App.
+3. Get **AppID** and **AppSecret**.
+4. Configure IP Whitelist for your server.
+
+### 2. Configuration (`marketbot.json`)
+
+```json
+"channels": {
+  "qqbot": {
+    "enabled": true,
+    "appId": "...",
+    "secret": "..."
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>WeCom (企业微信)</b></summary>
+
+### 1. Create App
+
+1. Go to [WeCom Admin](https://work.weixin.qq.com/).
+2. Create "Self-built" App.
+3. Enable API for Bot.
+4. Set Token and EncodingAESKey.
+5. Set URL to `http://your-server/webhooks/wecom` (requires public IP).
+
+### 2. Configuration (`marketbot.json`)
+
+```json
+"channels": {
+  "wecom": {
+    "enabled": true,
+    "corpId": "...",
+    "agentId": "...",
+    "secret": "...",
+    "token": "...",
+    "encodingAesKey": "..."
+  }
+}
+```
+
+</details>
 
 ```bash
 pnpm -s marketbot channels list
