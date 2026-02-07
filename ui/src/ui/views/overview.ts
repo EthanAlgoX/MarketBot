@@ -2,6 +2,40 @@ import { html } from "lit";
 
 import type { UiSettings } from "../storage";
 
+function guessGatewayWebSocketUrlFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  const host = window.location.host;
+  if (!host) return null;
+  const wsScheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${wsScheme}//${host}`;
+}
+
+async function copyToClipboard(text: string) {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch {
+    // Fall back below.
+  }
+
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-1000px";
+    ta.style.top = "-1000px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  } catch (err) {
+    console.warn("Clipboard copy failed", err);
+  }
+}
+
 export type OverviewProps = {
   connected: boolean;
   settings: UiSettings;
@@ -15,6 +49,74 @@ export type OverviewProps = {
 };
 
 export function renderOverview(props: OverviewProps) {
+  const remoteControl = (() => {
+    if (typeof window === "undefined") return null;
+    const token = props.settings.token.trim();
+    const session =
+      props.settings.lastActiveSessionKey?.trim() || props.settings.sessionKey.trim();
+
+    const shareUrl = new URL(window.location.href);
+    shareUrl.hash = "";
+    shareUrl.search = "";
+    if (token) shareUrl.searchParams.set("token", token);
+    if (session) shareUrl.searchParams.set("session", session);
+    const wsUrl = guessGatewayWebSocketUrlFromLocation();
+    if (wsUrl) shareUrl.searchParams.set("gatewayUrl", wsUrl);
+
+    const hostname = shareUrl.hostname;
+    const isLoopback =
+      hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
+
+    return html`
+      <section class="card">
+        <div class="card-title">Mobile Remote Control</div>
+        <div class="card-sub">
+          Open this link on your phone to control the same gateway. The URL can include a token.
+        </div>
+
+        <div class="form-grid" style="margin-top: 16px;">
+          <label class="field" style="grid-column: 1 / -1;">
+            <span>Share Link</span>
+            <input class="mono" readonly .value=${shareUrl.toString()} />
+          </label>
+        </div>
+
+        <div class="row" style="margin-top: 14px;">
+          <button
+            class="btn"
+            @click=${async () => copyToClipboard(shareUrl.toString())}
+            title="Copy share link"
+          >
+            Copy Link
+          </button>
+          <span class="muted">
+            ${token
+              ? "Treat this link like a password."
+              : "No token in URL. If your gateway requires auth, paste a Gateway Token first."}
+          </span>
+        </div>
+
+        ${isLoopback
+          ? html`<div class="callout warn" style="margin-top: 14px;">
+              This link points at <span class="mono">${hostname}</span>, which a phone cannot reach
+              unless it is the same device. Use HTTPS (Tailscale Serve) to expose the Control UI,
+              then re-open this page on that HTTPS URL and copy again.
+              <div style="margin-top: 6px;">
+                <a
+                  class="session-link"
+                  href="https://docs.marketbot.ai/gateway/tailscale"
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Tailscale Serve docs (opens in new tab)"
+                  >Docs: Tailscale Serve</a
+                >
+              </div>
+            </div>`
+          : ""}
+      </section>
+    `;
+  })();
+
   const authHint = (() => {
     if (props.connected || !props.lastError) return null;
     const lower = props.lastError.toLowerCase();
@@ -173,5 +275,7 @@ export function renderOverview(props: OverviewProps) {
             Use Desk and Stocks for finance workflows. Use Ops for delivery and scheduling.
           </div>`}
     </section>
+
+    ${remoteControl ?? ""}
   `;
 }
