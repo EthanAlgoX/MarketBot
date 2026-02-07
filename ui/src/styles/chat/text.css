@@ -52,13 +52,15 @@
 }
 
 .chat-text :where(code) {
-  font-family: var(--mono);
-  font-size: 0.9em;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--accent-cyan);
 }
 
 .chat-text :where(:not(pre) > code) {
-  background: rgba(0, 0, 0, 0.15);
-  padding: 0.15em 0.4em;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-subtle);
+  padding: 0.2em 0.4em;
   border-radius: 4px;
 }
 
@@ -75,11 +77,11 @@
 }
 
 .chat-text :where(blockquote) {
-  border-left: 3px solid var(--border-strong);
+  border-left: 2px solid var(--accent-blue);
   padding-left: 12px;
   margin-left: 0;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  background: rgba(0, 136, 255, 0.05);
   padding: 8px 12px;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
