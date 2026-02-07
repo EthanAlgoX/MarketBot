@@ -237,7 +237,13 @@ export function createFinanceTool(): AnyAgentTool {
           return jsonResult(result);
         }
         case "news": {
-          const query = readStringParam(params, "query", { required: true });
+          // Models sometimes provide `symbol` when asking for asset-related news.
+          // Accept `symbol` as a fallback to keep the tool forgiving.
+          const symbol = readStringParam(params, "symbol");
+          const query = readStringParam(params, "query") ?? symbol ?? "";
+          if (!query.trim()) {
+            throw new Error("news requires query or symbol");
+          }
           const limit = readNumberParam(params, "limit", { integer: true });
           const locale = readStringParam(params, "locale");
           const items = await client.getNews({ query, limit, locale });
