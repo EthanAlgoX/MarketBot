@@ -138,7 +138,9 @@ async function pruneNoisyTabs(profile?: string) {
   const toClose: string[] = [];
   for (const tab of tabs) {
     const url = tab.url?.trim() ?? "";
-    if (/^https?:\/\/example\.com\//i.test(url)) {
+    // Tests and some Chrome builds can leave "Example Domain" tabs around. Those are
+    // unhelpful for finance fetch flows and can confuse "last active tab" behavior.
+    if (/^https?:\/\/example\.com(?:\/|$)/i.test(url)) {
       toClose.push(tab.targetId);
       continue;
     }

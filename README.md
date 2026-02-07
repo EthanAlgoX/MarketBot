@@ -4,7 +4,11 @@
 
 # MarketBot
 
-Finance-first autonomous agent for market research and multi-channel delivery, with a built-in browser for data capture, a Web Control UI (Finance Desk), and a TUI for local file and workflow analysis.
+Finance-first autonomous agent for market research and multi-channel delivery.
+
+MarketBot is designed around 2 primary surfaces:
+- Web Control UI (Finance Desk): daily stocks, research chat, and delivery ops
+- TUI: local file analysis and interactive workflows
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
@@ -12,43 +16,65 @@ Finance-first autonomous agent for market research and multi-channel delivery, w
 
 ![Demo video](docs/video.gif)
 
-## TL;DR
+## What MarketBot Does
 
-MarketBot runs a local Gateway that serves:
+- Turns market context into repeatable analysis.
+- Fetches data via a built-in browser profile (preferred data path) for robustness and reproducibility.
+- Produces research-style markdown outputs (briefs, decision dashboards).
+- Delivers results to chat channels and scheduled runs.
 
-- Web Control UI: Desk, Stocks, Ops (Channels, Sessions, Cron, Logs), Research Chat
-- Finance engine: Daily Stocks decision dashboards and research-style notes, browser-backed data capture
-- Multi-channel delivery: built-in channels and optional extensions (including China IM plugins)
-- TUI: interactive slash-command workflows and local file summaries
+## Core Features
 
-## Positioning
-
-MarketBot turns live market context into repeatable finance analysis and delivers it where you work (chat channels, dashboards, scheduled runs).
-
-- Built-in browser data capture: fetch market pages/endpoints through MarketBot's managed browser profile
-- Finance outputs: decision dashboards plus research-style markdown reports
-- Portfolio math: risk metrics, correlations, and optimization
-- Agent research: browse and summarize with explicit assumptions and invalidation
+- Daily Stocks: watchlist-driven, repeatable daily analysis with decision dashboards and report output
+- Research Chat: browse, capture sources, and write memo-like summaries (finance tone)
+- Portfolio analytics: risk, correlation, optimization, and comparisons
+- File analysis: summarize local CSV/JSON/PDF and generate finance-style notes
 - Delivery ops: connect channels, inspect sessions, schedule cron, tail logs
+- Multi-channel delivery: built-in channels plus optional extensions (including China IM plugins)
 
-## China IM Channels (Extensions)
+## Functional Design
 
-MarketBot supports common China IM surfaces via optional channel extensions in `extensions/*`:
+MarketBot is structured as a local Gateway that exposes finance + ops capabilities to both Web UI and TUI.
 
-- DingTalk (钉钉, Stream mode)
-- WeCom (企业微信, secure webhook AES + signature)
-- QQ Bot (QQ 机器人, Gateway WebSocket + REST)
-
-You can inspect/enable them via:
-
-```bash
-pnpm -s marketbot plugins list
-pnpm -s marketbot plugins enable dingtalk
-pnpm -s marketbot plugins enable wecom
-pnpm -s marketbot plugins enable qqbot
+```mermaid
+flowchart LR
+  U["You (Web UI / TUI)"] --> G["Gateway"]
+  G --> B["Built-in Browser (profile: marketbot)"]
+  G --> F["Finance Engine (Daily Stocks, reports, risk)"]
+  G --> O["Ops (Channels, Sessions, Cron, Logs)"]
+  G --> D["Delivery (built-in + extensions)"]
+  B --> F
+  F --> D
 ```
 
-Feishu (飞书) is a common target and supported in related deployments; this repo focuses on the extensions above.
+Key design choices:
+- Browser-first data capture: market endpoints and pages are fetched through a managed browser to reduce request blocking and to keep capture behavior consistent.
+- Report outputs: primary outputs are markdown reports intended to read like research notes.
+- Separation of concerns: finance calculations are deterministic; agent writing and summarization is layered on top.
+- Delivery is explicit: connect a channel, verify status, then send or schedule.
+
+## Daily Stocks (Design)
+
+Daily Stocks is a first-class workflow (think: a built-in skill).
+
+Inputs:
+- Watchlist (one symbol per line)
+- Timeframe
+- Report mode (simple/full)
+- Optional fundamentals toggle
+
+Outputs:
+- Decision dashboard summary
+- Research-style markdown report per symbol
+- Persisted "last run" snapshot for the Desk
+
+## Research + File Analysis (Design)
+
+Research is optimized for "browse, capture, synthesize" with citations and clear assumptions.
+
+File analysis supports local datasets:
+- CSV/JSON: quick schema + anomalies + key stats
+- PDFs: extract relevant sections and summarize for finance use cases
 
 ## Quick Start (Dev)
 
@@ -61,7 +87,7 @@ pnpm install
 pnpm build
 ```
 
-Initialize config/workspace:
+Initialize config/workspace (dev-friendly):
 
 ```bash
 pnpm -s marketbot setup
@@ -95,23 +121,7 @@ If your config is not yet set up for local mode, either run `setup/onboard` or e
 pnpm -s marketbot config set gateway.mode local
 ```
 
-## Daily Stocks (Web Control UI)
-
-Use Desk and Stocks for watchlists and daily runs.
-
-- Watchlist: one symbol per line (US, A-share, HK)
-- Daily Run: timeframe + report type (simple/full) + fundamentals toggle
-- Report: research-style markdown output
-
-## Research Chat (Web Control UI)
-
-Use Chat for investigation workflows:
-
-- Browse and capture sources with the built-in browser profile (`marketbot`)
-- Attach local files (CSV/JSON/PDF) and ask for a finance-style summary
-- Produce a memo-like report suitable for sharing in channels
-
-### Symbol Conventions (Yahoo-backed)
+## Symbol Conventions (Yahoo-backed, browser-fetched)
 
 - US equities: `AAPL`, `NVDA`
 - China A-share: `600519` (auto-normalizes to `600519.SS`), `000001` (auto-normalizes to `000001.SZ`)
@@ -145,6 +155,21 @@ pnpm -s marketbot tui --url ws://127.0.0.1:18789 --token test-token --message "/
 pnpm -s marketbot channels list
 pnpm -s marketbot channels status --probe
 pnpm -s marketbot message send --channel telegram --target @your_chat --message "Hello"
+```
+
+Extensions (plugins) live under `extensions/*`, including common China IM channels:
+
+- DingTalk (钉钉)
+- WeCom (企业微信)
+- QQ Bot (QQ 机器人)
+
+Enable via:
+
+```bash
+pnpm -s marketbot plugins list
+pnpm -s marketbot plugins enable dingtalk
+pnpm -s marketbot plugins enable wecom
+pnpm -s marketbot plugins enable qqbot
 ```
 
 ## CLI (Optional)
