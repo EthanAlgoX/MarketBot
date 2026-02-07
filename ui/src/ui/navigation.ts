@@ -1,4 +1,5 @@
 import type { IconName } from "./icons.js";
+import type { UiLanguage } from "./storage";
 
 export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] },
@@ -10,7 +11,6 @@ export const TAB_GROUPS = [
     label: "Control",
     tabs: ["overview", "channels", "sessions", "cron", "logs"],
   },
-  { label: "Settings", tabs: ["logs"] },
 ] as const;
 
 export type Tab =
@@ -125,51 +125,67 @@ export function iconForTab(tab: Tab): IconName {
 }
 
 export function titleForTab(tab: Tab) {
-  switch (tab) {
-    case "desk":
-      return "Desk";
-    case "overview":
-      return "Connection";
-    case "stocks":
-      return "Stocks";
-    case "channels":
-      return "Channels";
-    case "sessions":
-      return "Sessions";
-    case "cron":
-      return "Cron Jobs";
-    case "runs":
-      return "Runs";
-    case "chat":
-      return "Chat";
-    case "logs":
-      return "Logs";
-    default:
-      return "Control";
-  }
+  return titleForTabWithLanguage(tab, "en");
+}
+
+export function titleForTabWithLanguage(tab: Tab, language: UiLanguage) {
+  const titles: Record<UiLanguage, Record<Tab, string>> = {
+    en: {
+      desk: "Desk",
+      overview: "Connection",
+      stocks: "Stocks",
+      channels: "Channels",
+      sessions: "Sessions",
+      cron: "Cron Jobs",
+      runs: "Runs",
+      chat: "Chat",
+      logs: "Logs",
+    },
+    zh: {
+      desk: "工作台",
+      overview: "连接",
+      stocks: "股票",
+      channels: "渠道",
+      sessions: "会话",
+      cron: "定时任务",
+      runs: "运行记录",
+      chat: "对话",
+      logs: "日志",
+    },
+  };
+  const resolved = titles[language] ?? titles.en;
+  return resolved[tab] ?? titles.en[tab] ?? "Control";
 }
 
 export function subtitleForTab(tab: Tab) {
-  switch (tab) {
-    case "desk":
-      return "Daily stocks, research workflows, and delivery operations.";
-    case "overview":
-      return "Gateway URL, token, and session defaults for this browser.";
-    case "stocks":
-      return "Watchlists, decision dashboards, and daily research notes.";
-    case "channels":
-      return "Manage channels and settings.";
-    case "sessions":
-      return "Inspect active sessions and adjust per-session defaults.";
-    case "cron":
-      return "Schedule wakeups and recurring agent runs.";
-    case "runs":
-      return "Traceable and replayable run graphs (tools, policies, and lifecycle).";
-    case "chat":
-      return "Direct gateway chat session for quick interventions.";
-    case "logs":
-      return "Live tail of the gateway file logs.";
-    default:
-      return "";
-  }
+  return subtitleForTabWithLanguage(tab, "en");
+}
+
+export function subtitleForTabWithLanguage(tab: Tab, language: UiLanguage) {
+  const subtitles: Record<UiLanguage, Record<Tab, string>> = {
+    en: {
+      desk: "Daily stocks, research workflows, and delivery operations.",
+      overview: "Gateway URL, token, and session defaults for this browser.",
+      stocks: "Watchlists, decision dashboards, and daily research notes.",
+      channels: "Manage channels and settings.",
+      sessions: "Inspect active sessions and adjust per-session defaults.",
+      cron: "Schedule wakeups and recurring agent runs.",
+      runs: "Traceable and replayable run graphs (tools, policies, and lifecycle).",
+      chat: "Direct gateway chat session for quick interventions.",
+      logs: "Live tail of the gateway file logs.",
+    },
+    zh: {
+      desk: "每日股票、研究流程与交付操作。",
+      overview: "本浏览器的网关地址、令牌与默认会话。",
+      stocks: "观察列表、决策面板与每日研究记录。",
+      channels: "管理渠道与配置。",
+      sessions: "查看会话并调整每个会话的默认设置。",
+      cron: "安排唤醒与定时运行。",
+      runs: "可追踪可回放的运行图谱。",
+      chat: "用于快速干预的网关对话。",
+      logs: "实时查看网关日志。",
+    },
+  };
+  const resolved = subtitles[language] ?? subtitles.en;
+  return resolved[tab] ?? subtitles.en[tab] ?? "";
 }

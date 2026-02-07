@@ -8,8 +8,10 @@ import {
   normalizePath,
   pathForTab,
   subtitleForTab,
+  subtitleForTabWithLanguage,
   tabFromPath,
   titleForTab,
+  titleForTabWithLanguage,
   type Tab,
 } from "./navigation";
 
@@ -33,13 +35,8 @@ describe("iconForTab", () => {
     expect(iconForTab("runs")).toBe("activity");
     expect(iconForTab("overview")).toBe("settings");
     expect(iconForTab("channels")).toBe("link");
-    expect(iconForTab("instances")).toBe("radio");
     expect(iconForTab("sessions")).toBe("fileText");
     expect(iconForTab("cron")).toBe("loader");
-    expect(iconForTab("skills")).toBe("zap");
-    expect(iconForTab("nodes")).toBe("monitor");
-    expect(iconForTab("config")).toBe("settings");
-    expect(iconForTab("debug")).toBe("bug");
     expect(iconForTab("logs")).toBe("scrollText");
   });
 
@@ -63,8 +60,11 @@ describe("titleForTab", () => {
     expect(titleForTab("chat")).toBe("Chat");
     expect(titleForTab("overview")).toBe("Connection");
     expect(titleForTab("cron")).toBe("Cron Jobs");
-    expect(titleForTab("instances")).toBe("Instances");
-    expect(titleForTab("config")).toBe("Config");
+  });
+
+  it("returns localized titles", () => {
+    expect(titleForTabWithLanguage("chat", "zh")).toBe("对话");
+    expect(titleForTabWithLanguage("logs", "zh")).toBe("日志");
   });
 });
 
@@ -79,7 +79,10 @@ describe("subtitleForTab", () => {
   it("returns descriptive subtitles", () => {
     expect(subtitleForTab("chat")).toContain("gateway chat");
     expect(subtitleForTab("overview")).toContain("Gateway URL");
-    expect(subtitleForTab("config")).toContain("configuration");
+  });
+
+  it("returns localized subtitles", () => {
+    expect(subtitleForTabWithLanguage("chat", "zh")).toContain("网关");
   });
 });
 
@@ -185,8 +188,6 @@ describe("TAB_GROUPS", () => {
     expect(labels).toContain("Chat");
     expect(labels).toContain("Finance");
     expect(labels).toContain("Control");
-    expect(labels).toContain("Agent");
-    expect(labels).toContain("Settings");
   });
 
   it("all tabs are unique", () => {

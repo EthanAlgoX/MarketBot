@@ -23,19 +23,20 @@ import type {
   SkillStatusReport,
   StatusSummary,
   NostrProfile,
-  DailyStockRunResult,
-  TraceRunEvent,
   TraceRunMeta,
+  TraceRunEvent,
+  DailyStockRunResult,
 } from "./types";
 import { type ChatAttachment, type ChatQueueItem, type CronFormState } from "./ui-types";
 import type { EventLogEntry } from "./app-events";
 import { DEFAULT_CRON_FORM, DEFAULT_LOG_LEVEL_FILTERS } from "./app-defaults";
+
 import type {
   ExecApprovalsFile,
   ExecApprovalsSnapshot,
 } from "./controllers/exec-approvals";
-import type { DevicePairingList } from "./controllers/devices";
 import type { ExecApprovalRequest } from "./controllers/exec-approval";
+
 import {
   resetToolStream as resetToolStreamInternal,
   type ToolStreamEntry,
@@ -80,12 +81,13 @@ import {
   handleWhatsAppWait as handleWhatsAppWaitInternal,
 } from "./app-channels";
 import type { NostrProfileFormState } from "./views/channels.nostr-profile-form";
-import { loadAssistantIdentity as loadAssistantIdentityInternal } from "./controllers/assistant-identity";
 import {
   loadStocks as loadStocksInternal,
   runStocks as runStocksInternal,
   saveStocksWatchlist as saveStocksWatchlistInternal,
 } from "./controllers/stocks";
+
+import { loadAssistantIdentity as loadAssistantIdentityInternal } from "./controllers/assistant-identity";
 
 declare global {
   interface Window {
@@ -143,20 +145,14 @@ export class MarketBotApp extends LitElement {
   @state() sidebarContent: string | null = null;
   @state() sidebarError: string | null = null;
   @state() splitRatio = this.settings.splitRatio;
+  @state() runId: string | null = null;
 
-  @state() nodesLoading = false;
-  @state() nodes: Array<Record<string, unknown>> = [];
-  @state() devicesLoading = false;
-  @state() devicesError: string | null = null;
-  @state() devicesList: DevicePairingList | null = null;
   @state() execApprovalsLoading = false;
   @state() execApprovalsSaving = false;
   @state() execApprovalsDirty = false;
   @state() execApprovalsSnapshot: ExecApprovalsSnapshot | null = null;
   @state() execApprovalsForm: ExecApprovalsFile | null = null;
   @state() execApprovalsSelectedAgent: string | null = null;
-  @state() execApprovalsTarget: "gateway" | "node" = "gateway";
-  @state() execApprovalsTargetNodeId: string | null = null;
   @state() execApprovalQueue: ExecApprovalRequest[] = [];
   @state() execApprovalBusy = false;
   @state() execApprovalError: string | null = null;
@@ -195,10 +191,7 @@ export class MarketBotApp extends LitElement {
   @state() nostrProfileFormState: NostrProfileFormState | null = null;
   @state() nostrProfileAccountId: string | null = null;
 
-  @state() presenceLoading = false;
-  @state() presenceEntries: PresenceEntry[] = [];
-  @state() presenceError: string | null = null;
-  @state() presenceStatus: string | null = null;
+
 
   @state() agentsLoading = false;
   @state() agentsList: AgentsListResult | null = null;
@@ -221,23 +214,7 @@ export class MarketBotApp extends LitElement {
   @state() cronRuns: CronRunLogEntry[] = [];
   @state() cronBusy = false;
 
-  @state() skillsLoading = false;
-  @state() skillsReport: SkillStatusReport | null = null;
-  @state() skillsError: string | null = null;
-  @state() skillsFilter = "";
-  @state() skillEdits: Record<string, string> = {};
-  @state() skillsBusyKey: string | null = null;
-  @state() skillMessages: Record<string, SkillMessage> = {};
 
-  @state() debugLoading = false;
-  @state() debugStatus: StatusSummary | null = null;
-  @state() debugHealth: HealthSnapshot | null = null;
-  @state() debugModels: unknown[] = [];
-  @state() debugHeartbeat: unknown | null = null;
-  @state() debugCallMethod = "";
-  @state() debugCallParams = "{}";
-  @state() debugCallResult: string | null = null;
-  @state() debugCallError: string | null = null;
 
   @state() logsLoading = false;
   @state() logsError: string | null = null;
@@ -283,10 +260,6 @@ export class MarketBotApp extends LitElement {
   private chatScrollTimeout: number | null = null;
   private chatHasAutoScrolled = false;
   private chatUserNearBottom = true;
-  private nodesPollInterval: number | null = null;
-  private logsPollInterval: number | null = null;
-  private runsPollInterval: number | null = null;
-  private debugPollInterval: number | null = null;
   private logsScrollFrame: number | null = null;
   private toolStreamById = new Map<string, ToolStreamEntry>();
   private toolStreamOrder: string[] = [];
@@ -384,6 +357,18 @@ export class MarketBotApp extends LitElement {
     );
   }
 
+  setPassword(next: string) {
+    this.password = next;
+  }
+
+  setSessionKey(next: string) {
+    this.sessionKey = next;
+  }
+
+  setChatMessage(next: string) {
+    this.chatMessage = next;
+  }
+
   async loadOverview() {
     await loadOverviewInternal(
       this as unknown as Parameters<typeof loadOverviewInternal>[0],
@@ -427,6 +412,22 @@ export class MarketBotApp extends LitElement {
     );
   }
 
+  handleChatSelectQueueItem(id: string) {
+    const item = this.chatQueue.find((i) => i.id === id);
+    if (!item) return;
+    this.chatMessage = item.text;
+    this.chatAttachments = item.attachments ?? [];
+    this.removeQueuedMessage(id);
+  }
+
+  handleChatDropQueueItem(id: string) {
+    this.removeQueuedMessage(id);
+  }
+
+  handleChatClearQueue() {
+    this.chatQueue = [];
+  }
+
   async handleSendChat(
     messageOverride?: string,
     opts?: Parameters<typeof handleSendChatInternal>[2],
@@ -448,6 +449,21 @@ export class MarketBotApp extends LitElement {
 
   async handleWhatsAppLogout() {
     await handleWhatsAppLogoutInternal(this);
+  }
+
+  handleLogsFilterChange(text: string) {
+    this.logsFilterText = text;
+  }
+
+  handleLogsLevelFilterToggle(level: LogLevel) {
+    this.logsLevelFilters = {
+      ...this.logsLevelFilters,
+      [level]: !this.logsLevelFilters[level],
+    };
+  }
+
+  handleLogsAutoFollowToggle() {
+    this.logsAutoFollow = !this.logsAutoFollow;
   }
 
   async handleChannelConfigSave() {

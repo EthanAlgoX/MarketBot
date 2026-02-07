@@ -2,7 +2,8 @@ import { html } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 
 import type { AppViewState } from "./app-view-state";
-import { iconForTab, pathForTab, titleForTab, type Tab } from "./navigation";
+import { iconForTab, pathForTab, titleForTabWithLanguage, type Tab } from "./navigation";
+import type { UiLanguage } from "./storage";
 import { icons } from "./icons";
 import { loadChatHistory } from "./controllers/chat";
 import { refreshChat } from "./app-chat";
@@ -12,6 +13,8 @@ import type { ThemeMode } from "./theme";
 import type { ThemeTransitionContext } from "./theme-transition";
 
 export function renderTab(state: AppViewState, tab: Tab) {
+  const language = state.settings.language ?? "en";
+  const title = titleForTabWithLanguage(tab, language);
   const href = pathForTab(tab, state.basePath);
   return html`
     <a
@@ -31,10 +34,10 @@ export function renderTab(state: AppViewState, tab: Tab) {
         event.preventDefault();
         state.setTab(tab);
       }}
-      title=${titleForTab(tab)}
+      title=${title}
     >
       <span class="nav-item__icon" aria-hidden="true">${icons[iconForTab(tab)]}</span>
-      <span class="nav-item__text">${titleForTab(tab)}</span>
+      <span class="nav-item__text">${title}</span>
     </a>
   `;
 }
@@ -257,6 +260,43 @@ export function renderThemeToggle(state: AppViewState) {
           title="Dark"
         >
           ${renderMoonIcon()}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+const LANGUAGE_ORDER: UiLanguage[] = ["en", "zh"];
+
+export function renderLanguageToggle(state: AppViewState) {
+  const language = state.settings.language ?? "en";
+  const index = Math.max(0, LANGUAGE_ORDER.indexOf(language));
+  const applyLanguage = (next: UiLanguage) => () => {
+    if (next === language) return;
+    state.applySettings({ ...state.settings, language: next });
+  };
+
+  return html`
+    <div class="lang-toggle" style="--lang-index: ${index};">
+      <div class="lang-toggle__track" role="group" aria-label="Language">
+        <span class="lang-toggle__indicator"></span>
+        <button
+          class="lang-toggle__button ${language === "en" ? "active" : ""}"
+          @click=${applyLanguage("en")}
+          aria-pressed=${language === "en"}
+          aria-label="English"
+          title="English"
+        >
+          EN
+        </button>
+        <button
+          class="lang-toggle__button ${language === "zh" ? "active" : ""}"
+          @click=${applyLanguage("zh")}
+          aria-pressed=${language === "zh"}
+          aria-label="Chinese"
+          title="中文"
+        >
+          中文
         </button>
       </div>
     </div>
