@@ -6,6 +6,7 @@
 
 import {
   browserCloseTab,
+  browserFocusTab,
   browserOpenTab,
   browserStart,
   browserStatus,
@@ -125,6 +126,42 @@ async function fetchContentViaCdp(opts: {
   }
 }
 
+async function pruneNoisyTabs(profile?: string) {
+  // The managed "marketbot" browser profile can accumulate tabs from prior runs/tests.
+  // Keeping a stable, mostly-blank tab set avoids confusing UX (e.g. focusing a stale Example Domain tab).
+  const tabs = await browserTabs(undefined, { profile }).catch(() => []);
+  if (tabs.length === 0) {
+    return;
+  }
+
+  let keptBlank = 0;
+  const toClose: string[] = [];
+  for (const tab of tabs) {
+    const url = tab.url?.trim() ?? "";
+    if (/^https?:\/\/example\.com\//i.test(url)) {
+      toClose.push(tab.targetId);
+      continue;
+    }
+    if (url === "about:blank") {
+      keptBlank += 1;
+      if (keptBlank > 2) {
+        toClose.push(tab.targetId);
+      }
+    }
+  }
+
+  for (const targetId of toClose.slice(0, 20)) {
+    await browserCloseTab(undefined, targetId, { profile }).catch(() => undefined);
+  }
+
+  // Best-effort: focus a remaining tab so the UI doesn't snap back to a stale page.
+  const remaining = await browserTabs(undefined, { profile }).catch(() => []);
+  const preferred = remaining.find((t) => t.url === "about:blank") ?? remaining.at(0);
+  if (preferred) {
+    await browserFocusTab(undefined, preferred.targetId, { profile }).catch(() => undefined);
+  }
+}
+
 export async function fetchTextWithBrowser(url: string, opts: BrowserFetchOptions = {}) {
   const root = loadConfig();
   const cfg = resolveBrowserConfig(root.browser, root);
@@ -137,6 +174,7 @@ export async function fetchTextWithBrowser(url: string, opts: BrowserFetchOption
     await browserStart(undefined, { profile });
   }
 
+  await pruneNoisyTabs(profile);
   const tab = await browserOpenTab(undefined, url, { profile });
   try {
     const maxChars = opts.maxChars ?? 200000;
