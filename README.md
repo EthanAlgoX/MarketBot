@@ -85,6 +85,7 @@ git clone https://github.com/marketbot/marketbot.git
 cd marketbot
 pnpm install
 pnpm build
+pnpm ui:build
 ```
 
 Initialize config/workspace (dev-friendly):
@@ -101,11 +102,15 @@ Run a local gateway:
 pnpm -s marketbot gateway run --bind loopback --port 18789
 ```
 
-Open the Web Control UI (Finance Desk):
+Open the Web Control UI (Finance Desk, product mode):
 
 ```text
 http://127.0.0.1:18789/
 ```
+
+Notes:
+- The Web Control UI is served by the Gateway (no separate web server in the product).
+- `pnpm ui:dev` is only for Control UI frontend development.
 
 Primary pages:
 
@@ -151,6 +156,14 @@ pnpm -s marketbot tui --url ws://127.0.0.1:18789 --token test-token --message "/
 
 ## Channels + Messaging
 
+Use the Web Control UI Ops pages first:
+- Channels: `/channels`
+- Sessions: `/sessions`
+- Cron: `/cron`
+- Logs: `/logs`
+
+CLI examples (dev/automation):
+
 ```bash
 pnpm -s marketbot channels list
 pnpm -s marketbot channels status --probe
@@ -172,9 +185,9 @@ pnpm -s marketbot plugins enable wecom
 pnpm -s marketbot plugins enable qqbot
 ```
 
-## CLI (Optional)
+## CLI (Dev/Automation)
 
-This repo still ships a CLI for scripting and dev workflows. The primary user surfaces are Web Control UI and TUI.
+This repo ships a CLI for scripting and dev workflows. The primary user surfaces are Web Control UI and TUI.
 
 ## Repo Layout
 
@@ -185,7 +198,6 @@ This repo still ships a CLI for scripting and dev workflows. The primary user su
 | `skills/` | Reusable skills and workflows |
 | `apps/` | Native clients (macOS, iOS, Android) |
 | `ui/` | Web Control UI (current) |
-| `dashboard/` | Web UI (legacy/experimental) |
 | `docs/` | Documentation sources |
 
 ## Development
@@ -207,7 +219,6 @@ pnpm build
 - Message: https://docs.marketbot.ai/cli/message
 - Plugins: https://docs.marketbot.ai/cli/plugins
 - Skills: https://docs.marketbot.ai/cli/skills
-- Dashboard: https://docs.marketbot.ai/web/dashboard
 - Control UI: https://docs.marketbot.ai/web/control-ui
 
 ## License

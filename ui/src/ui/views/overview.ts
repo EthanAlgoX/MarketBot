@@ -25,12 +25,12 @@ export function renderOverview(props: OverviewProps) {
     if (!hasToken && !hasPassword) {
       return html`
         <div class="muted" style="margin-top: 8px;">
-          This gateway requires auth. Paste a tokenized dashboard URL or set a Gateway Token, then
+          This gateway requires auth. Paste a tokenized Control UI URL or set a Gateway Token, then
           click Connect.
           <div style="margin-top: 6px;">
             <a
               class="session-link"
-              href="https://docs.marketbot.ai/web/dashboard"
+              href="https://docs.marketbot.ai/web/control-ui"
               target="_blank"
               rel="noreferrer"
               title="Control UI auth docs (opens in new tab)"
@@ -42,11 +42,11 @@ export function renderOverview(props: OverviewProps) {
     }
     return html`
       <div class="muted" style="margin-top: 8px;">
-        Auth failed. Re-copy a tokenized dashboard URL, or update the token, then click Connect.
+        Auth failed. Re-copy a tokenized Control UI URL, or update the token, then click Connect.
         <div style="margin-top: 6px;">
           <a
             class="session-link"
-            href="https://docs.marketbot.ai/web/dashboard"
+            href="https://docs.marketbot.ai/web/control-ui"
             target="_blank"
             rel="noreferrer"
             title="Control UI auth docs (opens in new tab)"
@@ -175,4 +175,3 @@ export function renderOverview(props: OverviewProps) {
     </section>
   `;
 }
-

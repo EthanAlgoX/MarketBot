@@ -69,6 +69,10 @@
    Topbar
    =========================================== */
 
+/* ===========================================
+   Topbar
+   =========================================== */
+
 .topbar {
   grid-area: topbar;
   position: sticky;
@@ -80,11 +84,11 @@
   gap: 16px;
   padding: 0 20px;
   height: var(--shell-topbar-height);
-  border-bottom: 1px solid var(--border);
-  background: var(--chrome);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(9, 10, 11, 0.65);
+  backdrop-filter: blur(var(--backdrop-blur));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur));
+  box-shadow: 0 1px 0 var(--glass-highlight);
 }
 
 .topbar-left {
@@ -144,11 +148,12 @@
 
 .brand-sub {
   font-size: 10px;
-  font-weight: 500;
-  color: var(--muted);
+  font-weight: 600;
+  color: var(--accent);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   line-height: 1;
+  opacity: 0.9;
 }
 
 /* Topbar status */
@@ -165,6 +170,9 @@
   font-weight: 500;
   height: 32px;
   box-sizing: border-box;
+  background: var(--glass-surface);
+  border-color: var(--glass-border);
+  backdrop-filter: blur(4px);
 }
 
 .topbar-status .pill .mono {
@@ -199,10 +207,12 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px 12px;
-  background: var(--chrome);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  scrollbar-width: none; /* Firefox */
+  background: rgba(9, 10, 11, 0.4);
+  border-right: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--backdrop-blur));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur));
+  scrollbar-width: none;
+  /* Firefox */
   transition:
     width var(--shell-focus-duration) var(--shell-focus-ease),
     padding var(--shell-focus-duration) var(--shell-focus-ease),
@@ -211,7 +221,8 @@
 }
 
 .nav::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  display: none;
+  /* Chrome/Safari */
 }
 
 .shell--chat-focus .nav {
@@ -494,7 +505,7 @@
   gap: 16px;
 }
 
-.content--chat .content-header > div:first-child {
+.content--chat .content-header>div:first-child {
   text-align: left;
 }
 
