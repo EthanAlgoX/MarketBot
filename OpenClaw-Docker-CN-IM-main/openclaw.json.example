@@ -1,0 +1,213 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.1.29",
+    "lastTouchedAt": "2026-01-31T06:50:54.983Z"
+  },
+  "update": {
+    "checkOnStart": false
+  },
+  "browser": {
+    "headless": true,
+    "noSandbox": true,
+    "defaultProfile": "openclaw",
+    "executablePath": "/usr/bin/chromium"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "default": {
+        "baseUrl": "http://xxxxx/v1",
+        "apiKey": "123456",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "model id",
+            "name": "model name",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "openai-example": {
+        "baseUrl": "http://localhost:3000/v1",
+        "apiKey": "your-api-key",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gemini-3-flash-preview",
+            "name": "Gemini 3 Flash Preview",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 1000000,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "claude-example": {
+        "baseUrl": "http://localhost:3000",
+        "apiKey": "your-api-key",
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "claude-sonnet-4-5",
+            "name": "Claude Sonnet 4.5",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "default/gemini-3-flash-preview"
+      },
+      "imageModel": {
+        "primary": "default/gemini-3-flash-preview"
+      },
+      "workspace": "/home/node/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "elevatedDefault": "full",
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      }
+    }
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions",
+    "tts": {
+      "edge": {
+        "voice": "zh-CN-XiaoxiaoNeural"
+      }
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto"
+  },
+  "channels": {
+    "telegram": {
+      "dmPolicy": "pairing",
+      "botToken": "your-token",
+      "groupPolicy": "allowlist",
+      "streamMode": "partial"
+    },
+    "feishu": {
+      "enabled": true,
+      "connectionMode": "websocket",
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist",
+      "requireMention": true,
+      "appId": "your-app-id",
+      "appSecret": "your-app-secret"
+    },
+    "dingtalk": {
+      "enabled": true,
+      "clientId": "dingxxxxxx",
+      "clientSecret": "your-app-secret",
+      "robotCode": "dingxxxxxx",
+      "corpId": "dingxxxxxx",
+      "agentId": "123456789",
+      "dmPolicy": "open",
+      "groupPolicy": "open",
+      "messageType": "markdown",
+      "debug": false
+    },
+    "qqbot": {
+      "enabled": true,
+      "appId": "your-qqbot-app-id",
+      "clientSecret": "your-qqbot-client-secret"
+    },
+    "wxwork": {
+      "enabled": true,
+      "token": "your-token",
+      "encodingAesKey": "your-aes-key"
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowInsecureAuth": true
+    },
+    "auth": {
+      "mode": "token",
+      "token": "dev-token-123456"
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "feishu": {
+        "enabled": true
+      },
+      "dingtalk": {
+        "enabled": true
+      },
+      "openclaw-plugin-wecom": {
+        "enabled": true
+      },
+      "qqbot": {
+        "enabled": true
+      }
+    },
+    "installs": {
+      "feishu": {
+        "source": "npm",
+        "spec": "@m1heng-clawd/feishu",
+        "installPath": "/home/node/.openclaw/extensions/feishu",
+        "installedAt": "2026-01-31T05:53:18.535Z"
+      },
+      "dingtalk": {
+        "source": "npm",
+        "spec": "https://github.com/soimy/clawdbot-channel-dingtalk.git",
+        "installPath": "/home/node/.openclaw/extensions/dingtalk",
+        "installedAt": "2026-02-01T04:23:35.823Z"
+      },
+      "openclaw-plugin-wecom": {
+        "source": "npm",
+        "spec": "https://github.com/sunnoy/openclaw-plugin-wecom.git",
+        "installPath": "/home/node/.openclaw/extensions/openclaw-plugin-wecom",
+        "installedAt": "2026-02-01T05:18:35.770Z"
+      },
+      "qqbot": {
+        "source": "path",
+        "sourcePath": "/home/node/.openclaw/qqbot",
+        "installPath": "/home/node/.openclaw/extensions/qqbot",
+        "installedAt": "2026-02-01T06:50:54.140Z"
+      }
+    }
+  }
+}

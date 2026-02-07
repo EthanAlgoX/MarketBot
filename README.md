@@ -1,283 +1,136 @@
 <p align="center">
-  <img src="assets/logo.png" width="120" alt="MarketBot Finance Logo">
+  <img src="assets/logo.png" width="120" alt="MarketBot logo">
 </p>
 
-# MarketBot Finance
+# MarketBot
 
-> **Autonomous Financial Intelligence Agent with Multi-Channel Messaging**
+Finance-first autonomous agent for market research and multi-channel messaging, with a built-in browser for data capture and a dedicated finance CLI.
 
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL_v3-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green)](https://nodejs.org/)
-
-MarketBot Finance is an autonomous AI agent designed for financial analysis and market intelligence. It operates across multiple messaging platforms and provides deep reasoning capabilities through a multi-agent architecture.
-
----
+[![Node.js](https://img.shields.io/badge/Node.js-22+-green)](https://nodejs.org/)
 
 ![Demo video](docs/video.gif)
 
-## Architecture (MarketBot Focus)
+## What It Does
 
-MarketBot is designed around a **gateway-first runtime** with an **executor-driven task engine** that can operate in real time, across channels, and with tool-assisted research. The focus is actionable intelligence: structured analysis, clear risk/invalidation levels, and reproducible workflows.
+- Gateway-first runtime (WebSocket hub) for sessions, routing, tools, and channel delivery
+- Agents with tool use (web, browser, desktop on macOS, memory, media, exec)
+- Multi-channel messaging (built-in + extensions)
+- Finance CLI for browser-backed market data + analysis (technicals, risk, portfolio, optimization)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      MarketBot Architecture                    │
-├─────────────────────────────────────────────────────────────┤
-│                                                                │
-│  ┌──────────────┐    WebSocket     ┌──────────────────────┐   │
-│  │  Dashboard   │◄────────────────►│      Gateway         │   │
-│  │   (UI-TARS)  │                  │   (WebSocket Hub)    │   │
-│  └──────────────┘                  └──────────┬───────────┘   │
-│        ▲                                      │               │
-│        │           ┌──────────────────────────┐│               │
-│        │           │      Executor Engine     ││               │
-│        │           │  ┌──────────┐ ┌────────┐ ││               │
-│        │           │  │  Intent  │ │  Task  │ ││               │
-│        │           │  │  Parser  │ │Executor│ ││               │
-│        │           │  └────┬─────┘ └───┬────┘ ││               │
-│        └───────────│───────┴───────────┴──────││               │
-│                    └──────────────────────────┘│               │
-│                                                 │               │
-│  ┌──────────────────────────────────────────────┴───────────┐  │
-│  │                     Agents & Tools                          │  │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐     │  │
-│  │  │  DeepSeek│ │  Claude  │ │  GPT-4   │ │  Gemini  │     │  │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘     │  │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐     │  │
-│  │  │Web Search│ │  Desktop │ │ Browser  │ │  Memory  │     │  │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘     │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                     Channels                              │  │
-│  │  Telegram │ Slack │ Discord │ WhatsApp │ Signal │ Feishu  │  │
-│  │  iMessage │ Web   │  Teams  │  Matrix  │ Zalo   │  ...    │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                │
-└─────────────────────────────────────────────────────────────┘
+## Finance-First: Positioning + Differentiators
+
+MarketBot is built to turn live market context into repeatable analysis and deliver it where you work (chat channels, dashboards, CLI output).
+
+- Built-in browser data capture: fetch market pages/endpoints through MarketBot's managed browser profile
+- Structured finance outputs: JSON-friendly results for quotes, charts, indicators, risk, correlations, and briefs
+- Portfolio math included: risk metrics, correlation matrix, and min-variance optimization
+- Agent-driven research: `analyze` provides structured market analysis with explicit assumptions and risk/invalidation
+- Multi-channel delivery: use `message`/`channels` to push alerts, summaries, or reports to your teams
+
+## Quick Start (Dev)
+
+Prereqs: Node 22+, pnpm.
+
+```bash
+git clone https://github.com/marketbot/marketbot.git
+cd marketbot
+pnpm install
+pnpm build
 ```
 
-### 1) Gateway-first Control Plane
+Initialize config/workspace:
 
-- **Gateway**: Central WebSocket server for sessions, routing, and tool execution
-- **Dashboard**: Web-based Control UI for task execution with visual step-by-step tracking
-- **Executor Engine**: Intent parsing and task execution with desktop automation capabilities
+```bash
+pnpm -s marketbot setup
+# or
+pnpm -s marketbot onboard
+```
 
-### 2) Analysis Engine (Agents + Models)
+Run a local gateway:
 
-- **Multi-Model Orchestration**: Agents coordinate across DeepSeek, Claude, GPT-4, Gemini
-- **Model Fallbacks**: Automatic failover between providers for reliability
-- **Structured Outputs**: Enforced prompts for consistent analysis formats
+```bash
+pnpm -s marketbot gateway run --bind loopback --port 18789
+```
 
-### 3) Tools and Skills
+If your config is not yet set up for local mode, either run `setup/onboard` or explicitly set:
 
-- **Web Intelligence**: Search, fetch, and browser automation
-- **Desktop Automation** (macOS): Screenshot, click, type, move (UI-TARS compatible)
-- **Memory**: Persistent context across sessions
-- **Media**: Video frames, transcription, image analysis
-- **Skills**: 55+ reusable workflows (finance, productivity, development)
+```bash
+pnpm -s marketbot config set gateway.mode local
+```
 
-### 4) Channels and Nodes
+## Finance (Browser-Backed)
 
-- **Messaging Platforms**: Telegram, Slack, Discord, WhatsApp, Signal, iMessage, Web, **Feishu**
-- **Desktop App**: macOS native app with menu bar and voice control
-- **Nodes**: Device clients (macOS/iOS/Android/headless) with canvas, camera, screen capabilities
+Market data commands fetch via MarketBot's built-in browser by default.
 
-### 5) Persistence and Configuration
+```bash
+pnpm -s marketbot finance quote AAPL --json
+pnpm -s marketbot finance chart AAPL --timeframe 6mo --json
+pnpm -s marketbot finance summary AAPL --timeframe 6mo --json
+pnpm -s marketbot finance technicals AAPL --timeframe 6mo --json
+pnpm -s marketbot finance risk AAPL --timeframe 1y --json
+pnpm -s marketbot finance compare AAPL MSFT NVDA --timeframe 1y --json
+pnpm -s marketbot finance brief AAPL --timeframe 6mo --json
+pnpm -s marketbot finance optimize AAPL MSFT NVDA --timeframe 1y --json
+```
 
-- **State Directory**: `~/.marketbot` (sessions, logs, caches, config)
-- **Config Format**: JSON5 with `MARKETBOT_CONFIG_PATH` override
-- **Security**: Sensitive data (API keys) stored in environment or 1Password
+## Market Analysis (Agent)
 
-## Core Components
+`analyze` is an agent wrapper for structured market analysis (with clear assumptions and risk/invalidation).
 
-| Component | Description |
-|-----------|-------------|
-| **Gateway** | WebSocket server for sessions, routing, and tool execution |
-| **Executor** | Intent parser and task executor for multi-step AI workflows |
-| **Dashboard** | Web-based task execution UI with visual step tracking |
-| **Agents** | Multi-model prompt orchestration with structured outputs |
-| **Channels** | Multi-platform messaging (Telegram, Slack, Discord, WhatsApp, Signal, iMessage, Feishu, Web) |
-| **Tools** | Web search/fetch, browser automation, desktop control (macOS), memory, media, exec |
-| **Skills** | 55+ reusable workflows for finance, productivity, and development |
-| **Nodes** | Device clients (macOS/iOS/Android) with UI/canvas/camera/screen capabilities |
+```bash
+pnpm -s marketbot analyze --asset BTC --timeframe 1h --news --json
+pnpm -s marketbot analyze --asset NVDA --market equities --style fundamental --news
+```
+
+## Browser (Built-In)
+
+```bash
+pnpm -s marketbot browser status --json
+pnpm -s marketbot browser open https://example.com
+pnpm -s marketbot browser snapshot --labels
+```
+
+## Channels + Messaging
+
+```bash
+pnpm -s marketbot channels list
+pnpm -s marketbot channels status --probe
+pnpm -s marketbot message send --channel telegram --target @your_chat --message "Hello"
+```
 
 ## Repo Layout
 
 | Directory | Contents |
 |-----------|----------|
-| `src/agents/` | Agent runtime, prompts, compaction, tools (web, desktop, browser) |
-| `src/gateway/` | WebSocket server, protocol handling, routing, executor handlers |
-| `src/executor/` | Intent parser and task executor for multi-step workflows |
-| `src/channels/` | Channel adapters (Telegram, Slack, Discord, Feishu, etc.) |
-| `src/memory/` | Memory store and retrieval |
-| `src/providers/` | Model/provider integrations (DeepSeek, OpenAI, Anthropic, Gemini) |
-| `extensions/` | Plugin manifests and optional integrations |
-| `skills/` | Reusable skills and workflows (55+ available) |
+| `src/` | CLI, gateway, channels, browser, finance, infra |
+| `extensions/` | Optional plugins (workspace packages) |
+| `skills/` | Reusable skills and workflows |
 | `apps/` | Native clients (macOS, iOS, Android) |
-| `dashboard/` | Web-based task execution dashboard (React + Vite) |
+| `dashboard/` | Web control UI |
 | `docs/` | Documentation sources |
 
----
-
-## Quick Start
-
-### Installation
+## Development
 
 ```bash
-git clone https://github.com/EthanAlgoX/MarketBot.git
-cd MarketBot
-pnpm install
+pnpm lint
+pnpm test
 pnpm build
-pnpm ui:build
 ```
-
-#### 1. Configure MarketBot
-
-Launch the interactive onboarding wizard to configure your model providers and API keys.
-
-> [!TIP]
-> This will guide you through setting up your AI providers (DeepSeek, OpenAI, etc.) and save the configuration to `marketbot.json`.
-
-#### 2. Start TUI (recommended)
-
-Make sure the Gateway is running, then start the TUI with your DeepSeek key and gateway token:
-
-```bash
-DEEPSEEK_API_KEY=<deepseek_api_key> pnpm tui --token <gateway-token> --url ws://127.0.0.1:18789
-```
-
-#### 3. Start Local Web GUI
-
-Make sure the Gateway is running, then run the local Web GUI on port 3002 and connect it to the Gateway:
-
-```bash
-pnpm --dir dashboard dev -- --port 3002 --host
-```
-
-Then open:
-
-```bash
-http://localhost:3002/?token=<gateway-token>
-```
-
-#### Web UI Screenshots
-
-The Web Control UI (webui.png) is the primary interface for running tasks, monitoring step-by-step execution, and opening Settings to configure model and auth providers.
-
-![Web Control UI](docs/webui.png)
-![Web Config](docs/web_config.png)
-
----
-
-### Desktop Automation (macOS)
-
-MarketBot includes a **Desktop Tool** for macOS automation, enabling AI agents to control your desktop:
-
-```bash
-# Screenshot, click, type, move cursor
-# Example: "Take a screenshot and click on the Chrome icon"
-```
-
-**Requirements:**
-- macOS with Accessibility permissions enabled for Terminal/VS Code
-- Only available on macOS platform
-
----
-
-### Web GUI Development
-
-The local Web GUI provides visual tracking of AI task execution with step-by-step screenshots:
-
-```bash
-# Start local Web GUI (port 3002)
-pnpm --dir dashboard dev -- --port 3002 --host
-
-# Web GUI features:
-# - Visual step-by-step task execution tracking
-# - Screenshot timeline for desktop automation
-# - Search and filter task history
-# - Real-time WebSocket updates
-```
-
----
-
-## TUI Test Case (Gold Trend)
-
-This is a quick TUI smoke test that verifies the built-in browser is used to search gold trends and summarize the latest moves.
-
-1. Ensure the Gateway is running, then start the TUI (use your DeepSeek key and gateway token).
-```bash
-DEEPSEEK_API_KEY=<deepseek_api_key> pnpm tui --token <gateway-token> --url ws://127.0.0.1:18789
-```
-
-2. In the TUI, send this message:
-```text
-分析黄金行情（XAUUSD）。请使用内置浏览器获取最新数据与新闻，给出简要总结与关键驱动因素。
-```
-
-Expected behavior:
-1. The TUI connects to the Gateway.
-2. The agent starts the built-in browser (marketbot-managed profile).
-3. The reply includes a short summary of current gold trend and key drivers, based on the latest sources.
-
----
-
-MarketBot is best configured using the interactive onboarding wizard.
-
-### Environment Variables
-
-While most configuration lives in `marketbot.json`, you can use these environment variables for advanced setup:
-
-| Variable | Description |
-|----------|-------------|
-| `MARKETBOT_GATEWAY_TOKEN` | Secure token for Gateway authentication |
-| `MARKETBOT_CONFIG_PATH` | Path to config file (default: `~/.marketbot/marketbot.json`) |
-| `MARKETBOT_STATE_DIR` | Directory for sessions, logs, and caches |
-
----
-
-## Skills
-
-MarketBot supports 55+ extensible skills:
-
-| Category | Skills |
-|----------|--------|
-| **Finance** | market-report, catalyst-tracker |
-| **Productivity** | notion, obsidian, apple-notes, trello |
-| **Development** | github, coding-agent, skill-creator |
-| **Communication** | discord, slack, telegram, **feishu** |
-| **Media** | video-frames, openai-whisper, camsnap |
-| **Utilities** | weather, 1password, tmux, **desktop** (macOS) |
-
-See docs for skill install and management.
-
----
 
 ## Documentation
 
-| Topic | Link |
-|-------|------|
-| Agent Configuration | [docs.marketbot.ai/concepts/agent](https://docs.marketbot.ai/concepts/agent) |
-| Skill Development | [docs.marketbot.ai/cli/skills](https://docs.marketbot.ai/cli/skills) |
-| Channel Setup | [docs.marketbot.ai/concepts/group-messages](https://docs.marketbot.ai/concepts/group-messages) |
-| Control UI (Web) | [docs.marketbot.ai/web/control-ui](https://docs.marketbot.ai/web/control-ui) |
-| Dashboard / Task Execution | [docs.marketbot.ai/web/dashboard](https://docs.marketbot.ai/web/dashboard) |
-| Desktop Automation | [docs.marketbot.ai/tools/desktop](https://docs.marketbot.ai/tools/desktop) |
-| Feishu Channel | [docs.marketbot.ai/channels/feishu](https://docs.marketbot.ai/channels/feishu) |
-
-## Recent Updates
-
-### v2026.2.x
-- ✅ **Task Execution Dashboard**: New web UI for visual task tracking with step-by-step screenshots
-- ✅ **Desktop Tool (macOS)**: AI-powered desktop automation (screenshot, click, type, move)
-- ✅ **Feishu Channel**: Full integration with Feishu/Lark messaging platform
-- ✅ **Executor Engine**: Multi-step task orchestration with intent parsing
-- ✅ **Web GUI Development Mode**: `pnpm --dir dashboard dev -- --port 3002 --host` for local Web GUI
-
----
+- CLI overview: https://docs.marketbot.ai/cli
+- Gateway: https://docs.marketbot.ai/cli/gateway
+- Browser: https://docs.marketbot.ai/cli/browser
+- Finance: https://docs.marketbot.ai/cli/finance
+- Analyze: https://docs.marketbot.ai/cli/analyze
+- Channels: https://docs.marketbot.ai/cli/channels
+- Message: https://docs.marketbot.ai/cli/message
+- Plugins: https://docs.marketbot.ai/cli/plugins
+- Skills: https://docs.marketbot.ai/cli/skills
 
 ## License
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [LICENSE](LICENSE) for details.
+AGPL-3.0. See [LICENSE](LICENSE).
