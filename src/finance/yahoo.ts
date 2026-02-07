@@ -22,6 +22,50 @@ const KNOWN_CRYPTO = new Set([
   "UNI",
 ]);
 
+function padLeft5Digits(value: string): string {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return trimmed;
+  }
+  return trimmed.padStart(5, "0");
+}
+
+function normalizeChinaEquitySymbol(trimmedUpper: string): string | null {
+  // Accept common sh/sz prefixes and normalize to Yahoo's suffix format.
+  // Examples:
+  // - sh600519 -> 600519.SS
+  // - sz000001 -> 000001.SZ
+  // - 600519   -> 600519.SS
+  // - 000001   -> 000001.SZ
+  // - hk00700  -> 00700.HK
+  const m = /^(SH|SZ|HK)(\d{3,6})$/.exec(trimmedUpper);
+  if (m) {
+    const [, market, digits] = m;
+    if (market === "HK") {
+      return `${padLeft5Digits(digits)}.HK`;
+    }
+    if (digits.length !== 6) {
+      return null;
+    }
+    return market === "SH" ? `${digits}.SS` : `${digits}.SZ`;
+  }
+
+  // Mainland A-share (6 digits): infer market.
+  // Convention (widely used): 6xxxx = Shanghai, others = Shenzhen.
+  if (/^\d{6}$/.test(trimmedUpper)) {
+    const market = trimmedUpper.startsWith("6") || trimmedUpper.startsWith("9") ? "SS" : "SZ";
+    return `${trimmedUpper}.${market}`;
+  }
+
+  // HK tickers: accept 1-5 digits and normalize to 5 digits.
+  // daily_stock_analysis uses hk00700 style; we also accept "00700" and "700".
+  if (/^\d{1,5}$/.test(trimmedUpper)) {
+    return `${padLeft5Digits(trimmedUpper)}.HK`;
+  }
+
+  return null;
+}
+
 export function normalizeYahooSymbol(symbol: string): string {
   const trimmed = symbol.trim().toUpperCase();
   if (!trimmed) {
@@ -29,6 +73,10 @@ export function normalizeYahooSymbol(symbol: string): string {
   }
   if (trimmed.includes("/")) {
     return trimmed.replace("/", "-");
+  }
+  const cn = normalizeChinaEquitySymbol(trimmed);
+  if (cn) {
+    return cn;
   }
   if (trimmed.startsWith("^") || trimmed.includes("=") || trimmed.includes("-")) {
     return trimmed;

@@ -13,6 +13,15 @@ describe("finance yahoo", () => {
     expect(normalizeYahooSymbol("btc/usd")).toBe("BTC-USD");
     expect(normalizeYahooSymbol("eurusd")).toBe("EURUSD=X");
     expect(normalizeYahooSymbol("^GSPC")).toBe("^GSPC");
+    expect(normalizeYahooSymbol("600519")).toBe("600519.SS");
+    expect(normalizeYahooSymbol("000001")).toBe("000001.SZ");
+    expect(normalizeYahooSymbol("300750")).toBe("300750.SZ");
+    expect(normalizeYahooSymbol("688981")).toBe("688981.SS");
+    expect(normalizeYahooSymbol("sh600519")).toBe("600519.SS");
+    expect(normalizeYahooSymbol("sz000001")).toBe("000001.SZ");
+    expect(normalizeYahooSymbol("hk00700")).toBe("00700.HK");
+    expect(normalizeYahooSymbol("00700")).toBe("00700.HK");
+    expect(normalizeYahooSymbol("700")).toBe("00700.HK");
   });
 
   it("parses chart data", () => {

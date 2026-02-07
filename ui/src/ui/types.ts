@@ -119,6 +119,19 @@ export type DiscordBot = {
   username?: string | null;
 };
 
+export type DailyStockRunResult = {
+  dateIso: string;
+  timeframe: string;
+  reportType: "simple" | "full";
+  symbols: string[];
+  counts: { buy: number; watch: number; sell: number; failed: number };
+  items: Array<
+    | { ok: true; symbolInput: string; symbol: string; markdown: string }
+    | { ok: false; symbolInput: string; symbol: string; error: string }
+  >;
+  reportMarkdown: string;
+};
+
 export type DiscordProbe = {
   ok: boolean;
   status?: number | null;

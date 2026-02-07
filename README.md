@@ -4,7 +4,7 @@
 
 # MarketBot
 
-Finance-first autonomous agent for market research and multi-channel messaging, with a built-in browser for data capture and a dedicated finance CLI.
+Finance-first autonomous agent for market research and multi-channel delivery, with a built-in browser for data capture and a dedicated finance CLI focused on watchlists, decision dashboards, and research-style reports.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
@@ -25,7 +25,7 @@ Finance-first autonomous agent for market research and multi-channel messaging, 
 MarketBot is built to turn live market context into repeatable analysis and deliver it where you work (chat channels, dashboards, CLI output).
 
 - Built-in browser data capture: fetch market pages/endpoints through MarketBot's managed browser profile
-- Structured finance outputs: JSON-friendly results for quotes, charts, indicators, risk, correlations, and briefs
+- Structured finance outputs: JSON-friendly results for quotes, charts, indicators, risk, correlations, briefs, and rule-based decision dashboards
 - Portfolio math included: risk metrics, correlation matrix, and min-variance optimization
 - Agent-driven research: `analyze` provides structured market analysis with explicit assumptions and risk/invalidation
 - Multi-channel delivery: use `message`/`channels` to push alerts, summaries, or reports to your teams
@@ -94,9 +94,18 @@ pnpm -s marketbot finance fundamentals AAPL --json
 pnpm -s marketbot finance news AAPL --limit 10 --json
 pnpm -s marketbot finance compare AAPL MSFT NVDA --timeframe 1y --json
 pnpm -s marketbot finance brief AAPL --timeframe 6mo --json
+pnpm -s marketbot finance dashboard NVDA AAPL --timeframe 6mo --news-limit 3 --json
+pnpm -s marketbot finance report NVDA --timeframe 6mo --report-type full
+STOCK_LIST="NVDA,AAPL,600519,hk00700" pnpm -s marketbot finance daily --timeframe 6mo --report-type simple --out /tmp/daily.md
 pnpm -s marketbot finance portfolio --positions-json '[{"symbol":"AAPL","quantity":10}]' --timeframe 1y --json
 pnpm -s marketbot finance optimize AAPL MSFT NVDA --timeframe 1y --json
 ```
+
+### Symbol Conventions (Yahoo-backed)
+
+- US equities: `AAPL`, `NVDA`
+- China A-share: `600519` (auto-normalizes to `600519.SS`), `000001` (auto-normalizes to `000001.SZ`)
+- Hong Kong: `hk00700`, `00700`, `700` (auto-normalizes to `00700.HK`)
 
 ## Market Analysis (Agent)
 

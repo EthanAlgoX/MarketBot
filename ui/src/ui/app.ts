@@ -23,6 +23,7 @@ import type {
   SkillStatusReport,
   StatusSummary,
   NostrProfile,
+  DailyStockRunResult,
 } from "./types";
 import { type ChatAttachment, type ChatQueueItem, type CronFormState } from "./ui-types";
 import type { EventLogEntry } from "./app-events";
@@ -78,6 +79,11 @@ import {
 } from "./app-channels";
 import type { NostrProfileFormState } from "./views/channels.nostr-profile-form";
 import { loadAssistantIdentity as loadAssistantIdentityInternal } from "./controllers/assistant-identity";
+import {
+  loadStocks as loadStocksInternal,
+  runStocks as runStocksInternal,
+  saveStocksWatchlist as saveStocksWatchlistInternal,
+} from "./controllers/stocks";
 
 declare global {
   interface Window {
@@ -247,6 +253,16 @@ export class MarketBotApp extends LitElement {
   @state() logsMaxBytes = 250_000;
   @state() logsAtBottom = true;
 
+  @state() stocksLoading = false;
+  @state() stocksRunning = false;
+  @state() stocksError: string | null = null;
+  @state() stocksWatchlistText = "";
+  @state() stocksTimeframe = "6mo";
+  @state() stocksReportType: "simple" | "full" = "simple";
+  @state() stocksNewsLimit = "2";
+  @state() stocksLocale = "US";
+  @state() stocksLast: DailyStockRunResult | null = null;
+
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;
   private chatScrollTimeout: number | null = null;
@@ -355,6 +371,24 @@ export class MarketBotApp extends LitElement {
   async loadOverview() {
     await loadOverviewInternal(
       this as unknown as Parameters<typeof loadOverviewInternal>[0],
+    );
+  }
+
+  async loadStocks() {
+    await loadStocksInternal(
+      this as unknown as Parameters<typeof loadStocksInternal>[0],
+    );
+  }
+
+  async saveStocksWatchlist() {
+    await saveStocksWatchlistInternal(
+      this as unknown as Parameters<typeof saveStocksWatchlistInternal>[0],
+    );
+  }
+
+  async runStocks() {
+    await runStocksInternal(
+      this as unknown as Parameters<typeof runStocksInternal>[0],
     );
   }
 

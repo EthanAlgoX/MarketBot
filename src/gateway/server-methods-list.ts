@@ -97,6 +97,11 @@ const BASE_METHODS = [
   "agent.identity.get",
   "agent.wait",
   "browser.request",
+  "finance.watchlist.get",
+  "finance.watchlist.set",
+  "finance.daily.last",
+  "finance.daily.run",
+  "finance.report.run",
   // WebChat WebSocket-native chat methods
   "chat.history",
   "chat.abort",

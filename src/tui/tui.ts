@@ -43,6 +43,7 @@ import { createEventHandlers } from "./tui-event-handlers.js";
 import { createLocalShellRunner } from "./tui-local-shell.js";
 import { createOverlayHandlers } from "./tui-overlays.js";
 import { createSessionActions } from "./tui-session-actions.js";
+import { loadWatchlist, saveWatchlist } from "../finance/watchlist-store.js";
 import type {
   AgentSummary,
   SessionInfo,
@@ -358,6 +359,11 @@ export async function runTui(opts: TuiOptions) {
   const normalizeSymbol = (raw: string) => raw.trim().toUpperCase();
   const isValidSymbol = (symbol: string) => /^[A-Z0-9.-]{1,12}$/.test(symbol);
 
+  // Persist watchlist for TUI-first workflows (no CLI needed).
+  const persistWatchlistBestEffort = () => {
+    void saveWatchlist({ symbols: watchlist }).catch(() => undefined);
+  };
+
   const addWatchSymbol = (raw: string) => {
     const symbol = normalizeSymbol(raw);
     if (!symbol) {
@@ -371,6 +377,7 @@ export async function runTui(opts: TuiOptions) {
     }
     watchlist.push(symbol);
     statusBar.updateWatchlistBar(watchlist);
+    persistWatchlistBestEffort();
     return { ok: true, symbol };
   };
 
@@ -385,6 +392,7 @@ export async function runTui(opts: TuiOptions) {
     }
     watchlist.splice(idx, 1);
     statusBar.updateWatchlistBar(watchlist);
+    persistWatchlistBestEffort();
     return { ok: true, symbol };
   };
 
@@ -393,6 +401,7 @@ export async function runTui(opts: TuiOptions) {
   const clearWatchlist = () => {
     watchlist.splice(0, watchlist.length);
     statusBar.updateWatchlistBar(watchlist);
+    persistWatchlistBestEffort();
   };
 
   const { openOverlay, closeOverlay } = createOverlayHandlers(tui, editor);
@@ -475,6 +484,18 @@ export async function runTui(opts: TuiOptions) {
     openOverlay,
     closeOverlay,
   });
+
+  // Hydrate persisted watchlist before first render.
+  try {
+    const persisted = await loadWatchlist("default");
+    for (const symbol of persisted) {
+      if (!watchlist.includes(symbol)) {
+        watchlist.push(symbol);
+      }
+    }
+  } catch {
+    // ignore; watchlist is optional
+  }
   updateAutocompleteProvider();
   editor.onSubmit = createEditorSubmitHandler({
     editor,

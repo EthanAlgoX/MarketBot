@@ -140,6 +140,8 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
     { name: "reset", description: "Reset the session" },
     { name: "settings", description: "Open settings" },
     { name: "file", description: "📎 Summarize a local file (csv/json/text)" },
+    { name: "daily", description: "📈 Run Daily Stock on current watchlist (rule-based)" },
+    { name: "report", description: "📝 Research-style report for a symbol (rule-based)" },
     { name: "exit", description: "Exit the TUI" },
     { name: "quit", description: "Exit the TUI" },
     {
@@ -202,6 +204,8 @@ export function helpText(options: SlashCommandOptions = {}): string {
     "/abort             Abort active run",
     "/settings          Open settings",
     "/file <path>       Summarize a local file (csv/json/text)",
+    "/daily             Run Daily Stock for current watchlist",
+    "/report <symbol>   Research-style report for a symbol",
     "/exit              Exit TUI",
     "",
     "━━━ Market Analysis ━━━",

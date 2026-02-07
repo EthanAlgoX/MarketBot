@@ -29,6 +29,7 @@ import { connectHandlers } from "./server-methods/connect.js";
 import { cronHandlers } from "./server-methods/cron.js";
 import { deviceHandlers } from "./server-methods/devices.js";
 import { execApprovalsHandlers } from "./server-methods/exec-approvals.js";
+import { financeHandlers } from "./server-methods/finance.js";
 import { healthHandlers } from "./server-methods/health.js";
 import { logsHandlers } from "./server-methods/logs.js";
 import { modelsHandlers } from "./server-methods/models.js";
@@ -92,6 +93,8 @@ const READ_METHODS = new Set([
   "node.list",
   "node.describe",
   "chat.history",
+  "finance.watchlist.get",
+  "finance.daily.last",
 ]);
 const WRITE_METHODS = new Set([
   "send",
@@ -110,6 +113,9 @@ const WRITE_METHODS = new Set([
   "executor.parse",
   "executor.run",
   "browser.request",
+  "finance.watchlist.set",
+  "finance.daily.run",
+  "finance.report.run",
 ]);
 
 function authorizeGatewayMethod(method: string, client: GatewayRequestOptions["client"]) {
@@ -208,6 +214,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...agentHandlers,
   ...agentsHandlers,
   ...browserHandlers,
+  ...financeHandlers,
 };
 
 export async function handleGatewayRequest(

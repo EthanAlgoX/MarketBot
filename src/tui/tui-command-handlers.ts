@@ -29,6 +29,7 @@ import { formatRelativeTime } from "../utils/time-format.js";
 import { getSlashCommands, helpText, parseCommand } from "./commands.js";
 import type { ChatLog } from "./components/chat-log.js";
 import { InfoPanel } from "./components/info-panel.js";
+import { runDailyStock, runStockReport } from "../finance/daily-stock.js";
 import { formatLocalFileSummary, summarizeLocalFile } from "./file-summary.js";
 import {
   createFilterableSelectList,
@@ -869,6 +870,157 @@ export function createCommandHandlers(context: CommandHandlerContext) {
           }
         } catch (err) {
           chatLog.addSystem(`file summary failed: ${String(err)}`);
+        }
+        break;
+      }
+      case "daily": {
+        const symbolsFromWatchlist = getWatchlist();
+        const tokens = args ? args.split(/\s+/).filter(Boolean) : [];
+        let timeframe: string | undefined;
+        let reportType: "simple" | "full" | undefined;
+        let newsLimit: number | undefined;
+        let locale: string | undefined;
+        const symbols: string[] = [];
+        for (let i = 0; i < tokens.length; i += 1) {
+          const t = tokens[i];
+          if (t === "--timeframe" || t === "-t") {
+            timeframe = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--report-type") {
+            const v = (tokens[i + 1] ?? "").trim().toLowerCase();
+            reportType = v === "simple" ? "simple" : v === "full" ? "full" : undefined;
+            i += 1;
+            continue;
+          }
+          if (t === "--news-limit") {
+            const v = Number.parseInt(tokens[i + 1] ?? "", 10);
+            if (Number.isFinite(v)) {
+              newsLimit = v;
+            }
+            i += 1;
+            continue;
+          }
+          if (t === "--locale") {
+            locale = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          symbols.push(t);
+        }
+
+        const resolvedSymbols = symbols.length > 0 ? symbols : symbolsFromWatchlist;
+        if (resolvedSymbols.length === 0) {
+          chatLog.addSystem(
+            "📈 Usage: /daily [symbols...] [--timeframe 6mo] [--report-type simple|full] [--news-limit N]",
+          );
+          chatLog.addSystem(
+            "Tip: use /watch <symbol> to build a watchlist, then run /daily with no args.",
+          );
+          break;
+        }
+        try {
+          setActivityStatus("running daily stock…");
+          tui.requestRender();
+          const result = await runDailyStock({
+            symbols: resolvedSymbols,
+            timeframe,
+            reportType: reportType ?? "simple",
+            newsLimit,
+            locale,
+            profile: "marketbot",
+            includeFundamentals: false,
+          });
+          setActivityStatus("daily stock ready");
+          const panel = new InfoPanel("Daily Stock", result.reportMarkdown, {
+            onClose: () => {
+              closeOverlay();
+              tui.requestRender();
+            },
+            footer: "Esc to close",
+          });
+          openOverlay(panel);
+          tui.requestRender();
+        } catch (err) {
+          chatLog.addSystem(`daily stock failed: ${String(err)}`);
+        }
+        break;
+      }
+      case "report": {
+        if (!args) {
+          chatLog.addSystem(
+            "📝 Usage: /report <symbol> [--timeframe 6mo] [--report-type simple|full] [--news-limit N]",
+          );
+          break;
+        }
+        const tokens = args.split(/\s+/).filter(Boolean);
+        const symbol = tokens[0] ?? "";
+        let timeframe: string | undefined;
+        let reportType: "simple" | "full" | undefined;
+        let newsLimit: number | undefined;
+        let locale: string | undefined;
+        let includeFundamentals = true;
+        for (let i = 1; i < tokens.length; i += 1) {
+          const t = tokens[i];
+          if (t === "--timeframe" || t === "-t") {
+            timeframe = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--report-type") {
+            const v = (tokens[i + 1] ?? "").trim().toLowerCase();
+            reportType = v === "simple" ? "simple" : v === "full" ? "full" : undefined;
+            i += 1;
+            continue;
+          }
+          if (t === "--news-limit") {
+            const v = Number.parseInt(tokens[i + 1] ?? "", 10);
+            if (Number.isFinite(v)) {
+              newsLimit = v;
+            }
+            i += 1;
+            continue;
+          }
+          if (t === "--locale") {
+            locale = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--no-fundamentals") {
+            includeFundamentals = false;
+          }
+        }
+        if (!symbol.trim()) {
+          chatLog.addSystem(
+            "📝 Usage: /report <symbol> [--timeframe 6mo] [--report-type simple|full]",
+          );
+          break;
+        }
+        try {
+          setActivityStatus(`building report for ${symbol.toUpperCase()}…`);
+          tui.requestRender();
+          const result = await runStockReport({
+            symbol,
+            timeframe,
+            reportType: reportType ?? "full",
+            newsLimit,
+            locale,
+            profile: "marketbot",
+            includeFundamentals,
+          });
+          setActivityStatus("report ready");
+          const panel = new InfoPanel(`${result.symbol} Report`, result.markdown, {
+            onClose: () => {
+              closeOverlay();
+              tui.requestRender();
+            },
+            footer: "Esc to close",
+          });
+          openOverlay(panel);
+          tui.requestRender();
+        } catch (err) {
+          chatLog.addSystem(`report failed: ${String(err)}`);
         }
         break;
       }

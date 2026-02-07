@@ -51,6 +51,7 @@ import {
   rotateDeviceToken,
 } from "./controllers/devices";
 import { renderSkills } from "./views/skills";
+import { renderStocks } from "./views/stocks";
 import { renderChatControls, renderTab, renderThemeToggle } from "./app-render.helpers";
 import { loadChannels } from "./controllers/channels";
 import { loadPresence } from "./controllers/presence";
@@ -270,6 +271,28 @@ export function renderApp(state: AppViewState) {
               onNostrProfileSave: () => state.handleNostrProfileSave(),
               onNostrProfileImport: () => state.handleNostrProfileImport(),
               onNostrProfileToggleAdvanced: () => state.handleNostrProfileToggleAdvanced(),
+            })
+          : nothing}
+
+        ${state.tab === "stocks"
+          ? renderStocks({
+              loading: state.stocksLoading,
+              running: state.stocksRunning,
+              error: state.stocksError,
+              watchlistText: state.stocksWatchlistText,
+              timeframe: state.stocksTimeframe,
+              reportType: state.stocksReportType,
+              newsLimit: state.stocksNewsLimit,
+              locale: state.stocksLocale,
+              last: state.stocksLast,
+              onWatchlistTextChange: (next) => (state.stocksWatchlistText = next),
+              onTimeframeChange: (next) => (state.stocksTimeframe = next),
+              onReportTypeChange: (next) => (state.stocksReportType = next),
+              onNewsLimitChange: (next) => (state.stocksNewsLimit = next),
+              onLocaleChange: (next) => (state.stocksLocale = next),
+              onRefresh: () => state.loadStocks(),
+              onSaveWatchlist: () => state.saveStocksWatchlist(),
+              onRun: () => state.runStocks(),
             })
           : nothing}
 

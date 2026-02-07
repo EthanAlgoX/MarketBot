@@ -30,7 +30,14 @@ function quoteFromSeries(series: MarketSeries): Quote {
   const points = series.series.filter((p) => typeof p.close === "number");
   const last = points.at(-1);
   if (!last || typeof last.close !== "number") {
-    throw new Error(`No close price available for ${series.symbol}`);
+    // Some tickers (or transient data-source failures) can return empty/partial charts.
+    // Keep higher-level flows stable by returning a minimal quote instead of throwing.
+    return {
+      symbol: series.symbol,
+      ...(series.currency ? { currency: series.currency } : {}),
+      ...(series.exchange ? { exchange: series.exchange } : {}),
+      marketState: "UNKNOWN",
+    };
   }
   const prev = points.length >= 2 ? points.at(-2) : undefined;
   const prevClose = prev && typeof prev.close === "number" ? prev.close : undefined;

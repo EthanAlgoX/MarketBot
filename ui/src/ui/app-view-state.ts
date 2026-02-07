@@ -29,6 +29,7 @@ import type {
 import type { DevicePairingList } from "./controllers/devices";
 import type { ExecApprovalRequest } from "./controllers/exec-approval";
 import type { NostrProfileFormState } from "./views/channels.nostr-profile-form";
+import type { DailyStockRunResult } from "./types";
 
 export type AppViewState = {
   settings: UiSettings;
@@ -147,6 +148,15 @@ export type AppViewState = {
   logsAutoFollow: boolean;
   logsTruncated: boolean;
   client: GatewayBrowserClient | null;
+  stocksLoading: boolean;
+  stocksRunning: boolean;
+  stocksError: string | null;
+  stocksWatchlistText: string;
+  stocksTimeframe: string;
+  stocksReportType: "simple" | "full";
+  stocksNewsLimit: string;
+  stocksLocale: string;
+  stocksLast: DailyStockRunResult | null;
   connect: () => void;
   setTab: (tab: Tab) => void;
   setTheme: (theme: ThemeMode, context?: ThemeTransitionContext) => void;
@@ -206,4 +216,7 @@ export type AppViewState = {
   handleLogsLevelFilterToggle: (level: LogLevel) => void;
   handleLogsAutoFollowToggle: (next: boolean) => void;
   handleCallDebugMethod: (method: string, params: string) => Promise<void>;
+  loadStocks: () => Promise<void>;
+  saveStocksWatchlist: () => Promise<void>;
+  runStocks: () => Promise<void>;
 };

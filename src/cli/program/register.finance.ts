@@ -14,14 +14,91 @@ import { buildFinanceBrief } from "../../finance/brief.js";
 import { buildPortfolioOptimization } from "../../finance/optimize.js";
 import { buildPortfolioOverview } from "../../finance/portfolio.js";
 import { buildPortfolioRisk } from "../../finance/portfolio-risk.js";
+import {
+  buildDecisionDashboard,
+  formatDecisionDashboardMarkdown,
+} from "../../finance/dashboard.js";
+import {
+  buildEquityResearchReport,
+  formatEquityResearchReportMarkdown,
+  type FinanceReportType,
+} from "../../finance/report.js";
 import type { PortfolioPosition } from "../../finance/types.js";
+import { messageCommand } from "../../commands/message.js";
+import { defaultRuntime } from "../../runtime.js";
+import { runCommandWithRuntime } from "../cli-utils.js";
+import { createDefaultDeps } from "../deps.js";
+import { ensurePluginRegistryLoaded } from "../plugin-registry.js";
 
 function printResult(result: unknown, json: boolean) {
   if (json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
   }
+  if (typeof result === "string") {
+    process.stdout.write(`${result}\n`);
+    return;
+  }
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+}
+
+async function sendReportViaMessageCommand(params: {
+  channel: string;
+  target: string;
+  message: string;
+  json?: boolean;
+  dryRun?: boolean;
+}) {
+  if (params.dryRun) {
+    // Keep "daily_stock_analysis" style local testing simple: show payloads without requiring
+    // channel configuration to exist in the local MarketBot config.
+    process.stdout.write(
+      `${JSON.stringify(
+        { action: "send", channel: params.channel, target: params.target, message: params.message },
+        null,
+        2,
+      )}\n`,
+    );
+    return;
+  }
+  ensurePluginRegistryLoaded();
+  const deps = createDefaultDeps();
+  await runCommandWithRuntime(
+    defaultRuntime,
+    async () => {
+      await messageCommand(
+        {
+          action: "send",
+          channel: params.channel,
+          target: params.target,
+          message: params.message,
+          json: params.json === true,
+          dryRun: params.dryRun === true,
+        },
+        deps,
+        defaultRuntime,
+      );
+    },
+    (err) => {
+      throw err;
+    },
+  );
+}
+
+function parsePushSpecs(specs: string[] | undefined): Array<{ channel: string; target: string }> {
+  const out: Array<{ channel: string; target: string }> = [];
+  for (const raw of specs ?? []) {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const idx = trimmed.indexOf(":");
+    if (idx <= 0 || idx === trimmed.length - 1) {
+      throw new Error(`invalid --push value: "${raw}" (expected "<channel>:<target>")`);
+    }
+    out.push({ channel: trimmed.slice(0, idx).trim(), target: trimmed.slice(idx + 1).trim() });
+  }
+  return out;
 }
 
 export function registerFinanceCommand(program: Command) {
@@ -114,6 +191,321 @@ export function registerFinanceCommand(program: Command) {
         const risk = analyzeRisk(series, opts.timeframe);
         const fundamentals = await client.getFundamentals(symbol);
         printResult({ quote, technicals, risk, fundamentals }, Boolean(opts.json));
+      },
+    );
+
+  finance
+    .command("dashboard <symbols...>")
+    .description("Decision dashboards (rule-based) for one or more symbols")
+    .option("--timeframe <tf>", "Timeframe (1h, 4h, 1d, 6mo, 1y)")
+    .option("--json", "Output JSON", false)
+    .option("--news-limit <n>", "News headlines per symbol", (v) => Number.parseInt(v, 10), 3)
+    .option("--locale <code>", "Locale for news (default US)")
+    .action(
+      async (
+        symbols: string[],
+        opts: {
+          profile?: string;
+          json?: boolean;
+          timeframe?: string;
+          newsLimit?: number;
+          locale?: string;
+        },
+        cmd: Command,
+      ) => {
+        const client = getClient(opts);
+        const normalized = symbols.map((s) => s.trim()).filter(Boolean);
+        if (normalized.length === 0) {
+          throw new Error("dashboard requires at least 1 symbol");
+        }
+
+        const dashboards = [];
+        for (const symbol of normalized) {
+          const series = await client.getMarketData({ symbol, timeframe: opts.timeframe });
+          const displaySymbol = series.symbol || symbol;
+          const [quote] = await client.getQuotes([displaySymbol]);
+          const technicals = analyzeTechnicals(series, opts.timeframe);
+          const risk = analyzeRisk(series, opts.timeframe);
+          const newsLimit =
+            typeof opts.newsLimit === "number" && Number.isFinite(opts.newsLimit)
+              ? Math.max(0, Math.floor(opts.newsLimit))
+              : 0;
+          const news =
+            newsLimit > 0
+              ? await client.getNews({
+                  query: displaySymbol,
+                  limit: newsLimit,
+                  locale: opts.locale,
+                })
+              : [];
+          dashboards.push(
+            buildDecisionDashboard({
+              symbol: displaySymbol,
+              series,
+              quote: quote ?? undefined,
+              technicals,
+              risk,
+              news,
+            }),
+          );
+        }
+
+        const json = Boolean(cmd.optsWithGlobals().json);
+        if (json) {
+          printResult({ timeframe: opts.timeframe ?? "6mo", dashboards }, true);
+          return;
+        }
+
+        const rendered = dashboards
+          .map((d) => formatDecisionDashboardMarkdown(d))
+          .join("\n\n---\n\n");
+        printResult(rendered, false);
+      },
+    );
+
+  finance
+    .command("report <symbol>")
+    .description("Research-style markdown report (rule-based) for one symbol")
+    .option("--timeframe <tf>", "Timeframe (1h, 4h, 1d, 6mo, 1y)")
+    .option("--news-limit <n>", "News headlines to include", (v) => Number.parseInt(v, 10), 5)
+    .option("--locale <code>", "Locale for news (default US)")
+    .option("--report-type <type>", "Report type (simple|full)", "full")
+    .option("--skip-fundamentals", "Skip fundamentals fetch", false)
+    .action(
+      async (
+        symbol: string,
+        opts: {
+          profile?: string;
+          json?: boolean;
+          timeframe?: string;
+          newsLimit?: number;
+          locale?: string;
+          reportType?: string;
+          skipFundamentals?: boolean;
+        },
+        cmd: Command,
+      ) => {
+        const client = getClient(opts);
+        const timeframe = opts.timeframe ?? "6mo";
+        const newsLimit =
+          typeof opts.newsLimit === "number" && Number.isFinite(opts.newsLimit)
+            ? Math.max(0, Math.floor(opts.newsLimit))
+            : 0;
+        const reportType: FinanceReportType =
+          opts.reportType?.toLowerCase() === "simple" ? "simple" : "full";
+
+        const series = await client.getMarketData({ symbol, timeframe });
+        const displaySymbol = series.symbol || symbol;
+        const [quote] = await client.getQuotes([displaySymbol]);
+        const technicals = analyzeTechnicals(series, timeframe);
+        const risk = analyzeRisk(series, timeframe);
+        const fundamentals = opts.skipFundamentals
+          ? { symbol: displaySymbol.toUpperCase() }
+          : await client.getFundamentals(displaySymbol);
+        const news =
+          newsLimit > 0
+            ? await client.getNews({ query: displaySymbol, limit: newsLimit, locale: opts.locale })
+            : [];
+        const dashboard = buildDecisionDashboard({
+          symbol: displaySymbol,
+          series,
+          quote: quote ?? undefined,
+          technicals,
+          risk,
+          news,
+        });
+        const report = buildEquityResearchReport({
+          symbol: displaySymbol,
+          timeframe,
+          series,
+          quote: quote ?? undefined,
+          fundamentals,
+          technicals,
+          risk,
+          dashboard,
+          news,
+        });
+
+        const json = Boolean(cmd.optsWithGlobals().json);
+        if (json) {
+          printResult({ reportType, report }, true);
+          return;
+        }
+        printResult(formatEquityResearchReportMarkdown(report, { reportType }), false);
+      },
+    );
+
+  finance
+    .command("daily")
+    .description(
+      "Daily watchlist run (dashboards -> optional save -> optional multi-channel push). Reads STOCK_LIST when --stocks is omitted.",
+    )
+    .option("--stocks <list>", "Comma-separated symbols (overrides STOCK_LIST env)")
+    .option("--timeframe <tf>", "Timeframe (1h, 4h, 1d, 6mo, 1y)")
+    .option("--news-limit <n>", "News headlines per symbol", (v) => Number.parseInt(v, 10), 3)
+    .option("--locale <code>", "Locale for news (default US)")
+    .option("--report-type <type>", "Report type (simple|full)", "full")
+    .option("--out <path>", "Write the markdown report to a file")
+    .option(
+      "--push <channel:target>",
+      "Push report to a channel target (repeatable). Example: --push telegram:@mychat",
+      (value, prev: string[] = []) => prev.concat([value]),
+      [],
+    )
+    .option(
+      "--single-push",
+      "Push each symbol report as it's produced (default: push one combined report)",
+      false,
+    )
+    .option("--push-dry-run", "Do not send; print the message payloads that would be sent", false)
+    .action(
+      async (opts: {
+        profile?: string;
+        stocks?: string;
+        timeframe?: string;
+        newsLimit?: number;
+        locale?: string;
+        reportType?: string;
+        out?: string;
+        push?: string[];
+        singlePush?: boolean;
+        pushDryRun?: boolean;
+      }) => {
+        const list =
+          typeof opts.stocks === "string" && opts.stocks.trim()
+            ? opts.stocks
+            : (process.env.STOCK_LIST ?? "");
+        const symbols = list
+          .split(/[,\s]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (symbols.length === 0) {
+          throw new Error('finance daily requires --stocks "<sym1,sym2>" or env STOCK_LIST');
+        }
+
+        const pushes = parsePushSpecs(opts.push);
+        const client = getClient(opts);
+        const timeframe = opts.timeframe ?? "6mo";
+        const reportType: FinanceReportType =
+          opts.reportType?.toLowerCase() === "simple" ? "simple" : "full";
+        const newsLimit =
+          typeof opts.newsLimit === "number" && Number.isFinite(opts.newsLimit)
+            ? Math.max(0, Math.floor(opts.newsLimit))
+            : 0;
+
+        const dashboards = [];
+        const todayIso = new Date().toISOString().slice(0, 10);
+
+        const mkHeader = (counts: { buy: number; watch: number; sell: number }) =>
+          [
+            `# ${todayIso} 决策仪表盘`,
+            `${symbols.length} symbols | BUY:${counts.buy} WATCH:${counts.watch} SELL:${counts.sell}`,
+            `timeframe=${timeframe}`,
+          ].join("\n");
+
+        const bumpCounts = (
+          counts: { buy: number; watch: number; sell: number },
+          level: "buy" | "watch" | "sell",
+        ) => {
+          if (level === "buy") {
+            counts.buy += 1;
+          }
+          if (level === "watch") {
+            counts.watch += 1;
+          }
+          if (level === "sell") {
+            counts.sell += 1;
+          }
+        };
+
+        const counts = { buy: 0, watch: 0, sell: 0 };
+        for (const symbol of symbols) {
+          const series = await client.getMarketData({ symbol, timeframe });
+          const displaySymbol = series.symbol || symbol;
+          const [quote] = await client.getQuotes([displaySymbol]);
+          const technicals = analyzeTechnicals(series, timeframe);
+          const risk = analyzeRisk(series, timeframe);
+          const resolvedNewsLimit = reportType === "simple" ? Math.min(2, newsLimit) : newsLimit;
+          const news =
+            resolvedNewsLimit > 0
+              ? await client.getNews({
+                  query: displaySymbol,
+                  limit: resolvedNewsLimit,
+                  locale: opts.locale,
+                })
+              : [];
+          const dash = buildDecisionDashboard({
+            symbol: displaySymbol,
+            series,
+            quote: quote ?? undefined,
+            technicals,
+            risk,
+            news,
+          });
+          dashboards.push(dash);
+          bumpCounts(counts, dash.level);
+
+          if (opts.singlePush && pushes.length > 0) {
+            let msg: string;
+            if (reportType === "simple") {
+              const parts: string[] = [
+                mkHeader(counts),
+                "",
+                `## ${dash.symbol}`,
+                `- ${dash.oneSentence}`,
+                `- 建议: ${dash.level.toUpperCase()} (confidence=${dash.confidence})`,
+                `- 点位: entry=${dash.entry ?? "n/a"}, stop=${dash.stopLoss ?? "n/a"}, t1=${dash.target1 ?? "n/a"}`,
+              ];
+              if (news[0]?.title) {
+                parts.push(`- News: ${news[0].title}`);
+              }
+              msg = parts.join("\n");
+            } else {
+              msg = [mkHeader(counts), "", formatDecisionDashboardMarkdown(dash)].join("\n");
+            }
+            for (const p of pushes) {
+              await sendReportViaMessageCommand({
+                channel: p.channel,
+                target: p.target,
+                message: msg,
+                dryRun: Boolean(opts.pushDryRun),
+              });
+            }
+          }
+        }
+
+        const body =
+          reportType === "simple"
+            ? dashboards
+                .map((d) => {
+                  const badge = d.level === "buy" ? "🟢" : d.level === "sell" ? "🔴" : "🟡";
+                  return [
+                    `## ${badge} ${d.symbol} | ${d.level.toUpperCase()}`,
+                    `- ${d.oneSentence}`,
+                    `- 点位: entry=${d.entry ?? "n/a"}, stop=${d.stopLoss ?? "n/a"}, t1=${d.target1 ?? "n/a"}`,
+                  ].join("\n");
+                })
+                .join("\n\n---\n\n")
+            : dashboards.map((d) => formatDecisionDashboardMarkdown(d)).join("\n\n---\n\n");
+        const report = [mkHeader(counts), "", body].join("\n");
+
+        if (typeof opts.out === "string" && opts.out.trim()) {
+          await fs.writeFile(opts.out, report, "utf8");
+        }
+
+        if (!opts.singlePush && pushes.length > 0) {
+          for (const p of pushes) {
+            await sendReportViaMessageCommand({
+              channel: p.channel,
+              target: p.target,
+              message: report,
+              dryRun: Boolean(opts.pushDryRun),
+            });
+          }
+        }
+
+        // Always print the report to stdout for local testing/logs.
+        process.stdout.write(`${report}\n`);
       },
     );
 
