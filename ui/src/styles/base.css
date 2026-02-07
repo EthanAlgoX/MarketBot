@@ -9,89 +9,96 @@
   /* ══════════════════════════════════════════════════════════════
      QUANTUM DEPTH PALETTE - Richer, Warmer Blacks
      ══════════════════════════════════════════════════════════════ */
-  --bg-abyss: #000000;
-  --bg-void: #050508;
-  --bg-base: #0c0c10;
-  --bg-elevated: #131318;
-  --bg-surface: #1a1a22;
-  --bg-hover: #222230;
-  --bg-active: #2a2a3a;
-  --bg-inset: #08080c;
+  --bg-abyss: #030305;
+  --bg-void: #08080c;
+  --bg-base: #0e0e14;
+  --bg-elevated: #15151e;
+  --bg-surface: #1e1e28;
+  --bg-hover: #262635;
+  --bg-active: #303040;
+  --bg-inset: #050508;
 
   /* ══════════════════════════════════════════════════════════════
      GLASS & OVERLAYS - Refined Translucency
      ══════════════════════════════════════════════════════════════ */
-  --glass-bg: rgba(12, 12, 16, 0.92);
-  --glass-border: rgba(255, 255, 255, 0.07);
-  --glass-highlight: rgba(255, 255, 255, 0.03);
-  --backdrop-blur: blur(20px);
-  --backdrop-saturate: saturate(1.2);
+  --glass-bg: rgba(14, 14, 20, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.04);
+  --backdrop-blur: blur(24px);
+  --backdrop-saturate: saturate(1.4);
 
   /* ══════════════════════════════════════════════════════════════
      TEXT HIERARCHY - High Contrast
      ══════════════════════════════════════════════════════════════ */
-  --text-primary: #ffffff;
-  --text-secondary: #a8a8b8;
-  --text-tertiary: #6a6a7a;
-  --text-muted: #48485a;
-  --text-inverse: #0c0c10;
+  --text-primary: #ededf0;
+  --text-secondary: #a0a0b0;
+  --text-tertiary: #6b6b7a;
+  --text-muted: #4a4a5a;
+  --text-inverse: #030305;
 
   /* ══════════════════════════════════════════════════════════════
-     ACCENT SPECTRUM - Cyan to Purple Gradient
+     ACCENT SPECTRUM - Tech-Fintech Neon
      ══════════════════════════════════════════════════════════════ */
-  --accent-cyan: #00d4ff;
-  --accent-blue: #0088ff;
-  --accent-purple: #8855ff;
+  --accent-cyan: #00f0ff;
+  --accent-blue: #0066ff;
+  --accent-purple: #bd00ff;
   --accent: var(--accent-blue);
-  --accent-bright: #33aaff;
-  --accent-dim: #0066cc;
+  --accent-bright: #3399ff;
+  --accent-dim: #0044aa;
 
-  /* Gradient Accents */
+  /* Gradient Accents - Sharper */
   --gradient-accent: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-blue) 50%, var(--accent-purple) 100%);
-  --gradient-accent-soft: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(136, 85, 255, 0.15) 100%);
+  --gradient-accent-soft: linear-gradient(135deg, rgba(0, 240, 255, 0.1) 0%, rgba(0, 102, 255, 0.1) 100%);
+  --gradient-glass: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
 
-  /* Glow Effects */
-  --glow-accent: 0 0 20px rgba(0, 136, 255, 0.35), 0 0 60px rgba(0, 136, 255, 0.15);
-  --glow-accent-subtle: 0 0 12px rgba(0, 136, 255, 0.25);
-  --glow-cyan: 0 0 20px rgba(0, 212, 255, 0.4);
-  --glow-purple: 0 0 20px rgba(136, 85, 255, 0.4);
+  /* Glow Effects - Intense */
+  --glow-accent: 0 0 20px rgba(0, 102, 255, 0.4), 0 0 40px rgba(0, 102, 255, 0.2);
+  --glow-accent-subtle: 0 0 15px rgba(0, 102, 255, 0.2);
+  --glow-cyan: 0 0 20px rgba(0, 240, 255, 0.4);
+  --glow-purple: 0 0 20px rgba(189, 0, 255, 0.4);
 
   /* ══════════════════════════════════════════════════════════════
      DATA SEMANTICS - FinTech Colors
      ══════════════════════════════════════════════════════════════ */
-  --data-positive: #00e676;
-  --data-negative: #ff4466;
-  --data-neutral: #a8a8b8;
-  --data-warning: #ffbb00;
+  --data-positive: #00ff9d;
+  --data-negative: #ff0055;
+  --data-neutral: #a0a0b0;
+  --data-warning: #ffcc00;
   --data-info: var(--accent-cyan);
 
-  --glow-positive: 0 0 16px rgba(0, 230, 118, 0.35);
-  --glow-negative: 0 0 16px rgba(255, 68, 102, 0.35);
+  --chart-1: #00ff9d;
+  --chart-2: #00f0ff;
+  --chart-3: #0066ff;
+  --chart-4: #bd00ff;
+  --chart-5: #ff0055;
+
+  --glow-positive: 0 0 16px rgba(0, 255, 157, 0.35);
+  --glow-negative: 0 0 16px rgba(255, 0, 85, 0.35);
 
   /* Premium Metals */
-  --gold: #ffc857;
-  --platinum: #e8e8f0;
-  --silver: #c0c0d0;
+  --gold: #ffd700;
+  --platinum: #e5e4e2;
+  --silver: #c0c0c0;
 
   /* ══════════════════════════════════════════════════════════════
      BORDERS - Refined Separators
      ══════════════════════════════════════════════════════════════ */
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-default: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.18);
   --border-accent: var(--accent-blue);
-  --border-gradient: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+  --border-gradient: linear-gradient(135deg, rgba(0, 240, 255, 0.5), rgba(189, 0, 255, 0.5));
 
   /* ══════════════════════════════════════════════════════════════
      SHADOWS - Multi-Layer Depth
      ══════════════════════════════════════════════════════════════ */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 30px rgba(0, 136, 255, 0.15);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.7), 0 8px 16px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.8), 0 12px 32px rgba(0, 0, 0, 0.7);
+  --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 40px rgba(0, 102, 255, 0.15);
 
   /* ══════════════════════════════════════════════════════════════
      TYPOGRAPHY - Refined Scale
@@ -120,11 +127,11 @@
   --leading-normal: 1.5;
   --leading-relaxed: 1.65;
 
-  --tracking-tighter: -0.03em;
-  --tracking-tight: -0.015em;
+  --tracking-tighter: -0.04em;
+  --tracking-tight: -0.02em;
   --tracking-normal: 0;
-  --tracking-wide: 0.02em;
-  --tracking-wider: 0.05em;
+  --tracking-wide: 0.03em;
+  --tracking-wider: 0.06em;
 
   /* ══════════════════════════════════════════════════════════════
      SPACING - Consistent Scale
@@ -141,14 +148,14 @@
   --space-12: 48px;
 
   /* ══════════════════════════════════════════════════════════════
-     RADII - Soft Corners
+     RADII - Tech Cuts
      ══════════════════════════════════════════════════════════════ */
-  --radius-xs: 3px;
-  --radius-sm: 5px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 24px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
   --radius-full: 9999px;
 
   /* ══════════════════════════════════════════════════════════════

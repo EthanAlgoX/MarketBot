@@ -25,6 +25,9 @@
     "nav content";
 
   background: var(--bg-abyss);
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(0, 102, 255, 0.03) 0%, transparent 20%),
+    radial-gradient(circle at 90% 80%, rgba(189, 0, 255, 0.03) 0%, transparent 20%);
   transition: grid-template-columns var(--duration-normal) var(--ease-out);
 }
 
@@ -53,7 +56,8 @@
   padding: 0 var(--space-5);
   gap: var(--space-4);
 
-  background: var(--bg-void);
+  background: var(--glass-bg);
+  backdrop-filter: var(--backdrop-blur) var(--backdrop-saturate);
   border-bottom: 1px solid var(--border-subtle);
   position: relative;
   z-index: 100;
@@ -68,7 +72,8 @@
   right: 0;
   height: 1px;
   background: var(--gradient-accent);
-  opacity: 0.4;
+  opacity: 0.3;
+  box-shadow: 0 1px 10px rgba(0, 102, 255, 0.2);
 }
 
 .topbar-left,
@@ -105,6 +110,7 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  text-shadow: 0 0 20px rgba(0, 102, 255, 0.3);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -165,7 +171,9 @@
   color: var(--text-secondary);
   text-decoration: none;
 
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  /* Prepare for border transition */
   transition: all var(--duration-fast) var(--ease-out);
   position: relative;
 }
@@ -173,24 +181,29 @@
 .nav-item:hover {
   background: var(--bg-surface);
   color: var(--text-primary);
+  border-color: var(--border-subtle);
 }
 
 .nav-item.active {
-  background: var(--bg-elevated);
+  background: rgba(0, 102, 255, 0.08);
+  /* Low opacity blue */
   color: var(--text-primary);
+  border-color: rgba(0, 102, 255, 0.2);
+  box-shadow: 0 0 15px rgba(0, 102, 255, 0.05);
+  /* Very subtle glow */
 }
 
 /* Active indicator */
 .nav-item.active::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  left: -1px;
+  top: 6px;
+  bottom: 6px;
   width: 3px;
-  height: 20px;
-  background: var(--gradient-accent);
-  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  background: var(--accent-cyan);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 8px var(--accent-cyan);
 }
 
 .nav-item__icon {
@@ -221,6 +234,7 @@
   overflow-y: auto;
 
   background: var(--bg-base);
+  position: relative;
 }
 
 /* Chat Layout Override */
@@ -242,11 +256,13 @@
 }
 
 .page-title {
-  font-size: var(--text-xl);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
   font-weight: var(--font-bold);
   color: var(--text-primary);
-  letter-spacing: var(--tracking-tight);
+  letter-spacing: var(--tracking-normal);
   line-height: var(--leading-tight);
+  text-transform: uppercase;
 }
 
 .page-subtitle {
@@ -345,8 +361,9 @@
   padding: var(--space-1) var(--space-3);
 
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-wide);
 
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
@@ -355,33 +372,33 @@
 }
 
 .pill.success {
-  background: rgba(0, 230, 118, 0.1);
-  border-color: rgba(0, 230, 118, 0.25);
+  background: rgba(0, 255, 157, 0.08);
+  border-color: rgba(0, 255, 157, 0.2);
   color: var(--data-positive);
 }
 
 .pill.danger {
-  background: rgba(255, 68, 102, 0.1);
-  border-color: rgba(255, 68, 102, 0.25);
+  background: rgba(255, 0, 85, 0.08);
+  border-color: rgba(255, 0, 85, 0.2);
   color: var(--data-negative);
 }
 
 .pill.warning {
-  background: rgba(255, 187, 0, 0.1);
-  border-color: rgba(255, 187, 0, 0.25);
+  background: rgba(255, 204, 0, 0.08);
+  border-color: rgba(255, 204, 0, 0.2);
   color: var(--data-warning);
 }
 
 .pill.accent {
-  background: rgba(0, 136, 255, 0.1);
-  border-color: rgba(0, 136, 255, 0.25);
+  background: rgba(0, 102, 255, 0.08);
+  border-color: rgba(0, 102, 255, 0.2);
   color: var(--accent-bright);
 }
 
 /* Status Dot */
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--text-muted);
   flex-shrink: 0;

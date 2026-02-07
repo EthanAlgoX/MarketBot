@@ -55,6 +55,9 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
     messageToolHints: () => [
       "- Feishu targeting: omit `target` to reply to the current conversation (auto-inferred). Explicit targets: `user:open_id` or `chat:chat_id`.",
       "- Feishu supports interactive cards for rich messages.",
+      "- Finance: use the `finance` tool for market data, technicals, risk, news, and briefs. Common actions: `market_data`, `quote`, `technicals`, `risk`, `summary`, `news`, `brief`.",
+      "- Gold (黄金) defaults: use symbol `XAUUSD=X` (spot) or `GC=F` (COMEX futures) if the user does not specify an exchange.",
+      "- Output: write in Chinese, concise research-note style (price action, trend, key levels, catalysts, risks). Always state timeframe and data source.",
     ],
   },
   groups: {
