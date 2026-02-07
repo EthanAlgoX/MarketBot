@@ -11,12 +11,14 @@ export type StocksProps = {
   watchlistText: string;
   timeframe: string;
   reportType: "simple" | "full";
+  includeFundamentals: boolean;
   newsLimit: string;
   locale: string;
   last: DailyStockRunResult | null;
   onWatchlistTextChange: (next: string) => void;
   onTimeframeChange: (next: string) => void;
   onReportTypeChange: (next: "simple" | "full") => void;
+  onIncludeFundamentalsChange: (next: boolean) => void;
   onNewsLimitChange: (next: string) => void;
   onLocaleChange: (next: string) => void;
   onRefresh: () => void;
@@ -48,88 +50,127 @@ function renderSummary(last: DailyStockRunResult | null) {
   `;
 }
 
+function normalizeSymbolsFromText(text: string): string[] {
+  return text
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export function renderStocks(props: StocksProps) {
+  const watchlist = normalizeSymbolsFromText(props.watchlistText);
   const lastMarkdown = props.last?.reportMarkdown ?? "";
   return html`
-    <section class="grid grid-cols-2">
-      <div class="card">
-        <div class="card-title">Watchlist</div>
-        <div class="card-sub">One symbol per line. Supports US tickers, A-share (600519), HK (hk00700).</div>
-        <label class="field" style="margin-top: 12px;">
-          <textarea
-            rows="10"
-            .value=${props.watchlistText}
-            placeholder="AAPL\nNVDA\n600519\nhk00700"
-            @input=${(e: Event) => props.onWatchlistTextChange((e.target as HTMLTextAreaElement).value)}
-          ></textarea>
-        </label>
-        <div class="row" style="margin-top: 12px;">
-          <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
-            ${props.loading ? "Refreshing…" : "Refresh"}
-          </button>
-          <button class="btn primary" ?disabled=${props.loading} @click=${props.onSaveWatchlist}>
-            Save Watchlist
-          </button>
+    <section class="stocks-layout">
+      <div class="stocks-left">
+        <div class="card">
+          <div class="row" style="justify-content: space-between;">
+            <div>
+              <div class="card-title">Watchlist</div>
+              <div class="card-sub">One symbol per line. Supports US tickers, A-share (600519), HK (hk00700).</div>
+            </div>
+            <div class="pill"><span class="mono">${watchlist.length}</span><span class="muted">symbols</span></div>
+          </div>
+          <label class="field" style="margin-top: 12px;">
+            <textarea
+              rows="10"
+              .value=${props.watchlistText}
+              placeholder="AAPL\nNVDA\n600519\nhk00700"
+              @input=${(e: Event) => props.onWatchlistTextChange((e.target as HTMLTextAreaElement).value)}
+            ></textarea>
+          </label>
+          <div class="row" style="margin-top: 12px;">
+            <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+              ${props.loading ? "Refreshing…" : "Refresh"}
+            </button>
+            <button class="btn primary" ?disabled=${props.loading} @click=${props.onSaveWatchlist}>
+              Save
+            </button>
+          </div>
+          ${props.error ? html`<div class="callout danger" style="margin-top: 12px;">${props.error}</div>` : nothing}
         </div>
-        ${props.error ? html`<div class="callout danger" style="margin-top: 12px;">${props.error}</div>` : nothing}
+
+        <div class="card">
+          <div class="card-title">Daily Run</div>
+          <div class="card-sub">Rule-based decision dashboards and a research-style note for your watchlist.</div>
+          ${renderSummary(props.last)}
+          <div class="form-grid" style="margin-top: 16px;">
+            <label class="field">
+              <span>Timeframe</span>
+              <select .value=${props.timeframe} @change=${(e: Event) => props.onTimeframeChange((e.target as HTMLSelectElement).value)}>
+                <option value="6mo">6mo</option>
+                <option value="1y">1y</option>
+                <option value="ytd">ytd</option>
+                <option value="max">max</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Report Type</span>
+              <select
+                .value=${props.reportType}
+                @change=${(e: Event) => props.onReportTypeChange(((e.target as HTMLSelectElement).value as any) === "full" ? "full" : "simple")}
+              >
+                <option value="simple">simple (push-friendly)</option>
+                <option value="full">full (research)</option>
+              </select>
+            </label>
+            <label class="field field--toggle">
+              <span>Fundamentals</span>
+              <label class="toggle">
+                <input
+                  type="checkbox"
+                  .checked=${props.includeFundamentals}
+                  @change=${(e: Event) => props.onIncludeFundamentalsChange((e.target as HTMLInputElement).checked)}
+                />
+                <span class="toggle__track" aria-hidden="true"></span>
+                <span class="toggle__thumb" aria-hidden="true"></span>
+              </label>
+            </label>
+            <label class="field">
+              <span>News Limit</span>
+              <input
+                .value=${props.newsLimit}
+                @input=${(e: Event) => props.onNewsLimitChange((e.target as HTMLInputElement).value)}
+                placeholder="2"
+              />
+            </label>
+            <label class="field">
+              <span>Locale</span>
+              <input
+                .value=${props.locale}
+                @input=${(e: Event) => props.onLocaleChange((e.target as HTMLInputElement).value)}
+                placeholder="US"
+              />
+            </label>
+          </div>
+          <div class="row" style="margin-top: 12px;">
+            <button class="btn primary" ?disabled=${props.running} @click=${props.onRun}>
+              ${props.running ? "Running…" : "Run Now"}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Daily Run</div>
-        <div class="card-sub">Rule-based decision dashboards and a research-style summary.</div>
-        ${renderSummary(props.last)}
-        <div class="form-grid" style="margin-top: 16px;">
-          <label class="field">
-            <span>Timeframe</span>
-            <select .value=${props.timeframe} @change=${(e: Event) => props.onTimeframeChange((e.target as HTMLSelectElement).value)}>
-              <option value="6mo">6mo</option>
-              <option value="1y">1y</option>
-              <option value="ytd">ytd</option>
-              <option value="max">max</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Report Type</span>
-            <select
-              .value=${props.reportType}
-              @change=${(e: Event) => props.onReportTypeChange(((e.target as HTMLSelectElement).value as any) === "full" ? "full" : "simple")}
-            >
-              <option value="simple">simple (push-friendly)</option>
-              <option value="full">full (research)</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>News Limit</span>
-            <input
-              .value=${props.newsLimit}
-              @input=${(e: Event) => props.onNewsLimitChange((e.target as HTMLInputElement).value)}
-              placeholder="2"
-            />
-          </label>
-          <label class="field">
-            <span>Locale</span>
-            <input
-              .value=${props.locale}
-              @input=${(e: Event) => props.onLocaleChange((e.target as HTMLInputElement).value)}
-              placeholder="US"
-            />
-          </label>
-        </div>
-        <div class="row" style="margin-top: 12px;">
-          <button class="btn primary" ?disabled=${props.running} @click=${props.onRun}>
-            ${props.running ? "Running…" : "Run Now"}
-          </button>
-        </div>
+      <div class="stocks-right">
+        <section class="card report-pane">
+          <div class="report-pane__header">
+            <div>
+              <div class="card-title">Report</div>
+              <div class="card-sub">Latest Daily Stock markdown. Designed to read like a compact research note.</div>
+            </div>
+            <div class="row">
+              <button class="btn" ?disabled=${props.running} @click=${props.onRun}>
+                ${props.running ? "Running…" : "Run"}
+              </button>
+            </div>
+          </div>
+          <div class="report-pane__body">
+            ${lastMarkdown
+              ? html`<div class="sidebar-markdown" style="max-width: 100%;">${unsafeHTML(toSanitizedMarkdownHtml(lastMarkdown))}</div>`
+              : html`<div class="muted">No report available yet.</div>`}
+          </div>
+        </section>
       </div>
-    </section>
-
-    <section class="card" style="margin-top: 16px;">
-      <div class="card-title">Report</div>
-      <div class="card-sub">Latest Daily Stock report markdown.</div>
-      ${lastMarkdown
-        ? html`<div class="sidebar-markdown" style="max-width: 100%;">${unsafeHTML(toSanitizedMarkdownHtml(lastMarkdown))}</div>`
-        : html`<div class="muted">No report available yet.</div>`}
     </section>
   `;
 }
-

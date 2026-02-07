@@ -30,58 +30,26 @@ import type {
   StatusSummary,
 } from "./types";
 import type { ChatQueueItem, CronFormState } from "./ui-types";
+import { formatAgo } from "./format";
 import { refreshChatAvatar } from "./app-chat";
 import { renderChat } from "./views/chat";
-import { renderConfig } from "./views/config";
 import { renderChannels } from "./views/channels";
 import { renderCron } from "./views/cron";
-import { renderDebug } from "./views/debug";
-import { renderInstances } from "./views/instances";
 import { renderLogs } from "./views/logs";
-import { renderNodes } from "./views/nodes";
 import { renderOverview } from "./views/overview";
 import { renderSessions } from "./views/sessions";
 import { renderExecApprovalPrompt } from "./views/exec-approval";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation";
-import {
-  approveDevicePairing,
-  loadDevices,
-  rejectDevicePairing,
-  revokeDeviceToken,
-  rotateDeviceToken,
-} from "./controllers/devices";
-import { renderSkills } from "./views/skills";
+import { renderDesk } from "./views/desk";
 import { renderStocks } from "./views/stocks";
 import { renderChatControls, renderTab, renderThemeToggle } from "./app-render.helpers";
 import { loadChannels } from "./controllers/channels";
-import { loadPresence } from "./controllers/presence";
 import { deleteSession, loadSessions, patchSession } from "./controllers/sessions";
-import {
-  installSkill,
-  loadSkills,
-  saveSkillApiKey,
-  updateSkillEdit,
-  updateSkillEnabled,
-  type SkillMessage,
-} from "./controllers/skills";
-import { loadNodes } from "./controllers/nodes";
 import { loadChatHistory } from "./controllers/chat";
 import {
-  applyConfig,
-  loadConfig,
-  runUpdate,
-  saveConfig,
   updateConfigFormValue,
-  removeConfigFormValue,
 } from "./controllers/config";
-import {
-  loadExecApprovals,
-  removeExecApprovalsFormValue,
-  saveExecApprovals,
-  updateExecApprovalsFormValue,
-} from "./controllers/exec-approvals";
 import { loadCronRuns, toggleCronJob, runCronJob, removeCronJob, addCronJob } from "./controllers/cron";
-import { loadDebug, callDebugMethod } from "./controllers/debug";
 import { loadLogs } from "./controllers/logs";
 
 const AVATAR_DATA_RE = /^data:/i;
@@ -112,6 +80,8 @@ export function renderApp(state: AppViewState) {
   const showThinking = state.onboarding ? false : state.settings.chatShowThinking;
   const assistantAvatarUrl = resolveAssistantAvatarUrl(state);
   const chatAvatarUrl = state.chatAvatarUrl ?? assistantAvatarUrl ?? null;
+  const channelUpdated =
+    state.channelsLastSuccess != null ? formatAgo(state.channelsLastSuccess) : null;
 
   return html`
     <div class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
@@ -131,20 +101,26 @@ export function renderApp(state: AppViewState) {
           </button>
           <div class="brand">
             <div class="brand-logo">
-              <img src="https://mintcdn.com/markethub/4rYvG-uuZrMK_URE/assets/pixel-lobster.svg?fit=max&auto=format&n=4rYvG-uuZrMK_URE&q=85&s=da2032e9eac3b5d9bfe7eb96ca6a8a26" alt="MarketBot" />
+              <img src="./marketbot-mark.svg" alt="MarketBot" />
             </div>
             <div class="brand-text">
-              <div class="brand-title">MARKETBOT</div>
-              <div class="brand-sub">Gateway Dashboard</div>
+              <div class="brand-title">MarketBot</div>
+              <div class="brand-sub">Finance Desk</div>
             </div>
           </div>
         </div>
         <div class="topbar-status">
-          <div class="pill">
-            <span class="statusDot ${state.connected ? "ok" : ""}"></span>
-            <span>Health</span>
-            <span class="mono">${state.connected ? "OK" : "Offline"}</span>
+          <div class="pill ${state.connected ? "ok" : "warn"}" title="Gateway connection state">
+            <span class="statusDot ${state.connected ? "ok" : "warn"}"></span>
+            <span>Gateway</span>
+            <span class="mono">${state.connected ? "Connected" : "Disconnected"}</span>
           </div>
+          ${state.stocksLast
+            ? html`<div class="pill" title="Latest saved Daily Stocks run date">
+                <span>Stocks</span>
+                <span class="mono">${state.stocksLast.dateIso}</span>
+              </div>`
+            : nothing}
           ${renderThemeToggle(state)}
         </div>
       </header>
@@ -200,6 +176,18 @@ export function renderApp(state: AppViewState) {
             <div class="page-sub">${subtitleForTab(state.tab)}</div>
           </div>
           <div class="page-meta">
+            ${state.tab === "stocks" && state.stocksLast
+              ? html`<div class="pill" title="Latest saved daily run date">
+                  <span>Last</span>
+                  <span class="mono">${state.stocksLast.dateIso}</span>
+                </div>`
+              : nothing}
+            ${state.tab === "channels" && channelUpdated
+              ? html`<div class="pill" title="Last successful channels snapshot refresh">
+                  <span>Updated</span>
+                  <span class="mono">${channelUpdated}</span>
+                </div>`
+              : nothing}
             ${state.lastError
               ? html`<div class="pill danger">${state.lastError}</div>`
               : nothing}
@@ -207,18 +195,28 @@ export function renderApp(state: AppViewState) {
           </div>
         </section>
 
+        ${state.tab === "desk"
+          ? renderDesk({
+              connected: state.connected,
+              lastError: state.lastError,
+              stocksLast: state.stocksLast,
+              watchlistText: state.stocksWatchlistText,
+              onOpenStocks: () => state.setTab("stocks"),
+              onRunStocks: () => state.runStocks(),
+              onOpenChannels: () => state.setTab("channels"),
+              onOpenSessions: () => state.setTab("sessions"),
+              onOpenCron: () => state.setTab("cron"),
+              onOpenLogs: () => state.setTab("logs"),
+              onOpenChat: () => state.setTab("chat"),
+            })
+          : nothing}
+
         ${state.tab === "overview"
           ? renderOverview({
               connected: state.connected,
-              hello: state.hello,
               settings: state.settings,
               password: state.password,
               lastError: state.lastError,
-              presenceCount,
-              sessionsCount,
-              cronEnabled: state.cronStatus?.enabled ?? null,
-              cronNext,
-              lastChannelsRefresh: state.channelsLastSuccess,
               onSettingsChange: (next) => state.applySettings(next),
               onPasswordChange: (next) => (state.password = next),
               onSessionKeyChange: (next) => {
@@ -282,27 +280,22 @@ export function renderApp(state: AppViewState) {
               watchlistText: state.stocksWatchlistText,
               timeframe: state.stocksTimeframe,
               reportType: state.stocksReportType,
+              includeFundamentals: state.stocksIncludeFundamentals,
               newsLimit: state.stocksNewsLimit,
               locale: state.stocksLocale,
               last: state.stocksLast,
               onWatchlistTextChange: (next) => (state.stocksWatchlistText = next),
               onTimeframeChange: (next) => (state.stocksTimeframe = next),
-              onReportTypeChange: (next) => (state.stocksReportType = next),
+              onReportTypeChange: (next) => {
+                state.stocksReportType = next;
+                state.stocksIncludeFundamentals = next === "full";
+              },
+              onIncludeFundamentalsChange: (next) => (state.stocksIncludeFundamentals = next),
               onNewsLimitChange: (next) => (state.stocksNewsLimit = next),
               onLocaleChange: (next) => (state.stocksLocale = next),
               onRefresh: () => state.loadStocks(),
               onSaveWatchlist: () => state.saveStocksWatchlist(),
               onRun: () => state.runStocks(),
-            })
-          : nothing}
-
-        ${state.tab === "instances"
-          ? renderInstances({
-              loading: state.presenceLoading,
-              entries: state.presenceEntries,
-              lastError: state.presenceError,
-              statusMessage: state.presenceStatus,
-              onRefresh: () => loadPresence(state),
             })
           : nothing}
 
@@ -324,9 +317,9 @@ export function renderApp(state: AppViewState) {
 	              },
 	              onRefresh: () => loadSessions(state),
 	              onPatch: (key, patch) => patchSession(state, key, patch),
-	              onDelete: (key) => deleteSession(state, key),
-	            })
-	          : nothing}
+              onDelete: (key) => deleteSession(state, key),
+            })
+          : nothing}
 
         ${state.tab === "cron"
           ? renderCron({
@@ -350,102 +343,6 @@ export function renderApp(state: AppViewState) {
               onRun: (job) => runCronJob(state, job),
               onRemove: (job) => removeCronJob(state, job),
               onLoadRuns: (jobId) => loadCronRuns(state, jobId),
-            })
-          : nothing}
-
-        ${state.tab === "skills"
-          ? renderSkills({
-              loading: state.skillsLoading,
-              report: state.skillsReport,
-              error: state.skillsError,
-              filter: state.skillsFilter,
-              edits: state.skillEdits,
-              messages: state.skillMessages,
-              busyKey: state.skillsBusyKey,
-              onFilterChange: (next) => (state.skillsFilter = next),
-              onRefresh: () => loadSkills(state, { clearMessages: true }),
-              onToggle: (key, enabled) => updateSkillEnabled(state, key, enabled),
-              onEdit: (key, value) => updateSkillEdit(state, key, value),
-              onSaveKey: (key) => saveSkillApiKey(state, key),
-              onInstall: (skillKey, name, installId) =>
-                installSkill(state, skillKey, name, installId),
-            })
-          : nothing}
-
-        ${state.tab === "nodes"
-          ? renderNodes({
-              loading: state.nodesLoading,
-              nodes: state.nodes,
-              devicesLoading: state.devicesLoading,
-              devicesError: state.devicesError,
-              devicesList: state.devicesList,
-              configForm: state.configForm ?? (state.configSnapshot?.config as Record<string, unknown> | null),
-              configLoading: state.configLoading,
-              configSaving: state.configSaving,
-              configDirty: state.configFormDirty,
-              configFormMode: state.configFormMode,
-              execApprovalsLoading: state.execApprovalsLoading,
-              execApprovalsSaving: state.execApprovalsSaving,
-              execApprovalsDirty: state.execApprovalsDirty,
-              execApprovalsSnapshot: state.execApprovalsSnapshot,
-              execApprovalsForm: state.execApprovalsForm,
-              execApprovalsSelectedAgent: state.execApprovalsSelectedAgent,
-              execApprovalsTarget: state.execApprovalsTarget,
-              execApprovalsTargetNodeId: state.execApprovalsTargetNodeId,
-              onRefresh: () => loadNodes(state),
-              onDevicesRefresh: () => loadDevices(state),
-              onDeviceApprove: (requestId) => approveDevicePairing(state, requestId),
-              onDeviceReject: (requestId) => rejectDevicePairing(state, requestId),
-              onDeviceRotate: (deviceId, role, scopes) =>
-                rotateDeviceToken(state, { deviceId, role, scopes }),
-              onDeviceRevoke: (deviceId, role) =>
-                revokeDeviceToken(state, { deviceId, role }),
-              onLoadConfig: () => loadConfig(state),
-              onLoadExecApprovals: () => {
-                const target =
-                  state.execApprovalsTarget === "node" && state.execApprovalsTargetNodeId
-                    ? { kind: "node" as const, nodeId: state.execApprovalsTargetNodeId }
-                    : { kind: "gateway" as const };
-                return loadExecApprovals(state, target);
-              },
-              onBindDefault: (nodeId) => {
-                if (nodeId) {
-                  updateConfigFormValue(state, ["tools", "exec", "node"], nodeId);
-                } else {
-                  removeConfigFormValue(state, ["tools", "exec", "node"]);
-                }
-              },
-              onBindAgent: (agentIndex, nodeId) => {
-                const basePath = ["agents", "list", agentIndex, "tools", "exec", "node"];
-                if (nodeId) {
-                  updateConfigFormValue(state, basePath, nodeId);
-                } else {
-                  removeConfigFormValue(state, basePath);
-                }
-              },
-              onSaveBindings: () => saveConfig(state),
-              onExecApprovalsTargetChange: (kind, nodeId) => {
-                state.execApprovalsTarget = kind;
-                state.execApprovalsTargetNodeId = nodeId;
-                state.execApprovalsSnapshot = null;
-                state.execApprovalsForm = null;
-                state.execApprovalsDirty = false;
-                state.execApprovalsSelectedAgent = null;
-              },
-              onExecApprovalsSelectAgent: (agentId) => {
-                state.execApprovalsSelectedAgent = agentId;
-              },
-              onExecApprovalsPatch: (path, value) =>
-                updateExecApprovalsFormValue(state, path, value),
-              onExecApprovalsRemove: (path) =>
-                removeExecApprovalsFormValue(state, path),
-              onSaveExecApprovals: () => {
-                const target =
-                  state.execApprovalsTarget === "node" && state.execApprovalsTargetNodeId
-                    ? { kind: "node" as const, nodeId: state.execApprovalsTargetNodeId }
-                    : { kind: "gateway" as const };
-                return saveExecApprovals(state, target);
-              },
             })
           : nothing}
 
@@ -520,63 +417,6 @@ export function renderApp(state: AppViewState) {
               onSplitRatioChange: (ratio: number) => state.handleSplitRatioChange(ratio),
               assistantName: state.assistantName,
               assistantAvatar: state.assistantAvatar,
-            })
-          : nothing}
-
-        ${state.tab === "config"
-          ? renderConfig({
-              raw: state.configRaw,
-              originalRaw: state.configRawOriginal,
-              valid: state.configValid,
-              issues: state.configIssues,
-              loading: state.configLoading,
-              saving: state.configSaving,
-              applying: state.configApplying,
-              updating: state.updateRunning,
-              connected: state.connected,
-              schema: state.configSchema,
-              schemaLoading: state.configSchemaLoading,
-              uiHints: state.configUiHints,
-              formMode: state.configFormMode,
-              formValue: state.configForm,
-              originalValue: state.configFormOriginal,
-              searchQuery: state.configSearchQuery,
-              activeSection: state.configActiveSection,
-              activeSubsection: state.configActiveSubsection,
-              onRawChange: (next) => {
-                state.configRaw = next;
-              },
-              onFormModeChange: (mode) => (state.configFormMode = mode),
-              onFormPatch: (path, value) => updateConfigFormValue(state, path, value),
-              onSearchChange: (query) => (state.configSearchQuery = query),
-              onSectionChange: (section) => {
-                state.configActiveSection = section;
-                state.configActiveSubsection = null;
-              },
-              onSubsectionChange: (section) => (state.configActiveSubsection = section),
-              onReload: () => loadConfig(state),
-              onSave: () => saveConfig(state),
-              onApply: () => applyConfig(state),
-              onUpdate: () => runUpdate(state),
-            })
-          : nothing}
-
-        ${state.tab === "debug"
-          ? renderDebug({
-              loading: state.debugLoading,
-              status: state.debugStatus,
-              health: state.debugHealth,
-              models: state.debugModels,
-              heartbeat: state.debugHeartbeat,
-              eventLog: state.eventLog,
-              callMethod: state.debugCallMethod,
-              callParams: state.debugCallParams,
-              callResult: state.debugCallResult,
-              callError: state.debugCallError,
-              onCallMethodChange: (next) => (state.debugCallMethod = next),
-              onCallParamsChange: (next) => (state.debugCallParams = next),
-              onRefresh: () => loadDebug(state),
-              onCall: () => callDebugMethod(state),
             })
           : nothing}
 

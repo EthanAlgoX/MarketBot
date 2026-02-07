@@ -4,7 +4,7 @@
 
 # MarketBot
 
-Finance-first autonomous agent for market research and multi-channel delivery, with a built-in browser for data capture and a dedicated finance CLI focused on watchlists, decision dashboards, and research-style reports.
+Finance-first autonomous agent for market research and multi-channel delivery, with a built-in browser for data capture, a Web Control UI, and a TUI focused on watchlists, decision dashboards, and research-style reports.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
@@ -17,12 +17,13 @@ Finance-first autonomous agent for market research and multi-channel delivery, w
 - Gateway-first runtime (WebSocket hub) for sessions, routing, tools, and channel delivery
 - Agents with tool use (web, browser, desktop on macOS, memory, media, exec)
 - Multi-channel messaging (built-in + extensions)
-- Finance CLI for browser-backed market data + analysis (technicals, risk, portfolio, optimization)
+- Finance engine for browser-backed market data + analysis (technicals, risk, portfolio, optimization)
+- Web Control UI for finance runs (Stocks) and gateway operations (channels, sessions, cron, logs)
 - TUI for interactive workflows (watchlists, commands, local file summaries)
 
 ## Finance-First: Positioning + Differentiators
 
-MarketBot is built to turn live market context into repeatable analysis and deliver it where you work (chat channels, dashboards, CLI output).
+MarketBot is built to turn live market context into repeatable analysis and deliver it where you work (chat channels, dashboards, and automation hooks).
 
 - Built-in browser data capture: fetch market pages/endpoints through MarketBot's managed browser profile
 - Structured finance outputs: JSON-friendly results for quotes, charts, indicators, risk, correlations, briefs, and rule-based decision dashboards
@@ -74,13 +75,27 @@ Run a local gateway:
 pnpm -s marketbot gateway run --bind loopback --port 18789
 ```
 
+Open the Web Control UI:
+
+```text
+http://127.0.0.1:18789/
+```
+
 If your config is not yet set up for local mode, either run `setup/onboard` or explicitly set:
 
 ```bash
 pnpm -s marketbot config set gateway.mode local
 ```
 
-## Finance (Browser-Backed)
+## Daily Stocks (Web Control UI)
+
+The Web Control UI includes a finance-first Stocks view (Finance -> Stocks) for watchlists and daily runs.
+
+- Watchlist: one symbol per line (US, A-share, HK)
+- Daily Run: timeframe + report type (simple/full) + fundamentals toggle
+- Report: research-style markdown output
+
+## Finance (Optional CLI for Scripting)
 
 Market data commands fetch via MarketBot's built-in browser by default (browser profile: `marketbot`).
 
@@ -162,7 +177,8 @@ pnpm -s marketbot message send --channel telegram --target @your_chat --message 
 | `extensions/` | Optional plugins (workspace packages) |
 | `skills/` | Reusable skills and workflows |
 | `apps/` | Native clients (macOS, iOS, Android) |
-| `dashboard/` | Web control UI |
+| `ui/` | Web Control UI (current) |
+| `dashboard/` | Web UI (legacy/experimental) |
 | `docs/` | Documentation sources |
 
 ## Development

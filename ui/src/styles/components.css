@@ -201,6 +201,58 @@
   color: var(--danger);
 }
 
+.pill.ok {
+  border-color: var(--ok-subtle);
+  background: var(--ok-subtle);
+  color: var(--ok);
+}
+
+.pill.warn {
+  border-color: var(--warn-subtle);
+  background: var(--warn-subtle);
+  color: var(--warn);
+}
+
+/* ===========================================
+   Desk
+   =========================================== */
+
+.desk-layout {
+  display: grid;
+  gap: 20px;
+}
+
+.desk-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 8px;
+}
+
+.desk-hero__title {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: var(--text-strong);
+  line-height: 1.05;
+}
+
+.desk-hero__sub {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 60ch;
+}
+
+.desk-hero__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 /* ===========================================
    Theme Toggle
    =========================================== */
@@ -1483,4 +1535,115 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* ===========================================
+   Finance (Stocks)
+   =========================================== */
+
+.stocks-layout {
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.stocks-left {
+  display: grid;
+  gap: 18px;
+}
+
+.stocks-right {
+  min-width: 0;
+}
+
+.report-pane {
+  padding: 0;
+  overflow: hidden;
+}
+
+.report-pane__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--card), rgba(0, 0, 0, 0));
+}
+
+:root[data-theme="light"] .report-pane__header {
+  background: linear-gradient(180deg, var(--card), rgba(255, 255, 255, 0));
+}
+
+.report-pane__body {
+  padding: 18px 20px;
+  max-height: 72vh;
+  overflow: auto;
+}
+
+/* Toggle */
+.field--toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  display: inline-block;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle__track {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--card-foreground);
+  box-shadow: var(--shadow-sm);
+  transform: translateX(0);
+  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+
+.toggle input:checked + .toggle__track {
+  background: var(--accent-subtle);
+  border-color: rgba(255, 69, 0, 0.45);
+}
+
+.toggle input:checked ~ .toggle__thumb {
+  transform: translateX(18px);
+  background: var(--accent);
+}
+
+.toggle input:focus-visible + .toggle__track {
+  box-shadow: var(--focus-ring);
+}
+
+@media (max-width: 1100px) {
+  .stocks-layout {
+    grid-template-columns: 1fr;
+  }
+  .report-pane__body {
+    max-height: 55vh;
+  }
 }

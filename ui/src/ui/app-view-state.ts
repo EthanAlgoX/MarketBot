@@ -154,6 +154,7 @@ export type AppViewState = {
   stocksWatchlistText: string;
   stocksTimeframe: string;
   stocksReportType: "simple" | "full";
+  stocksIncludeFundamentals: boolean;
   stocksNewsLimit: string;
   stocksLocale: string;
   stocksLast: DailyStockRunResult | null;

@@ -1,20 +1,14 @@
 import { loadConfig, loadConfigSchema } from "./controllers/config";
 import { loadCronJobs, loadCronStatus } from "./controllers/cron";
 import { loadChannels } from "./controllers/channels";
-import { loadDebug } from "./controllers/debug";
 import { loadLogs } from "./controllers/logs";
-import { loadDevices } from "./controllers/devices";
-import { loadNodes } from "./controllers/nodes";
-import { loadExecApprovals } from "./controllers/exec-approvals";
-import { loadPresence } from "./controllers/presence";
 import { loadSessions } from "./controllers/sessions";
-import { loadSkills } from "./controllers/skills";
 import { inferBasePathFromPathname, normalizeBasePath, normalizePath, pathForTab, tabFromPath, type Tab } from "./navigation";
 import { saveSettings, type UiSettings } from "./storage";
 import { resolveTheme, type ResolvedTheme, type ThemeMode } from "./theme";
 import { startThemeTransition, type ThemeTransitionContext } from "./theme-transition";
 import { scheduleChatScroll, scheduleLogsScroll } from "./app-scroll";
-import { startLogsPolling, stopLogsPolling, startDebugPolling, stopDebugPolling } from "./app-polling";
+import { startLogsPolling, stopLogsPolling } from "./app-polling";
 import { refreshChat } from "./app-chat";
 import type { MarketBotApp } from "./app";
 
@@ -117,9 +111,6 @@ export function setTab(host: SettingsHost, next: Tab) {
   if (next === "logs")
     startLogsPolling(host as unknown as Parameters<typeof startLogsPolling>[0]);
   else stopLogsPolling(host as unknown as Parameters<typeof stopLogsPolling>[0]);
-  if (next === "debug")
-    startDebugPolling(host as unknown as Parameters<typeof startDebugPolling>[0]);
-  else stopDebugPolling(host as unknown as Parameters<typeof stopDebugPolling>[0]);
   void refreshActiveTab(host);
   syncUrlWithTab(host, next, false);
 }
@@ -146,30 +137,14 @@ export async function refreshActiveTab(host: SettingsHost) {
   if (host.tab === "overview") await loadOverview(host);
   if (host.tab === "stocks") await (host as unknown as import("./app").MarketBotApp).loadStocks();
   if (host.tab === "channels") await loadChannelsTab(host);
-  if (host.tab === "instances") await loadPresence(host as unknown as MarketBotApp);
   if (host.tab === "sessions") await loadSessions(host as unknown as MarketBotApp);
   if (host.tab === "cron") await loadCron(host);
-  if (host.tab === "skills") await loadSkills(host as unknown as MarketBotApp);
-  if (host.tab === "nodes") {
-    await loadNodes(host as unknown as MarketBotApp);
-    await loadDevices(host as unknown as MarketBotApp);
-    await loadConfig(host as unknown as MarketBotApp);
-    await loadExecApprovals(host as unknown as MarketBotApp);
-  }
   if (host.tab === "chat") {
     await refreshChat(host as unknown as Parameters<typeof refreshChat>[0]);
     scheduleChatScroll(
       host as unknown as Parameters<typeof scheduleChatScroll>[0],
       !host.chatHasAutoScrolled,
     );
-  }
-  if (host.tab === "config") {
-    await loadConfigSchema(host as unknown as MarketBotApp);
-    await loadConfig(host as unknown as MarketBotApp);
-  }
-  if (host.tab === "debug") {
-    await loadDebug(host as unknown as MarketBotApp);
-    host.eventLog = host.eventLogBuffer;
   }
   if (host.tab === "logs") {
     host.logsAtBottom = true;
@@ -236,7 +211,7 @@ export function detachThemeListener(host: SettingsHost) {
 
 export function syncTabWithLocation(host: SettingsHost, replace: boolean) {
   if (typeof window === "undefined") return;
-  const resolved = tabFromPath(window.location.pathname, host.basePath) ?? "chat";
+  const resolved = tabFromPath(window.location.pathname, host.basePath) ?? "desk";
   setTabFromRoute(host, resolved);
   syncUrlWithTab(host, resolved, replace);
 }
@@ -266,9 +241,6 @@ export function setTabFromRoute(host: SettingsHost, next: Tab) {
   if (next === "logs")
     startLogsPolling(host as unknown as Parameters<typeof startLogsPolling>[0]);
   else stopLogsPolling(host as unknown as Parameters<typeof stopLogsPolling>[0]);
-  if (next === "debug")
-    startDebugPolling(host as unknown as Parameters<typeof startDebugPolling>[0]);
-  else stopDebugPolling(host as unknown as Parameters<typeof stopDebugPolling>[0]);
   if (host.connected) void refreshActiveTab(host);
 }
 
@@ -308,12 +280,10 @@ export function syncUrlWithSessionKey(
 }
 
 export async function loadOverview(host: SettingsHost) {
+  // Keep "Connection" lightweight; most runtime views are under Ops.
   await Promise.all([
     loadChannels(host as unknown as MarketBotApp, false),
-    loadPresence(host as unknown as MarketBotApp),
-    loadSessions(host as unknown as MarketBotApp),
     loadCronStatus(host as unknown as MarketBotApp),
-    loadDebug(host as unknown as MarketBotApp),
   ]);
 }
 

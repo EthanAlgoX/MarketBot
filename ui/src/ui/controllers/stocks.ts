@@ -10,6 +10,7 @@ export type StocksState = {
   stocksWatchlistText: string;
   stocksTimeframe: string;
   stocksReportType: "simple" | "full";
+  stocksIncludeFundamentals: boolean;
   stocksNewsLimit: string;
   stocksLocale: string;
   stocksLast: DailyStockRunResult | null;
@@ -74,7 +75,7 @@ export async function runStocks(state: StocksState) {
       reportType: state.stocksReportType,
       newsLimit: Number.isFinite(newsLimit) ? newsLimit : undefined,
       locale: state.stocksLocale.trim() || undefined,
-      includeFundamentals: state.stocksReportType === "full",
+      includeFundamentals: state.stocksIncludeFundamentals,
       profile: "marketbot",
     });
     const result = (res as any)?.result as DailyStockRunResult | undefined;
@@ -87,4 +88,3 @@ export async function runStocks(state: StocksState) {
     state.stocksRunning = false;
   }
 }
-

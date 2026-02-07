@@ -106,7 +106,7 @@ function resolveOnboardingMode(): boolean {
 export class MarketBotApp extends LitElement {
   @state() settings: UiSettings = loadSettings();
   @state() password = "";
-  @state() tab: Tab = "chat";
+  @state() tab: Tab = "desk";
   @state() onboarding = resolveOnboardingMode();
   @state() connected = false;
   @state() theme: ThemeMode = this.settings.theme ?? "system";
@@ -259,6 +259,7 @@ export class MarketBotApp extends LitElement {
   @state() stocksWatchlistText = "";
   @state() stocksTimeframe = "6mo";
   @state() stocksReportType: "simple" | "full" = "simple";
+  @state() stocksIncludeFundamentals = false;
   @state() stocksNewsLimit = "2";
   @state() stocksLocale = "US";
   @state() stocksLast: DailyStockRunResult | null = null;

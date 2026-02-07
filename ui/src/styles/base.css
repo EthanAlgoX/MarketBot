@@ -35,16 +35,16 @@
   --border-strong: #3f3f46;
   --border-hover: #52525b;
   --input: #27272a;
-  --ring: #ff5c5c;
+  --ring: #ff4500;
 
-  /* Accent - Punchy signature red */
-  --accent: #ff5c5c;
-  --accent-hover: #ff7070;
-  --accent-muted: #ff5c5c;
-  --accent-subtle: rgba(255, 92, 92, 0.15);
+  /* Accent - MarketBot orange */
+  --accent: #ff4500;
+  --accent-hover: #ff6a2a;
+  --accent-muted: #ff4500;
+  --accent-subtle: rgba(255, 69, 0, 0.16);
   --accent-foreground: #fafafa;
-  --accent-glow: rgba(255, 92, 92, 0.25);
-  --primary: #ff5c5c;
+  --accent-glow: rgba(255, 69, 0, 0.28);
+  --primary: #ff4500;
   --primary-foreground: #ffffff;
 
   /* Secondary - Teal accent for variety */
@@ -69,7 +69,7 @@
   --info: #3b82f6;
 
   /* Focus - With glow */
-  --focus: rgba(255, 92, 92, 0.25);
+  --focus: rgba(255, 69, 0, 0.22);
   --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--ring);
   --focus-glow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ring), 0 0 20px var(--accent-glow);
 
@@ -144,13 +144,13 @@
   --border-hover: #a1a1aa;
   --input: #e4e4e7;
 
-  --accent: #dc2626;
-  --accent-hover: #ef4444;
-  --accent-muted: #dc2626;
-  --accent-subtle: rgba(220, 38, 38, 0.12);
+  --accent: #ff4500;
+  --accent-hover: #ff6a2a;
+  --accent-muted: #ff4500;
+  --accent-subtle: rgba(255, 69, 0, 0.12);
   --accent-foreground: #ffffff;
-  --accent-glow: rgba(220, 38, 38, 0.15);
-  --primary: #dc2626;
+  --accent-glow: rgba(255, 69, 0, 0.18);
+  --primary: #ff4500;
   --primary-foreground: #ffffff;
 
   --secondary: #f4f4f5;
@@ -172,7 +172,7 @@
   --danger-subtle: rgba(220, 38, 38, 0.1);
   --info: #2563eb;
 
-  --focus: rgba(220, 38, 38, 0.2);
+  --focus: rgba(255, 69, 0, 0.18);
   --focus-glow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ring), 0 0 16px var(--accent-glow);
 
   --grid-line: rgba(0, 0, 0, 0.05);
@@ -204,6 +204,21 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+}
+
+/* Atmospheric background: subtle highlights (no grid) */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(800px 480px at 22% 10%, rgba(255, 69, 0, 0.18), transparent 60%),
+    radial-gradient(620px 420px at 85% 16%, rgba(20, 184, 166, 0.14), transparent 60%),
+    radial-gradient(900px 520px at 50% 92%, rgba(255, 255, 255, 0.05), transparent 55%);
+  filter: saturate(1.05);
 }
 
 /* Theme transition */
