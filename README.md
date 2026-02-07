@@ -16,6 +16,7 @@ MarketBot is designed around 2 primary surfaces:
 [![Node.js](https://img.shields.io/badge/Node.js-22+-green)](https://nodejs.org/)
 
 ![Demo video](docs/video.gif)
+一行指令，完成整套股票分析流程 👉 Turns “download data → analyze → visualize → report” into a single AI task.
 
 ## What MarketBot Does
 
