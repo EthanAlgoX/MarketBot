@@ -3,6 +3,7 @@ import {
   normalizeYahooSymbol,
   parseYahooChart,
   parseYahooJsonFromText,
+  parseYahooQuoteFromHtml,
   parseYahooQuotes,
 } from "./yahoo.js";
 
@@ -75,5 +76,20 @@ describe("finance yahoo", () => {
     const quotes = parseYahooQuotes(json);
     expect(quotes[0].symbol).toBe("AAPL");
     expect(quotes[0].regularMarketPrice).toBe(180);
+  });
+
+  it("parses quote from html root.App.main json", () => {
+    const html = `
+<html><head></head><body>
+<script>
+root.App.main = {"context":{"dispatcher":{"stores":{"QuoteSummaryStore":{"price":{"symbol":"AAPL","currency":"USD","exchangeName":"NMS","marketState":"CLOSED","regularMarketPrice":{"raw":180},"regularMarketChange":{"raw":2},"regularMarketChangePercent":{"raw":1.1},"regularMarketTime":{"raw":1700000000},"shortName":"Apple"}}}}}};
+</script>
+</body></html>
+`;
+    const quote = parseYahooQuoteFromHtml(html, "AAPL");
+    expect(quote.symbol).toBe("AAPL");
+    expect(quote.currency).toBe("USD");
+    expect(quote.regularMarketPrice).toBe(180);
+    expect(quote.regularMarketChangePercent).toBe(1.1);
   });
 });

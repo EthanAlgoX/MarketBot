@@ -17,6 +17,9 @@
  * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import WebSocket from "ws";
+
+import { rawDataToString } from "../infra/ws.js";
 import { appendCdpPath, fetchJson, isLoopbackHost, withCdpSocket } from "./cdp.helpers.js";
 
 export { appendCdpPath, fetchJson, fetchOk, getHeadersWithAuth } from "./cdp.helpers.js";
@@ -171,6 +174,203 @@ export async function evaluateJavaScript(opts: {
       throw new Error("CDP Runtime.evaluate returned no result");
     }
     return { result, exceptionDetails: evaluated.exceptionDetails };
+  });
+}
+
+type CdpResponseEnvelope = {
+  id?: number;
+  result?: unknown;
+  error?: { message?: string };
+  method?: string;
+  params?: unknown;
+};
+
+async function cdpFetchMainResponseBodyViaNavigate(opts: {
+  wsUrl: string;
+  url: string;
+  timeoutMs: number;
+}): Promise<string> {
+  const ws = new WebSocket(opts.wsUrl, { handshakeTimeout: 5000 });
+  let nextId = 1;
+  const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  let settled = false;
+
+  const openPromise = new Promise<void>((resolve, reject) => {
+    ws.once("open", () => resolve());
+    ws.once("error", (err) => reject(err));
+  });
+
+  const send = (method: string, params?: Record<string, unknown>) => {
+    const id = nextId++;
+    ws.send(JSON.stringify({ id, method, ...(params ? { params } : {}) }));
+    return new Promise<unknown>((resolve, reject) => {
+      pending.set(id, { resolve, reject });
+    });
+  };
+
+  let mainRequestId: string | null = null;
+  let mainRequestIsDocument = false;
+  let mainResponseUrl: string | null = null;
+
+  return await new Promise<string>((resolve, reject) => {
+    const cleanup = (err?: Error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      for (const [, p] of pending) {
+        p.reject(err ?? new Error("CDP session closed"));
+      }
+      pending.clear();
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+    };
+
+    const finishOk = (body: string) => {
+      cleanup();
+      resolve(body);
+    };
+
+    const finishErr = (err: Error) => {
+      cleanup(err);
+      reject(err);
+    };
+
+    ws.on("message", (data) => {
+      const text = rawDataToString(data);
+      let parsed: CdpResponseEnvelope | null = null;
+      try {
+        parsed = JSON.parse(text) as CdpResponseEnvelope;
+      } catch {
+        return;
+      }
+
+      if (typeof parsed.id === "number") {
+        const p = pending.get(parsed.id);
+        if (!p) {
+          return;
+        }
+        pending.delete(parsed.id);
+        if (parsed.error?.message) {
+          p.reject(new Error(parsed.error.message));
+        } else {
+          p.resolve(parsed.result);
+        }
+        return;
+      }
+
+      const method = String(parsed.method ?? "");
+      const params = parsed.params as Record<string, unknown> | undefined;
+      if (!method || !params) {
+        return;
+      }
+
+      if (method === "Network.responseReceived") {
+        const requestIdRaw = params.requestId;
+        const typeRaw = params.type;
+        const requestId = typeof requestIdRaw === "string" ? requestIdRaw : "";
+        const type = typeof typeRaw === "string" ? typeRaw : "";
+        const response = params.response as Record<string, unknown> | undefined;
+        const respUrlRaw = response ? response.url : undefined;
+        const respUrl = typeof respUrlRaw === "string" ? respUrlRaw : "";
+        if (!requestId || !respUrl) {
+          return;
+        }
+
+        const isDocument = type === "Document";
+        if (!mainRequestId) {
+          mainRequestId = requestId;
+          mainRequestIsDocument = isDocument;
+          mainResponseUrl = respUrl;
+          return;
+        }
+
+        // Upgrade selection to Document if we picked a non-document response first.
+        if (isDocument && !mainRequestIsDocument) {
+          mainRequestId = requestId;
+          mainRequestIsDocument = true;
+          mainResponseUrl = respUrl;
+        }
+        return;
+      }
+
+      if (method === "Network.loadingFinished") {
+        const requestIdRaw = params.requestId;
+        const requestId = typeof requestIdRaw === "string" ? requestIdRaw : "";
+        if (!mainRequestId || requestId !== mainRequestId) {
+          return;
+        }
+        void (async () => {
+          try {
+            const bodyRes = (await send("Network.getResponseBody", {
+              requestId: mainRequestId,
+            })) as { body?: unknown; base64Encoded?: unknown };
+            const bodyRaw = typeof bodyRes?.body === "string" ? bodyRes.body : "";
+            const base64Encoded = bodyRes?.base64Encoded === true;
+            const body = base64Encoded ? Buffer.from(bodyRaw, "base64").toString("utf8") : bodyRaw;
+            finishOk(body);
+          } catch (err) {
+            finishErr(
+              err instanceof Error
+                ? err
+                : new Error(
+                    `CDP Network.getResponseBody failed for ${mainResponseUrl ?? opts.url}: ${String(err)}`,
+                  ),
+            );
+          }
+        })();
+        return;
+      }
+
+      if (method === "Network.loadingFailed") {
+        const requestIdRaw = params.requestId;
+        const requestId = typeof requestIdRaw === "string" ? requestIdRaw : "";
+        if (!mainRequestId || requestId !== mainRequestId) {
+          return;
+        }
+        const errorTextRaw = params.errorText;
+        const errorText = typeof errorTextRaw === "string" ? errorTextRaw : "loading failed";
+        finishErr(new Error(`CDP load failed (${mainResponseUrl ?? opts.url}): ${errorText}`));
+      }
+    });
+
+    ws.on("close", () => {
+      if (!settled) {
+        finishErr(new Error("CDP socket closed"));
+      }
+    });
+
+    const timer = setTimeout(() => {
+      finishErr(new Error(`CDP timeout after ${opts.timeoutMs}ms (${opts.url})`));
+    }, opts.timeoutMs);
+
+    void (async () => {
+      try {
+        await openPromise;
+        await send("Page.enable").catch(() => {});
+        await send("Network.enable").catch(() => {});
+        await send("Page.navigate", { url: opts.url });
+      } catch (err) {
+        finishErr(err instanceof Error ? err : new Error(String(err)));
+      }
+    })();
+  });
+}
+
+export async function fetchMainResponseBodyViaCdp(opts: {
+  wsUrl: string;
+  url: string;
+  timeoutMs?: number;
+}): Promise<string> {
+  const timeoutMs = opts.timeoutMs ?? 15000;
+  return await cdpFetchMainResponseBodyViaNavigate({
+    wsUrl: opts.wsUrl,
+    url: opts.url,
+    timeoutMs,
   });
 }
 

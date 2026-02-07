@@ -9,6 +9,7 @@ import { MarketDataClient } from "../finance/client.js";
 import { analyzeRisk, analyzeTechnicals } from "../finance/analysis.js";
 import { buildFinanceBrief } from "../finance/brief.js";
 import { buildComparison } from "../finance/compare.js";
+import { buildPortfolioOptimization } from "../finance/optimize.js";
 import { buildPortfolioOverview } from "../finance/portfolio.js";
 import { buildPortfolioRisk } from "../finance/portfolio-risk.js";
 import type { Skill } from "./types.js";
@@ -72,6 +73,12 @@ const BriefSchema = Type.Object({
   limit: Type.Optional(Type.Number()),
   locale: Type.Optional(Type.String()),
   noSymbol: Type.Optional(Type.Boolean()),
+});
+
+const OptimizeSchema = Type.Object({
+  symbols: Type.Array(Type.String()),
+  timeframe: Type.Optional(Type.String()),
+  benchmark: Type.Optional(Type.String()),
 });
 
 function coerceMarketSeries(input: unknown): MarketSeries | null {
@@ -394,6 +401,45 @@ export function createFinanceSkills(options?: { profile?: string }): Skill[] {
     },
   };
 
+  const optimizeSkill: Skill = {
+    name: "optimize",
+    description: "Compute portfolio min-variance weights from historical covariance.",
+    schema: OptimizeSchema,
+    execute: async (input: Record<string, unknown>) => {
+      const raw = input.symbols;
+      if (!Array.isArray(raw) || raw.length < 2) {
+        throw new Error("symbols (>=2) required");
+      }
+      const symbols = raw
+        .map((s) => (typeof s === "string" ? normalizeSymbol(s) : ""))
+        .filter(Boolean);
+      if (symbols.length < 2) {
+        throw new Error("symbols (>=2) required");
+      }
+
+      const timeframe = typeof input.timeframe === "string" ? input.timeframe : undefined;
+      const benchmark =
+        typeof input.benchmark === "string" && input.benchmark.trim()
+          ? await client.getMarketData({ symbol: input.benchmark, timeframe })
+          : null;
+
+      const series = await Promise.all(
+        symbols.map((symbol) => client.getMarketData({ symbol, timeframe })),
+      );
+      const seriesBySymbol = new Map<string, MarketSeries>();
+      for (const s of series) {
+        seriesBySymbol.set(normalizeSymbol(s.symbol), s);
+      }
+
+      return buildPortfolioOptimization({
+        seriesBySymbol,
+        symbols,
+        timeframe,
+        benchmark,
+      });
+    },
+  };
+
   return [
     fetchSkill,
     analysisSkill,
@@ -402,5 +448,6 @@ export function createFinanceSkills(options?: { profile?: string }): Skill[] {
     newsSkill,
     compareSkill,
     briefSkill,
+    optimizeSkill,
   ];
 }

@@ -19,6 +19,7 @@ import type { MarketSeries, PortfolioPosition } from "../../finance/types.js";
 import { buildComparison } from "../../finance/compare.js";
 import { buildFinanceBrief } from "../../finance/brief.js";
 import { buildPortfolioRisk } from "../../finance/portfolio-risk.js";
+import { buildPortfolioOptimization } from "../../finance/optimize.js";
 
 function coerceMarketSeries(input: unknown): MarketSeries | null {
   if (!input || typeof input !== "object") {
@@ -210,6 +211,30 @@ export function createFinanceTool(): AnyAgentTool {
           });
 
           return jsonResult({ overview, risk });
+        }
+        case "optimize": {
+          const symbols =
+            readStringArrayParam(params, "symbols") ??
+            (readStringParam(params, "symbol") ? [readStringParam(params, "symbol")!] : undefined);
+          if (!symbols || symbols.length < 2) {
+            throw new Error("optimize requires at least 2 symbols");
+          }
+          const timeframe = readStringParam(params, "timeframe");
+          const benchmarkSymbol = readStringParam(params, "benchmark");
+          const series = await Promise.all(
+            symbols.map((symbol) => client.getMarketData({ symbol, timeframe })),
+          );
+          const seriesBySymbol = new Map(series.map((s) => [s.symbol.toUpperCase(), s]));
+          const benchmark = benchmarkSymbol
+            ? await client.getMarketData({ symbol: benchmarkSymbol, timeframe })
+            : null;
+          const result = buildPortfolioOptimization({
+            seriesBySymbol,
+            symbols,
+            timeframe,
+            benchmark,
+          });
+          return jsonResult(result);
         }
         case "news": {
           const query = readStringParam(params, "query", { required: true });

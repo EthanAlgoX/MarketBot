@@ -1132,6 +1132,46 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         );
         break;
       }
+      case "optimize": {
+        if (!args) {
+          chatLog.addSystem("🧮 Usage: /optimize <symbol1> <symbol2> ... [--benchmark SPY]");
+          break;
+        }
+        const tokens = args.split(/\s+/).filter(Boolean);
+        let benchmark: string | undefined;
+        let timeframe: string | undefined;
+        const symbols: string[] = [];
+        for (let i = 0; i < tokens.length; i += 1) {
+          const t = tokens[i];
+          if (t === "--benchmark" || t === "-b") {
+            benchmark = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--timeframe" || t === "-t") {
+            timeframe = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          symbols.push(t);
+        }
+        if (symbols.length < 2) {
+          chatLog.addSystem("🧮 Usage: /optimize <symbol1> <symbol2> ... [--benchmark SPY]");
+          break;
+        }
+        const hints = [
+          timeframe ? `timeframe=${timeframe}` : "",
+          benchmark ? `benchmark=${benchmark}` : "",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        await sendMessage(
+          `Optimize portfolio weights for ${symbols.map((s) => s.toUpperCase()).join(", ")} using the finance tool (action: optimize; objective: min_variance). ${
+            hints ? `Use ${hints}.` : ""
+          } Return recommended weights and the resulting portfolio risk metrics (volatility, drawdown, VaR, beta if benchmark).`,
+        );
+        break;
+      }
       case "alerts":
         chatLog.addSystem("🔔 Price alerts feature coming soon.");
         break;

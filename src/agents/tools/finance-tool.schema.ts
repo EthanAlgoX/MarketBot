@@ -16,6 +16,7 @@ const FINANCE_ACTIONS = [
   "summary",
   "portfolio",
   "portfolio_risk",
+  "optimize",
   "news",
   "compare",
   "brief",

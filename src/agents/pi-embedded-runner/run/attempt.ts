@@ -470,9 +470,13 @@ export async function runEmbeddedAttempt(
       // Add client tools (OpenResponses hosted tools) to customTools
       let clientToolCallDetected: { name: string; params: Record<string, unknown> } | null = null;
       const clientToolDefs = params.clientTools
-        ? toClientToolDefinitions(params.clientTools, (toolName, toolParams) => {
-            clientToolCallDetected = { name: toolName, params: toolParams };
-          })
+        ? toClientToolDefinitions(
+            params.clientTools,
+            (toolName, toolParams) => {
+              clientToolCallDetected = { name: toolName, params: toolParams };
+            },
+            { agentId: sessionAgentId, sessionKey: params.sessionKey },
+          )
         : [];
 
       const allCustomTools = [...customTools, ...clientToolDefs];

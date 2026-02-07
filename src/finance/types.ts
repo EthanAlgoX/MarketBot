@@ -140,6 +140,17 @@ export type PortfolioRiskOverview = {
   contributions?: PortfolioRiskContribution[];
 };
 
+export type PortfolioOptimizationOverview = {
+  timeframe?: string;
+  benchmark?: string;
+  objective: "min_variance";
+  weights: Array<{
+    symbol: string;
+    weight: number;
+  }>;
+  risk?: PortfolioRiskOverview;
+};
+
 export type PortfolioOverview = {
   currency?: string;
   totalValue?: number;

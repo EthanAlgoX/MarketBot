@@ -27,6 +27,7 @@ import type { ClientToolDefinition } from "./pi-embedded-runner/run/params.js";
 import { logDebug, logError } from "../logger.js";
 import { normalizeToolName } from "./tool-policy.js";
 import { jsonResult } from "./tools/common.js";
+import { runBeforeToolCallHook } from "./pi-tools.before-tool-call.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: TypeBox schema type from pi-agent-core uses a different module instance.
 type AnyAgentTool = AgentTool<any, unknown>;
@@ -95,6 +96,7 @@ export function toToolDefinitions(tools: AnyAgentTool[]): ToolDefinition[] {
 export function toClientToolDefinitions(
   tools: ClientToolDefinition[],
   onClientToolCall?: (toolName: string, params: Record<string, unknown>) => void,
+  hookContext?: { agentId?: string; sessionKey?: string },
 ): ToolDefinition[] {
   return tools.map((tool) => {
     const func = tool.function;
@@ -110,9 +112,23 @@ export function toClientToolDefinitions(
         _ctx,
         _signal,
       ): Promise<AgentToolResult<unknown>> => {
+        const outcome = await runBeforeToolCallHook({
+          toolName: func.name,
+          params,
+          toolCallId,
+          ctx: hookContext,
+        });
+        if (outcome.blocked) {
+          throw new Error(outcome.reason);
+        }
+        const adjustedParams = outcome.params;
         // Notify handler that a client tool was called
         if (onClientToolCall) {
-          onClientToolCall(func.name, params as Record<string, unknown>);
+          const paramsRecord =
+            adjustedParams && typeof adjustedParams === "object" && !Array.isArray(adjustedParams)
+              ? (adjustedParams as Record<string, unknown>)
+              : {};
+          onClientToolCall(func.name, paramsRecord);
         }
         // Return a pending result - the client will execute this tool
         return jsonResult({

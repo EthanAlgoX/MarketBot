@@ -235,6 +235,11 @@ export function stripPluginOnlyAllowlist(
   const unknownAllowlist: string[] = [];
   let hasCoreEntry = false;
   for (const entry of normalized) {
+    // "*" is a valid wildcard entry (allow all tools). It should not be treated as unknown.
+    if (entry === "*") {
+      hasCoreEntry = true;
+      continue;
+    }
     const isPluginEntry =
       entry === "group:plugins" || pluginIds.has(entry) || pluginTools.has(entry);
     const expanded = expandToolGroups([entry]);

@@ -277,6 +277,10 @@ describe("browser server-context tab selection state", () => {
 
     const fetchMock = vi.fn(async (url: unknown) => {
       const u = String(url);
+      if (u.includes("/json/new")) {
+        // Force fallback to Target.createTarget (mocked above).
+        return { ok: false, status: 500 } as unknown as Response;
+      }
       if (!u.includes("/json/list")) {
         throw new Error(`unexpected fetch: ${u}`);
       }

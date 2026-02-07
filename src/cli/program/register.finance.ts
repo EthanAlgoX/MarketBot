@@ -11,6 +11,7 @@ import { MarketDataClient } from "../../finance/client.js";
 import { analyzeRisk, analyzeTechnicals } from "../../finance/analysis.js";
 import { buildComparison } from "../../finance/compare.js";
 import { buildFinanceBrief } from "../../finance/brief.js";
+import { buildPortfolioOptimization } from "../../finance/optimize.js";
 import { buildPortfolioOverview } from "../../finance/portfolio.js";
 import { buildPortfolioRisk } from "../../finance/portfolio-risk.js";
 import type { PortfolioPosition } from "../../finance/types.js";
@@ -297,6 +298,40 @@ export function registerFinanceCommand(program: Command) {
           risk,
         });
         printResult(brief, Boolean(opts.json));
+      },
+    );
+
+  finance
+    .command("optimize <symbols...>")
+    .description("Portfolio min-variance weights (browser-backed historical covariance)")
+    .option("--timeframe <tf>", "Timeframe (6mo, 1y, max)")
+    .option("--benchmark <sym>", "Benchmark symbol (e.g. SPY)")
+    .action(
+      async (
+        symbols: string[],
+        opts: { profile?: string; json?: boolean; timeframe?: string; benchmark?: string },
+      ) => {
+        const client = getClient(opts);
+        const normalized = symbols.map((s) => s.trim()).filter(Boolean);
+        if (normalized.length < 2) {
+          throw new Error("optimize requires at least 2 symbols");
+        }
+
+        const series = await Promise.all(
+          normalized.map((symbol) => client.getMarketData({ symbol, timeframe: opts.timeframe })),
+        );
+        const seriesBySymbol = new Map(series.map((s) => [s.symbol.toUpperCase(), s]));
+        const benchmark = opts.benchmark
+          ? await client.getMarketData({ symbol: opts.benchmark, timeframe: opts.timeframe })
+          : null;
+
+        const result = buildPortfolioOptimization({
+          seriesBySymbol,
+          symbols: normalized,
+          timeframe: opts.timeframe,
+          benchmark,
+        });
+        printResult(result, Boolean(opts.json));
       },
     );
 }

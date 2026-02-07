@@ -179,28 +179,6 @@ function createProfileContext(
       }
     }
 
-    const createdViaCdp = await createTargetViaCdp({
-      cdpUrl: profile.cdpUrl,
-      url,
-    })
-      .then((r) => r.targetId)
-      .catch(() => null);
-
-    if (createdViaCdp) {
-      const profileState = getProfileState();
-      profileState.lastTargetId = createdViaCdp;
-      const deadline = Date.now() + 2000;
-      while (Date.now() < deadline) {
-        const tabs = await listTabs().catch(() => [] as BrowserTab[]);
-        const found = tabs.find((t) => t.targetId === createdViaCdp);
-        if (found) {
-          return found;
-        }
-        await new Promise((r) => setTimeout(r, 100));
-      }
-      return { targetId: createdViaCdp, title: "", url, type: "page" };
-    }
-
     const encoded = encodeURIComponent(url);
     type CdpTarget = {
       id?: string;
@@ -217,17 +195,35 @@ function createProfileContext(
           return endpointUrl.toString();
         })()
       : `${endpointUrl.toString()}?${encoded}`;
-    const created = await fetchJson<CdpTarget>(endpoint, 1500, {
-      method: "PUT",
-    }).catch(async (err) => {
-      if (String(err).includes("HTTP 405")) {
-        return await fetchJson<CdpTarget>(endpoint, 1500);
-      }
-      throw err;
-    });
+    const created = await fetchJson<CdpTarget>(endpoint, 1500, { method: "PUT" })
+      .catch(async (err) => {
+        if (String(err).includes("HTTP 405")) {
+          return await fetchJson<CdpTarget>(endpoint, 1500);
+        }
+        throw err;
+      })
+      .catch(() => null);
 
-    if (!created.id) {
-      throw new Error("Failed to open tab (missing id)");
+    if (!created?.id) {
+      // Fallback: CDP websocket Target.createTarget (can be flaky on some Chrome builds).
+      const createdViaCdp = await createTargetViaCdp({ cdpUrl: profile.cdpUrl, url })
+        .then((r) => r.targetId)
+        .catch(() => null);
+      if (!createdViaCdp) {
+        throw new Error("Failed to open tab (missing id)");
+      }
+      const profileState = getProfileState();
+      profileState.lastTargetId = createdViaCdp;
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline) {
+        const tabs = await listTabs().catch(() => [] as BrowserTab[]);
+        const found = tabs.find((t) => t.targetId === createdViaCdp);
+        if (found) {
+          return found;
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return { targetId: createdViaCdp, title: "", url, type: "page" };
     }
     const profileState = getProfileState();
     profileState.lastTargetId = created.id;

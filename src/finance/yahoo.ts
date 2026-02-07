@@ -75,6 +75,10 @@ export function parseYahooJsonFromText(text: string): unknown {
   if (!trimmed) {
     throw new Error("Empty Yahoo response");
   }
+  // Yahoo sometimes rate limits via an edge response that is plain text (no JSON).
+  if (/too many requests/i.test(trimmed) || trimmed.startsWith("Edge:")) {
+    throw new Error(`Yahoo rate limited: ${trimmed.slice(0, 120)}`);
+  }
   if (trimmed.startsWith("{")) {
     return JSON.parse(trimmed);
   }
@@ -85,6 +89,118 @@ export function parseYahooJsonFromText(text: string): unknown {
   }
   const slice = trimmed.slice(start, end + 1);
   return JSON.parse(slice);
+}
+
+function deepGet(obj: unknown, path: string[]): unknown {
+  let cur: any = obj;
+  for (const key of path) {
+    if (!cur || typeof cur !== "object") {
+      return undefined;
+    }
+    cur = cur[key];
+  }
+  return cur;
+}
+
+function extractRootAppMainJson(text: string): Record<string, unknown> | null {
+  const idx = text.indexOf("root.App.main");
+  if (idx === -1) {
+    return null;
+  }
+  const eq = text.indexOf("=", idx);
+  if (eq === -1) {
+    return null;
+  }
+  const start = text.indexOf("{", eq);
+  if (start === -1) {
+    return null;
+  }
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === "\\\\") {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") {
+      depth += 1;
+      continue;
+    }
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        const slice = text.slice(start, i + 1);
+        try {
+          const parsed = JSON.parse(slice);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            return parsed as Record<string, unknown>;
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+export function parseYahooQuoteFromHtml(text: string, symbol: string): Quote {
+  const root = extractRootAppMainJson(text);
+  if (!root) {
+    throw new Error("Yahoo quote page missing root.App.main JSON");
+  }
+
+  // Yahoo's payload shape varies; try a few known paths.
+  const store =
+    (deepGet(root, ["context", "dispatcher", "stores", "QuoteSummaryStore"]) as any) ??
+    (deepGet(root, ["context", "dispatcher", "stores", "StreamStore"]) as any) ??
+    null;
+  if (!store || typeof store !== "object") {
+    throw new Error("Yahoo quote page missing QuoteSummaryStore");
+  }
+
+  const price = store.price ?? store.quoteSummary?.result?.[0]?.price ?? null;
+  const resolvedSymbol =
+    unwrapString(price?.symbol) ?? unwrapString(store.symbol) ?? symbol.toUpperCase();
+
+  const regularMarketPrice = unwrapNumber(price?.regularMarketPrice);
+  const regularMarketChange = unwrapNumber(price?.regularMarketChange);
+  const regularMarketChangePercent = unwrapNumber(price?.regularMarketChangePercent);
+  const regularMarketTime = unwrapNumber(price?.regularMarketTime);
+  const currency = unwrapString(price?.currency);
+  const exchange = unwrapString(price?.exchangeName) ?? unwrapString(price?.exchange);
+  const shortName = unwrapString(price?.shortName) ?? unwrapString(price?.longName);
+  const marketState = unwrapString(price?.marketState);
+
+  return {
+    symbol: resolvedSymbol,
+    shortName,
+    currency,
+    exchange,
+    regularMarketPrice,
+    regularMarketChange,
+    regularMarketChangePercent,
+    regularMarketTime,
+    marketState,
+  };
 }
 
 function unwrapNumber(value: any): number | undefined {
