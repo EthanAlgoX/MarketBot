@@ -4,7 +4,7 @@
 
 # MarketBot
 
-Finance-first autonomous agent for market research and multi-channel delivery, with a built-in browser for data capture, a Web Control UI, and a TUI focused on watchlists, decision dashboards, and research-style reports.
+Finance-first autonomous agent for market research and multi-channel delivery, with a built-in browser for data capture, a Web Control UI (Finance Desk), and a TUI for local file and workflow analysis.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
@@ -12,24 +12,24 @@ Finance-first autonomous agent for market research and multi-channel delivery, w
 
 ![Demo video](docs/video.gif)
 
-## What It Does
+## TL;DR
 
-- Gateway-first runtime (WebSocket hub) for sessions, routing, tools, and channel delivery
-- Agents with tool use (web, browser, desktop on macOS, memory, media, exec)
-- Multi-channel messaging (built-in + extensions)
-- Finance engine for browser-backed market data + analysis (technicals, risk, portfolio, optimization)
-- Web Control UI for finance runs (Stocks) and gateway operations (channels, sessions, cron, logs)
-- TUI for interactive workflows (watchlists, commands, local file summaries)
+MarketBot runs a local Gateway that serves:
 
-## Finance-First: Positioning + Differentiators
+- Web Control UI: Desk, Stocks, Ops (Channels, Sessions, Cron, Logs), Research Chat
+- Finance engine: Daily Stocks decision dashboards and research-style notes, browser-backed data capture
+- Multi-channel delivery: built-in channels and optional extensions (including China IM plugins)
+- TUI: interactive slash-command workflows and local file summaries
 
-MarketBot is built to turn live market context into repeatable analysis and deliver it where you work (chat channels, dashboards, and automation hooks).
+## Positioning
+
+MarketBot turns live market context into repeatable finance analysis and delivers it where you work (chat channels, dashboards, scheduled runs).
 
 - Built-in browser data capture: fetch market pages/endpoints through MarketBot's managed browser profile
-- Structured finance outputs: JSON-friendly results for quotes, charts, indicators, risk, correlations, briefs, and rule-based decision dashboards
-- Portfolio math included: risk metrics, correlation matrix, and min-variance optimization
-- Agent-driven research: `analyze` provides structured market analysis with explicit assumptions and risk/invalidation
-- Multi-channel delivery: use `message`/`channels` to push alerts, summaries, or reports to your teams
+- Finance outputs: decision dashboards plus research-style markdown reports
+- Portfolio math: risk metrics, correlations, and optimization
+- Agent research: browse and summarize with explicit assumptions and invalidation
+- Delivery ops: connect channels, inspect sessions, schedule cron, tail logs
 
 ## China IM Channels (Extensions)
 
@@ -75,11 +75,19 @@ Run a local gateway:
 pnpm -s marketbot gateway run --bind loopback --port 18789
 ```
 
-Open the Web Control UI:
+Open the Web Control UI (Finance Desk):
 
 ```text
 http://127.0.0.1:18789/
 ```
+
+Primary pages:
+
+- Desk: `/` (or `/desk`)
+- Stocks: `/stocks`
+- Ops: `/channels` `/sessions` `/cron` `/logs`
+- Research: `/chat`
+- Connection: `/overview`
 
 If your config is not yet set up for local mode, either run `setup/onboard` or explicitly set:
 
@@ -89,55 +97,25 @@ pnpm -s marketbot config set gateway.mode local
 
 ## Daily Stocks (Web Control UI)
 
-The Web Control UI includes a finance-first Stocks view (Finance -> Stocks) for watchlists and daily runs.
+Use Desk and Stocks for watchlists and daily runs.
 
 - Watchlist: one symbol per line (US, A-share, HK)
 - Daily Run: timeframe + report type (simple/full) + fundamentals toggle
 - Report: research-style markdown output
 
-## Finance (Optional CLI for Scripting)
+## Research Chat (Web Control UI)
 
-Market data commands fetch via MarketBot's built-in browser by default (browser profile: `marketbot`).
+Use Chat for investigation workflows:
 
-```bash
-pnpm -s marketbot finance quote AAPL --json
-pnpm -s marketbot finance chart AAPL --timeframe 6mo --json
-pnpm -s marketbot finance summary AAPL --timeframe 6mo --json
-pnpm -s marketbot finance technicals AAPL --timeframe 6mo --json
-pnpm -s marketbot finance risk AAPL --timeframe 1y --json
-pnpm -s marketbot finance fundamentals AAPL --json
-pnpm -s marketbot finance news AAPL --limit 10 --json
-pnpm -s marketbot finance compare AAPL MSFT NVDA --timeframe 1y --json
-pnpm -s marketbot finance brief AAPL --timeframe 6mo --json
-pnpm -s marketbot finance dashboard NVDA AAPL --timeframe 6mo --news-limit 3 --json
-pnpm -s marketbot finance report NVDA --timeframe 6mo --report-type full
-STOCK_LIST="NVDA,AAPL,600519,hk00700" pnpm -s marketbot finance daily --timeframe 6mo --report-type simple --out /tmp/daily.md
-pnpm -s marketbot finance portfolio --positions-json '[{"symbol":"AAPL","quantity":10}]' --timeframe 1y --json
-pnpm -s marketbot finance optimize AAPL MSFT NVDA --timeframe 1y --json
-```
+- Browse and capture sources with the built-in browser profile (`marketbot`)
+- Attach local files (CSV/JSON/PDF) and ask for a finance-style summary
+- Produce a memo-like report suitable for sharing in channels
 
 ### Symbol Conventions (Yahoo-backed)
 
 - US equities: `AAPL`, `NVDA`
 - China A-share: `600519` (auto-normalizes to `600519.SS`), `000001` (auto-normalizes to `000001.SZ`)
 - Hong Kong: `hk00700`, `00700`, `700` (auto-normalizes to `00700.HK`)
-
-## Market Analysis (Agent)
-
-`analyze` is an agent wrapper for structured market analysis (with clear assumptions and risk/invalidation).
-
-```bash
-pnpm -s marketbot analyze --asset BTC --timeframe 1h --news --json
-pnpm -s marketbot analyze --asset NVDA --market equities --style fundamental --news
-```
-
-## Browser (Built-In)
-
-```bash
-pnpm -s marketbot browser status --json
-pnpm -s marketbot browser open https://example.com
-pnpm -s marketbot browser snapshot --labels
-```
 
 ## TUI (Finance Desk + File Processing)
 
@@ -168,6 +146,10 @@ pnpm -s marketbot channels list
 pnpm -s marketbot channels status --probe
 pnpm -s marketbot message send --channel telegram --target @your_chat --message "Hello"
 ```
+
+## CLI (Optional)
+
+This repo still ships a CLI for scripting and dev workflows. The primary user surfaces are Web Control UI and TUI.
 
 ## Repo Layout
 
@@ -200,6 +182,8 @@ pnpm build
 - Message: https://docs.marketbot.ai/cli/message
 - Plugins: https://docs.marketbot.ai/cli/plugins
 - Skills: https://docs.marketbot.ai/cli/skills
+- Dashboard: https://docs.marketbot.ai/web/dashboard
+- Control UI: https://docs.marketbot.ai/web/control-ui
 
 ## License
 
