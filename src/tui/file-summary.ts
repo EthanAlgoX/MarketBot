@@ -17,6 +17,26 @@ export type CsvSummary = {
   rows: number;
   columns: string[];
   sample: Array<Record<string, string>>;
+  numericProfile?: Array<{
+    column: string;
+    numericCount: number;
+    totalCount: number;
+    min: number;
+    max: number;
+    mean: number;
+  }>;
+  timeSeries?: {
+    dateColumn: string;
+    startDate: string;
+    endDate: string;
+    changes: Array<{
+      column: string;
+      start: number;
+      end: number;
+      delta: number;
+      pct: number | null;
+    }>;
+  };
   portfolio?: {
     symbolColumn: string;
     quantityColumn: string;
@@ -56,6 +76,22 @@ export function formatLocalFileSummary(summary: LocalFileSummary): string[] {
     lines.push(
       `columns: ${summary.csv.columns.slice(0, 16).join(", ")}${summary.csv.columns.length > 16 ? ", ..." : ""}`,
     );
+    if (summary.csv.timeSeries) {
+      const ts = summary.csv.timeSeries;
+      lines.push(`timeSeries: ${ts.startDate} -> ${ts.endDate} (dateColumn=${ts.dateColumn})`);
+      for (const c of ts.changes.slice(0, 8)) {
+        const pct = c.pct === null ? "n/a" : `${(c.pct * 100).toFixed(2)}%`;
+        lines.push(`  ${c.column}: ${c.start} -> ${c.end} (d=${c.delta}, pct=${pct})`);
+      }
+    }
+    if (summary.csv.numericProfile && summary.csv.numericProfile.length > 0) {
+      lines.push("numericProfile:");
+      for (const p of summary.csv.numericProfile.slice(0, 8)) {
+        lines.push(
+          `  ${p.column}: n=${p.numericCount}/${p.totalCount} min=${p.min} max=${p.max} mean=${Number(p.mean.toFixed(6))}`,
+        );
+      }
+    }
     if (summary.csv.portfolio) {
       const p = summary.csv.portfolio;
       lines.push(
@@ -154,6 +190,15 @@ function parseNumberLoose(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function parseDateLoose(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const t = Date.parse(trimmed);
+  return Number.isFinite(t) ? t : null;
+}
+
 function buildCsvSummary(csvText: string): CsvSummary {
   const lines = csvText
     .split(/\r?\n/)
@@ -182,6 +227,106 @@ function buildCsvSummary(csvText: string): CsvSummary {
   }
 
   const sample = rows.slice(0, 3);
+
+  // Generic numeric profiling (useful for most finance CSVs).
+  const numericProfile: NonNullable<CsvSummary["numericProfile"]> = [];
+  for (const col of columns) {
+    let numericCount = 0;
+    let totalCount = 0;
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
+    let sum = 0;
+    for (const row of rows) {
+      const raw = String(row[col] ?? "").trim();
+      if (!raw) {
+        continue;
+      }
+      totalCount += 1;
+      const n = parseNumberLoose(raw);
+      if (n === null) {
+        continue;
+      }
+      numericCount += 1;
+      sum += n;
+      if (n < min) {
+        min = n;
+      }
+      if (n > max) {
+        max = n;
+      }
+    }
+    // Heuristic: treat as numeric column if most filled entries parse as numbers.
+    if (totalCount > 0 && numericCount / totalCount >= 0.6) {
+      numericProfile.push({
+        column: col,
+        numericCount,
+        totalCount,
+        min,
+        max,
+        mean: numericCount > 0 ? sum / numericCount : 0,
+      });
+    }
+  }
+
+  // Time-series change summary if a date-like column exists.
+  const dateColumnCandidates = ["日期", "date", "Date"];
+  const findExactColumn = (candidates: string[]) =>
+    candidates.find((c) => columns.some((col) => col.trim() === c)) ?? null;
+
+  const dateColumn = findExactColumn(dateColumnCandidates);
+  let timeSeries: CsvSummary["timeSeries"] | undefined;
+  if (dateColumn) {
+    let startAt: number | null = null;
+    let endAt: number | null = null;
+    let startRow: Record<string, string> | null = null;
+    let endRow: Record<string, string> | null = null;
+    let startLabel = "";
+    let endLabel = "";
+
+    for (const row of rows) {
+      const rawDate = String(row[dateColumn] ?? "").trim();
+      if (!rawDate) {
+        continue;
+      }
+      const t = parseDateLoose(rawDate);
+      if (t === null) {
+        continue;
+      }
+      if (startAt === null || t < startAt) {
+        startAt = t;
+        startRow = row;
+        startLabel = rawDate;
+      }
+      if (endAt === null || t > endAt) {
+        endAt = t;
+        endRow = row;
+        endLabel = rawDate;
+      }
+    }
+
+    if (startRow && endRow && startAt !== null && endAt !== null && startAt !== endAt) {
+      const changes: NonNullable<CsvSummary["timeSeries"]>["changes"] = [];
+      for (const p of numericProfile) {
+        const col = p.column;
+        const s = parseNumberLoose(String(startRow[col] ?? ""));
+        const e = parseNumberLoose(String(endRow[col] ?? ""));
+        if (s === null || e === null) {
+          continue;
+        }
+        const delta = e - s;
+        const pct = s === 0 ? null : delta / s;
+        changes.push({ column: col, start: s, end: e, delta, pct });
+      }
+      if (changes.length > 0) {
+        timeSeries = {
+          dateColumn,
+          startDate: startLabel,
+          endDate: endLabel,
+          changes: changes.toSorted((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 12),
+        };
+      }
+    }
+  }
 
   // Portfolio heuristic for the repo example CSVs (Chinese headers).
   const symbolColumnCandidates = ["标的代码", "symbol", "ticker"];
@@ -262,7 +407,17 @@ function buildCsvSummary(csvText: string): CsvSummary {
     };
   }
 
-  return { delimiter, rows: rows.length, columns, sample, ...(portfolio ? { portfolio } : {}) };
+  const out: CsvSummary = { delimiter, rows: rows.length, columns, sample };
+  if (numericProfile.length > 0) {
+    out.numericProfile = numericProfile.slice(0, 24);
+  }
+  if (timeSeries) {
+    out.timeSeries = timeSeries;
+  }
+  if (portfolio) {
+    out.portfolio = portfolio;
+  }
+  return out;
 }
 
 function buildJsonSummary(value: unknown): JsonSummary {

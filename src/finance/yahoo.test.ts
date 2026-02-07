@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeYahooSymbol,
   parseYahooChart,
+  parseYahooFundamentals,
   parseYahooJsonFromText,
   parseYahooQuoteFromHtml,
   parseYahooQuotes,
@@ -91,5 +92,11 @@ root.App.main = {"context":{"dispatcher":{"stores":{"QuoteSummaryStore":{"price"
     expect(quote.currency).toBe("USD");
     expect(quote.regularMarketPrice).toBe(180);
     expect(quote.regularMarketChangePercent).toBe(1.1);
+  });
+
+  it("tolerates missing fundamentals result", () => {
+    const json = { quoteSummary: { result: [] } };
+    const fundamentals = parseYahooFundamentals(json, "NVDA");
+    expect(fundamentals.symbol).toBe("NVDA");
   });
 });

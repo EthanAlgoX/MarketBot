@@ -283,9 +283,12 @@ export function parseYahooQuotes(json: any): Quote[] {
 }
 
 export function parseYahooFundamentals(json: any, symbol: string): Fundamentals {
+  const resolvedSymbol = symbol.toUpperCase();
   const result = json?.quoteSummary?.result?.[0];
-  if (!result) {
-    throw new Error("Yahoo fundamentals response missing result");
+  // Yahoo quoteSummary occasionally returns no result (rate limiting, upstream shape changes, etc).
+  // Callers (e.g. `finance summary`) should still succeed with partial output.
+  if (!result || typeof result !== "object") {
+    return { symbol: resolvedSymbol };
   }
   const summaryDetail = result.summaryDetail ?? {};
   const price = result.price ?? {};
@@ -293,7 +296,7 @@ export function parseYahooFundamentals(json: any, symbol: string): Fundamentals 
   const financial = result.financialData ?? {};
 
   return {
-    symbol: symbol.toUpperCase(),
+    symbol: resolvedSymbol,
     currency: unwrapString(price.currency),
     marketCap: unwrapNumber(summaryDetail.marketCap),
     trailingPE: unwrapNumber(summaryDetail.trailingPE),

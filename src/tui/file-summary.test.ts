@@ -13,4 +13,15 @@ describe("summarizeLocalFile", () => {
     expect(summary.csv?.columns.length).toBeGreaterThan(0);
     expect(summary.csv?.portfolio?.uniqueSymbols).toBeGreaterThan(0);
   });
+
+  it("adds numeric + time series summaries when a date column exists", async () => {
+    const summary = await summarizeLocalFile({
+      filePath: "example/market_indices.csv",
+      cwd: process.cwd(),
+    });
+    expect(summary.type).toBe("csv");
+    expect(summary.csv?.numericProfile?.length).toBeGreaterThan(0);
+    expect(summary.csv?.timeSeries?.dateColumn).toBe("日期");
+    expect(summary.csv?.timeSeries?.changes.length).toBeGreaterThan(0);
+  });
 });

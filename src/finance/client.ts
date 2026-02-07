@@ -149,17 +149,22 @@ export class MarketDataClient {
     if (cached) {
       return cached;
     }
-    const url = buildYahooFundamentalsUrl(normalized);
-    const res = await fetchTextWithBrowser(url, {
-      profile: this.profile,
-      maxChars: 200000,
-      retryMaxChars: 400000,
-      content: "text",
-    });
-    const json = parseYahooJsonFromText(res.text);
-    const fundamentals = parseYahooFundamentals(json, normalized);
-    this.fundamentalsCache.set(cacheKey, fundamentals);
-    return fundamentals;
+    try {
+      const url = buildYahooFundamentalsUrl(normalized);
+      const res = await fetchTextWithBrowser(url, {
+        profile: this.profile,
+        maxChars: 200000,
+        retryMaxChars: 400000,
+        content: "text",
+      });
+      const json = parseYahooJsonFromText(res.text);
+      const fundamentals = parseYahooFundamentals(json, normalized);
+      this.fundamentalsCache.set(cacheKey, fundamentals);
+      return fundamentals;
+    } catch {
+      // Keep higher-level commands stable even if fundamentals are temporarily unavailable.
+      return { symbol: normalized.toUpperCase() };
+    }
   }
 
   async getNews(params: { query: string; limit?: number; locale?: string }): Promise<NewsItem[]> {
