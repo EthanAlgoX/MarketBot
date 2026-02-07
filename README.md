@@ -6,7 +6,7 @@
 
 Finance-first autonomous agent for market research and multi-channel messaging, with a built-in browser for data capture and a dedicated finance CLI.
 
-[![License: AGPL v3](https://img.shields.io/badge/license-AGPL_v3-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-22+-green)](https://nodejs.org/)
 
@@ -28,6 +28,15 @@ MarketBot is built to turn live market context into repeatable analysis and deli
 - Portfolio math included: risk metrics, correlation matrix, and min-variance optimization
 - Agent-driven research: `analyze` provides structured market analysis with explicit assumptions and risk/invalidation
 - Multi-channel delivery: use `message`/`channels` to push alerts, summaries, or reports to your teams
+
+## China IM Channels (Extensions)
+
+MarketBot supports common China IM surfaces via optional channel extensions:
+
+- Feishu (飞书)
+- DingTalk (钉钉, Stream mode)
+- WeCom (企业微信, secure webhook AES + signature)
+- QQ Bot (QQ 机器人, Gateway WebSocket + REST)
 
 ## Quick Start (Dev)
 
@@ -133,4 +142,4 @@ pnpm build
 
 ## License
 
-AGPL-3.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

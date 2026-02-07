@@ -155,7 +155,7 @@
     "financial-intelligence"
   ],
   "author": "MarketBot Team",
-  "license": "AGPL-3.0-or-later",
+  "license": "MIT",
   "engines": {
     "node": ">=22.12.0"
   },
