@@ -1,0 +1,41 @@
+{
+  "name": "@marketbot/dingtalk",
+  "version": "2026.2.7",
+  "type": "module",
+  "description": "MarketBot DingTalk channel plugin (Stream mode)",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "dingtalk",
+      "label": "DingTalk",
+      "selectionLabel": "DingTalk (钉钉)",
+      "detailLabel": "DingTalk",
+      "docsPath": "/channels/dingtalk",
+      "docsLabel": "dingtalk",
+      "blurb": "钉钉 Stream mode bot with inbound message routing and session-webhook replies.",
+      "aliases": [
+        "ding",
+        "dd"
+      ],
+      "order": 73,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "npmSpec": "@marketbot/dingtalk",
+      "localPath": "extensions/dingtalk",
+      "defaultChoice": "npm"
+    }
+  },
+  "dependencies": {
+    "dingtalk-stream": "^2.1.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "marketbot": "workspace:*"
+  },
+  "peerDependencies": {
+    "marketbot": ">=2026.1.26"
+  }
+}

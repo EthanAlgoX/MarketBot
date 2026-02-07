@@ -1,0 +1,42 @@
+{
+  "name": "@marketbot/qqbot",
+  "version": "2026.2.7",
+  "type": "module",
+  "description": "MarketBot QQ Bot channel plugin (Gateway WS)",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "qqbot",
+      "label": "QQ Bot",
+      "selectionLabel": "QQ Bot (QQ机器人)",
+      "detailLabel": "QQ Bot",
+      "docsPath": "/channels/qqbot",
+      "docsLabel": "qqbot",
+      "blurb": "Tencent QQ Bot via Gateway WebSocket + REST API (C2C, group, channel).",
+      "aliases": [
+        "qq",
+        "qq-bot"
+      ],
+      "order": 74,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "npmSpec": "@marketbot/qqbot",
+      "localPath": "extensions/qqbot",
+      "defaultChoice": "npm"
+    }
+  },
+  "dependencies": {
+    "ws": "^8.18.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "marketbot": "workspace:*"
+  },
+  "peerDependencies": {
+    "marketbot": ">=2026.1.26"
+  }
+}
+

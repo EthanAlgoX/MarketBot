@@ -1,0 +1,13 @@
+{
+  "id": "wecom",
+  "name": "WeCom",
+  "description": "WeCom (WeChat Work) channel plugin",
+  "kind": "channel",
+  "channels": ["wecom"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
+

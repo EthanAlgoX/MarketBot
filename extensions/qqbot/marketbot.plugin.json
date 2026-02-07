@@ -1,0 +1,13 @@
+{
+  "id": "qqbot",
+  "name": "QQ Bot",
+  "description": "Tencent QQ bot channel plugin (Gateway WS)",
+  "kind": "channel",
+  "channels": ["qqbot"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
+

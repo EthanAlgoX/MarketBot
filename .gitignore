@@ -65,6 +65,7 @@ apps/ios/*.mobileprovision
 .env
 
 # Local untracked files
+.tmp/
 .local/
 .vscode/
 IDENTITY.md

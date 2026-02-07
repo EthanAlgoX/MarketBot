@@ -1,0 +1,43 @@
+{
+  "name": "@marketbot/wecom",
+  "version": "2026.2.7",
+  "type": "module",
+  "description": "MarketBot WeCom (WeChat Work) channel plugin",
+  "marketbot": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "wecom",
+      "label": "WeCom",
+      "selectionLabel": "WeCom (企业微信)",
+      "detailLabel": "WeCom",
+      "docsPath": "/channels/wecom",
+      "docsLabel": "wecom",
+      "blurb": "企业微信 WeCom bot integration via secure webhooks (AES + signature).",
+      "aliases": [
+        "wechatwork",
+        "wxwork",
+        "qywx"
+      ],
+      "order": 72,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "npmSpec": "@marketbot/wecom",
+      "localPath": "extensions/wecom",
+      "defaultChoice": "npm"
+    }
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.2.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "marketbot": "workspace:*"
+  },
+  "peerDependencies": {
+    "marketbot": ">=2026.1.26"
+  }
+}
+

@@ -1,0 +1,13 @@
+{
+  "id": "dingtalk",
+  "name": "DingTalk",
+  "description": "DingTalk channel plugin (Stream mode)",
+  "kind": "channel",
+  "channels": ["dingtalk"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
+

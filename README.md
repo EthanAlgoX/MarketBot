@@ -38,6 +38,15 @@ MarketBot supports common China IM surfaces via optional channel extensions:
 - WeCom (企业微信, secure webhook AES + signature)
 - QQ Bot (QQ 机器人, Gateway WebSocket + REST)
 
+In this repo workspace, these extensions live under `extensions/*`. You can inspect/enable them via:
+
+```bash
+pnpm -s marketbot plugins list
+pnpm -s marketbot plugins enable dingtalk
+pnpm -s marketbot plugins enable wecom
+pnpm -s marketbot plugins enable qqbot
+```
+
 ## Quick Start (Dev)
 
 Prereqs: Node 22+, pnpm.
@@ -71,7 +80,7 @@ pnpm -s marketbot config set gateway.mode local
 
 ## Finance (Browser-Backed)
 
-Market data commands fetch via MarketBot's built-in browser by default.
+Market data commands fetch via MarketBot's built-in browser by default (browser profile: `marketbot`).
 
 ```bash
 pnpm -s marketbot finance quote AAPL --json
@@ -79,8 +88,11 @@ pnpm -s marketbot finance chart AAPL --timeframe 6mo --json
 pnpm -s marketbot finance summary AAPL --timeframe 6mo --json
 pnpm -s marketbot finance technicals AAPL --timeframe 6mo --json
 pnpm -s marketbot finance risk AAPL --timeframe 1y --json
+pnpm -s marketbot finance fundamentals AAPL --json
+pnpm -s marketbot finance news AAPL --limit 10 --json
 pnpm -s marketbot finance compare AAPL MSFT NVDA --timeframe 1y --json
 pnpm -s marketbot finance brief AAPL --timeframe 6mo --json
+pnpm -s marketbot finance portfolio --positions-json '[{"symbol":"AAPL","quantity":10}]' --timeframe 1y --json
 pnpm -s marketbot finance optimize AAPL MSFT NVDA --timeframe 1y --json
 ```
 
