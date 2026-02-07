@@ -27,6 +27,7 @@ let cdpBaseUrl = "";
 let reachable = false;
 let cfgAttachOnly = false;
 let createTargetId: string | null = null;
+let forceCreateTargetFallback = false;
 let prevGatewayPort: string | undefined;
 
 const cdpMocks = vi.hoisted(() => ({
@@ -209,6 +210,7 @@ describe("browser control server", () => {
     reachable = false;
     cfgAttachOnly = false;
     createTargetId = null;
+    forceCreateTargetFallback = false;
 
     cdpMocks.createTargetViaCdp.mockImplementation(async () => {
       if (createTargetId) {
@@ -257,6 +259,9 @@ describe("browser control server", () => {
           ]);
         }
         if (u.includes("/json/new?")) {
+          if (forceCreateTargetFallback) {
+            return makeResponse({});
+          }
           if (init?.method === "PUT") {
             putNewCalls += 1;
             if (putNewCalls === 1) {
@@ -472,6 +477,7 @@ describe("browser control server", () => {
     const base = `http://127.0.0.1:${testPort}`;
     await realFetch(`${base}/start`, { method: "POST" }).then((r) => r.json());
 
+    forceCreateTargetFallback = true;
     createTargetId = "abcd1234";
     const opened = (await realFetch(`${base}/tabs/open`, {
       method: "POST",

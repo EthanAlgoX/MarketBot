@@ -18,6 +18,7 @@ Finance-first autonomous agent for market research and multi-channel messaging, 
 - Agents with tool use (web, browser, desktop on macOS, memory, media, exec)
 - Multi-channel messaging (built-in + extensions)
 - Finance CLI for browser-backed market data + analysis (technicals, risk, portfolio, optimization)
+- TUI for interactive workflows (watchlists, commands, local file summaries)
 
 ## Finance-First: Positioning + Differentiators
 
@@ -31,14 +32,13 @@ MarketBot is built to turn live market context into repeatable analysis and deli
 
 ## China IM Channels (Extensions)
 
-MarketBot supports common China IM surfaces via optional channel extensions:
+MarketBot supports common China IM surfaces via optional channel extensions in `extensions/*`:
 
-- Feishu (飞书)
 - DingTalk (钉钉, Stream mode)
 - WeCom (企业微信, secure webhook AES + signature)
 - QQ Bot (QQ 机器人, Gateway WebSocket + REST)
 
-In this repo workspace, these extensions live under `extensions/*`. You can inspect/enable them via:
+You can inspect/enable them via:
 
 ```bash
 pnpm -s marketbot plugins list
@@ -46,6 +46,8 @@ pnpm -s marketbot plugins enable dingtalk
 pnpm -s marketbot plugins enable wecom
 pnpm -s marketbot plugins enable qqbot
 ```
+
+Feishu (飞书) is a common target and supported in related deployments; this repo focuses on the extensions above.
 
 ## Quick Start (Dev)
 
@@ -111,6 +113,28 @@ pnpm -s marketbot analyze --asset NVDA --market equities --style fundamental --n
 pnpm -s marketbot browser status --json
 pnpm -s marketbot browser open https://example.com
 pnpm -s marketbot browser snapshot --labels
+```
+
+## TUI (Finance Desk + File Processing)
+
+The TUI supports slash commands and can summarize local CSV/JSON/text files without any model:
+
+```bash
+pnpm -s marketbot tui --url ws://127.0.0.1:18789 --token test-token
+```
+
+Inside the TUI:
+
+```text
+/file example/portfolio_holdings.csv
+/file example/financial_statements.csv
+/quit
+```
+
+Non-interactive (execute a slash command at startup):
+
+```bash
+pnpm -s marketbot tui --url ws://127.0.0.1:18789 --token test-token --message "/file example/portfolio_holdings.csv"
 ```
 
 ## Channels + Messaging

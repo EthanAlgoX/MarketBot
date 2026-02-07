@@ -560,7 +560,12 @@ export async function runTui(opts: TuiOptions) {
       tui.requestRender();
       if (!autoMessageSent && autoMessage) {
         autoMessageSent = true;
-        await sendMessage(autoMessage);
+        const trimmed = autoMessage.trim();
+        if (trimmed.startsWith("/")) {
+          await handleCommand(trimmed);
+        } else {
+          await sendMessage(autoMessage);
+        }
       }
       updateSessionBar();
       tui.requestRender();

@@ -29,6 +29,7 @@ import { formatRelativeTime } from "../utils/time-format.js";
 import { getSlashCommands, helpText, parseCommand } from "./commands.js";
 import type { ChatLog } from "./components/chat-log.js";
 import { InfoPanel } from "./components/info-panel.js";
+import { formatLocalFileSummary, summarizeLocalFile } from "./file-summary.js";
 import {
   createFilterableSelectList,
   createSearchableSelectList,
@@ -852,6 +853,25 @@ export function createCommandHandlers(context: CommandHandlerContext) {
       case "settings":
         openSettings();
         break;
+      case "file": {
+        const rawPath = args?.trim();
+        if (!rawPath) {
+          chatLog.addSystem("📎 Usage: /file <path> (e.g., /file example/portfolio_holdings.csv)");
+          break;
+        }
+        try {
+          const summary = await summarizeLocalFile({ filePath: rawPath, cwd: process.cwd() });
+          for (const line of formatLocalFileSummary(summary)) {
+            chatLog.addSystem(line);
+          }
+          if (process.env.MARKETBOT_TUI_FILE_JSON === "1") {
+            chatLog.addSystem(JSON.stringify(summary, null, 2));
+          }
+        } catch (err) {
+          chatLog.addSystem(`file summary failed: ${String(err)}`);
+        }
+        break;
+      }
       case "dashboard":
         await openDashboardOverlay();
         break;

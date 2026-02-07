@@ -139,6 +139,7 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
     { name: "new", description: "Reset the session" },
     { name: "reset", description: "Reset the session" },
     { name: "settings", description: "Open settings" },
+    { name: "file", description: "📎 Summarize a local file (csv/json/text)" },
     { name: "exit", description: "Exit the TUI" },
     { name: "quit", description: "Exit the TUI" },
     {
@@ -200,6 +201,7 @@ export function helpText(options: SlashCommandOptions = {}): string {
     "/new or /reset     Reset session",
     "/abort             Abort active run",
     "/settings          Open settings",
+    "/file <path>       Summarize a local file (csv/json/text)",
     "/exit              Exit TUI",
     "",
     "━━━ Market Analysis ━━━",
