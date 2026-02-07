@@ -54,6 +54,7 @@ import type { GetReplyOptions, ReplyPayload } from "../types.js";
 import { runReplyAgent } from "./agent-runner.js";
 import { applySessionHints } from "./body.js";
 import { routeReply } from "./route-reply.js";
+import { buildReplyLanguageHint } from "./language.js";
 import type { buildCommandContext } from "./commands.js";
 import type { InlineDirectives } from "./directive-handling.js";
 import { buildGroupIntro } from "./groups.js";
@@ -236,6 +237,10 @@ export async function runPreparedReply(
     abortKey: command.abortKey,
     messageId: sessionCtx.MessageSid,
   });
+  const languageHint = buildReplyLanguageHint(rawBodyTrimmed || baseBodyFinal);
+  if (languageHint) {
+    prefixedBodyBase = `${languageHint}\n\n${prefixedBodyBase}`;
+  }
   const isGroupSession = sessionEntry?.chatType === "group" || sessionEntry?.chatType === "channel";
   const isMainSession = !isGroupSession && sessionKey === normalizeMainKey(sessionCfg?.mainKey);
   prefixedBodyBase = await prependSystemEvents({
