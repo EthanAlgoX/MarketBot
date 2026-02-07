@@ -27,23 +27,21 @@ describe("iconForTab", () => {
   });
 
   it("returns stable icons for known tabs", () => {
-    expect(iconForTab("chat")).toBe("💬");
-    expect(iconForTab("overview")).toBe("📊");
-    expect(iconForTab("channels")).toBe("🔗");
-    expect(iconForTab("instances")).toBe("📡");
-    expect(iconForTab("sessions")).toBe("📄");
-    expect(iconForTab("cron")).toBe("⏰");
-    expect(iconForTab("skills")).toBe("⚡️");
-    expect(iconForTab("nodes")).toBe("🖥️");
-    expect(iconForTab("config")).toBe("⚙️");
-    expect(iconForTab("debug")).toBe("🐞");
-    expect(iconForTab("logs")).toBe("🧾");
+    expect(iconForTab("desk")).toBe("barChart");
+    expect(iconForTab("stocks")).toBe("barChart");
+    expect(iconForTab("chat")).toBe("messageSquare");
+    expect(iconForTab("overview")).toBe("settings");
+    expect(iconForTab("channels")).toBe("link");
+    expect(iconForTab("sessions")).toBe("fileText");
+    expect(iconForTab("cron")).toBe("loader");
+    expect(iconForTab("runs")).toBe("activity");
+    expect(iconForTab("logs")).toBe("scrollText");
   });
 
   it("returns a fallback icon for unknown tab", () => {
     // TypeScript won't allow this normally, but runtime could receive unexpected values
     const unknownTab = "unknown" as Tab;
-    expect(iconForTab(unknownTab)).toBe("📁");
+    expect(iconForTab(unknownTab)).toBe("folder");
   });
 });
 
@@ -58,7 +56,7 @@ describe("titleForTab", () => {
 
   it("returns expected titles", () => {
     expect(titleForTab("chat")).toBe("Chat");
-    expect(titleForTab("overview")).toBe("Overview");
+    expect(titleForTab("overview")).toBe("Connection");
     expect(titleForTab("cron")).toBe("Cron Jobs");
   });
 });
@@ -72,8 +70,8 @@ describe("subtitleForTab", () => {
   });
 
   it("returns descriptive subtitles", () => {
-    expect(subtitleForTab("chat")).toContain("chat session");
-    expect(subtitleForTab("config")).toContain("marketbot.json");
+    expect(subtitleForTab("chat")).toContain("gateway chat");
+    expect(subtitleForTab("overview")).toContain("Gateway URL");
   });
 });
 
@@ -133,8 +131,8 @@ describe("tabFromPath", () => {
     expect(tabFromPath("/sessions")).toBe("sessions");
   });
 
-  it("returns chat for root path", () => {
-    expect(tabFromPath("/")).toBe("chat");
+  it("returns desk for root path", () => {
+    expect(tabFromPath("/")).toBe("desk");
   });
 
   it("handles base paths", () => {
@@ -176,9 +174,10 @@ describe("inferBasePathFromPathname", () => {
 describe("TAB_GROUPS", () => {
   it("contains all expected groups", () => {
     const labels = TAB_GROUPS.map((g) => g.label);
-    expect(labels).toContain("Chat");
-    expect(labels).toContain("Control");
-    expect(labels).toContain("Agent");
+    expect(labels).toContain("Desk");
+    expect(labels).toContain("Finance");
+    expect(labels).toContain("Ops");
+    expect(labels).toContain("Research");
     expect(labels).toContain("Settings");
   });
 

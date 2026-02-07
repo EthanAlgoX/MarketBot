@@ -218,10 +218,10 @@ Available channels (built-in + extensions):
 | iMessage | Core | native iMessage integration |
 | BlueBubbles | Core | iMessage via BlueBubbles Server |
 | Mattermost | Core | webhooks |
-| Feishu/Lark (飞书) | Core | enterprise messaging |
-| DingTalk (钉钉) | Extension | China IM |
-| WeCom (企业微信) | Extension | China IM |
-| QQ Bot (QQ 机器人) | Extension | China IM |
+| Feishu/Lark (飞书) | Core | enterprise messaging ([Setup](#feishu-setup)) |
+| DingTalk (钉钉) | Extension | China IM ([Setup](#dingtalk-setup)) |
+| WeCom (企业微信) | Extension | China IM ([Setup](#wecom-setup)) |
+| QQ Bot (QQ 机器人) | Extension | China IM ([Setup](#qqbot-setup)) |
 | LINE | Extension | LINE Messaging API |
 | Matrix | Extension | Matrix homeserver |
 | Microsoft Teams | Extension | Bot / Graph integration |
@@ -231,8 +231,9 @@ Available channels (built-in + extensions):
 | Zalo | Extension | Zalo OA |
 | Zalo Personal | Extension | personal Zalo bridge |
 
-## IM Platform Setup
+### IM Platform Setup
 
+<span id="feishu-setup"></span>
 <details>
 <summary><b>Feishu/Lark (飞书)</b></summary>
 
@@ -282,6 +283,7 @@ Available channels (built-in + extensions):
 
 </details>
 
+<span id="dingtalk-setup"></span>
 <details>
 <summary><b>DingTalk (钉钉)</b></summary>
 
@@ -307,6 +309,7 @@ Available channels (built-in + extensions):
 
 </details>
 
+<span id="qqbot-setup"></span>
 <details>
 <summary><b>QQ Bot (QQ 机器人)</b></summary>
 
@@ -331,6 +334,7 @@ Available channels (built-in + extensions):
 
 </details>
 
+<span id="wecom-setup"></span>
 <details>
 <summary><b>WeCom (企业微信)</b></summary>
 

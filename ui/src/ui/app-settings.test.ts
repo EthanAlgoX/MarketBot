@@ -5,7 +5,6 @@ import { setTabFromRoute } from "./app-settings";
 
 type SettingsHost = Parameters<typeof setTabFromRoute>[0] & {
   logsPollInterval: number | null;
-  debugPollInterval: number | null;
 };
 
 const createHost = (tab: Tab): SettingsHost => ({
@@ -35,7 +34,6 @@ const createHost = (tab: Tab): SettingsHost => ({
   themeMedia: null,
   themeMediaHandler: null,
   logsPollInterval: null,
-  debugPollInterval: null,
 });
 
 describe("setTabFromRoute", () => {
@@ -52,20 +50,8 @@ describe("setTabFromRoute", () => {
 
     setTabFromRoute(host, "logs");
     expect(host.logsPollInterval).not.toBeNull();
-    expect(host.debugPollInterval).toBeNull();
 
     setTabFromRoute(host, "chat");
     expect(host.logsPollInterval).toBeNull();
-  });
-
-  it("starts and stops debug polling based on the tab", () => {
-    const host = createHost("chat");
-
-    setTabFromRoute(host, "debug");
-    expect(host.debugPollInterval).not.toBeNull();
-    expect(host.logsPollInterval).toBeNull();
-
-    setTabFromRoute(host, "chat");
-    expect(host.debugPollInterval).toBeNull();
   });
 });
