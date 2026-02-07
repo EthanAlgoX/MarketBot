@@ -162,6 +162,32 @@ Use the Web Control UI Ops pages first:
 - Cron: `/cron`
 - Logs: `/logs`
 
+Available channels (built-in + extensions):
+
+| Channel | Kind | Notes |
+|---|---|---|
+| Telegram | Core | Bot API |
+| WhatsApp | Core | WhatsApp Web (QR link) |
+| Discord | Core | Bot API |
+| Google Chat | Core | Chat API / webhook |
+| Slack | Core | Socket Mode |
+| Signal | Core | signal-cli linked device |
+| iMessage | Core | native iMessage integration |
+| BlueBubbles | Core | iMessage via BlueBubbles Server |
+| Mattermost | Core | webhooks |
+| Feishu/Lark (飞书) | Core | enterprise messaging |
+| DingTalk (钉钉) | Extension | China IM |
+| WeCom (企业微信) | Extension | China IM |
+| QQ Bot (QQ 机器人) | Extension | China IM |
+| LINE | Extension | LINE Messaging API |
+| Matrix | Extension | Matrix homeserver |
+| Microsoft Teams | Extension | Bot / Graph integration |
+| Nextcloud Talk | Extension | Nextcloud Talk |
+| Nostr | Extension | Nostr relays (chat-like surface) |
+| Tlon | Extension | Urbit via Tlon |
+| Zalo | Extension | Zalo OA |
+| Zalo Personal | Extension | personal Zalo bridge |
+
 CLI examples (dev/automation):
 
 ```bash
@@ -170,19 +196,16 @@ pnpm -s marketbot channels status --probe
 pnpm -s marketbot message send --channel telegram --target @your_chat --message "Hello"
 ```
 
-Extensions (plugins) live under `extensions/*`, including common China IM channels:
-
-- DingTalk (钉钉)
-- WeCom (企业微信)
-- QQ Bot (QQ 机器人)
-
-Enable via:
+Extensions live under `extensions/*`. Enable extension channels via:
 
 ```bash
 pnpm -s marketbot plugins list
 pnpm -s marketbot plugins enable dingtalk
 pnpm -s marketbot plugins enable wecom
 pnpm -s marketbot plugins enable qqbot
+pnpm -s marketbot plugins enable matrix
+pnpm -s marketbot plugins enable msteams
+pnpm -s marketbot plugins enable line
 ```
 
 ## CLI (Dev/Automation)
