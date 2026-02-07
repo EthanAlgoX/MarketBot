@@ -27,14 +27,19 @@ describe("iconForTab", () => {
   });
 
   it("returns stable icons for known tabs", () => {
+    expect(iconForTab("chat")).toBe("messageSquare");
     expect(iconForTab("desk")).toBe("barChart");
     expect(iconForTab("stocks")).toBe("barChart");
-    expect(iconForTab("chat")).toBe("messageSquare");
+    expect(iconForTab("runs")).toBe("activity");
     expect(iconForTab("overview")).toBe("settings");
     expect(iconForTab("channels")).toBe("link");
+    expect(iconForTab("instances")).toBe("radio");
     expect(iconForTab("sessions")).toBe("fileText");
     expect(iconForTab("cron")).toBe("loader");
-    expect(iconForTab("runs")).toBe("activity");
+    expect(iconForTab("skills")).toBe("zap");
+    expect(iconForTab("nodes")).toBe("monitor");
+    expect(iconForTab("config")).toBe("settings");
+    expect(iconForTab("debug")).toBe("bug");
     expect(iconForTab("logs")).toBe("scrollText");
   });
 
@@ -58,6 +63,8 @@ describe("titleForTab", () => {
     expect(titleForTab("chat")).toBe("Chat");
     expect(titleForTab("overview")).toBe("Connection");
     expect(titleForTab("cron")).toBe("Cron Jobs");
+    expect(titleForTab("instances")).toBe("Instances");
+    expect(titleForTab("config")).toBe("Config");
   });
 });
 
@@ -72,6 +79,7 @@ describe("subtitleForTab", () => {
   it("returns descriptive subtitles", () => {
     expect(subtitleForTab("chat")).toContain("gateway chat");
     expect(subtitleForTab("overview")).toContain("Gateway URL");
+    expect(subtitleForTab("config")).toContain("configuration");
   });
 });
 
@@ -131,8 +139,8 @@ describe("tabFromPath", () => {
     expect(tabFromPath("/sessions")).toBe("sessions");
   });
 
-  it("returns desk for root path", () => {
-    expect(tabFromPath("/")).toBe("desk");
+  it("returns chat for root path", () => {
+    expect(tabFromPath("/")).toBe("chat");
   });
 
   it("handles base paths", () => {
@@ -174,10 +182,10 @@ describe("inferBasePathFromPathname", () => {
 describe("TAB_GROUPS", () => {
   it("contains all expected groups", () => {
     const labels = TAB_GROUPS.map((g) => g.label);
-    expect(labels).toContain("Desk");
+    expect(labels).toContain("Chat");
     expect(labels).toContain("Finance");
-    expect(labels).toContain("Ops");
-    expect(labels).toContain("Research");
+    expect(labels).toContain("Control");
+    expect(labels).toContain("Agent");
     expect(labels).toContain("Settings");
   });
 

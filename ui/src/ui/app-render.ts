@@ -39,6 +39,11 @@ import { renderLogs } from "./views/logs";
 import { renderRuns } from "./views/runs";
 import { renderOverview } from "./views/overview";
 import { renderSessions } from "./views/sessions";
+import { renderConfig } from "./views/config";
+import { renderDebug } from "./views/debug";
+import { renderInstances } from "./views/instances";
+import { renderSkills } from "./views/skills";
+import { renderNodes } from "./views/nodes";
 import { renderExecApprovalPrompt } from "./views/exec-approval";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation";
 import { renderDesk } from "./views/desk";
@@ -48,14 +53,50 @@ import { loadChannels } from "./controllers/channels";
 import { deleteSession, loadSessions, patchSession } from "./controllers/sessions";
 import { loadChatHistory } from "./controllers/chat";
 import {
+  applyConfig,
+  loadConfig,
+  loadConfigSchema,
+  removeConfigFormValue,
+  runUpdate,
+  saveConfig,
   updateConfigFormValue,
 } from "./controllers/config";
 import { loadCronRuns, toggleCronJob, runCronJob, removeCronJob, addCronJob } from "./controllers/cron";
 import { loadLogs } from "./controllers/logs";
 import { loadRun, loadRuns } from "./controllers/runs";
+import { loadPresence } from "./controllers/presence";
+import { callDebugMethod, loadDebug } from "./controllers/debug";
+import {
+  installSkill,
+  loadSkills,
+  saveSkillApiKey,
+  updateSkillEdit,
+  updateSkillEnabled,
+} from "./controllers/skills";
+import { loadNodes } from "./controllers/nodes";
+import {
+  approveDevicePairing,
+  loadDevices,
+  rejectDevicePairing,
+  revokeDeviceToken,
+  rotateDeviceToken,
+} from "./controllers/devices";
+import {
+  loadExecApprovals,
+  removeExecApprovalsFormValue,
+  saveExecApprovals,
+  updateExecApprovalsFormValue,
+} from "./controllers/exec-approvals";
 
 const AVATAR_DATA_RE = /^data:/i;
 const AVATAR_HTTP_RE = /^https?:\/\//i;
+
+function resolveExecApprovalsTarget(state: AppViewState) {
+  if (state.execApprovalsTarget === "node" && state.execApprovalsTargetNodeId?.trim()) {
+    return { kind: "node" as const, nodeId: state.execApprovalsTargetNodeId.trim() };
+  }
+  return { kind: "gateway" as const };
+}
 
 function resolveAssistantAvatarUrl(state: AppViewState): string | undefined {
   const list = state.agentsList?.agents ?? [];
@@ -105,12 +146,12 @@ export function renderApp(state: AppViewState) {
             <div class="brand-logo">
               <img src="./marketbot-mark.svg" alt="MarketBot" />
             </div>
-            <div class="brand-text">
-              <div class="brand-title">MarketBot</div>
-              <div class="brand-sub">Finance Desk</div>
-            </div>
+          <div class="brand-text">
+            <div class="brand-title">MarketBot</div>
+            <div class="brand-sub">Control UI</div>
           </div>
         </div>
+      </div>
         <div class="topbar-status">
           <div class="pill ${state.connected ? "ok" : "warn"}" title="Gateway connection state">
             <span class="statusDot ${state.connected ? "ok" : "warn"}"></span>
@@ -274,6 +315,16 @@ export function renderApp(state: AppViewState) {
             })
           : nothing}
 
+        ${state.tab === "instances"
+          ? renderInstances({
+              loading: state.presenceLoading,
+              entries: state.presenceEntries,
+              lastError: state.presenceError,
+              statusMessage: state.presenceStatus,
+              onRefresh: () => void loadPresence(state),
+            })
+          : nothing}
+
         ${state.tab === "stocks"
           ? renderStocks({
               loading: state.stocksLoading,
@@ -345,6 +396,143 @@ export function renderApp(state: AppViewState) {
               onRun: (job) => runCronJob(state, job),
               onRemove: (job) => removeCronJob(state, job),
               onLoadRuns: (jobId) => loadCronRuns(state, jobId),
+            })
+          : nothing}
+
+        ${state.tab === "skills"
+          ? renderSkills({
+              loading: state.skillsLoading,
+              report: state.skillsReport,
+              error: state.skillsError,
+              filter: state.skillsFilter,
+              edits: state.skillEdits,
+              busyKey: state.skillsBusyKey,
+              messages: state.skillMessages,
+              onFilterChange: (next) => (state.skillsFilter = next),
+              onRefresh: () => void loadSkills(state, { clearMessages: true }),
+              onToggle: (skillKey, enabled) => void updateSkillEnabled(state, skillKey, enabled),
+              onEdit: (skillKey, value) => updateSkillEdit(state, skillKey, value),
+              onSaveKey: (skillKey) => void saveSkillApiKey(state, skillKey),
+              onInstall: (skillKey, name, installId) => void installSkill(state, skillKey, name, installId),
+            })
+          : nothing}
+
+        ${state.tab === "nodes"
+          ? renderNodes({
+              loading: state.nodesLoading,
+              nodes: state.nodes,
+              devicesLoading: state.devicesLoading,
+              devicesError: state.devicesError,
+              devicesList: state.devicesList,
+              configForm: state.configForm,
+              configLoading: state.configLoading,
+              configSaving: state.configSaving,
+              configDirty: state.configFormDirty,
+              configFormMode: state.configFormMode,
+              execApprovalsLoading: state.execApprovalsLoading,
+              execApprovalsSaving: state.execApprovalsSaving,
+              execApprovalsDirty: state.execApprovalsDirty,
+              execApprovalsSnapshot: state.execApprovalsSnapshot,
+              execApprovalsForm: state.execApprovalsForm,
+              execApprovalsSelectedAgent: state.execApprovalsSelectedAgent,
+              execApprovalsTarget: state.execApprovalsTarget,
+              execApprovalsTargetNodeId: state.execApprovalsTargetNodeId,
+              onRefresh: () => {
+                void loadNodes(state);
+                void loadDevices(state);
+              },
+              onDevicesRefresh: () => void loadDevices(state),
+              onDeviceApprove: (requestId) => void approveDevicePairing(state, requestId),
+              onDeviceReject: (requestId) => void rejectDevicePairing(state, requestId),
+              onDeviceRotate: (deviceId, role, scopes) => void rotateDeviceToken(state, { deviceId, role, scopes }),
+              onDeviceRevoke: (deviceId, role) => void revokeDeviceToken(state, { deviceId, role }),
+              onLoadConfig: () => {
+                void loadConfigSchema(state);
+                void loadConfig(state);
+              },
+              onLoadExecApprovals: () => void loadExecApprovals(state, resolveExecApprovalsTarget(state)),
+              onBindDefault: (nodeId) => {
+                const path = ["tools", "exec", "node"];
+                if (nodeId == null) removeConfigFormValue(state, path);
+                else updateConfigFormValue(state, path, nodeId);
+              },
+              onBindAgent: (agentIndex, nodeId) => {
+                const path = ["agents", "list", agentIndex, "tools", "exec", "node"];
+                if (nodeId == null) removeConfigFormValue(state, path);
+                else updateConfigFormValue(state, path, nodeId);
+              },
+              onSaveBindings: () => void saveConfig(state),
+              onExecApprovalsTargetChange: (kind, nodeId) => {
+                state.execApprovalsTarget = kind;
+                state.execApprovalsTargetNodeId = kind === "node" ? nodeId : null;
+                state.execApprovalsDirty = false;
+                state.execApprovalsSnapshot = null;
+                state.execApprovalsForm = null;
+              },
+              onExecApprovalsSelectAgent: (agentId) => {
+                state.execApprovalsSelectedAgent = agentId;
+              },
+              onExecApprovalsPatch: (path, value) => updateExecApprovalsFormValue(state, path, value),
+              onExecApprovalsRemove: (path) => removeExecApprovalsFormValue(state, path),
+              onSaveExecApprovals: () => void saveExecApprovals(state, resolveExecApprovalsTarget(state)),
+            })
+          : nothing}
+
+        ${state.tab === "config"
+          ? renderConfig({
+              raw: state.configRaw,
+              originalRaw: state.configRawOriginal,
+              valid: state.configValid,
+              issues: state.configIssues,
+              loading: state.configLoading,
+              saving: state.configSaving,
+              applying: state.configApplying,
+              updating: state.updateRunning,
+              connected: state.connected,
+              schema: state.configSchema,
+              schemaLoading: state.configSchemaLoading,
+              uiHints: state.configUiHints,
+              formMode: state.configFormMode,
+              formValue: state.configForm,
+              originalValue: state.configFormOriginal,
+              searchQuery: state.configSearchQuery,
+              activeSection: state.configActiveSection,
+              activeSubsection: state.configActiveSubsection,
+              onRawChange: (next) => (state.configRaw = next),
+              onFormModeChange: (mode) => (state.configFormMode = mode),
+              onFormPatch: (path, value) => updateConfigFormValue(state, path, value),
+              onSearchChange: (query) => (state.configSearchQuery = query),
+              onSectionChange: (section) => {
+                state.configActiveSection = section;
+                state.configActiveSubsection = null;
+              },
+              onSubsectionChange: (subsection) => (state.configActiveSubsection = subsection),
+              onReload: () => {
+                void loadConfigSchema(state);
+                void loadConfig(state);
+              },
+              onSave: () => void saveConfig(state),
+              onApply: () => void applyConfig(state),
+              onUpdate: () => void runUpdate(state),
+            })
+          : nothing}
+
+        ${state.tab === "debug"
+          ? renderDebug({
+              loading: state.debugLoading,
+              status: state.debugStatus as unknown as Record<string, unknown> | null,
+              health: state.debugHealth as unknown as Record<string, unknown> | null,
+              models: state.debugModels,
+              heartbeat: state.debugHeartbeat,
+              eventLog: state.eventLog,
+              callMethod: state.debugCallMethod,
+              callParams: state.debugCallParams,
+              callResult: state.debugCallResult,
+              callError: state.debugCallError,
+              onCallMethodChange: (next) => (state.debugCallMethod = next),
+              onCallParamsChange: (next) => (state.debugCallParams = next),
+              onRefresh: () => void loadDebug(state),
+              onCall: () => void callDebugMethod(state),
             })
           : nothing}
 

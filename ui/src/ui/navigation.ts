@@ -1,17 +1,16 @@
 import type { IconName } from "./icons.js";
 
 export const TAB_GROUPS = [
-  { label: "Desk", tabs: ["desk"] },
+  { label: "Chat", tabs: ["chat"] },
   {
     label: "Finance",
-    tabs: ["stocks"],
+    tabs: ["desk", "stocks", "runs"],
   },
   {
-    label: "Ops",
-    tabs: ["channels", "sessions", "cron", "runs", "logs"],
+    label: "Control",
+    tabs: ["overview", "channels", "sessions", "cron", "logs"],
   },
-  { label: "Research", tabs: ["chat"] },
-  { label: "Settings", tabs: ["overview"] },
+  { label: "Settings", tabs: ["logs"] },
 ] as const;
 
 export type Tab =
@@ -78,7 +77,7 @@ export function tabFromPath(pathname: string, basePath = ""): Tab | null {
   }
   let normalized = normalizePath(path).toLowerCase();
   if (normalized.endsWith("/index.html")) normalized = "/";
-  if (normalized === "/") return "desk";
+  if (normalized === "/") return "chat";
   return PATH_TO_TAB.get(normalized) ?? null;
 }
 

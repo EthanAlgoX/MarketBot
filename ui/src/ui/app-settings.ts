@@ -1,8 +1,13 @@
 import { loadConfig, loadConfigSchema } from "./controllers/config";
 import { loadCronJobs, loadCronStatus } from "./controllers/cron";
 import { loadChannels } from "./controllers/channels";
+import { loadDebug } from "./controllers/debug";
 import { loadLogs } from "./controllers/logs";
+import { loadNodes } from "./controllers/nodes";
+import { loadPresence } from "./controllers/presence";
 import { loadRun, loadRuns } from "./controllers/runs";
+import { loadSkills } from "./controllers/skills";
+import { loadDevices } from "./controllers/devices";
 import { loadSessions } from "./controllers/sessions";
 import { inferBasePathFromPathname, normalizeBasePath, normalizePath, pathForTab, tabFromPath, type Tab } from "./navigation";
 import { saveSettings, type UiSettings } from "./storage";
@@ -141,8 +146,23 @@ export async function refreshActiveTab(host: SettingsHost) {
   if (host.tab === "overview") await loadOverview(host);
   if (host.tab === "stocks") await (host as unknown as import("./app").MarketBotApp).loadStocks();
   if (host.tab === "channels") await loadChannelsTab(host);
+  if (host.tab === "instances") await loadPresence(host as unknown as import("./controllers/presence").PresenceState);
   if (host.tab === "sessions") await loadSessions(host as unknown as MarketBotApp);
   if (host.tab === "cron") await loadCron(host);
+  if (host.tab === "skills") await loadSkills(host as unknown as import("./controllers/skills").SkillsState);
+  if (host.tab === "nodes") {
+    await Promise.all([
+      loadNodes(host as unknown as import("./controllers/nodes").NodesState),
+      loadDevices(host as unknown as import("./controllers/devices").DevicesState),
+    ]);
+  }
+  if (host.tab === "config") {
+    await Promise.all([
+      loadConfigSchema(host as unknown as import("./controllers/config").ConfigState),
+      loadConfig(host as unknown as import("./controllers/config").ConfigState),
+    ]);
+  }
+  if (host.tab === "debug") await loadDebug(host as unknown as import("./controllers/debug").DebugState);
   if (host.tab === "runs") {
     await loadRuns(host as unknown as import("./controllers/runs").RunsState);
     const selectedRunId = (host as unknown as { runsSelectedRunId?: string | null })
