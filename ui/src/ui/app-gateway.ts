@@ -3,7 +3,7 @@ import { loadAgents } from "./controllers/agents";
 import type { GatewayEventFrame, GatewayHelloOk } from "./gateway";
 import { GatewayBrowserClient } from "./gateway";
 import type { EventLogEntry } from "./app-events";
-import type { AgentsListResult, PresenceEntry, HealthSnapshot, StatusSummary } from "./types";
+import type { AgentsListResult, HealthSnapshot, StatusSummary } from "./types";
 import type { Tab } from "./navigation";
 import type { UiSettings } from "./storage";
 import { handleAgentEvent, resetToolStream, type AgentEventPayload } from "./app-tool-stream";
@@ -37,9 +37,6 @@ type GatewayHost = {
   eventLogBuffer: EventLogEntry[];
   eventLog: EventLogEntry[];
   tab: Tab;
-  presenceEntries: PresenceEntry[];
-  presenceError: string | null;
-  presenceStatus: StatusSummary | null;
   agentsLoading: boolean;
   agentsList: AgentsListResult | null;
   agentsError: string | null;
@@ -203,15 +200,7 @@ function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
     return;
   }
 
-  if (evt.event === "presence") {
-    const payload = evt.payload as { presence?: PresenceEntry[] } | undefined;
-    if (payload?.presence && Array.isArray(payload.presence)) {
-      host.presenceEntries = payload.presence;
-      host.presenceError = null;
-      host.presenceStatus = null;
-    }
-    return;
-  }
+
 
   if (evt.event === "cron" && host.tab === "cron") {
     void loadCron(host as unknown as Parameters<typeof loadCron>[0]);
@@ -241,14 +230,10 @@ function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
 export function applySnapshot(host: GatewayHost, hello: GatewayHelloOk) {
   const snapshot = hello.snapshot as
     | {
-        presence?: PresenceEntry[];
-        health?: HealthSnapshot;
-        sessionDefaults?: SessionDefaultsSnapshot;
-      }
+      health?: HealthSnapshot;
+      sessionDefaults?: SessionDefaultsSnapshot;
+    }
     | undefined;
-  if (snapshot?.presence && Array.isArray(snapshot.presence)) {
-    host.presenceEntries = snapshot.presence;
-  }
   if (snapshot?.health) {
     host.debugHealth = snapshot.health;
   }
