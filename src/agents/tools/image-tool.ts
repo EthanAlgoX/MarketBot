@@ -265,7 +265,15 @@ async function runImagePrompt(params: {
     cfg: effectiveCfg,
     modelOverride: params.modelOverride,
     run: async (provider, modelId) => {
-      const model = modelRegistry.find(provider, modelId) as Model<Api> | null;
+      let model = modelRegistry.find(provider, modelId) as Model<Api> | null;
+      if (!model && provider === "minimax") {
+        model = {
+          id: modelId,
+          provider,
+          input: ["text", "image"],
+          baseUrl: "https://api.minimax.chat/v1",
+        } as Model<Api>;
+      }
       if (!model) {
         throw new Error(`Unknown model: ${provider}/${modelId}`);
       }

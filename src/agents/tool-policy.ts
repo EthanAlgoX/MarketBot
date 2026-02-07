@@ -61,6 +61,7 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     "cron",
     "message",
     "gateway",
+    "finance",
     "agents_list",
     "sessions_list",
     "sessions_history",

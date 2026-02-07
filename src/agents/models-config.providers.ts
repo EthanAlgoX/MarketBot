@@ -719,12 +719,16 @@ export async function resolveImplicitProviders(params: {
   const kimiCodingKey =
     resolveEnvApiKeyVarName("kimi-coding") ??
     resolveApiKeyFromProfiles({ provider: "kimi-coding", store: authStore });
-  providers["kimi-coding"] = { ...buildKimiCodeProvider(), apiKey: kimiCodingKey };
+  if (kimiCodingKey) {
+    providers["kimi-coding"] = { ...buildKimiCodeProvider(), apiKey: kimiCodingKey };
+  }
 
   const zaiKey =
     resolveEnvApiKeyVarName("zai") ??
     resolveApiKeyFromProfiles({ provider: "zai", store: authStore });
-  providers.zai = { ...buildZaiProvider(), apiKey: zaiKey };
+  if (zaiKey) {
+    providers.zai = { ...buildZaiProvider(), apiKey: zaiKey };
+  }
 
   // Ollama provider - only add if explicitly configured
   const ollamaKey =

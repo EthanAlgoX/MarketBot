@@ -41,6 +41,8 @@ export type SlashCommandOptions = {
 
 const COMMAND_ALIASES: Record<string, string> = {
   elev: "elevated",
+  prisk: "portfolio_risk",
+  portrisk: "portfolio_risk",
 };
 
 export function parseCommand(input: string): ParsedCommand {
@@ -149,7 +151,14 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
     { name: "unwatch", description: "🧹 Remove symbol from watchlist" },
     { name: "watchlist", description: "📋 Show current watchlist" },
     { name: "portfolio", description: "💼 Portfolio overview" },
+    { name: "portfolio_risk", description: "📉 Portfolio risk breakdown" },
+    { name: "quote", description: "💵 Latest quote" },
+    { name: "fundamentals", description: "📚 Fundamentals overview" },
+    { name: "risk", description: "⚠️ Risk summary" },
+    { name: "summary", description: "🧭 Full market summary" },
     { name: "news", description: "📰 Recent market news" },
+    { name: "brief", description: "🧾 News-driven brief" },
+    { name: "compare", description: "🆚 Compare symbols" },
     { name: "alerts", description: "🔔 View price alerts" },
     { name: "technicals", description: "📈 Technical analysis summary" },
     { name: "sentiment", description: "🎯 Market sentiment analysis" },
@@ -198,7 +207,14 @@ export function helpText(options: SlashCommandOptions = {}): string {
     "/unwatch <symbol>  Remove from watchlist",
     "/watchlist         Show watchlist",
     "/portfolio         Portfolio overview",
+    "/portfolio_risk    Portfolio risk breakdown",
+    "/quote <symbol>    Latest quote",
+    "/fundamentals      Fundamentals overview",
+    "/risk              Risk summary",
+    "/summary           Full market summary",
     "/news              Recent market news",
+    "/brief <q|symbol>  News-driven brief",
+    "/compare <syms..>  Compare symbols (e.g., /compare AAPL MSFT)",
     "/alerts            Price alerts",
     "/technicals        Technical summary",
     "/sentiment         Sentiment analysis",

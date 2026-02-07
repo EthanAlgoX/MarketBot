@@ -942,10 +942,89 @@ export function createCommandHandlers(context: CommandHandlerContext) {
           }
         }
         break;
-        break;
       case "portfolio":
         await sendMessage(
           "Show my portfolio overview with current positions, P&L, and recommendations.",
+        );
+        break;
+      case "portfolio_risk": {
+        const tokens = args ? args.split(/\s+/).filter(Boolean) : [];
+        let benchmark: string | undefined;
+        let timeframe: string | undefined;
+        const rest: string[] = [];
+        for (let i = 0; i < tokens.length; i += 1) {
+          const t = tokens[i];
+          if (t === "--benchmark" || t === "-b") {
+            benchmark = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--timeframe" || t === "-t") {
+            timeframe = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          rest.push(t);
+        }
+
+        const maybePositions = rest.join(" ").trim();
+        const suffix = [
+          timeframe ? `timeframe=${timeframe}` : "",
+          benchmark ? `benchmark=${benchmark}` : "",
+        ]
+          .filter(Boolean)
+          .join(", ");
+
+        if (!maybePositions) {
+          await sendMessage(
+            `Compute portfolio risk breakdown using the finance tool (action: portfolio_risk). Ask me for my positions if you don't have them. ${
+              suffix ? `Use ${suffix}.` : ""
+            }`,
+          );
+          break;
+        }
+
+        await sendMessage(
+          `Compute portfolio risk breakdown using the finance tool (action: portfolio_risk) for positions: ${maybePositions}. ${
+            suffix ? `Use ${suffix}.` : ""
+          } Return volatility, max drawdown, VaR, beta (if benchmark), and risk contributions by position.`,
+        );
+        break;
+      }
+      case "quote":
+        if (!args) {
+          chatLog.addSystem("💵 Usage: /quote <symbol> (e.g., /quote AAPL)");
+          break;
+        }
+        await sendMessage(
+          `Get the latest quote for ${args.toUpperCase()} using the finance tool. Include price, change %, and market state.`,
+        );
+        break;
+      case "fundamentals":
+        if (!args) {
+          chatLog.addSystem("📚 Usage: /fundamentals <symbol> (e.g., /fundamentals MSFT)");
+          break;
+        }
+        await sendMessage(
+          `Provide a fundamentals overview for ${args.toUpperCase()} using the finance tool (market cap, P/E, margins, cash flow, debt).`,
+        );
+        break;
+      case "risk":
+        if (!args) {
+          chatLog.addSystem("⚠️ Usage: /risk <symbol> (e.g., /risk TSLA)");
+          break;
+        }
+        await sendMessage(
+          `Compute a risk summary for ${args.toUpperCase()} using the finance tool (volatility, max drawdown, VaR).`,
+        );
+        break;
+      case "summary":
+        if (!args) {
+          chatLog.addSystem("🧭 Usage: /summary <symbol> (e.g., /summary NVDA)");
+          break;
+        }
+        await sendMessage(
+          `Give a full market summary for ${args.toUpperCase()} using the finance tool (technicals, fundamentals, risk, quote).`,
         );
         break;
       case "news":
@@ -959,6 +1038,100 @@ export function createCommandHandlers(context: CommandHandlerContext) {
           );
         }
         break;
+      case "brief": {
+        if (!args) {
+          chatLog.addSystem("🧾 Usage: /brief <symbol|query> [--no-symbol] [--limit N]");
+          break;
+        }
+        const tokens = args.split(/\s+/).filter(Boolean);
+        let noSymbol = false;
+        let limit: string | undefined;
+        let locale: string | undefined;
+        let timeframe: string | undefined;
+        const rest: string[] = [];
+        for (let i = 0; i < tokens.length; i += 1) {
+          const t = tokens[i];
+          if (t === "--no-symbol") {
+            noSymbol = true;
+            continue;
+          }
+          if (t === "--limit") {
+            limit = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--locale") {
+            locale = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--timeframe" || t === "-t") {
+            timeframe = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          rest.push(t);
+        }
+        const query = rest.join(" ").trim();
+        if (!query) {
+          chatLog.addSystem("🧾 Usage: /brief <symbol|query> [--no-symbol] [--limit N]");
+          break;
+        }
+        const hints = [
+          noSymbol ? "noSymbol=true" : "",
+          limit ? `limit=${limit}` : "",
+          locale ? `locale=${locale}` : "",
+          timeframe ? `timeframe=${timeframe}` : "",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        await sendMessage(
+          `Build a news-driven brief using the finance tool (action: brief). Input: "${query}". ${
+            hints ? `Use ${hints}.` : ""
+          } If the input is a ticker, include quote, fundamentals, technicals, and risk in the brief; otherwise treat it as a news query and summarize the categories.`,
+        );
+        break;
+      }
+      case "compare": {
+        if (!args) {
+          chatLog.addSystem("🆚 Usage: /compare <symbol1> <symbol2> ... [--benchmark SPY]");
+          break;
+        }
+        const tokens = args.split(/\s+/).filter(Boolean);
+        let benchmark: string | undefined;
+        let timeframe: string | undefined;
+        const symbols: string[] = [];
+        for (let i = 0; i < tokens.length; i += 1) {
+          const t = tokens[i];
+          if (t === "--benchmark" || t === "-b") {
+            benchmark = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--timeframe" || t === "-t") {
+            timeframe = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          symbols.push(t);
+        }
+        if (symbols.length < 2) {
+          chatLog.addSystem("🆚 Usage: /compare <symbol1> <symbol2> ... [--benchmark SPY]");
+          break;
+        }
+        const hints = [
+          timeframe ? `timeframe=${timeframe}` : "",
+          benchmark ? `benchmark=${benchmark}` : "",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        await sendMessage(
+          `Compare ${symbols.map((s) => s.toUpperCase()).join(", ")} using the finance tool (action: compare). ${
+            hints ? `Use ${hints}.` : ""
+          } Include return, annualized volatility, max drawdown, VaR, sharpe, beta (if benchmark), and a correlation matrix.`,
+        );
+        break;
+      }
       case "alerts":
         chatLog.addSystem("🔔 Price alerts feature coming soon.");
         break;

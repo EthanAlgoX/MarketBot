@@ -32,7 +32,7 @@ function coerceApiHost(params: {
     params.apiHost?.trim() ||
     env.MINIMAX_API_HOST?.trim() ||
     params.modelBaseUrl?.trim() ||
-    "https://api.minimax.io";
+    "https://api.minimax.chat";
 
   try {
     const url = new URL(raw);
@@ -43,7 +43,7 @@ function coerceApiHost(params: {
     const url = new URL(`https://${raw}`);
     return url.origin;
   } catch {
-    return "https://api.minimax.io";
+    return "https://api.minimax.chat";
   }
 }
 

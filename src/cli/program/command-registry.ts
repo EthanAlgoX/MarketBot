@@ -33,6 +33,7 @@ import { registerConfigureCommand } from "./register.configure.js";
 import { registerMaintenanceCommands } from "./register.maintenance.js";
 import { registerMessageCommands } from "./register.message.js";
 import { registerAnalyzeCommand } from "./register.analyze.js";
+import { registerFinanceCommand } from "./register.finance.js";
 import { registerOnboardCommand } from "./register.onboard.js";
 import { registerSetupCommand } from "./register.setup.js";
 import { registerStatusHealthSessionsCommands } from "./register.status-health-sessions.js";
@@ -161,6 +162,10 @@ export const commandRegistry: CommandRegistration[] = [
   {
     id: "analyze",
     register: ({ program }) => registerAnalyzeCommand(program),
+  },
+  {
+    id: "finance",
+    register: ({ program }) => registerFinanceCommand(program),
   },
   {
     id: "memory",

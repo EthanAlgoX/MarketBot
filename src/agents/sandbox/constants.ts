@@ -21,7 +21,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { CHANNEL_IDS } from "../../channels/registry.js";
-import { STATE_DIR } from "../../config/config.js";
+import { STATE_DIR } from "../../config/paths.js";
 
 export const DEFAULT_SANDBOX_WORKSPACE_ROOT = path.join(os.homedir(), ".marketbot", "sandboxes");
 

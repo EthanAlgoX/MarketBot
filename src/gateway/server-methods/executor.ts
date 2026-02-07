@@ -10,6 +10,7 @@ import { ErrorCodes, errorShape } from "../protocol/index.js";
 import type { GatewayRequestHandlers } from "./types.js";
 import { createMarketBotTools } from "../../agents/marketbot-tools.js";
 import { loadConfig } from "../../config/config.js";
+import { createFinanceSkills } from "../../executor/finance-skills.js";
 
 const parser = new IntentParser();
 const executor = new TaskExecutor();
@@ -17,6 +18,9 @@ const executor = new TaskExecutor();
 function registerToolsAsSkills() {
   const cfg = loadConfig();
   const tools = createMarketBotTools({ config: cfg });
+  for (const skill of createFinanceSkills({ profile: "marketbot" })) {
+    executor.registerSkill(skill);
+  }
 
   for (const tool of tools) {
     executor.registerSkill({

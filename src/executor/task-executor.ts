@@ -5,17 +5,13 @@
  */
 
 import { EventEmitter } from "node:events";
-import type { Intent, ActionSchema, Skill, ExecutionUpdate, ActionStatus } from "./types.js";
+import type { Intent, Skill, ExecutionUpdate, ActionStatus } from "./types.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 
 const logger = createSubsystemLogger("executor");
 
 export class TaskExecutor extends EventEmitter {
   private skills = new Map<string, Skill>();
-
-  constructor() {
-    super();
-  }
 
   registerSkill(skill: Skill) {
     this.skills.set(skill.name, skill);
@@ -155,7 +151,9 @@ export class TaskExecutor extends EventEmitter {
       }
 
       const output = step.output;
-      if (!jsonPath) return typeof output === "object" ? JSON.stringify(output) : String(output);
+      if (!jsonPath) {
+        return typeof output === "object" ? JSON.stringify(output) : String(output);
+      }
 
       // Simple JSON path resolution
       const parts = jsonPath.split(".").filter(Boolean);

@@ -5,7 +5,6 @@
 import { execSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import fs from "node:fs/promises";
 import { DesktopToolSchema } from "./desktop-tool.schema.js";
 import {
   type AnyAgentTool,
@@ -40,7 +39,7 @@ export function createDesktopTool(): AnyAgentTool {
               path: tmpPath,
             });
           } catch (err) {
-            throw new Error(`Failed to capture screenshot: ${String(err)}`);
+            throw new Error(`Failed to capture screenshot: ${String(err)}`, { cause: err });
           }
         }
         case "click": {
@@ -116,7 +115,7 @@ function mapToScreen(nx: number, ny: number) {
         pixelY: Math.round((ny / 1000) * physHeight),
       };
     }
-  } catch (e) {
+  } catch {
     // Fallback
   }
   return {

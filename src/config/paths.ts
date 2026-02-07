@@ -35,10 +35,10 @@ export function resolveIsNixMode(env: NodeJS.ProcessEnv = process.env): boolean 
 
 export const isNixMode = resolveIsNixMode();
 
-const LEGACY_STATE_DIRNAMES = [".marketbot", ".marketbotbot", ".marketbot"] as const;
+const LEGACY_STATE_DIRNAMES = [".marketbotbot", ".marketbot", ".moldbot"] as const;
 const NEW_STATE_DIRNAME = ".marketbot";
 const CONFIG_FILENAME = "marketbot.json";
-const LEGACY_CONFIG_FILENAMES = ["marketbot.json", "marketbot.json", "marketbot.json"] as const;
+const LEGACY_CONFIG_FILENAMES = ["marketbotbot.json", "marketbot.json", "moldbot.json"] as const;
 
 function legacyStateDirs(homedir: () => string = os.homedir): string[] {
   return LEGACY_STATE_DIRNAMES.map((dir) => path.join(homedir(), dir));

@@ -24,13 +24,11 @@ type OverlayHost = Pick<TUI, "showOverlay" | "hideOverlay" | "hasOverlay" | "set
 export function createOverlayHandlers(host: OverlayHost, fallbackFocus: Component) {
   const openOverlay = (component: Component) => {
     host.showOverlay(component);
-    host.setFocus(component);
   };
 
   const closeOverlay = () => {
     if (host.hasOverlay()) {
       host.hideOverlay();
-      host.setFocus(fallbackFocus);
       return;
     }
     host.setFocus(fallbackFocus);

@@ -95,7 +95,9 @@ describe("exec PATH login shell merge", () => {
     const result = await tool.execute("call1", { command: "echo $PATH" });
     const text = normalizeText(result.content.find((c) => c.type === "text")?.text);
 
-    expect(text).toBe("/custom/bin:/opt/bin:/usr/bin");
+    // PATH may be prefixed by runtime bootstrap bins (bun/pnpm/etc). What we care about
+    // here is that the login-shell PATH is merged ahead of the inherited PATH.
+    expect(text.split(":").slice(-3).join(":")).toBe("/custom/bin:/opt/bin:/usr/bin");
     expect(shellPathMock).toHaveBeenCalledTimes(1);
   });
 
@@ -117,7 +119,8 @@ describe("exec PATH login shell merge", () => {
     });
     const text = normalizeText(result.content.find((c) => c.type === "text")?.text);
 
-    expect(text).toBe("/explicit/bin");
+    expect(text.split(":").at(-1)).toBe("/explicit/bin");
+    expect(text).not.toContain("/custom/bin");
     expect(shellPathMock).not.toHaveBeenCalled();
   });
 });

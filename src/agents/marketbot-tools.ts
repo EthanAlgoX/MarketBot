@@ -39,6 +39,7 @@ import { createWebFetchTool, createWebSearchTool } from "./tools/web-tools.js";
 import { createTtsTool } from "./tools/tts-tool.js";
 import { createDesktopTool } from "./tools/desktop-tool.js";
 import { createExecTool } from "./bash-tools.exec.js";
+import { createFinanceTool } from "./tools/finance-tool.js";
 
 export function createMarketBotTools(options?: {
   sandboxBrowserBridgeUrl?: string;
@@ -97,7 +98,7 @@ export function createMarketBotTools(options?: {
       allowHostControl: options?.allowHostBrowserControl,
     }),
     createExecTool({
-      ...(options?.config?.tools?.exec ?? {}),
+      ...(options?.config?.tools?.exec as Record<string, unknown>),
       sessionKey: options?.agentSessionKey,
     }),
     createCanvasTool(),
@@ -159,6 +160,7 @@ export function createMarketBotTools(options?: {
       agentSessionKey: options?.agentSessionKey,
       config: options?.config,
     }),
+    createFinanceTool(),
     createDesktopTool(),
     ...(webSearchTool ? [webSearchTool] : []),
     ...(webFetchTool ? [webFetchTool] : []),

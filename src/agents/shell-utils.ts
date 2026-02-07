@@ -53,6 +53,12 @@ export function getShellConfig(): { shell: string; args: string[] } {
 
   const envShell = process.env.SHELL?.trim();
   const shellName = envShell ? path.basename(envShell) : "";
+  // zsh always sources ~/.zshenv (even non-interactive), which can mutate PATH and
+  // make exec behavior non-deterministic. Prefer a "clean" zsh invocation.
+  if (shellName === "zsh") {
+    const shell = envShell && envShell.length > 0 ? envShell : "zsh";
+    return { shell, args: ["-f", "-c"] };
+  }
   // Fish rejects common bashisms used by tools, so prefer bash when detected.
   if (shellName === "fish") {
     const bash = resolveShellFromPath("bash");

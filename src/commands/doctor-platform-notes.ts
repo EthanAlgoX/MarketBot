@@ -97,7 +97,9 @@ export async function noteMacLaunchctlGatewayEnvOverrides(
     ["MARKETBOT_GATEWAY_PASSWORD", await getenv("MARKETBOT_GATEWAY_PASSWORD")],
     ["CLAWDBOT_GATEWAY_TOKEN", await getenv("CLAWDBOT_GATEWAY_TOKEN")],
     ["CLAWDBOT_GATEWAY_PASSWORD", await getenv("CLAWDBOT_GATEWAY_PASSWORD")],
-  ].filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()));
+  ]
+    .filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))
+    .filter(([key]) => key.startsWith("CLAWDBOT_"));
   if (deprecatedLaunchctlEntries.length > 0) {
     const lines = [
       "- Deprecated launchctl environment variables detected (ignored).",

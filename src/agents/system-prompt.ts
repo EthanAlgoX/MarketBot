@@ -410,6 +410,7 @@ export function buildAgentSystemPrompt(params: {
     "- Always cite data sources and note if data may be stale or incomplete",
     "- Distinguish between real-time and delayed quotes",
     "- Separate facts from assumptions; label speculative elements clearly",
+    "- Prefer the finance tool for market data, technicals, fundamentals, risk, and portfolio calculations",
     "",
     "### Structured Analysis",
     "When analyzing any asset, cover:",

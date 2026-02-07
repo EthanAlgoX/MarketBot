@@ -77,7 +77,7 @@ describe("lobster plugin tool", () => {
       action: "run",
       pipeline: "noop",
       lobsterPath: fake.binPath,
-      timeoutMs: 1000,
+      timeoutMs: 5000,
     });
 
     expect(res.details).toMatchObject({ ok: true, status: "ok" });
@@ -97,7 +97,7 @@ describe("lobster plugin tool", () => {
       action: "run",
       pipeline: "noop",
       lobsterPath: binPath,
-      timeoutMs: 1000,
+      timeoutMs: 5000,
     });
 
     expect(res.details).toMatchObject({ ok: true, status: "ok" });

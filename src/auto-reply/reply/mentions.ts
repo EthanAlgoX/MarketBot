@@ -88,7 +88,15 @@ export function buildMentionRegexes(cfg: MarketBotConfig | undefined, agentId?: 
 }
 
 export function normalizeMentionText(text: string): string {
-  return (text ?? "").replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u206f]/g, "").toLowerCase();
+  const cleaned = (text ?? "")
+    .replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u206f]/g, "")
+    .toLowerCase();
+  // Keep legacy product names working for mention gating (rebrand-safe).
+  return cleaned
+    .replace(/\bopenclaw\b/g, "marketbot")
+    .replace(/\bclawdbot\b/g, "marketbot")
+    .replace(/\bmarketbotbot\b/g, "marketbot")
+    .replace(/\bmoldbot\b/g, "marketbot");
 }
 
 export function matchesMentionPatterns(text: string, mentionRegexes: RegExp[]): boolean {

@@ -27,7 +27,6 @@ import type { TelegramConfig } from "./types.telegram.js";
 import type { WhatsAppConfig } from "./types.whatsapp.js";
 import type { BlueBubblesConfig } from "./types.bluebubbles.js";
 import type { MattermostConfig } from "./types.mattermost.js";
-import type { FeishuConfig } from "./types.feishu.js";
 import type { GroupPolicy } from "./types.base.js";
 
 export type ChannelHeartbeatVisibilityConfig = {

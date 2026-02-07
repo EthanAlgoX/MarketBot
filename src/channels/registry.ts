@@ -32,7 +32,6 @@ export const CHAT_CHANNEL_ORDER = [
   "signal",
   "imessage",
   "bluebubbles",
-  "msteams",
   "mattermost",
   "feishu",
 ] as const;
@@ -130,16 +129,7 @@ const CHAT_CHANNEL_META: Record<ChatChannelId, ChannelMeta> = {
     docsLabel: "bluebubbles",
     blurb: "iMessage via BlueBubbles Server.",
     systemImage: "bubble.right.fill",
-  },
-  msteams: {
-    id: "msteams",
-    label: "MS Teams",
-    selectionLabel: "MS Teams (Bot)",
-    detailLabel: "MS Teams",
-    docsPath: "/channels/msteams",
-    docsLabel: "msteams",
-    blurb: "Microsoft Teams via Azure Bot Service.",
-    systemImage: "person.2.fill",
+    preferOver: ["imessage"],
   },
   mattermost: {
     id: "mattermost",

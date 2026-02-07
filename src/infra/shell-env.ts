@@ -18,6 +18,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import path from "node:path";
 
 import { isTruthyEnvValue } from "./env.js";
 
@@ -162,10 +163,15 @@ export function getShellPathFromLoginShell(opts: {
       ? Math.max(0, opts.timeoutMs)
       : DEFAULT_TIMEOUT_MS;
   const shell = resolveShell(opts.env);
+  const shellName = path.basename(shell);
 
   let stdout: Buffer;
   try {
-    stdout = exec(shell, ["-l", "-c", "env -0"], {
+    const loginArgs =
+      shellName === "zsh"
+        ? (["-l", "-f", "-c", "env -0"] as const)
+        : (["-l", "-c", "env -0"] as const);
+    stdout = exec(shell, [...loginArgs], {
       encoding: "buffer",
       timeout: timeoutMs,
       maxBuffer: DEFAULT_MAX_BUFFER_BYTES,

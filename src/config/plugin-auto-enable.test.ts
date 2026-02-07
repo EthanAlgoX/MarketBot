@@ -93,7 +93,7 @@ describe("applyPluginAutoEnable", () => {
 
       expect(result.config.plugins?.entries?.bluebubbles?.enabled).toBe(true);
       expect(result.config.plugins?.entries?.imessage?.enabled).toBeUndefined();
-      expect(result.changes.join("\n")).toContain("bluebubbles configured, not enabled yet.");
+      expect(result.changes.join("\n")).toContain("BlueBubbles configured, not enabled yet.");
       expect(result.changes.join("\n")).not.toContain("iMessage configured, not enabled yet.");
     });
 
