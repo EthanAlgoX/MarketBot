@@ -84,7 +84,11 @@
   padding: 0 20px;
   height: var(--shell-topbar-height);
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background:
+    linear-gradient(180deg, rgba(10, 14, 28, 0.95), rgba(10, 14, 28, 0.75)),
+    var(--bg);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 28px rgba(5, 9, 20, 0.5);
 }
 
 .topbar-left {
@@ -199,8 +203,12 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px 12px;
-  background: var(--bg);
+  background:
+    linear-gradient(180deg, rgba(10, 14, 28, 0.92), rgba(10, 14, 28, 0.75)),
+    var(--bg);
   scrollbar-width: none; /* Firefox */
+  border-right: 1px solid var(--border);
+  backdrop-filter: blur(14px);
   transition:
     width var(--shell-focus-duration) var(--shell-focus-ease),
     padding var(--shell-focus-duration) var(--shell-focus-ease),
@@ -406,7 +414,7 @@
 
 .nav-item.active {
   color: var(--text-strong);
-  background: var(--accent-subtle);
+  background: linear-gradient(90deg, rgba(94, 228, 255, 0.18), rgba(138, 125, 255, 0.08));
 }
 
 .nav-item.active .nav-item__icon {

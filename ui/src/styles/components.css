@@ -6,7 +6,9 @@
 
 .card {
   border: 1px solid var(--border);
-  background: var(--card);
+  background:
+    linear-gradient(180deg, rgba(16, 22, 40, 0.85), rgba(12, 18, 34, 0.9)),
+    var(--card);
   border-radius: var(--radius-lg);
   padding: 20px;
   animation: rise 0.35s var(--ease-out) backwards;
@@ -24,6 +26,7 @@
   box-shadow:
     var(--shadow-md),
     inset 0 1px 0 var(--card-highlight);
+  transform: translateY(-1px);
 }
 
 .card-title {
@@ -191,7 +194,7 @@
   border: 1px solid var(--border);
   padding: 6px 12px;
   border-radius: var(--radius-full);
-  background: var(--secondary);
+  background: rgba(14, 20, 38, 0.7);
   font-size: 13px;
   font-weight: 500;
   transition: border-color var(--duration-fast) ease;
@@ -411,13 +414,15 @@
 
 .btn.primary {
   border-color: var(--accent);
-  background: var(--accent);
+  background:
+    linear-gradient(120deg, rgba(94, 228, 255, 0.95), rgba(138, 125, 255, 0.95));
   color: var(--primary-foreground);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .btn.primary:hover {
-  background: var(--accent-hover);
+  background:
+    linear-gradient(120deg, rgba(134, 236, 255, 0.95), rgba(156, 147, 255, 0.95));
   border-color: var(--accent-hover);
   box-shadow:
     var(--shadow-md),
@@ -455,7 +460,7 @@
 
 .btn.active {
   border-color: var(--accent);
-  background: var(--accent-subtle);
+  background: rgba(94, 228, 255, 0.12);
   color: var(--accent);
 }
 

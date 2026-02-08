@@ -8,7 +8,7 @@ Finance-first autonomous agent for market research and multi-channel delivery.
 
 MarketBot is designed around 2 primary surfaces:
 
-- Web Control UI (Finance Desk): daily stocks, research chat, and delivery ops
+- Web Control UI (Finance Desk): daily stocks, research chat, delivery ops, tech-styled dashboard UI
 - TUI: local file analysis and interactive workflows
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -30,6 +30,7 @@ A single command for the entire stock analysis workflow 👉 Turns “download d
 
 - Daily Stocks: watchlist-driven, repeatable daily analysis with decision dashboards and report output
 - Research Chat: browse, capture sources, and write memo-like summaries (finance tone)
+- Tech UI: neon grid, glass panels, and high-contrast data surfaces for desk workflows
 - Portfolio analytics: risk, correlation, optimization, and comparisons
 - File analysis: summarize local CSV/JSON/PDF and generate finance-style notes
 - Delivery ops: connect channels, inspect sessions, schedule cron, tail logs
