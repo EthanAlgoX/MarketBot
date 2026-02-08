@@ -101,12 +101,24 @@ pnpm ui:build
 MarketBot works out-of-the-box with **Qwen3-0.6B** via Ollama.
 
 ```bash
-# 1. Automatic Setup (Installs Ollama, pulls model, creates config)
-./setup-local.sh
-
-# 2. Start (Gateway + UI)
-pnpm start
+# 1. One-shot quickstart (configure Qwen3-0.6B + start Web Control UI)
+pnpm quickstart:web
 ```
+
+To run without auto-opening the browser:
+
+```bash
+pnpm quickstart:web -- --no-open
+```
+
+Then open the Web Control UI:
+
+```text
+http://127.0.0.1:18789/
+```
+
+If the UI shows `unauthorized`, paste `gateway.auth.token` from `~/.marketbot/marketbot.json`
+into the Control UI “Gateway Token” field and connect.
 
 <details>
 <summary>Manual Local LLM Setup (Click to expand)</summary>
@@ -116,7 +128,7 @@ If you prefer to set up manually:
 1. **Install Ollama**: [Download from ollama.com](https://ollama.com) or `brew install ollama`.
 2. **Pull Model**: `ollama pull qwen3:0.6b` (or any other model you prefer).
 3. **Configure**: Copy `marketbot.json.example` to `marketbot.json`.
-4. **Start**: `pnpm start`.
+4. **Start**: `pnpm -s marketbot gateway run --bind loopback --port 18789`.
 
 </details>
 
