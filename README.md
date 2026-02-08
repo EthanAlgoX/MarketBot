@@ -8,7 +8,7 @@ Finance-first autonomous agent for market research and multi-channel delivery.
 
 MarketBot is designed around 2 primary surfaces:
 
-- Web Control UI (Finance Desk): daily stocks, research chat, delivery ops, tech-styled dashboard UI
+- **MarketBot Desktop (primary)**: unified Finance Desk UI with built-in Control UI tabs (chat, stocks, runs, config, channels)
 - TUI: local file analysis and interactive workflows
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -38,11 +38,11 @@ A single command for the entire stock analysis workflow 👉 Turns “download d
 
 ## Functional Design
 
-MarketBot is structured as a local Gateway that exposes finance + ops capabilities to both Web UI and TUI.
+MarketBot is structured as a local Gateway that exposes finance + ops capabilities to both Desktop UI and TUI.
 
 ```mermaid
 flowchart LR
-  U["You (Web UI / TUI)"] --> G["Gateway"]
+  U["You (Desktop UI / TUI)"] --> G["Gateway"]
   G --> B["Built-in Browser (profile: marketbot)"]
   G --> F["Finance Engine (Daily Stocks, reports, risk)"]
   G --> O["Ops (Channels, Sessions, Cron, Logs)"]
@@ -101,7 +101,7 @@ pnpm ui:build
 MarketBot works out-of-the-box with **Qwen3-0.6B** via Ollama.
 
 ```bash
-# 1. One-shot quickstart (configure Qwen3-0.6B + start Web Control UI)
+# 1. One-shot quickstart (configure Qwen3-0.6B + start Desktop + Gateway)
 pnpm quickstart:web
 ```
 
@@ -111,10 +111,10 @@ To run without auto-opening the browser:
 pnpm quickstart:web -- --no-open
 ```
 
-Then open the Web Control UI:
+Then open MarketBot Desktop (recommended):
 
-```text
-http://127.0.0.1:18789/
+```bash
+pnpm desktop:dev
 ```
 
 If the UI shows `unauthorized`, paste `gateway.auth.token` from `~/.marketbot/marketbot.json`
@@ -157,7 +157,7 @@ Run a local gateway:
 pnpm -s marketbot gateway run --bind loopback --port 18789
 ```
 
-Open the Web Control UI (Finance Desk, product mode):
+Open the Control UI directly in a browser (dev/ops fallback):
 
 ```text
 http://127.0.0.1:18789/
@@ -176,6 +176,7 @@ Primary pages:
 - Ops: `/channels` `/sessions` `/cron` `/logs`
 - Research: `/chat`
 - Connection: `/overview`
+- Config: `/config`
 
 If your config is not yet set up for local mode, either run `setup/onboard` or explicitly set:
 

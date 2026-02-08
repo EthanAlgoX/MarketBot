@@ -116,17 +116,15 @@ export default function App() {
     const view = webviewRef.current;
     if (!view) return;
 
-    const handleLoaded = () => {
+    const handleReady = () => {
       injectTokenToWebview(view, gatewayToken);
     };
 
-    view.addEventListener('did-finish-load', handleLoaded);
-    view.loadURL(tabUrl);
-
+    view.addEventListener('dom-ready', handleReady);
     return () => {
-      view.removeEventListener('did-finish-load', handleLoaded);
+      view.removeEventListener('dom-ready', handleReady);
     };
-  }, [tabUrl, gatewayToken]);
+  }, [gatewayToken]);
 
   useEffect(() => {
     let mounted = true;
@@ -206,10 +204,6 @@ export default function App() {
     }
   };
 
-  const onOpen = async () => {
-    await window.marketbot.openControlUi();
-  };
-
   const onAuthOpen = async () => {
     if (!gatewayToken.trim()) return;
     const url = buildTabUrl(gatewayUrl, '/', gatewayToken);
@@ -243,7 +237,6 @@ export default function App() {
             <button disabled={busy || !running} onClick={onStop}>
               Stop Gateway
             </button>
-            <button onClick={onOpen}>Open in Browser</button>
           </div>
         </div>
 
@@ -312,9 +305,6 @@ export default function App() {
           <div>
             <div className="content-title">{activeTab.label}</div>
             <div className="content-subtitle">{tabUrl}</div>
-          </div>
-          <div className="header-actions">
-            <button className="ghost" onClick={onOpen}>Open Control UI</button>
           </div>
         </div>
         <div className="content-body">
