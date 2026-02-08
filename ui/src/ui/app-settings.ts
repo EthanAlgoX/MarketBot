@@ -148,6 +148,12 @@ export function setTheme(
 
 export async function refreshActiveTab(host: SettingsHost) {
   if (host.tab === "overview") await loadOverview(host);
+  if (host.tab === "config") {
+    await Promise.all([
+      loadConfigSchema(host as unknown as MarketBotApp),
+      loadConfig(host as unknown as MarketBotApp),
+    ]);
+  }
   if (host.tab === "stocks") await (host as unknown as import("./app").MarketBotApp).loadStocks();
   if (host.tab === "channels") await loadChannelsTab(host);
   if (host.tab === "sessions") await loadSessions(host as unknown as MarketBotApp);

@@ -96,6 +96,8 @@
     "gateway:watch": "node scripts/watch-node.mjs gateway --force",
     "gateway:dev": "MARKETBOT_SKIP_CHANNELS=1 node scripts/run-node.mjs --dev gateway",
     "gateway:dev:reset": "MARKETBOT_SKIP_CHANNELS=1 node scripts/run-node.mjs --dev gateway --reset",
+    "desktop:dev": "pnpm --dir apps/desktop dev",
+    "desktop:build": "pnpm --dir apps/desktop build",
     "quickstart:web": "bash scripts/quickstart-web.sh",
     "tui": "node scripts/run-node.mjs tui",
     "tui:dev": "MARKETBOT_PROFILE=dev node scripts/run-node.mjs --dev tui",

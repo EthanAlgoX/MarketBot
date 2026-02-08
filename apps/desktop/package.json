@@ -1,0 +1,32 @@
+{
+  "name": "marketbot-desktop",
+  "productName": "MarketBot Desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MarketBot Desktop Control UI",
+  "main": "./out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "lint": "eslint . --ext .ts,.tsx --fix",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^34.1.1",
+    "electron-vite": "^3.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -17,6 +17,7 @@ import { renderLogs } from "./views/logs";
 import { renderRuns } from "./views/runs";
 import { renderOverview } from "./views/overview";
 import { renderSessions } from "./views/sessions";
+import { renderConfig } from "./views/config";
 import { renderExecApprovalPrompt } from "./views/exec-approval";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation";
 import { renderDesk } from "./views/desk";
@@ -30,7 +31,14 @@ import {
 import { loadChannels } from "./controllers/channels";
 import { deleteSession, loadSessions, patchSession } from "./controllers/sessions";
 import { loadChatHistory } from "./controllers/chat";
-import { updateConfigFormValue } from "./controllers/config";
+import {
+  applyConfig,
+  loadConfig,
+  loadConfigSchema,
+  runUpdate,
+  saveConfig,
+  updateConfigFormValue,
+} from "./controllers/config";
 import {
   addCronJob,
   loadCronRuns,
@@ -274,6 +282,76 @@ export function renderApp(state: AppViewState) {
         },
         onConnect: () => state.connect(),
         onRefresh: () => state.loadOverview(),
+      })
+      : nothing}
+
+        ${state.tab === "config"
+      ? renderConfig({
+        raw: state.configRaw,
+        originalRaw: state.configRawOriginal,
+        valid: state.configValid,
+        issues: state.configIssues,
+        loading: state.configLoading,
+        saving: state.configSaving,
+        applying: state.configApplying,
+        updating: state.updateRunning,
+        connected: state.connected,
+        schema: state.configSchema as import("./views/config-form.shared").JsonSchema | null,
+        schemaLoading: state.configSchemaLoading,
+        uiHints: state.configUiHints,
+        formMode: state.configFormMode,
+        formValue: state.configForm,
+        originalValue: state.configFormOriginal,
+        searchQuery: state.configSearchQuery,
+        activeSection: state.configActiveSection,
+        activeSubsection: state.configActiveSubsection,
+        onRawChange: (next) => {
+          state.configRaw = next;
+          state.configFormDirty = true;
+        },
+        onFormModeChange: (next) => {
+          if (state.configFormMode === next) return;
+          if (next === "raw") {
+            const base =
+              state.configForm ??
+              (state.configSnapshot?.config as Record<string, unknown> | null) ??
+              {};
+            state.configRaw = `${JSON.stringify(base, null, 2).trimEnd()}\n`;
+          } else {
+            try {
+              const parsed = JSON.parse(state.configRaw) as Record<string, unknown>;
+              if (parsed && typeof parsed === "object") {
+                state.configForm = parsed;
+              }
+            } catch {
+              // Keep existing form when raw parsing fails.
+            }
+          }
+          state.configFormMode = next;
+        },
+        onFormPatch: (path, value) => updateConfigFormValue(state, path, value),
+        onSearchChange: (next) => {
+          state.configSearchQuery = next;
+        },
+        onSectionChange: (next) => {
+          state.configActiveSection = next;
+          state.configActiveSubsection = null;
+        },
+        onSubsectionChange: (next) => {
+          state.configActiveSubsection = next;
+        },
+        onReload: () => {
+          void Promise.all([loadConfigSchema(state), loadConfig(state)]);
+        },
+        onSave: () => {
+          void saveConfig(state);
+        },
+        onApply: () => {
+          void applyConfig(state);
+        },
+        onUpdate: () => {
+          void runUpdate(state);
+        },
       })
       : nothing}
 

@@ -9,13 +9,14 @@ export const TAB_GROUPS = [
   },
   {
     label: "Control",
-    tabs: ["overview", "channels", "sessions", "cron", "logs"],
+    tabs: ["overview", "config", "channels", "sessions", "cron", "logs"],
   },
 ] as const;
 
 export type Tab =
   | "desk"
   | "overview"
+  | "config"
   | "stocks"
   | "channels"
   | "sessions"
@@ -27,6 +28,7 @@ export type Tab =
 const TAB_PATHS: Record<Tab, string> = {
   desk: "/desk",
   overview: "/overview",
+  config: "/config",
   stocks: "/stocks",
   channels: "/channels",
   sessions: "/sessions",
@@ -107,6 +109,8 @@ export function iconForTab(tab: Tab): IconName {
       return "messageSquare";
     case "overview":
       return "settings";
+    case "config":
+      return "settings";
     case "stocks":
       return "barChart";
     case "channels":
@@ -133,6 +137,7 @@ export function titleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     en: {
       desk: "Desk",
       overview: "Connection",
+      config: "Config",
       stocks: "Stocks",
       channels: "Channels",
       sessions: "Sessions",
@@ -144,6 +149,7 @@ export function titleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     zh: {
       desk: "工作台",
       overview: "连接",
+      config: "配置",
       stocks: "股票",
       channels: "渠道",
       sessions: "会话",
@@ -166,6 +172,7 @@ export function subtitleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     en: {
       desk: "Daily stocks, research workflows, and delivery operations.",
       overview: "Gateway URL, token, and session defaults for this browser.",
+      config: "AI models, tools, channels, and gateway configuration.",
       stocks: "Watchlists, decision dashboards, and daily research notes.",
       channels: "Manage channels and settings.",
       sessions: "Inspect active sessions and adjust per-session defaults.",
@@ -177,6 +184,7 @@ export function subtitleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     zh: {
       desk: "每日股票、研究流程与交付操作。",
       overview: "本浏览器的网关地址、令牌与默认会话。",
+      config: "AI 模型、工具、渠道与网关配置。",
       stocks: "观察列表、决策面板与每日研究记录。",
       channels: "管理渠道与配置。",
       sessions: "查看会话并调整每个会话的默认设置。",
