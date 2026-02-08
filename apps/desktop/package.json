@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "start": "electron-vite preview",
+    "start": "pnpm build && electron out/main/index.js",
+    "package:mac": "pnpm build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip",
     "lint": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
   },
@@ -22,9 +23,59 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^34.1.1",
+    "electron-builder": "^26.7.0",
     "electron-vite": "^3.0.0",
+    "electron-updater": "^6.7.3",
     "typescript": "^5.9.3",
     "vite": "^6.1.0"
+  },
+  "build": {
+    "appId": "ai.marketbot.desktop",
+    "productName": "MarketBot Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/main/**",
+      "dist/preload/**",
+      "dist/renderer/**",
+      "preload.cjs"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "dmg": {
+      "background": "../../assets/dmg-background.png",
+      "iconSize": 128,
+      "contents": [
+        {
+          "x": 150,
+          "y": 180
+        },
+        {
+          "x": 430,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://marketbot.ai/desktop"
+      }
+    ]
   },
   "engines": {
     "node": ">=22"

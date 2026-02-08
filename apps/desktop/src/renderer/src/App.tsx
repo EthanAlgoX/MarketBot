@@ -4,9 +4,7 @@ declare global {
   interface Window {
     marketbot: {
       openControlUi: () => Promise<void>;
-      startGateway: () => Promise<void>;
       quickstart: () => Promise<void>;
-      stopGateway: () => Promise<void>;
       openExternal: (url: string) => Promise<void>;
       onGatewayStatus: (handler: (status: { running: boolean }) => void) => void;
     };
@@ -32,15 +30,21 @@ type TraceRun = {
 
 const NAV_TABS: NavTab[] = [
   { id: 'desk', label: 'Desk', path: '/desk' },
+  { id: 'chat', label: 'Chat', path: '/chat' },
   { id: 'stocks', label: 'Stocks', path: '/stocks' },
   { id: 'runs', label: 'Runs', path: '/runs' },
-  { id: 'chat', label: 'Chat', path: '/chat' },
-  { id: 'overview', label: 'Connection', path: '/overview' },
-  { id: 'config', label: 'Config', path: '/config' },
+  { id: 'logs', label: 'Logs', path: '/logs' },
+  { id: 'overview', label: 'Gateway', path: '/overview' },
+  { id: 'config', label: 'AI Models', path: '/config' },
   { id: 'channels', label: 'Channels', path: '/channels' },
   { id: 'sessions', label: 'Sessions', path: '/sessions' },
   { id: 'cron', label: 'Cron', path: '/cron' },
-  { id: 'logs', label: 'Logs', path: '/logs' },
+];
+
+const NAV_GROUPS: { title: string; items: string[] }[] = [
+  { title: 'Core', items: ['desk', 'stocks'] },
+  { title: 'Operations', items: ['runs', 'logs'] },
+  { title: 'Gateway', items: ['overview', 'config', 'channels', 'sessions', 'cron'] },
 ];
 
 function findTab(id: string) {
@@ -177,28 +181,10 @@ export default function App() {
     return logLines.filter((line) => line.toLowerCase().includes(needle));
   }, [logLines, logFilter]);
 
-  const onStart = async () => {
-    setBusy(true);
-    try {
-      await window.marketbot.startGateway();
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const onQuickstart = async () => {
     setBusy(true);
     try {
       await window.marketbot.quickstart();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onStop = async () => {
-    setBusy(true);
-    try {
-      await window.marketbot.stopGateway();
     } finally {
       setBusy(false);
     }
@@ -226,16 +212,19 @@ export default function App() {
         </div>
 
         <div className="section">
+          <div className="section-title">Main</div>
+          <div className="actions compact">
+            <button className="primary" onClick={() => setActiveTab(findTab('chat'))}>
+              Open Chat
+            </button>
+          </div>
+        </div>
+
+        <div className="section">
           <div className="section-title">Quick Actions</div>
-          <div className="actions">
-            <button disabled={busy} onClick={onQuickstart}>
+          <div className="actions compact">
+            <button className="primary" disabled={busy} onClick={onQuickstart}>
               Quickstart (Qwen3 + UI)
-            </button>
-            <button disabled={busy} onClick={onStart}>
-              Start Gateway
-            </button>
-            <button disabled={busy || !running} onClick={onStop}>
-              Stop Gateway
             </button>
           </div>
         </div>
@@ -267,36 +256,28 @@ export default function App() {
         </div>
 
         <div className="section">
-          <div className="section-title">Configuration</div>
-          <div className="actions">
-            <button onClick={() => setActiveTab(findTab('config'))}>
-              AI Models
-            </button>
-            <button onClick={() => setActiveTab(findTab('channels'))}>
-              Channels
-            </button>
-            <button onClick={() => setActiveTab(findTab('sessions'))}>
-              Sessions
-            </button>
-            <button onClick={() => setActiveTab(findTab('overview'))}>
-              Gateway
-            </button>
-          </div>
-        </div>
-
-        <div className="section">
           <div className="section-title">Navigation</div>
-          <nav className="nav">
-            {NAV_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                className={tab.id === activeTab.id ? 'nav-item active' : 'nav-item'}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab.label}
-              </button>
+          <div className="nav-groups">
+            {NAV_GROUPS.map((group) => (
+              <div key={group.title} className="nav-group">
+                <div className="nav-group-title">{group.title}</div>
+                <nav className="nav">
+                  {group.items.map((id) => {
+                    const tab = findTab(id);
+                    return (
+                      <button
+                        key={tab.id}
+                        className={tab.id === activeTab.id ? 'nav-item active' : 'nav-item'}
+                        onClick={() => setActiveTab(tab)}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
             ))}
-          </nav>
+          </div>
         </div>
       </aside>
 

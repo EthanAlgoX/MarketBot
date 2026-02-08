@@ -6,6 +6,11 @@ export default defineConfig({
   main: {
     entry: 'src/main/index.ts',
     outDir: 'dist/main',
+    build: {
+      rollupOptions: {
+        external: ['electron-updater'],
+      },
+    },
   },
   preload: {
     input: {

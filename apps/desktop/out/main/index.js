@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, shell, nativeImage, Tray, Menu } from "electron";
+import { app, BrowserWindow, ipcMain, shell, nativeImage, Tray, Menu, dialog } from "electron";
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import __cjs_mod__ from "node:module";
@@ -18,6 +19,9 @@ let gatewayProc = null;
 let isQuitting = false;
 let dockPulseTimer = null;
 let tray = null;
+let updateTimer = null;
+let autoUpdater = null;
+let visibilityTimer = null;
 function ensureDockVisible() {
   if (process.platform !== "darwin") return;
   try {
@@ -109,7 +113,7 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL(devServerUrl);
   } else {
-    const rendererPath = join(__dirname$1, "../renderer/index.html");
+    const rendererPath = resolveRendererPath();
     mainWindow.loadFile(rendererPath);
   }
   if (isDev) {
@@ -118,6 +122,15 @@ function createWindow() {
   mainWindow.show();
   mainWindow.focus();
   console.log("[Desktop] window created", { visible: mainWindow.isVisible() });
+  if (visibilityTimer) clearInterval(visibilityTimer);
+  visibilityTimer = setInterval(() => {
+    if (!mainWindow || isQuitting) return;
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+      mainWindow.focus();
+      console.log("[Desktop] forced show (visibility guard)");
+    }
+  }, 1e3);
   mainWindow.once("ready-to-show", () => {
     mainWindow?.center();
     mainWindow?.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -161,12 +174,22 @@ function createWindow() {
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
+    if (visibilityTimer) {
+      clearInterval(visibilityTimer);
+      visibilityTimer = null;
+    }
   });
   mainWindow.on("show", () => {
     console.log("[Desktop] window show");
   });
   mainWindow.on("hide", () => {
     console.log("[Desktop] window hide");
+    if (!isQuitting) {
+      setTimeout(() => {
+        mainWindow?.show();
+        mainWindow?.focus();
+      }, 100);
+    }
   });
   mainWindow.on("minimize", (event) => {
     if (isQuitting) return;
@@ -179,6 +202,13 @@ function createWindow() {
     mainWindow?.show();
     mainWindow?.focus();
   });
+}
+function resolveRendererPath() {
+  const outRenderer = join(__dirname$1, "../renderer/index.html");
+  if (existsSync(outRenderer)) return outRenderer;
+  const distRenderer = join(REPO_ROOT, "apps/desktop/dist/renderer/index.html");
+  if (existsSync(distRenderer)) return distRenderer;
+  return outRenderer;
 }
 function runGateway(command, env) {
   if (gatewayProc) {
@@ -201,6 +231,48 @@ function stopGateway() {
   gatewayProc = null;
   mainWindow?.webContents.send("gateway:status", { running: false });
 }
+async function setupAutoUpdates() {
+  if (!app.isPackaged || isDevInstance) {
+    console.log("[Desktop] auto-update disabled (not packaged)");
+    return;
+  }
+  if (!autoUpdater) {
+    try {
+      const updater = await import("electron-updater");
+      autoUpdater = updater.autoUpdater;
+    } catch (error) {
+      console.error("[Desktop] auto-update unavailable", error);
+      return;
+    }
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.on("error", (error) => {
+    console.error("[Desktop] auto-update error", error);
+  });
+  autoUpdater.on("update-downloaded", async () => {
+    const result = await dialog.showMessageBox({
+      type: "info",
+      buttons: ["Install and Restart", "Later"],
+      defaultId: 0,
+      cancelId: 1,
+      title: "Update Ready",
+      message: "A new version of MarketBot Desktop is ready to install.",
+      detail: "Restart to apply the update."
+    });
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
+  autoUpdater.checkForUpdatesAndNotify().catch((error) => {
+    console.error("[Desktop] auto-update check failed", error);
+  });
+  if (updateTimer) clearInterval(updateTimer);
+  updateTimer = setInterval(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch((error) => {
+      console.error("[Desktop] auto-update check failed", error);
+    });
+  }, 30 * 60 * 1e3);
+}
 app.whenReady().then(() => {
   app.setName(APP_NAME);
   app.setAppUserModelId("ai.marketbot.desktop");
@@ -209,6 +281,7 @@ app.whenReady().then(() => {
   ensureDockVisible();
   ensureTray();
   createWindow();
+  void setupAutoUpdates();
   if (process.platform === "darwin") {
     if (dockPulseTimer) clearInterval(dockPulseTimer);
     dockPulseTimer = setInterval(() => {
@@ -227,16 +300,10 @@ app.whenReady().then(() => {
     if (!url?.startsWith("http")) return;
     shell.openExternal(url);
   });
-  ipcMain.handle("gateway:start", () => {
-    runGateway(["pnpm", "-s", "marketbot", "gateway", "run", "--bind", "loopback", "--port", "18789", "--force"]);
-  });
   ipcMain.handle("gateway:quickstart", () => {
     runGateway(["pnpm", "quickstart:web", "--", "--no-open"], {
       OLLAMA_API_KEY: "ollama-local"
     });
-  });
-  ipcMain.handle("gateway:stop", () => {
-    stopGateway();
   });
 });
 app.on("window-all-closed", () => {
@@ -249,6 +316,10 @@ app.on("before-quit", () => {
   if (dockPulseTimer) {
     clearInterval(dockPulseTimer);
     dockPulseTimer = null;
+  }
+  if (updateTimer) {
+    clearInterval(updateTimer);
+    updateTimer = null;
   }
   stopGateway();
 });

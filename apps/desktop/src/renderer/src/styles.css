@@ -100,6 +100,10 @@ body {
   gap: 10px;
 }
 
+.actions.compact {
+  gap: 8px;
+}
+
 button {
   background: linear-gradient(135deg, #1f6feb, #2be4ff);
   border: none;
@@ -115,6 +119,14 @@ button:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 20px rgba(46, 148, 255, 0.4);
 }
+
+button.primary {
+  background: linear-gradient(135deg, rgba(58, 186, 255, 0.95), rgba(43, 228, 255, 0.8));
+  color: #00111d;
+  border: 1px solid rgba(43, 228, 255, 0.9);
+  box-shadow: 0 12px 22px -18px rgba(43, 228, 255, 0.8);
+}
+
 
 button:disabled {
   opacity: 0.6;
@@ -151,6 +163,23 @@ input {
 .nav {
   display: grid;
   gap: 6px;
+}
+
+.nav-groups {
+  display: grid;
+  gap: 16px;
+}
+
+.nav-group {
+  display: grid;
+  gap: 10px;
+}
+
+.nav-group-title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8ea5d0;
 }
 
 .nav-item {

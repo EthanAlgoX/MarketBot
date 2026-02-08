@@ -1,15 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-contextBridge.exposeInMainWorld('marketbot', {
-  openControlUi: () => ipcRenderer.invoke('gateway:open'),
-  startGateway: () => ipcRenderer.invoke('gateway:start'),
-  quickstart: () => ipcRenderer.invoke('gateway:quickstart'),
-  stopGateway: () => ipcRenderer.invoke('gateway:stop'),
-  openExternal: (url: string) => ipcRenderer.invoke('shell:open', url),
-  onGatewayStatus: (handler: (status: { running: boolean }) => void) => {
-    ipcRenderer.on('gateway:status', (_event, status) => handler(status));
-  },
-});
+  contextBridge.exposeInMainWorld('marketbot', {
+    openControlUi: () => ipcRenderer.invoke('gateway:open'),
+    quickstart: () => ipcRenderer.invoke('gateway:quickstart'),
+    openExternal: (url: string) => ipcRenderer.invoke('shell:open', url),
+    onGatewayStatus: (handler: (status: { running: boolean }) => void) => {
+      ipcRenderer.on('gateway:status', (_event, status) => handler(status));
+    },
+  });
 
 export type MarketbotDesktopApi = typeof window & {
   marketbot: {
