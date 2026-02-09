@@ -1,0 +1,10 @@
+# Build outputs
+dist/
+out/
+release/
+
+# Gateway bundle (created during packaging, not checked in)
+gateway-bundle/
+
+# Dependencies
+node_modules/

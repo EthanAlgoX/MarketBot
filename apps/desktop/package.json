@@ -10,7 +10,10 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "pnpm build && electron out/main/index.js",
-    "package:mac": "pnpm build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg zip",
+    "package:mac": "bash scripts/package-desktop.sh --mac",
+    "package:win": "bash scripts/package-desktop.sh --win",
+    "package:linux": "bash scripts/package-desktop.sh --linux",
+    "package:all": "bash scripts/package-desktop.sh --all",
     "lint": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
   },
@@ -39,7 +42,15 @@
       "dist/main/**",
       "dist/preload/**",
       "dist/renderer/**",
-      "preload.cjs"
+      "preload.cjs",
+      "webview-preload.cjs"
+    ],
+    "extraResources": [
+      {
+        "from": "gateway-bundle/",
+        "to": "gateway-bundle",
+        "filter": ["**/*"]
+      }
     ],
     "mac": {
       "target": [
@@ -53,6 +64,32 @@
         "zip"
       ],
       "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        "deb",
+        "rpm"
+      ],
+      "category": "Finance"
     },
     "dmg": {
       "background": "../../assets/dmg-background.png",

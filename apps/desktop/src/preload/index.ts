@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('marketbot', {
   onGatewayStatus: (handler: (status: { running: boolean }) => void) => {
     ipcRenderer.on('gateway:status', (_event, status) => handler(status));
   },
+  // Onboarding / config IPC.
+  readConfig: () => ipcRenderer.invoke('config:read'),
+  writeConfig: (patch: Record<string, unknown>) => ipcRenderer.invoke('config:write', patch),
+  checkOnboarding: () => ipcRenderer.invoke('config:check-onboarding'),
+  markOnboardingDone: () => ipcRenderer.invoke('config:mark-onboarding-done'),
 });
 
 export type MarketBotDesktopApi = {
@@ -18,4 +23,8 @@ export type MarketBotDesktopApi = {
   restartGateway: () => Promise<void>;
   openExternal: (url: string) => Promise<void>;
   onGatewayStatus: (handler: (status: { running: boolean }) => void) => void;
+  readConfig: () => Promise<Record<string, unknown>>;
+  writeConfig: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
+  checkOnboarding: () => Promise<{ needsOnboarding: boolean }>;
+  markOnboardingDone: () => Promise<{ ok: boolean; error?: string }>;
 };

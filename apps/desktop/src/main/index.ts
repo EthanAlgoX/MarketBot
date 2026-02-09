@@ -9,7 +9,7 @@ import {
   shell,
   session,
 } from 'electron';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { fork, spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +17,9 @@ import { randomBytes } from 'node:crypto';
 import os from 'node:os';
 
 // ── Paths ──
+// In dev mode, paths resolve relative to the repo root.
+// In production (packaged), paths resolve relative to the app bundle's
+// Resources directory, where electron-builder places extraResources.
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(__filename, '..');
@@ -24,10 +27,38 @@ const __dirname = resolve(__filename, '..');
 const APP_NAME = 'MarketBot Desktop';
 const GATEWAY_PORT = 18789;
 const GATEWAY_URL = `http://127.0.0.1:${GATEWAY_PORT}/`;
+
+const IS_PACKAGED = app.isPackaged;
+
+// Dev mode: repo root derived from cwd or __dirname.
+// Packaged mode: resources live at process.resourcesPath.
 const CWD = process.cwd();
 const REPO_ROOT = CWD.endsWith('/apps/desktop') ? resolve(CWD, '../..') : CWD;
-const PRELOAD_PATH = join(REPO_ROOT, 'apps/desktop/preload.cjs');
-const WEBVIEW_PRELOAD_PATH = join(REPO_ROOT, 'apps/desktop/webview-preload.cjs');
+
+// In a packaged app, electron-builder copies gateway-bundle/ into
+// Contents/Resources/gateway-bundle/ (macOS) or resources/gateway-bundle/
+// (Windows/Linux). process.resourcesPath points to that Resources dir.
+const GATEWAY_BUNDLE_DIR = IS_PACKAGED
+  ? join(process.resourcesPath, 'gateway-bundle')
+  : REPO_ROOT;
+
+// Preload scripts: in dev they live under apps/desktop/, in production
+// they're packaged into the app.asar (files entry in electron-builder).
+function resolvePreloadPath(): string {
+  if (IS_PACKAGED) {
+    // electron-builder puts files from the "files" config into the asar.
+    // preload.cjs is at the root of the asar archive.
+    return join(app.getAppPath(), 'preload.cjs');
+  }
+  return join(REPO_ROOT, 'apps/desktop/preload.cjs');
+}
+
+function resolveWebviewPreloadPath(): string {
+  if (IS_PACKAGED) {
+    return join(app.getAppPath(), 'webview-preload.cjs');
+  }
+  return join(REPO_ROOT, 'apps/desktop/webview-preload.cjs');
+}
 
 const STATE_DIR = join(os.homedir(), '.marketbot');
 const CONFIG_PATH = join(STATE_DIR, 'marketbot.json');
@@ -48,24 +79,26 @@ let gatewayRestartTimer: NodeJS.Timeout | null = null;
 // If none exists, generates one automatically so the app works out of the box.
 
 function ensureConfig(): string {
-  // Load .env from repo root (dev mode).
-  const dotenvPath = join(REPO_ROOT, '.env');
-  if (existsSync(dotenvPath)) {
-    try {
-      const raw = readFileSync(dotenvPath, 'utf8');
-      for (const line of raw.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const eqIdx = trimmed.indexOf('=');
-        if (eqIdx <= 0) continue;
-        const key = trimmed.slice(0, eqIdx).trim();
-        const val = trimmed.slice(eqIdx + 1).trim();
-        if (!(key in process.env)) {
-          process.env[key] = val;
+  // Load .env from repo root (dev mode only — packaged apps use the config file).
+  if (!IS_PACKAGED) {
+    const dotenvPath = join(REPO_ROOT, '.env');
+    if (existsSync(dotenvPath)) {
+      try {
+        const raw = readFileSync(dotenvPath, 'utf8');
+        for (const line of raw.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx <= 0) continue;
+          const key = trimmed.slice(0, eqIdx).trim();
+          const val = trimmed.slice(eqIdx + 1).trim();
+          if (!(key in process.env)) {
+            process.env[key] = val;
+          }
         }
+      } catch {
+        // Ignore .env parse errors.
       }
-    } catch {
-      // Ignore .env parse errors.
     }
   }
 
@@ -169,16 +202,56 @@ function startGateway() {
       return;
     }
 
-    console.log('[Desktop] starting gateway subprocess');
-    const child = spawn(
-      'pnpm',
-      ['-s', 'marketbot', 'gateway', 'run', '--bind', 'loopback', '--port', String(GATEWAY_PORT), '--force'],
-      {
-        cwd: REPO_ROOT,
-        env: { ...process.env },
-        stdio: 'inherit',
-      },
-    );
+    console.log('[Desktop] starting gateway subprocess', { packaged: IS_PACKAGED });
+
+    let child: ChildProcess;
+
+    if (IS_PACKAGED) {
+      // Production mode: fork the bundled marketbot.mjs using Electron's
+      // embedded Node.js runtime. The gateway-bundle/ directory contains
+      // the compiled dist/, node_modules/, and marketbot.mjs.
+      const entryScript = join(GATEWAY_BUNDLE_DIR, 'marketbot.mjs');
+      const gatewayArgs = [
+        'gateway', 'run',
+        '--bind', 'loopback',
+        '--port', String(GATEWAY_PORT),
+        '--force',
+      ];
+
+      console.log('[Desktop] forking', entryScript, gatewayArgs);
+      child = fork(entryScript, gatewayArgs, {
+        cwd: GATEWAY_BUNDLE_DIR,
+        env: {
+          ...process.env,
+          // Ensure the gateway finds its own node_modules.
+          NODE_PATH: join(GATEWAY_BUNDLE_DIR, 'node_modules'),
+        },
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+        // Use Electron's built-in Node.js to run the script.
+        execPath: process.execPath,
+        execArgv: ['--no-warnings'],
+      });
+
+      // Capture stdout/stderr for debugging.
+      child.stdout?.on('data', (data: Buffer) => {
+        process.stdout.write(`[Gateway] ${data.toString()}`);
+      });
+      child.stderr?.on('data', (data: Buffer) => {
+        process.stderr.write(`[Gateway:err] ${data.toString()}`);
+      });
+    } else {
+      // Dev mode: spawn via pnpm which resolves the CLI from the monorepo.
+      child = spawn(
+        'pnpm',
+        ['-s', 'marketbot', 'gateway', 'run', '--bind', 'loopback', '--port', String(GATEWAY_PORT), '--force'],
+        {
+          cwd: REPO_ROOT,
+          env: { ...process.env },
+          stdio: 'inherit',
+        },
+      );
+    }
+
     gatewayProc = child;
 
     child.on('exit', (code) => {
@@ -295,6 +368,9 @@ if (!isDevInstance) {
 }
 
 function createWindow() {
+  const preloadPath = resolvePreloadPath();
+  console.log('[Desktop] preload path:', preloadPath);
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 760,
@@ -306,7 +382,7 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 14, y: 14 },
     webPreferences: {
-      preload: PRELOAD_PATH,
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -362,6 +438,11 @@ function createWindow() {
 }
 
 function resolveRendererPath(): string {
+  // In packaged mode, electron-vite outputs to dist/renderer/ inside the asar.
+  if (IS_PACKAGED) {
+    const asarRenderer = join(app.getAppPath(), 'dist/renderer/index.html');
+    if (existsSync(asarRenderer)) return asarRenderer;
+  }
   const outRenderer = join(__dirname, '../renderer/index.html');
   if (existsSync(outRenderer)) return outRenderer;
   const distRenderer = join(REPO_ROOT, 'apps/desktop/dist/renderer/index.html');
@@ -372,7 +453,7 @@ function resolveRendererPath(): string {
 // ── Auto-update ──
 
 async function setupAutoUpdates() {
-  if (!app.isPackaged || isDevInstance) {
+  if (!IS_PACKAGED || isDevInstance) {
     console.log('[Desktop] auto-update disabled (not packaged)');
     return;
   }
@@ -420,7 +501,12 @@ app.whenReady().then(() => {
   app.setName(APP_NAME);
   app.setAppUserModelId('ai.marketbot.desktop');
   app.setActivationPolicy('regular');
-  console.log('[Desktop] ready', { platform: process.platform });
+  console.log('[Desktop] ready', {
+    platform: process.platform,
+    packaged: IS_PACKAGED,
+    resourcesPath: IS_PACKAGED ? process.resourcesPath : 'N/A (dev)',
+    gatewayBundle: GATEWAY_BUNDLE_DIR,
+  });
 
   // Bootstrap config & token before anything else.
   gatewayToken = ensureConfig();
@@ -441,15 +527,100 @@ app.whenReady().then(() => {
   });
 
   // Register IPC handlers.
+  const webviewPreloadPath = resolveWebviewPreloadPath();
   ipcMain.handle('gateway:token', () => gatewayToken);
   ipcMain.handle('gateway:url', () => GATEWAY_URL);
-  ipcMain.handle('webview:preload-path', () => `file://${WEBVIEW_PRELOAD_PATH}`);
+  ipcMain.handle('webview:preload-path', () => `file://${webviewPreloadPath}`);
   ipcMain.handle('gateway:restart', () => {
     stopGateway();
     startGateway();
   });
   ipcMain.handle('shell:open', (_event, url: string) => {
     if (url?.startsWith('http')) shell.openExternal(url);
+  });
+
+  // Onboarding IPC: read/write config for the setup wizard.
+  ipcMain.handle('config:read', () => {
+    try {
+      const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+      const configPath = envConfigPath ? resolve(REPO_ROOT, envConfigPath) : CONFIG_PATH;
+      if (existsSync(configPath)) {
+        return JSON.parse(readFileSync(configPath, 'utf8'));
+      }
+    } catch { /* ignore */ }
+    return {};
+  });
+
+  ipcMain.handle('config:write', (_event, patch: Record<string, unknown>) => {
+    try {
+      const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+      const configPath = envConfigPath ? resolve(REPO_ROOT, envConfigPath) : CONFIG_PATH;
+      let config: Record<string, unknown> = {};
+      if (existsSync(configPath)) {
+        try { config = JSON.parse(readFileSync(configPath, 'utf8')); } catch { /* ignore */ }
+      }
+      // Deep merge patch into config.
+      for (const [key, value] of Object.entries(patch)) {
+        if (typeof value === 'object' && value !== null && !Array.isArray(value) &&
+            typeof config[key] === 'object' && config[key] !== null && !Array.isArray(config[key])) {
+          config[key] = { ...(config[key] as Record<string, unknown>), ...(value as Record<string, unknown>) };
+        } else {
+          config[key] = value;
+        }
+      }
+      mkdirSync(resolve(configPath, '..'), { recursive: true, mode: 0o700 });
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', {
+        encoding: 'utf-8',
+        mode: 0o600,
+      });
+      console.log('[Desktop] config updated via IPC');
+      return { ok: true };
+    } catch (err) {
+      console.error('[Desktop] config:write failed', err);
+      return { ok: false, error: String(err) };
+    }
+  });
+
+  ipcMain.handle('config:check-onboarding', () => {
+    // Check if the user has completed onboarding by looking for provider config.
+    try {
+      const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+      const configPath = envConfigPath ? resolve(REPO_ROOT, envConfigPath) : CONFIG_PATH;
+      if (!existsSync(configPath)) return { needsOnboarding: true };
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      // If there's a provider configured (e.g., Ollama, OpenAI, Anthropic), onboarding is done.
+      const hasProvider = Boolean(
+        config.provider ||
+        config.providers ||
+        config.ollama ||
+        process.env.OPENAI_API_KEY ||
+        process.env.ANTHROPIC_API_KEY,
+      );
+      const hasOnboardingDone = config._desktop?.onboardingComplete === true;
+      return { needsOnboarding: !hasProvider && !hasOnboardingDone };
+    } catch {
+      return { needsOnboarding: true };
+    }
+  });
+
+  ipcMain.handle('config:mark-onboarding-done', () => {
+    try {
+      const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+      const configPath = envConfigPath ? resolve(REPO_ROOT, envConfigPath) : CONFIG_PATH;
+      let config: Record<string, unknown> = {};
+      if (existsSync(configPath)) {
+        try { config = JSON.parse(readFileSync(configPath, 'utf8')); } catch { /* ignore */ }
+      }
+      config._desktop = { ...(config._desktop as Record<string, unknown> ?? {}), onboardingComplete: true };
+      mkdirSync(resolve(configPath, '..'), { recursive: true, mode: 0o700 });
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', {
+        encoding: 'utf-8',
+        mode: 0o600,
+      });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
   });
 
   // Create UI.
