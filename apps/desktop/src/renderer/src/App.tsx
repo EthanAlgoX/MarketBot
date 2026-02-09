@@ -13,13 +13,69 @@ declare global {
   }
 }
 
+// ── Navigation definitions (mirrors ui/src/ui/navigation.ts) ──
+
+type TabId =
+  | 'chat'
+  | 'desk'
+  | 'stocks'
+  | 'runs'
+  | 'overview'
+  | 'config'
+  | 'channels'
+  | 'sessions'
+  | 'cron'
+  | 'logs';
+
+interface NavTab {
+  id: TabId;
+  label: string;
+  path: string;
+}
+
+interface NavGroup {
+  label: string;
+  tabs: NavTab[];
+}
+
+const TABS: Record<TabId, NavTab> = {
+  chat: { id: 'chat', label: 'Chat', path: '/chat' },
+  desk: { id: 'desk', label: 'Desk', path: '/desk' },
+  stocks: { id: 'stocks', label: 'Stocks', path: '/stocks' },
+  runs: { id: 'runs', label: 'Runs', path: '/runs' },
+  overview: { id: 'overview', label: 'Connection', path: '/overview' },
+  config: { id: 'config', label: 'Config', path: '/config' },
+  channels: { id: 'channels', label: 'Channels', path: '/channels' },
+  sessions: { id: 'sessions', label: 'Sessions', path: '/sessions' },
+  cron: { id: 'cron', label: 'Cron Jobs', path: '/cron' },
+  logs: { id: 'logs', label: 'Logs', path: '/logs' },
+};
+
+const NAV_GROUPS: NavGroup[] = [
+  { label: 'Chat', tabs: [TABS.chat] },
+  { label: 'Finance', tabs: [TABS.desk, TABS.stocks, TABS.runs] },
+  {
+    label: 'Control',
+    tabs: [
+      TABS.overview,
+      TABS.config,
+      TABS.channels,
+      TABS.sessions,
+      TABS.cron,
+      TABS.logs,
+    ],
+  },
+];
+
+// ── Helpers ──
+
 function normalizeBase(url: string) {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
-function buildChatUrl(base: string, token: string) {
+function buildTabUrl(base: string, path: string, token: string) {
   const normalized = normalizeBase(base);
-  const url = `${normalized}/chat`;
+  const url = `${normalized}${path}`;
   const params = new URLSearchParams();
   if (token.trim()) params.set('token', token.trim());
   params.set('embed', '1');
@@ -41,6 +97,8 @@ function injectTokenToWebview(webview: Electron.WebviewTag, token: string) {
   webview.executeJavaScript(script, true).catch(() => undefined);
 }
 
+// ── App Component ──
+
 export default function App() {
   const [running, setRunning] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -49,6 +107,7 @@ export default function App() {
   const [tokenReady, setTokenReady] = useState(false);
   const [webviewPreload, setWebviewPreload] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('chat');
   const webviewRef = useRef<Electron.WebviewTag | null>(null);
 
   useEffect(() => {
@@ -79,35 +138,37 @@ export default function App() {
     };
   }, [gatewayToken]);
 
-  const chatUrl = useMemo(() => {
-    return buildChatUrl(gatewayUrl, gatewayToken);
-  }, [gatewayUrl, gatewayToken]);
+  // Build the current tab URL.
+  const tabUrl = useMemo(() => {
+    const tab = TABS[activeTab];
+    return buildTabUrl(gatewayUrl, tab.path, gatewayToken);
+  }, [gatewayUrl, gatewayToken, activeTab]);
 
   const prevUrlRef = useRef<string>('');
 
-  // Navigate when chatUrl changes.
+  // Navigate when tabUrl changes.
   useEffect(() => {
     const view = webviewRef.current;
     if (!view) return;
     if (!prevUrlRef.current) {
-      prevUrlRef.current = chatUrl;
+      prevUrlRef.current = tabUrl;
       return;
     }
-    if (chatUrl === prevUrlRef.current) return;
-    prevUrlRef.current = chatUrl;
+    if (tabUrl === prevUrlRef.current) return;
+    prevUrlRef.current = tabUrl;
     const timer = window.setTimeout(() => {
-      webviewRef.current?.loadURL(chatUrl);
+      webviewRef.current?.loadURL(tabUrl);
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [chatUrl]);
+  }, [tabUrl]);
 
   // Reload webview when gateway comes up.
   useEffect(() => {
     if (!running) return;
     const timer = window.setTimeout(() => {
       if (webviewRef.current) {
-        webviewRef.current.loadURL(chatUrl);
-        prevUrlRef.current = chatUrl;
+        webviewRef.current.loadURL(tabUrl);
+        prevUrlRef.current = tabUrl;
       }
     }, 1500);
     return () => window.clearTimeout(timer);
@@ -176,9 +237,8 @@ export default function App() {
     }
   };
 
-  const onOpenGateway = async () => {
-    const url = buildChatUrl(gatewayUrl, gatewayToken).replace('/chat', '/overview');
-    await window.marketbot.openExternal(url);
+  const handleTabClick = (tabId: TabId) => {
+    setActiveTab(tabId);
   };
 
   return (
@@ -188,7 +248,7 @@ export default function App() {
           <div className="logo">MB</div>
           <div>
             <div className="title">MarketBot</div>
-            <div className="subtitle">AI Chat</div>
+            <div className="subtitle">Desktop</div>
           </div>
         </div>
 
@@ -202,11 +262,24 @@ export default function App() {
           </button>
         )}
 
-        <div className="sidebar-spacer" />
+        <nav className="nav">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className="nav-group">
+              <div className="nav-group-title">{group.label}</div>
+              {group.tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  className={`nav-item${activeTab === tab.id ? ' active' : ''}`}
+                  onClick={() => handleTabClick(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
 
-        <button className="ghost sidebar-btn" onClick={onOpenGateway}>
-          Gateway Settings
-        </button>
+        <div className="sidebar-spacer" />
 
         <button
           className="ghost sidebar-btn"
@@ -238,7 +311,7 @@ export default function App() {
         {tokenReady && running ? (
           <webview
             ref={webviewRef}
-            src={chatUrl}
+            src={tabUrl}
             {...(webviewPreload ? { preload: webviewPreload } : {})}
             className="chat-frame"
           />
