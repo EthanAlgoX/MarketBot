@@ -552,6 +552,135 @@ app.whenReady().then(() => {
       return { ok: false, error: String(err) };
     }
   });
+  const OLLAMA_API = "http://127.0.0.1:11434";
+  ipcMain.handle("ollama:check", async () => {
+    try {
+      const res = await fetch(`${OLLAMA_API}/api/tags`);
+      if (!res.ok) return { available: false, models: [] };
+      const data = await res.json();
+      const models = (data.models || []).map((m) => m.name);
+      return { available: true, models };
+    } catch {
+      return { available: false, models: [] };
+    }
+  });
+  ipcMain.handle("ollama:pull", async (_event, modelId) => {
+    try {
+      const res = await fetch(`${OLLAMA_API}/api/pull`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: modelId, stream: true })
+      });
+      if (!res.ok || !res.body) {
+        return { ok: false, error: `Ollama returned ${res.status}` };
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const progress = JSON.parse(line);
+            const percent = progress.total && progress.completed ? Math.round(progress.completed / progress.total * 100) : void 0;
+            mainWindow?.webContents.send("ollama:pull-progress", {
+              model: modelId,
+              status: progress.status,
+              completed: progress.completed,
+              total: progress.total,
+              percent,
+              done: progress.status === "success"
+            });
+          } catch {
+          }
+        }
+      }
+      if (buffer.trim()) {
+        try {
+          const progress = JSON.parse(buffer);
+          mainWindow?.webContents.send("ollama:pull-progress", {
+            model: modelId,
+            status: progress.status,
+            done: progress.status === "success"
+          });
+        } catch {
+        }
+      }
+      const agentDir = join(STATE_DIR, "agents", "main", "agent");
+      const authStorePath = join(agentDir, "auth-profiles.json");
+      mkdirSync(agentDir, { recursive: true, mode: 448 });
+      let store = {
+        version: 1,
+        profiles: {}
+      };
+      if (existsSync(authStorePath)) {
+        try {
+          const raw = JSON.parse(readFileSync(authStorePath, "utf8"));
+          if (raw && typeof raw === "object" && raw.profiles) {
+            store = raw;
+          }
+        } catch {
+        }
+      }
+      if (!store.profiles["ollama:default"]) {
+        store.profiles["ollama:default"] = {
+          type: "api_key",
+          provider: "ollama",
+          key: "ollama-local"
+        };
+        writeFileSync(authStorePath, JSON.stringify(store, null, 2) + "\n", {
+          encoding: "utf-8",
+          mode: 384
+        });
+        console.log("[Desktop] ollama credentials auto-created");
+      }
+      console.log("[Desktop] ollama:pull completed for", modelId);
+      return { ok: true };
+    } catch (err) {
+      const errorMsg = String(err);
+      mainWindow?.webContents.send("ollama:pull-progress", {
+        model: modelId,
+        status: "error",
+        done: true,
+        error: errorMsg
+      });
+      console.error("[Desktop] ollama:pull failed", err);
+      return { ok: false, error: errorMsg };
+    }
+  });
+  ipcMain.handle("ollama:set-model", async (_event, modelId) => {
+    try {
+      let config = {};
+      if (existsSync(CONFIG_PATH)) {
+        try {
+          config = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
+        } catch {
+        }
+      }
+      const agents = config.agents || {};
+      const defaults = agents.defaults || {};
+      const model = defaults.model || {};
+      model.primary = `ollama/${modelId}`;
+      defaults.model = model;
+      agents.defaults = defaults;
+      config.agents = agents;
+      mkdirSync(STATE_DIR, { recursive: true, mode: 448 });
+      writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n", {
+        encoding: "utf-8",
+        mode: 384
+      });
+      console.log("[Desktop] primary model set to ollama/" + modelId);
+      return { ok: true };
+    } catch (err) {
+      console.error("[Desktop] ollama:set-model failed", err);
+      return { ok: false, error: String(err) };
+    }
+  });
   if (process.platform === "darwin") {
     try {
       app.dock.show();

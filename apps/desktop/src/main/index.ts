@@ -694,6 +694,164 @@ app.whenReady().then(() => {
     }
   });
 
+  // ── Ollama Local Model Management ──
+
+  const OLLAMA_API = 'http://127.0.0.1:11434';
+
+  // Check if ollama is running and list installed models.
+  ipcMain.handle('ollama:check', async () => {
+    try {
+      const res = await fetch(`${OLLAMA_API}/api/tags`);
+      if (!res.ok) return { available: false, models: [] };
+      const data = (await res.json()) as { models?: { name: string; size: number }[] };
+      const models = (data.models || []).map((m) => m.name);
+      return { available: true, models };
+    } catch {
+      return { available: false, models: [] };
+    }
+  });
+
+  // Pull (download) an ollama model, streaming progress to the renderer.
+  ipcMain.handle('ollama:pull', async (_event, modelId: string) => {
+    try {
+      const res = await fetch(`${OLLAMA_API}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: modelId, stream: true }),
+      });
+      if (!res.ok || !res.body) {
+        return { ok: false, error: `Ollama returned ${res.status}` };
+      }
+
+      // Read NDJSON stream line by line.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete lines.
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const progress = JSON.parse(line) as {
+              status: string;
+              digest?: string;
+              total?: number;
+              completed?: number;
+            };
+            const percent =
+              progress.total && progress.completed
+                ? Math.round((progress.completed / progress.total) * 100)
+                : undefined;
+            mainWindow?.webContents.send('ollama:pull-progress', {
+              model: modelId,
+              status: progress.status,
+              completed: progress.completed,
+              total: progress.total,
+              percent,
+              done: progress.status === 'success',
+            });
+          } catch { /* skip malformed lines */ }
+        }
+      }
+
+      // Process any remaining buffer.
+      if (buffer.trim()) {
+        try {
+          const progress = JSON.parse(buffer);
+          mainWindow?.webContents.send('ollama:pull-progress', {
+            model: modelId,
+            status: progress.status,
+            done: progress.status === 'success',
+          });
+        } catch { /* ignore */ }
+      }
+
+      // After successful pull, ensure ollama credentials exist so auto-discovery works.
+      const agentDir = join(STATE_DIR, 'agents', 'main', 'agent');
+      const authStorePath = join(agentDir, 'auth-profiles.json');
+      mkdirSync(agentDir, { recursive: true, mode: 0o700 });
+      let store: { version: number; profiles: Record<string, unknown> } = {
+        version: 1,
+        profiles: {},
+      };
+      if (existsSync(authStorePath)) {
+        try {
+          const raw = JSON.parse(readFileSync(authStorePath, 'utf8'));
+          if (raw && typeof raw === 'object' && raw.profiles) {
+            store = raw;
+          }
+        } catch { /* ignore */ }
+      }
+      if (!store.profiles['ollama:default']) {
+        store.profiles['ollama:default'] = {
+          type: 'api_key',
+          provider: 'ollama',
+          key: 'ollama-local',
+        };
+        writeFileSync(authStorePath, JSON.stringify(store, null, 2) + '\n', {
+          encoding: 'utf-8',
+          mode: 0o600,
+        });
+        console.log('[Desktop] ollama credentials auto-created');
+      }
+
+      console.log('[Desktop] ollama:pull completed for', modelId);
+      return { ok: true };
+    } catch (err) {
+      const errorMsg = String(err);
+      mainWindow?.webContents.send('ollama:pull-progress', {
+        model: modelId,
+        status: 'error',
+        done: true,
+        error: errorMsg,
+      });
+      console.error('[Desktop] ollama:pull failed', err);
+      return { ok: false, error: errorMsg };
+    }
+  });
+
+  // Set an ollama model as the primary model in config.
+  ipcMain.handle('ollama:set-model', async (_event, modelId: string) => {
+    try {
+      // Read current config.
+      let config: Record<string, unknown> = {};
+      if (existsSync(CONFIG_PATH)) {
+        try {
+          config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+        } catch { /* start fresh */ }
+      }
+
+      // Deep-merge the primary model setting.
+      const agents = (config.agents as Record<string, unknown>) || {};
+      const defaults = (agents.defaults as Record<string, unknown>) || {};
+      const model = (defaults.model as Record<string, unknown>) || {};
+      model.primary = `ollama/${modelId}`;
+      defaults.model = model;
+      agents.defaults = defaults;
+      config.agents = agents;
+
+      mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
+      writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + '\n', {
+        encoding: 'utf-8',
+        mode: 0o600,
+      });
+
+      console.log('[Desktop] primary model set to ollama/' + modelId);
+      return { ok: true };
+    } catch (err) {
+      console.error('[Desktop] ollama:set-model failed', err);
+      return { ok: false, error: String(err) };
+    }
+  });
+
   // Create UI.
   if (process.platform === 'darwin') {
     try { app.dock.show(); } catch { /* ignore */ }

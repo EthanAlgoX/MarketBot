@@ -665,3 +665,572 @@ button.ghost .nav-icon {
   width: 100%;
   height: 100%;
 }
+
+/* ── Model Settings Panel ── */
+
+.ms-panel {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: 32px 40px 48px;
+  background: var(--bg);
+}
+
+.ms-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ms-panel::-webkit-scrollbar-thumb {
+  background: rgba(140, 166, 216, 0.15);
+  border-radius: 3px;
+}
+
+.ms-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 166, 216, 0.3);
+}
+
+.ms-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.ms-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.ms-refresh {
+  padding: 5px 8px;
+}
+
+.ms-offline,
+.ms-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.ms-error {
+  font-size: 12px;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+}
+
+/* ── Sections ── */
+
+.ms-section {
+  margin-bottom: 32px;
+}
+
+.ms-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+
+.ms-section-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+/* ── Model Select ── */
+
+.ms-model-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 460px;
+}
+
+.ms-model-select {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(61, 94, 138, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%238ca6d8' stroke-width='1.5'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+  transition: border-color 0.15s;
+}
+
+.ms-model-select:focus {
+  border-color: var(--accent);
+}
+
+.ms-model-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ms-model-select.small {
+  max-width: 300px;
+  font-size: 12px;
+  padding: 7px 10px;
+  padding-right: 28px;
+}
+
+.ms-model-select optgroup {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.ms-model-select option {
+  background: #111827;
+  color: var(--text);
+  padding: 4px 8px;
+}
+
+.ms-current-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(43, 228, 255, 0.2);
+  border-radius: 6px;
+  padding: 4px 10px;
+  width: fit-content;
+}
+
+.ms-save-msg {
+  font-size: 12px;
+  color: #34d399;
+  margin-top: 6px;
+}
+
+.ms-save-msg.error {
+  color: #f87171;
+}
+
+/* ── Fallback Models ── */
+
+.ms-fallback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 460px;
+}
+
+.ms-fallback-empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 8px 0;
+}
+
+.ms-fallback-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(61, 94, 138, 0.2);
+}
+
+.ms-fallback-rank {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: rgba(140, 166, 216, 0.1);
+  flex-shrink: 0;
+}
+
+.ms-fallback-name {
+  flex: 1;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-fallback-remove {
+  all: unset;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+
+.ms-fallback-remove:hover {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+.ms-fallback-add {
+  margin-top: 8px;
+}
+
+/* ── Provider Grid (Settings) ── */
+
+.ms-provider-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 520px;
+}
+
+.ms-provider-card {
+  border: 1px solid rgba(61, 94, 138, 0.2);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 0.15s;
+}
+
+.ms-provider-card.configured {
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.ms-provider-card:hover {
+  border-color: rgba(61, 94, 138, 0.4);
+}
+
+.ms-provider-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ms-provider-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.ms-provider-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ms-provider-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ms-provider-status {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.ms-provider-status.ok {
+  color: #6ee7b7;
+}
+
+.ms-provider-edit {
+  font-size: 11px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+.ms-provider-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(61, 94, 138, 0.15);
+}
+
+.ms-provider-edit-form .apikey-input {
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+.ms-provider-edit-form .apikey-hint {
+  font-size: 10px;
+}
+
+.ms-key-error {
+  font-size: 11px;
+  color: #f87171;
+}
+
+.ms-key-success {
+  font-size: 11px;
+  color: #34d399;
+}
+
+.ms-key-save {
+  align-self: flex-start;
+  font-size: 12px;
+  padding: 6px 16px;
+}
+
+/* ── Local Models ── */
+
+.ms-local-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  margin-bottom: 16px;
+}
+
+.ms-local-warning-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ms-local-warning strong {
+  display: block;
+  color: #fbbf24;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.ms-local-warning p {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+}
+
+.ms-local-warning a {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+.ms-local-retry {
+  margin-top: 8px;
+  font-size: 11px;
+  padding: 4px 12px;
+}
+
+.ms-local-error {
+  font-size: 12px;
+  color: #f87171;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.ms-local-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.ms-local-card {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(61, 94, 138, 0.15);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.ms-local-card:hover {
+  border-color: rgba(61, 94, 138, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ms-local-card.installed {
+  border-color: rgba(52, 211, 153, 0.25);
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.ms-local-card.primary {
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(96, 165, 250, 0.06);
+}
+
+.ms-local-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.ms-local-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.ms-local-card-size {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ms-local-card-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.ms-local-card-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 14px;
+}
+
+.ms-local-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.ms-local-installed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #34d399;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(52, 211, 153, 0.1);
+  font-weight: 500;
+}
+
+.ms-local-installed-badge::before {
+  content: '\2713';
+}
+
+.ms-local-primary-badge {
+  font-size: 11px;
+  color: #60a5fa;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(96, 165, 250, 0.1);
+  font-weight: 500;
+}
+
+.ms-local-set-primary {
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ms-local-set-primary:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.ms-local-set-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ms-local-install-btn {
+  width: 100%;
+  margin-top: auto;
+  padding: 8px 0;
+  border-radius: 8px;
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ms-local-install-btn:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.ms-local-install-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ms-local-progress-wrap {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ms-local-progress-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.ms-local-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  transition: width 0.3s ease;
+}
+
+.ms-local-progress-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}

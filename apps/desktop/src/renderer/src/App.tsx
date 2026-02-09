@@ -15,6 +15,19 @@ declare global {
       markOnboardingDone: () => Promise<{ ok: boolean; error?: string }>;
       writeCredentials: (args: { profileId: string; provider: string; apiKey: string }) =>
         Promise<{ ok: boolean; error?: string }>;
+      // Ollama local model management.
+      checkOllama: () => Promise<{ available: boolean; models: string[] }>;
+      pullOllamaModel: (modelId: string) => Promise<{ ok: boolean; error?: string }>;
+      setOllamaModel: (modelId: string) => Promise<{ ok: boolean; error?: string }>;
+      onOllamaPullProgress: (handler: (progress: {
+        model: string;
+        status: string;
+        completed?: number;
+        total?: number;
+        percent?: number;
+        done?: boolean;
+        error?: string;
+      }) => void) => void;
     };
   }
 }
@@ -31,7 +44,8 @@ type TabId =
   | 'channels'
   | 'sessions'
   | 'cron'
-  | 'logs';
+  | 'logs'
+  | 'models';
 
 interface NavTab {
   id: TabId;
@@ -106,6 +120,12 @@ const TABS: Record<TabId, NavTab> = {
     path: '/logs',
     icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="14" height="16" rx="1.5"/><path d="M7 6h6M7 10h6M7 14h4"/></svg>',
   },
+  models: {
+    id: 'models',
+    label: 'AI Models',
+    path: '/models',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2l7 4v8l-7 4-7-4V6l7-4z"/><path d="M10 10l7-4M10 10v8M10 10L3 6"/></svg>',
+  },
 };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -115,6 +135,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Control',
     tabs: [TABS.overview, TABS.config, TABS.channels, TABS.sessions, TABS.cron, TABS.logs],
   },
+  { label: 'Settings', tabs: [TABS.models] },
 ];
 
 // ── Helpers ──
@@ -235,6 +256,47 @@ const PROVIDERS: ProviderDef[] = [
     placeholder: 'xai-...',
     hint: 'Get your key at console.x.ai',
     color: '#1da1f2',
+  },
+];
+
+// ── Local Model Definitions ──
+
+interface LocalModelDef {
+  id: string;        // ollama model ID (e.g. "qwen3:0.6b")
+  name: string;      // display name
+  size: string;      // approximate download size
+  contextWindow: number;
+  description: string;
+}
+
+const LOCAL_MODELS: LocalModelDef[] = [
+  {
+    id: 'qwen3:0.6b',
+    name: 'Qwen3-0.6B',
+    size: '~400MB',
+    contextWindow: 32768,
+    description: 'Ultra-lightweight, fast responses',
+  },
+  {
+    id: 'qwen3:4b',
+    name: 'Qwen3-4B-Instruct',
+    size: '~2.5GB',
+    contextWindow: 32768,
+    description: 'Balanced speed and quality',
+  },
+  {
+    id: 'qwen3:8b',
+    name: 'Qwen3-8B',
+    size: '~4.9GB',
+    contextWindow: 128000,
+    description: 'Strong reasoning capability',
+  },
+  {
+    id: 'qwen3:32b',
+    name: 'Qwen3-32B',
+    size: '~19GB',
+    contextWindow: 128000,
+    description: 'Best quality, requires more RAM',
   },
 ];
 
@@ -426,6 +488,635 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   );
 }
 
+// ── Model Settings Panel ──
+
+interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  contextWindow?: number;
+  reasoning?: boolean;
+}
+
+function ModelSettings({
+  gatewayUrl,
+  gatewayToken: _gatewayToken,
+  running,
+}: {
+  gatewayUrl: string;
+  gatewayToken: string;
+  running: boolean;
+}) {
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [primaryModel, setPrimaryModel] = useState('');
+  const [fallbacks, setFallbacks] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+
+  // Provider key editing state
+  const [editingProvider, setEditingProvider] = useState<string | null>(null);
+  const [editKey, setEditKey] = useState('');
+  const [keySaving, setKeySaving] = useState(false);
+  const [keyError, setKeyError] = useState('');
+  const [keySuccess, setKeySuccess] = useState('');
+
+  // Local model state
+  const [ollamaAvailable, setOllamaAvailable] = useState(false);
+  const [installedModels, setInstalledModels] = useState<string[]>([]);
+  const [pullingModel, setPullingModel] = useState<string | null>(null);
+  const [pullPercent, setPullPercent] = useState(0);
+  const [pullStatus, setPullStatus] = useState('');
+  const [pullError, setPullError] = useState('');
+  // Track which providers have configured keys (best-effort from models.list)
+  const [configuredProviders, setConfiguredProviders] = useState<Set<string>>(new Set());
+
+  const base = normalizeBase(gatewayUrl);
+
+  const rpc = useCallback(
+    async (method: string, params: Record<string, unknown> = {}) => {
+      const res = await fetch(`${base}/api/${method}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ params }),
+      });
+      if (!res.ok) throw new Error(`RPC ${method} failed: ${res.status}`);
+      return res.json();
+    },
+    [base],
+  );
+
+  // Fetch models + current config.
+  // showSpinner=true on first load, false on background refreshes to avoid
+  // unmounting the UI and losing local-model state.
+  const fetchData = useCallback(async (showSpinner = false) => {
+    if (!running) return;
+    if (showSpinner) setLoading(true);
+    setError('');
+    try {
+      const [modelsRes, configRes] = await Promise.all([
+        rpc('models.list'),
+        rpc('config.get'),
+      ]);
+
+      const modelList: ModelInfo[] = modelsRes?.models ?? [];
+      setModels(modelList);
+
+      // Determine configured providers from the model list
+      const providerIds = new Set(modelList.map((m) => m.provider));
+      setConfiguredProviders(providerIds);
+
+      // Extract current primary model from config
+      const agentModel = (configRes as Record<string, unknown>)?.agents as
+        | Record<string, unknown>
+        | undefined;
+      const defaults = agentModel?.defaults as Record<string, unknown> | undefined;
+      const model = defaults?.model as Record<string, unknown> | undefined;
+      const primary = (model?.primary as string) ?? '';
+      const fb = (model?.fallbacks as string[]) ?? [];
+      setPrimaryModel(primary);
+      setFallbacks(fb);
+    } catch {
+      // Silently ignore refresh errors (gateway may be restarting).
+      if (showSpinner) setError('Failed to load models');
+    } finally {
+      setLoading(false);
+    }
+  }, [running, rpc]);
+
+  useEffect(() => {
+    fetchData(true);
+  }, [fetchData]);
+
+  // Check ollama availability and listen for pull progress.
+  const checkOllamaStatus = useCallback(async () => {
+    try {
+      const result = await window.marketbot.checkOllama();
+      setOllamaAvailable(result.available);
+      setInstalledModels(result.models);
+    } catch {
+      setOllamaAvailable(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkOllamaStatus();
+  }, [checkOllamaStatus]);
+
+  useEffect(() => {
+    window.marketbot.onOllamaPullProgress((progress) => {
+      if (progress.done) {
+        setPullingModel(null);
+        setPullPercent(0);
+        setPullStatus('');
+        if (progress.error) {
+          setPullError(progress.error);
+        } else {
+          setPullError('');
+          // Refresh installed models list.
+          checkOllamaStatus();
+          // Background-refresh model list from gateway after a delay
+          // (no spinner so the UI stays stable).
+          setTimeout(() => {
+            window.marketbot.restartGateway();
+            setTimeout(() => fetchData(), 5000);
+          }, 1000);
+        }
+      } else {
+        setPullStatus(progress.status || '');
+        if (progress.percent !== undefined) {
+          setPullPercent(progress.percent);
+        }
+      }
+    });
+  }, [checkOllamaStatus, fetchData]);
+
+  // Pull a local model via ollama.
+  const handlePullModel = useCallback(async (modelId: string) => {
+    setPullingModel(modelId);
+    setPullPercent(0);
+    setPullStatus('Starting download...');
+    setPullError('');
+    const result = await window.marketbot.pullOllamaModel(modelId);
+    if (!result.ok) {
+      setPullError(result.error || 'Failed to pull model');
+      setPullingModel(null);
+    }
+  }, []);
+
+  // Set a local model as primary.
+  const handleSetLocalPrimary = useCallback(async (modelId: string) => {
+    setSaving(true);
+    setSaveMsg('');
+    try {
+      const result = await window.marketbot.setOllamaModel(modelId);
+      if (result.ok) {
+        setPrimaryModel(`ollama/${modelId}`);
+        setSaveMsg(`Primary model set to ollama/${modelId}`);
+        setTimeout(() => setSaveMsg(''), 3000);
+      } else {
+        setSaveMsg(`Error: ${result.error}`);
+      }
+    } catch (err) {
+      setSaveMsg(`Error: ${String(err)}`);
+    } finally {
+      setSaving(false);
+    }
+  }, []);
+
+  // Group models by provider for the dropdown, merging installed local models.
+  const groupedModels = useMemo(() => {
+    const groups: Record<string, ModelInfo[]> = {};
+    for (const m of models) {
+      const key = m.provider || 'unknown';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(m);
+    }
+
+    // Ensure installed ollama local models always appear in the dropdown,
+    // even if the gateway hasn't discovered them yet.
+    const existingOllamaIds = new Set(
+      (groups['ollama'] || []).map((m) => m.id),
+    );
+    for (const lm of LOCAL_MODELS) {
+      const isInstalled = installedModels.some(
+        (m) => m === lm.id || m === `${lm.id}:latest` || m.startsWith(`${lm.id}:`),
+      );
+      if (isInstalled && !existingOllamaIds.has(`ollama/${lm.id}`)) {
+        if (!groups['ollama']) groups['ollama'] = [];
+        groups['ollama'].push({
+          id: `ollama/${lm.id}`,
+          name: `${lm.name} (Local)`,
+          provider: 'ollama',
+          contextWindow: lm.contextWindow,
+        });
+      }
+    }
+
+    return groups;
+  }, [models, installedModels]);
+
+  // Change primary model via config.patch
+  const handlePrimaryChange = useCallback(
+    async (newModel: string) => {
+      if (!newModel || newModel === primaryModel) return;
+      setSaving(true);
+      setSaveMsg('');
+      try {
+        await rpc('config.patch', {
+          patch: {
+            agents: { defaults: { model: { primary: newModel } } },
+          },
+        });
+        setPrimaryModel(newModel);
+        setSaveMsg('Primary model updated');
+        setTimeout(() => setSaveMsg(''), 3000);
+      } catch (err) {
+        setSaveMsg(`Error: ${String(err)}`);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [primaryModel, rpc],
+  );
+
+  // Remove a fallback
+  const removeFallback = useCallback(
+    async (idx: number) => {
+      const next = fallbacks.filter((_, i) => i !== idx);
+      setSaving(true);
+      try {
+        await rpc('config.patch', {
+          patch: {
+            agents: { defaults: { model: { fallbacks: next } } },
+          },
+        });
+        setFallbacks(next);
+      } catch (err) {
+        setSaveMsg(`Error: ${String(err)}`);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [fallbacks, rpc],
+  );
+
+  // Add a fallback
+  const addFallback = useCallback(
+    async (modelId: string) => {
+      if (!modelId || fallbacks.includes(modelId)) return;
+      const next = [...fallbacks, modelId];
+      setSaving(true);
+      try {
+        await rpc('config.patch', {
+          patch: {
+            agents: { defaults: { model: { fallbacks: next } } },
+          },
+        });
+        setFallbacks(next);
+      } catch (err) {
+        setSaveMsg(`Error: ${String(err)}`);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [fallbacks, rpc],
+  );
+
+  // Save API key for a provider
+  const handleSaveKey = useCallback(
+    async (provider: ProviderDef) => {
+      if (!editKey.trim()) return;
+      setKeySaving(true);
+      setKeyError('');
+      setKeySuccess('');
+      try {
+        const result = await window.marketbot.writeCredentials({
+          profileId: provider.profileId,
+          provider: provider.id,
+          apiKey: editKey.trim(),
+        });
+        if (!result.ok) {
+          setKeyError(result.error || 'Failed to save key');
+          return;
+        }
+        setKeySuccess('Key saved. Restarting gateway...');
+        setEditKey('');
+        // Restart gateway to pick up new creds
+        await window.marketbot.restartGateway();
+        setKeySuccess('Key saved and gateway restarted');
+        setTimeout(() => {
+          setEditingProvider(null);
+          setKeySuccess('');
+          // Re-fetch after a brief delay for gateway to come up
+          setTimeout(fetchData, 4000);
+        }, 1500);
+      } catch (err) {
+        setKeyError(String(err));
+      } finally {
+        setKeySaving(false);
+      }
+    },
+    [editKey, fetchData],
+  );
+
+  if (!running) {
+    return (
+      <div className="ms-panel">
+        <div className="ms-header">
+          <h1 className="ms-title">AI Models</h1>
+        </div>
+        <div className="ms-offline">
+          <p>Gateway is offline. Settings will load once connected.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="ms-panel">
+        <div className="ms-header">
+          <h1 className="ms-title">AI Models</h1>
+        </div>
+        <div className="ms-loading">
+          <div className="loading-progress" style={{ width: 120 }}>
+            <div className="loading-progress-bar" />
+          </div>
+          <span>Loading models...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ms-panel">
+      <div className="ms-header">
+        <h1 className="ms-title">AI Models</h1>
+        <button className="ghost ms-refresh" onClick={() => fetchData(true)} title="Refresh">
+          <span
+            className="nav-icon"
+            dangerouslySetInnerHTML={{
+              __html:
+                '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a7 7 0 0113.36-2.83M17 10a7 7 0 01-13.36 2.83"/><path d="M16.5 3v4.5H12M3.5 17v-4.5H8"/></svg>',
+            }}
+          />
+        </button>
+      </div>
+
+      {error && <div className="ms-error">{error}</div>}
+
+      {/* ── Local Models ── */}
+      <section className="ms-section">
+        <h2 className="ms-section-title">Local Models</h2>
+        <p className="ms-section-desc">
+          Run AI models locally via Ollama. No API key required, completely private.
+        </p>
+
+        {!ollamaAvailable && (
+          <div className="ms-local-warning">
+            <span className="ms-local-warning-icon">!</span>
+            <div>
+              <strong>Ollama not detected</strong>
+              <p>
+                Install Ollama from{' '}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.marketbot.openExternal('https://ollama.com');
+                  }}
+                >
+                  ollama.com
+                </a>{' '}
+                and make sure it is running.
+              </p>
+              <button className="ghost ms-local-retry" onClick={checkOllamaStatus}>
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
+        {pullError && <div className="ms-local-error">{pullError}</div>}
+
+        <div className="ms-local-grid">
+          {LOCAL_MODELS.map((lm) => {
+            // Normalize: installed model names may have trailing ":latest"
+            const isInstalled = installedModels.some(
+              (m) => m === lm.id || m === `${lm.id}:latest` || m.startsWith(`${lm.id}:`),
+            );
+            const isPulling = pullingModel === lm.id;
+            const isPrimary = primaryModel === `ollama/${lm.id}`;
+
+            return (
+              <div
+                key={lm.id}
+                className={`ms-local-card${isInstalled ? ' installed' : ''}${isPrimary ? ' primary' : ''}`}
+              >
+                <div className="ms-local-card-header">
+                  <div className="ms-local-card-name">{lm.name}</div>
+                  <div className="ms-local-card-size">{lm.size}</div>
+                </div>
+                <div className="ms-local-card-desc">{lm.description}</div>
+                <div className="ms-local-card-meta">
+                  Context: {Math.round(lm.contextWindow / 1000)}k tokens
+                </div>
+
+                {isPulling ? (
+                  <div className="ms-local-progress-wrap">
+                    <div className="ms-local-progress-bar">
+                      <div
+                        className="ms-local-progress-fill"
+                        style={{ width: `${pullPercent}%` }}
+                      />
+                    </div>
+                    <div className="ms-local-progress-text">
+                      {pullPercent > 0 ? `${pullPercent}%` : pullStatus}
+                    </div>
+                  </div>
+                ) : isInstalled ? (
+                  <div className="ms-local-card-actions">
+                    <span className="ms-local-installed-badge">Installed</span>
+                    {isPrimary ? (
+                      <span className="ms-local-primary-badge">Primary</span>
+                    ) : (
+                      <button
+                        className="ms-local-set-primary"
+                        onClick={() => handleSetLocalPrimary(lm.id)}
+                        disabled={saving}
+                      >
+                        Set as Primary
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    className="ms-local-install-btn"
+                    onClick={() => handlePullModel(lm.id)}
+                    disabled={!ollamaAvailable || pullingModel !== null}
+                  >
+                    Install
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Primary Model ── */}
+      <section className="ms-section">
+        <h2 className="ms-section-title">Primary Model</h2>
+        <p className="ms-section-desc">
+          The default model used for all conversations and analysis.
+        </p>
+        <div className="ms-model-select-wrap">
+          <select
+            className="ms-model-select"
+            value={primaryModel}
+            onChange={(e) => handlePrimaryChange(e.target.value)}
+            disabled={saving}
+          >
+            {!primaryModel && <option value="">Select a model</option>}
+            {Object.entries(groupedModels).map(([provider, providerModels]) => (
+              <optgroup key={provider} label={provider}>
+                {providerModels.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name || m.id}
+                    {m.contextWindow ? ` (${Math.round(m.contextWindow / 1000)}k)` : ''}
+                    {m.reasoning ? ' [reasoning]' : ''}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {primaryModel && (
+            <div className="ms-current-badge">{primaryModel}</div>
+          )}
+        </div>
+        {saveMsg && (
+          <div className={`ms-save-msg${saveMsg.startsWith('Error') ? ' error' : ''}`}>
+            {saveMsg}
+          </div>
+        )}
+      </section>
+
+      {/* ── Fallback Models ── */}
+      <section className="ms-section">
+        <h2 className="ms-section-title">Fallback Models</h2>
+        <p className="ms-section-desc">
+          Used when the primary model is unavailable. Tried in order.
+        </p>
+        <div className="ms-fallback-list">
+          {fallbacks.length === 0 && (
+            <div className="ms-fallback-empty">No fallback models configured.</div>
+          )}
+          {fallbacks.map((fb, idx) => (
+            <div key={fb} className="ms-fallback-item">
+              <span className="ms-fallback-rank">{idx + 1}</span>
+              <span className="ms-fallback-name">{fb}</span>
+              <button
+                className="ms-fallback-remove"
+                onClick={() => removeFallback(idx)}
+                title="Remove"
+                disabled={saving}
+              >
+                x
+              </button>
+            </div>
+          ))}
+        </div>
+        {models.length > 0 && (
+          <div className="ms-fallback-add">
+            <select
+              className="ms-model-select small"
+              defaultValue=""
+              onChange={(e) => {
+                addFallback(e.target.value);
+                e.target.value = '';
+              }}
+              disabled={saving}
+            >
+              <option value="" disabled>
+                Add fallback...
+              </option>
+              {Object.entries(groupedModels).map(([provider, providerModels]) => (
+                <optgroup key={provider} label={provider}>
+                  {providerModels
+                    .filter((m) => m.id !== primaryModel && !fallbacks.includes(m.id))
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name || m.id}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        )}
+      </section>
+
+      {/* ── API Keys / Providers ── */}
+      <section className="ms-section">
+        <h2 className="ms-section-title">API Keys</h2>
+        <p className="ms-section-desc">
+          Manage credentials for each AI provider. Keys are stored locally.
+        </p>
+        <div className="ms-provider-grid">
+          {PROVIDERS.map((p) => {
+            const isConfigured = configuredProviders.has(p.id);
+            const isEditing = editingProvider === p.id;
+
+            return (
+              <div key={p.id} className={`ms-provider-card${isConfigured ? ' configured' : ''}`}>
+                <div className="ms-provider-top">
+                  <div className="ms-provider-badge" style={{ background: p.color }}>
+                    {p.label.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="ms-provider-info">
+                    <div className="ms-provider-name">{p.label}</div>
+                    <div className={`ms-provider-status${isConfigured ? ' ok' : ''}`}>
+                      {isConfigured ? 'Configured' : 'Not configured'}
+                    </div>
+                  </div>
+                  <button
+                    className="ghost ms-provider-edit"
+                    onClick={() => {
+                      if (isEditing) {
+                        setEditingProvider(null);
+                        setEditKey('');
+                        setKeyError('');
+                        setKeySuccess('');
+                      } else {
+                        setEditingProvider(p.id);
+                        setEditKey('');
+                        setKeyError('');
+                        setKeySuccess('');
+                      }
+                    }}
+                  >
+                    {isEditing ? 'Cancel' : isConfigured ? 'Change' : 'Add Key'}
+                  </button>
+                </div>
+                {isEditing && (
+                  <div className="ms-provider-edit-form fade-in">
+                    <input
+                      type="password"
+                      className="apikey-input"
+                      placeholder={p.placeholder}
+                      value={editKey}
+                      onChange={(e) => {
+                        setEditKey(e.target.value);
+                        setKeyError('');
+                      }}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && editKey.trim()) handleSaveKey(p);
+                      }}
+                    />
+                    <p className="apikey-hint">{p.hint}</p>
+                    {keyError && <div className="ms-key-error">{keyError}</div>}
+                    {keySuccess && <div className="ms-key-success">{keySuccess}</div>}
+                    <button
+                      className="primary ms-key-save"
+                      onClick={() => handleSaveKey(p)}
+                      disabled={!editKey.trim() || keySaving}
+                    >
+                      {keySaving ? 'Saving...' : 'Save Key'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 // ── App Component ──
 
 export default function App() {
@@ -543,7 +1234,7 @@ export default function App() {
   }, [phase, gatewayUrl]);
 
   const tabUrl = useMemo(() => {
-    if (!gatewayUrl) return '';
+    if (!gatewayUrl || activeTab === 'models') return '';
     return buildTabUrl(gatewayUrl, TABS[activeTab].path, gatewayToken);
   }, [gatewayUrl, gatewayToken, activeTab]);
 
@@ -614,6 +1305,7 @@ export default function App() {
   }
 
   const showWebview = phase === 'ready' && running && tabUrl;
+  const showModelSettings = activeTab === 'models' && phase === 'ready';
 
   return (
     <div className={`app${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
@@ -680,7 +1372,9 @@ export default function App() {
       </aside>
 
       <main className="content">
-        {showWebview ? (
+        {showModelSettings ? (
+          <ModelSettings gatewayUrl={gatewayUrl} gatewayToken={gatewayToken} running={running} />
+        ) : showWebview ? (
           <webview
             ref={webviewRef as React.Ref<HTMLElement>}
             src={tabUrl}
