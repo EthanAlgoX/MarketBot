@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain, shell, nativeImage, Tray, Menu, dialog } from "electron";
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import os from "node:os";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
 const __dirname = import.meta.dirname;
@@ -22,6 +23,25 @@ let tray = null;
 let updateTimer = null;
 let autoUpdater = null;
 let visibilityTimer = null;
+async function probeGatewayHealth(timeoutMs = 1200) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${GATEWAY_URL}api/health`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ params: {} }),
+      signal: controller.signal
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data?.ok !== false;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 function ensureDockVisible() {
   if (process.platform !== "darwin") return;
   try {
@@ -214,16 +234,24 @@ function runGateway(command, env) {
   if (gatewayProc) {
     return;
   }
-  gatewayProc = spawn(command[0], command.slice(1), {
-    cwd: REPO_ROOT,
-    env: { ...process.env, ...env },
-    stdio: "inherit"
-  });
-  gatewayProc.on("exit", () => {
-    gatewayProc = null;
-    mainWindow?.webContents.send("gateway:status", { running: false });
-  });
-  mainWindow?.webContents.send("gateway:status", { running: true });
+  void (async () => {
+    const alreadyRunning = await probeGatewayHealth();
+    if (alreadyRunning) {
+      mainWindow?.webContents.send("gateway:status", { running: true });
+      return;
+    }
+    gatewayProc = spawn(command[0], command.slice(1), {
+      cwd: REPO_ROOT,
+      env: { ...process.env, ...env },
+      stdio: "inherit"
+    });
+    gatewayProc.on("exit", async () => {
+      gatewayProc = null;
+      const stillRunning = await probeGatewayHealth();
+      mainWindow?.webContents.send("gateway:status", { running: stillRunning });
+    });
+    mainWindow?.webContents.send("gateway:status", { running: true });
+  })();
 }
 function stopGateway() {
   if (!gatewayProc) return;
@@ -329,5 +357,19 @@ app.on("activate", () => {
   } else {
     mainWindow?.show();
     mainWindow?.focus();
+  }
+});
+ipcMain.handle("gateway:token", () => {
+  try {
+    const configPath = join(os.homedir(), ".marketbot", "marketbot.json");
+    if (!existsSync(configPath)) return "";
+    const raw = readFileSync(configPath, "utf8");
+    const data = JSON.parse(raw);
+    const auth = data.gateway?.auth;
+    if (auth?.mode !== "token") return "";
+    return auth?.token ?? "";
+  } catch (error) {
+    console.error("[Desktop] failed to read gateway token", error);
+    return "";
   }
 });

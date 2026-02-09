@@ -4,6 +4,7 @@ declare global {
   interface Window {
     marketbot: {
       openControlUi: () => Promise<void>;
+      getGatewayToken: () => Promise<string>;
       quickstart: () => Promise<void>;
       openExternal: (url: string) => Promise<void>;
       onGatewayStatus: (handler: (status: { running: boolean }) => void) => void;
@@ -112,6 +113,18 @@ export default function App() {
     window.marketbot?.onGatewayStatus((status) => setRunning(status.running));
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    if (!gatewayToken.trim()) {
+      window.marketbot?.getGatewayToken().then((token) => {
+        if (mounted && token) setGatewayToken(token);
+      });
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [gatewayToken]);
+
   const tabUrl = useMemo(() => {
     return buildTabUrl(gatewayUrl, activeTab.path, gatewayToken);
   }, [gatewayUrl, activeTab, gatewayToken]);
@@ -124,11 +137,23 @@ export default function App() {
       injectTokenToWebview(view, gatewayToken);
     };
 
+    const handleFail = () => {
+      if (running) {
+        window.setTimeout(() => {
+          if (webviewRef.current) {
+            webviewRef.current.reload();
+          }
+        }, 1200);
+      }
+    };
+
     view.addEventListener('dom-ready', handleReady);
+    view.addEventListener('did-fail-load', handleFail);
     return () => {
       view.removeEventListener('dom-ready', handleReady);
+      view.removeEventListener('did-fail-load', handleFail);
     };
-  }, [gatewayToken]);
+  }, [gatewayToken, running]);
 
   useEffect(() => {
     let mounted = true;
@@ -143,6 +168,7 @@ export default function App() {
       if (mounted) {
         const ok = Boolean(healthRes && (healthRes as { ok?: boolean }).ok !== false);
         setHealth({ ok, detail: ok ? 'Healthy' : 'Unavailable' });
+        setRunning(ok);
       }
 
       const runsRes = await postJson<{ runs?: TraceRun[] }>(

@@ -1,8 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, shell } from 'electron';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = resolve(__filename, '..');
@@ -21,6 +22,26 @@ let tray: Tray | null = null;
 let updateTimer: NodeJS.Timeout | null = null;
 let autoUpdater: typeof import('electron-updater').autoUpdater | null = null;
 let visibilityTimer: NodeJS.Timeout | null = null;
+
+async function probeGatewayHealth(timeoutMs = 1200) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${GATEWAY_URL}api/health`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ params: {} }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { ok?: boolean };
+    return data?.ok !== false;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function ensureDockVisible() {
   if (process.platform !== 'darwin') return;
@@ -234,18 +255,26 @@ function runGateway(command: string[], env?: NodeJS.ProcessEnv) {
   if (gatewayProc) {
     return;
   }
-  gatewayProc = spawn(command[0], command.slice(1), {
-    cwd: REPO_ROOT,
-    env: { ...process.env, ...env },
-    stdio: 'inherit',
-  });
+  void (async () => {
+    const alreadyRunning = await probeGatewayHealth();
+    if (alreadyRunning) {
+      mainWindow?.webContents.send('gateway:status', { running: true });
+      return;
+    }
+    gatewayProc = spawn(command[0], command.slice(1), {
+      cwd: REPO_ROOT,
+      env: { ...process.env, ...env },
+      stdio: 'inherit',
+    });
 
-  gatewayProc.on('exit', () => {
-    gatewayProc = null;
-    mainWindow?.webContents.send('gateway:status', { running: false });
-  });
+    gatewayProc.on('exit', async () => {
+      gatewayProc = null;
+      const stillRunning = await probeGatewayHealth();
+      mainWindow?.webContents.send('gateway:status', { running: stillRunning });
+    });
 
-  mainWindow?.webContents.send('gateway:status', { running: true });
+    mainWindow?.webContents.send('gateway:status', { running: true });
+  })();
 }
 
 function stopGateway() {
@@ -366,3 +395,19 @@ app.on('activate', () => {
     mainWindow?.focus();
   }
 });
+  ipcMain.handle('gateway:token', () => {
+    try {
+      const configPath = join(os.homedir(), '.marketbot', 'marketbot.json');
+      if (!existsSync(configPath)) return '';
+      const raw = readFileSync(configPath, 'utf8');
+      const data = JSON.parse(raw) as {
+        gateway?: { auth?: { mode?: string; token?: string } };
+      };
+      const auth = data.gateway?.auth;
+      if (auth?.mode !== 'token') return '';
+      return auth?.token ?? '';
+    } catch (error) {
+      console.error('[Desktop] failed to read gateway token', error);
+      return '';
+    }
+  });
