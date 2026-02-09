@@ -9,6 +9,12 @@ declare global {
       restartGateway: () => Promise<void>;
       openExternal: (url: string) => Promise<void>;
       onGatewayStatus: (handler: (status: { running: boolean }) => void) => void;
+      readConfig: () => Promise<Record<string, unknown>>;
+      writeConfig: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
+      checkOnboarding: () => Promise<{ needsOnboarding: boolean }>;
+      markOnboardingDone: () => Promise<{ ok: boolean; error?: string }>;
+      writeCredentials: (args: { profileId: string; provider: string; apiKey: string }) =>
+        Promise<{ ok: boolean; error?: string }>;
     };
   }
 }
@@ -143,7 +149,282 @@ function injectTokenToWebview(webview: HTMLElement & { executeJavaScript: (code:
 
 // ── Boot phases ──
 
-type BootPhase = 'init' | 'starting' | 'connecting' | 'ready';
+type BootPhase = 'init' | 'onboarding' | 'starting' | 'connecting' | 'ready';
+
+// ── Provider definitions for the onboarding wizard ──
+
+interface ProviderDef {
+  id: string;
+  label: string;
+  profileId: string;
+  defaultModel: string;
+  placeholder: string;
+  hint: string;
+  color: string;
+}
+
+const PROVIDERS: ProviderDef[] = [
+  {
+    id: 'anthropic',
+    label: 'Anthropic',
+    profileId: 'anthropic:default',
+    defaultModel: 'anthropic/claude-sonnet-4-5',
+    placeholder: 'sk-ant-...',
+    hint: 'Get your key at console.anthropic.com',
+    color: '#d4a27f',
+  },
+  {
+    id: 'openai-codex',
+    label: 'OpenAI',
+    profileId: 'openai-codex:default',
+    defaultModel: 'openai/gpt-5.2',
+    placeholder: 'sk-...',
+    hint: 'Get your key at platform.openai.com',
+    color: '#74aa9c',
+  },
+  {
+    id: 'google',
+    label: 'Google',
+    profileId: 'google:default',
+    defaultModel: 'google/gemini-3-pro-preview',
+    placeholder: 'AIza...',
+    hint: 'Get your key at aistudio.google.com',
+    color: '#4285f4',
+  },
+  {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    profileId: 'deepseek:default',
+    defaultModel: 'deepseek/deepseek-chat',
+    placeholder: 'sk-...',
+    hint: 'Get your key at platform.deepseek.com',
+    color: '#4d9de0',
+  },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    profileId: 'openrouter:default',
+    defaultModel: 'openrouter/auto',
+    placeholder: 'sk-or-...',
+    hint: 'Get your key at openrouter.ai',
+    color: '#6c5ce7',
+  },
+  {
+    id: 'groq',
+    label: 'Groq',
+    profileId: 'groq:default',
+    defaultModel: 'groq/llama-3.1-70b-versatile',
+    placeholder: 'gsk_...',
+    hint: 'Get your key at console.groq.com',
+    color: '#f56565',
+  },
+  {
+    id: 'mistral',
+    label: 'Mistral',
+    profileId: 'mistral:default',
+    defaultModel: 'mistral/mistral-large-latest',
+    placeholder: '...',
+    hint: 'Get your key at console.mistral.ai',
+    color: '#ff7000',
+  },
+  {
+    id: 'xai',
+    label: 'xAI (Grok)',
+    profileId: 'xai:default',
+    defaultModel: 'xai/grok-beta',
+    placeholder: 'xai-...',
+    hint: 'Get your key at console.x.ai',
+    color: '#1da1f2',
+  },
+];
+
+// ── Onboarding Wizard ──
+
+type OnboardingStep = 'welcome' | 'provider' | 'apikey' | 'done';
+
+function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
+  const [step, setStep] = useState<OnboardingStep>('welcome');
+  const [selectedProvider, setSelectedProvider] = useState<ProviderDef | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleProviderSelect = useCallback((provider: ProviderDef) => {
+    setSelectedProvider(provider);
+    setApiKey('');
+    setError('');
+    setStep('apikey');
+  }, []);
+
+  const handleBack = useCallback(() => {
+    if (step === 'apikey') {
+      setStep('provider');
+      setError('');
+    } else if (step === 'provider') {
+      setStep('welcome');
+    }
+  }, [step]);
+
+  const handleSaveKey = useCallback(async () => {
+    if (!selectedProvider || !apiKey.trim()) return;
+    setSaving(true);
+    setError('');
+
+    try {
+      // Write credentials to the auth-profiles store.
+      const credResult = await window.marketbot.writeCredentials({
+        profileId: selectedProvider.profileId,
+        provider: selectedProvider.id,
+        apiKey: apiKey.trim(),
+      });
+      if (!credResult.ok) {
+        setError(credResult.error || 'Failed to save credentials');
+        setSaving(false);
+        return;
+      }
+
+      // Write the default model to config.
+      const configResult = await window.marketbot.writeConfig({
+        agents: {
+          defaults: {
+            model: { primary: selectedProvider.defaultModel },
+          },
+        },
+      });
+      if (!configResult.ok) {
+        setError(configResult.error || 'Failed to save config');
+        setSaving(false);
+        return;
+      }
+
+      // Mark onboarding as complete.
+      await window.marketbot.markOnboardingDone();
+
+      setStep('done');
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedProvider, apiKey]);
+
+  const handleFinish = useCallback(async () => {
+    // Restart gateway so it picks up the new credentials.
+    await window.marketbot.restartGateway();
+    onComplete();
+  }, [onComplete]);
+
+  return (
+    <div className="onboarding">
+      <div className="onboarding-container">
+        {/* Progress dots */}
+        <div className="onboarding-progress">
+          {(['welcome', 'provider', 'apikey', 'done'] as OnboardingStep[]).map((s, i) => (
+            <div
+              key={s}
+              className={`progress-dot${step === s ? ' active' : ''}${
+                ['welcome', 'provider', 'apikey', 'done'].indexOf(step) > i ? ' completed' : ''
+              }`}
+            />
+          ))}
+        </div>
+
+        {step === 'welcome' && (
+          <div className="onboarding-step fade-in">
+            <div className="onboarding-logo">
+              <div className="onboarding-logo-inner">MB</div>
+            </div>
+            <h1 className="onboarding-title">Welcome to MarketBot</h1>
+            <p className="onboarding-desc">
+              Your autonomous financial analysis agent. Let&apos;s get you set up
+              with an AI provider to get started.
+            </p>
+            <button className="primary onboarding-btn" onClick={() => setStep('provider')}>
+              Get Started
+            </button>
+          </div>
+        )}
+
+        {step === 'provider' && (
+          <div className="onboarding-step fade-in">
+            <h2 className="onboarding-step-title">Choose Your AI Provider</h2>
+            <p className="onboarding-desc">
+              Select the provider you&apos;d like to use. You can change this later in Settings.
+            </p>
+            <div className="provider-grid">
+              {PROVIDERS.map((p) => (
+                <button
+                  key={p.id}
+                  className="provider-card"
+                  onClick={() => handleProviderSelect(p)}
+                >
+                  <div className="provider-badge" style={{ background: p.color }}>
+                    {p.label.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="provider-name">{p.label}</div>
+                </button>
+              ))}
+            </div>
+            <button className="ghost onboarding-back" onClick={handleBack}>
+              Back
+            </button>
+          </div>
+        )}
+
+        {step === 'apikey' && selectedProvider && (
+          <div className="onboarding-step fade-in">
+            <h2 className="onboarding-step-title">Enter API Key</h2>
+            <p className="onboarding-desc">
+              Paste your <strong>{selectedProvider.label}</strong> API key below.
+            </p>
+            <div className="apikey-input-wrap">
+              <input
+                type="password"
+                className="apikey-input"
+                placeholder={selectedProvider.placeholder}
+                value={apiKey}
+                onChange={(e) => { setApiKey(e.target.value); setError(''); }}
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter' && apiKey.trim()) handleSaveKey(); }}
+              />
+              <p className="apikey-hint">{selectedProvider.hint}</p>
+            </div>
+            {error && <div className="onboarding-error">{error}</div>}
+            <div className="onboarding-actions">
+              <button className="ghost" onClick={handleBack}>Back</button>
+              <button
+                className="primary"
+                onClick={handleSaveKey}
+                disabled={!apiKey.trim() || saving}
+              >
+                {saving ? 'Saving...' : 'Save & Continue'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 'done' && (
+          <div className="onboarding-step fade-in">
+            <div className="onboarding-check">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M8 12l3 3 5-6" />
+              </svg>
+            </div>
+            <h2 className="onboarding-step-title">You&apos;re All Set</h2>
+            <p className="onboarding-desc">
+              MarketBot is configured with <strong>{selectedProvider?.label}</strong>.
+              The gateway will restart with your new credentials.
+            </p>
+            <button className="primary onboarding-btn" onClick={handleFinish}>
+              Start Using MarketBot
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── App Component ──
 
@@ -158,7 +439,7 @@ export default function App() {
   const webviewRef = useRef<(HTMLElement & { loadURL: (url: string) => void; reload: () => void; executeJavaScript: (code: string, userGesture?: boolean) => Promise<unknown> }) | null>(null);
   const prevUrlRef = useRef('');
 
-  // Phase 1: Fetch config from main process.
+  // Phase 1: Fetch config from main process, then check onboarding.
   useEffect(() => {
     let mounted = true;
     setPhase('init');
@@ -167,12 +448,25 @@ export default function App() {
       window.marketbot?.getGatewayToken(),
       window.marketbot?.getGatewayUrl(),
       window.marketbot?.getWebviewPreloadPath(),
-    ]).then(([token, url, preload]) => {
+    ]).then(async ([token, url, preload]) => {
       if (!mounted) return;
       setGatewayToken(token || '');
       setGatewayUrl(url || 'http://127.0.0.1:18789/');
       setWebviewPreload(preload || '');
-      setPhase('starting');
+
+      // Check if onboarding is needed before proceeding.
+      try {
+        const { needsOnboarding } = await window.marketbot.checkOnboarding();
+        if (!mounted) return;
+        if (needsOnboarding) {
+          setPhase('onboarding');
+          return;
+        }
+      } catch {
+        // If check fails, skip onboarding.
+      }
+
+      if (mounted) setPhase('starting');
     }).catch(() => {
       if (mounted) setPhase('starting');
     });
@@ -309,6 +603,15 @@ export default function App() {
     setPhase('connecting');
     await window.marketbot.restartGateway();
   }, []);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setPhase('connecting');
+  }, []);
+
+  // During onboarding, render only the wizard (no sidebar).
+  if (phase === 'onboarding') {
+    return <OnboardingWizard onComplete={handleOnboardingComplete} />;
+  }
 
   const showWebview = phase === 'ready' && running && tabUrl;
 

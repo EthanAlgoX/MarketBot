@@ -14,4 +14,5 @@ contextBridge.exposeInMainWorld('marketbot', {
   writeConfig: (patch) => ipcRenderer.invoke('config:write', patch),
   checkOnboarding: () => ipcRenderer.invoke('config:check-onboarding'),
   markOnboardingDone: () => ipcRenderer.invoke('config:mark-onboarding-done'),
+  writeCredentials: (args) => ipcRenderer.invoke('credentials:write', args),
 });

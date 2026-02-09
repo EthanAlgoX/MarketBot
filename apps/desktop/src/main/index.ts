@@ -582,22 +582,46 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('config:check-onboarding', () => {
-    // Check if the user has completed onboarding by looking for provider config.
+    // Check if the user has completed onboarding by looking for:
+    // 1. Auth profiles in ~/.marketbot/agents/main/agent/auth-profiles.json
+    // 2. Legacy provider config in the main config file
+    // 3. The _desktop.onboardingComplete flag
+    // 4. Environment variable API keys
     try {
       const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
       const configPath = envConfigPath ? resolve(REPO_ROOT, envConfigPath) : CONFIG_PATH;
+
+      // Check the auth-profiles store for any configured credentials.
+      const authStorePath = join(STATE_DIR, 'agents', 'main', 'agent', 'auth-profiles.json');
+      let hasAuthProfiles = false;
+      if (existsSync(authStorePath)) {
+        try {
+          const store = JSON.parse(readFileSync(authStorePath, 'utf8'));
+          hasAuthProfiles = store?.profiles && Object.keys(store.profiles).length > 0;
+        } catch { /* ignore */ }
+      }
+
+      if (hasAuthProfiles) return { needsOnboarding: false };
+
+      // Check environment variable API keys.
+      if (process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY) {
+        return { needsOnboarding: false };
+      }
+
+      // Check main config file.
       if (!existsSync(configPath)) return { needsOnboarding: true };
       const config = JSON.parse(readFileSync(configPath, 'utf8'));
-      // If there's a provider configured (e.g., Ollama, OpenAI, Anthropic), onboarding is done.
-      const hasProvider = Boolean(
-        config.provider ||
-        config.providers ||
-        config.ollama ||
-        process.env.OPENAI_API_KEY ||
-        process.env.ANTHROPIC_API_KEY,
-      );
+
       const hasOnboardingDone = config._desktop?.onboardingComplete === true;
-      return { needsOnboarding: !hasProvider && !hasOnboardingDone };
+      if (hasOnboardingDone) return { needsOnboarding: false };
+
+      // Check for auth.profiles in config (legacy/alternative config pattern).
+      const authProfiles = config.auth?.profiles;
+      if (authProfiles && typeof authProfiles === 'object' && Object.keys(authProfiles).length > 0) {
+        return { needsOnboarding: false };
+      }
+
+      return { needsOnboarding: true };
     } catch {
       return { needsOnboarding: true };
     }
@@ -619,6 +643,53 @@ app.whenReady().then(() => {
       });
       return { ok: true };
     } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  });
+
+  // Credentials IPC: write API key credentials to the auth-profiles store.
+  // The store lives at ~/.marketbot/agents/main/agent/auth-profiles.json.
+  ipcMain.handle('credentials:write', (_event, args: {
+    profileId: string;
+    provider: string;
+    apiKey: string;
+  }) => {
+    try {
+      const agentDir = join(STATE_DIR, 'agents', 'main', 'agent');
+      const authStorePath = join(agentDir, 'auth-profiles.json');
+
+      // Ensure directory exists.
+      mkdirSync(agentDir, { recursive: true, mode: 0o700 });
+
+      // Load existing store or create new one.
+      let store: { version: number; profiles: Record<string, unknown> } = {
+        version: 1,
+        profiles: {},
+      };
+      if (existsSync(authStorePath)) {
+        try {
+          const raw = JSON.parse(readFileSync(authStorePath, 'utf8'));
+          if (raw && typeof raw === 'object' && raw.profiles) {
+            store = raw;
+          }
+        } catch { /* ignore corrupt file */ }
+      }
+
+      // Upsert the credential.
+      store.profiles[args.profileId] = {
+        type: 'api_key',
+        provider: args.provider,
+        key: args.apiKey,
+      };
+
+      writeFileSync(authStorePath, JSON.stringify(store, null, 2) + '\n', {
+        encoding: 'utf-8',
+        mode: 0o600,
+      });
+      console.log('[Desktop] credentials written for', args.profileId);
+      return { ok: true };
+    } catch (err) {
+      console.error('[Desktop] credentials:write failed', err);
       return { ok: false, error: String(err) };
     }
   });

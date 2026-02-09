@@ -408,3 +408,260 @@ button.ghost .nav-icon {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(400%); }
 }
+
+/* ── Onboarding Wizard ── */
+
+.onboarding {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.onboarding-container {
+  width: 100%;
+  max-width: 520px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+/* macOS drag region at top of onboarding */
+.onboarding::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 38px;
+  -webkit-app-region: drag;
+  z-index: 100;
+}
+
+/* Progress dots */
+.onboarding-progress {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(140, 166, 216, 0.2);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.progress-dot.active {
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(43, 228, 255, 0.4);
+}
+
+.progress-dot.completed {
+  background: rgba(43, 228, 255, 0.5);
+}
+
+/* Step content */
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  width: 100%;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Logo */
+.onboarding-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(43, 228, 255, 0.12), rgba(75, 123, 255, 0.12));
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+}
+
+.onboarding-logo-inner {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #2be4ff, #4b7bff);
+  color: #031018;
+  font-weight: 700;
+  font-size: 20px;
+  display: grid;
+  place-items: center;
+}
+
+.onboarding-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.onboarding-step-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.onboarding-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 400px;
+  margin: 0;
+}
+
+.onboarding-desc strong {
+  color: var(--text);
+}
+
+.onboarding-btn {
+  margin-top: 8px;
+  padding: 10px 28px;
+  font-size: 13px;
+}
+
+.onboarding-back {
+  margin-top: 4px;
+  font-size: 12px;
+  padding: 6px 14px;
+}
+
+/* Provider grid */
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.provider-card {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid rgba(61, 94, 138, 0.25);
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  box-sizing: border-box;
+}
+
+.provider-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  transform: translateY(-1px);
+}
+
+.provider-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.provider-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* API key input */
+.apikey-input-wrap {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.apikey-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(61, 94, 138, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.apikey-input:focus {
+  border-color: var(--accent);
+}
+
+.apikey-input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+
+.apikey-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.onboarding-error {
+  font-size: 12px;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  max-width: 380px;
+  width: 100%;
+  text-align: left;
+}
+
+.onboarding-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* Done step check */
+.onboarding-check {
+  width: 56px;
+  height: 56px;
+  color: #34d399;
+  margin-bottom: 4px;
+}
+
+.onboarding-check svg {
+  width: 100%;
+  height: 100%;
+}

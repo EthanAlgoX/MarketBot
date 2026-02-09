@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('marketbot', {
   writeConfig: (patch: Record<string, unknown>) => ipcRenderer.invoke('config:write', patch),
   checkOnboarding: () => ipcRenderer.invoke('config:check-onboarding'),
   markOnboardingDone: () => ipcRenderer.invoke('config:mark-onboarding-done'),
+  writeCredentials: (args: { profileId: string; provider: string; apiKey: string }) =>
+    ipcRenderer.invoke('credentials:write', args),
 });
 
 export type MarketBotDesktopApi = {
@@ -27,4 +29,6 @@ export type MarketBotDesktopApi = {
   writeConfig: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
   checkOnboarding: () => Promise<{ needsOnboarding: boolean }>;
   markOnboardingDone: () => Promise<{ ok: boolean; error?: string }>;
+  writeCredentials: (args: { profileId: string; provider: string; apiKey: string }) =>
+    Promise<{ ok: boolean; error?: string }>;
 };

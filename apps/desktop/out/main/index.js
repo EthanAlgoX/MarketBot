@@ -1,5 +1,5 @@
 import { app, BrowserWindow, session, ipcMain, shell, nativeImage, Tray, Menu, dialog } from "electron";
-import { spawn } from "node:child_process";
+import { fork, spawn } from "node:child_process";
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,10 +14,22 @@ const __dirname$1 = resolve(__filename$1, "..");
 const APP_NAME = "MarketBot Desktop";
 const GATEWAY_PORT = 18789;
 const GATEWAY_URL = `http://127.0.0.1:${GATEWAY_PORT}/`;
+const IS_PACKAGED = app.isPackaged;
 const CWD = process.cwd();
 const REPO_ROOT = CWD.endsWith("/apps/desktop") ? resolve(CWD, "../..") : CWD;
-const PRELOAD_PATH = join(REPO_ROOT, "apps/desktop/preload.cjs");
-const WEBVIEW_PRELOAD_PATH = join(REPO_ROOT, "apps/desktop/webview-preload.cjs");
+const GATEWAY_BUNDLE_DIR = IS_PACKAGED ? join(process.resourcesPath, "gateway-bundle") : REPO_ROOT;
+function resolvePreloadPath() {
+  if (IS_PACKAGED) {
+    return join(app.getAppPath(), "preload.cjs");
+  }
+  return join(REPO_ROOT, "apps/desktop/preload.cjs");
+}
+function resolveWebviewPreloadPath() {
+  if (IS_PACKAGED) {
+    return join(app.getAppPath(), "webview-preload.cjs");
+  }
+  return join(REPO_ROOT, "apps/desktop/webview-preload.cjs");
+}
 const STATE_DIR = join(os.homedir(), ".marketbot");
 const CONFIG_PATH = join(STATE_DIR, "marketbot.json");
 let mainWindow = null;
@@ -29,22 +41,24 @@ let autoUpdater = null;
 let gatewayToken = "";
 let gatewayRestartTimer = null;
 function ensureConfig() {
-  const dotenvPath = join(REPO_ROOT, ".env");
-  if (existsSync(dotenvPath)) {
-    try {
-      const raw = readFileSync(dotenvPath, "utf8");
-      for (const line of raw.split("\n")) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith("#")) continue;
-        const eqIdx = trimmed.indexOf("=");
-        if (eqIdx <= 0) continue;
-        const key = trimmed.slice(0, eqIdx).trim();
-        const val = trimmed.slice(eqIdx + 1).trim();
-        if (!(key in process.env)) {
-          process.env[key] = val;
+  if (!IS_PACKAGED) {
+    const dotenvPath = join(REPO_ROOT, ".env");
+    if (existsSync(dotenvPath)) {
+      try {
+        const raw = readFileSync(dotenvPath, "utf8");
+        for (const line of raw.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          const eqIdx = trimmed.indexOf("=");
+          if (eqIdx <= 0) continue;
+          const key = trimmed.slice(0, eqIdx).trim();
+          const val = trimmed.slice(eqIdx + 1).trim();
+          if (!(key in process.env)) {
+            process.env[key] = val;
+          }
         }
+      } catch {
       }
-    } catch {
     }
   }
   const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
@@ -119,16 +133,49 @@ function startGateway() {
       broadcastGatewayStatus(true);
       return;
     }
-    console.log("[Desktop] starting gateway subprocess");
-    const child = spawn(
-      "pnpm",
-      ["-s", "marketbot", "gateway", "run", "--bind", "loopback", "--port", String(GATEWAY_PORT), "--force"],
-      {
-        cwd: REPO_ROOT,
-        env: { ...process.env },
-        stdio: "inherit"
-      }
-    );
+    console.log("[Desktop] starting gateway subprocess", { packaged: IS_PACKAGED });
+    let child;
+    if (IS_PACKAGED) {
+      const entryScript = join(GATEWAY_BUNDLE_DIR, "marketbot.mjs");
+      const gatewayArgs = [
+        "gateway",
+        "run",
+        "--bind",
+        "loopback",
+        "--port",
+        String(GATEWAY_PORT),
+        "--force"
+      ];
+      console.log("[Desktop] forking", entryScript, gatewayArgs);
+      child = fork(entryScript, gatewayArgs, {
+        cwd: GATEWAY_BUNDLE_DIR,
+        env: {
+          ...process.env,
+          // Ensure the gateway finds its own node_modules.
+          NODE_PATH: join(GATEWAY_BUNDLE_DIR, "node_modules")
+        },
+        stdio: ["ignore", "pipe", "pipe", "ipc"],
+        // Use Electron's built-in Node.js to run the script.
+        execPath: process.execPath,
+        execArgv: ["--no-warnings"]
+      });
+      child.stdout?.on("data", (data) => {
+        process.stdout.write(`[Gateway] ${data.toString()}`);
+      });
+      child.stderr?.on("data", (data) => {
+        process.stderr.write(`[Gateway:err] ${data.toString()}`);
+      });
+    } else {
+      child = spawn(
+        "pnpm",
+        ["-s", "marketbot", "gateway", "run", "--bind", "loopback", "--port", String(GATEWAY_PORT), "--force"],
+        {
+          cwd: REPO_ROOT,
+          env: { ...process.env },
+          stdio: "inherit"
+        }
+      );
+    }
     gatewayProc = child;
     child.on("exit", (code) => {
       console.log("[Desktop] gateway exited", { code });
@@ -228,6 +275,8 @@ if (!isDevInstance) {
   }
 }
 function createWindow() {
+  const preloadPath = resolvePreloadPath();
+  console.log("[Desktop] preload path:", preloadPath);
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 760,
@@ -240,7 +289,7 @@ function createWindow() {
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 14, y: 14 },
     webPreferences: {
-      preload: PRELOAD_PATH,
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -289,6 +338,10 @@ function createWindow() {
   });
 }
 function resolveRendererPath() {
+  if (IS_PACKAGED) {
+    const asarRenderer = join(app.getAppPath(), "dist/renderer/index.html");
+    if (existsSync(asarRenderer)) return asarRenderer;
+  }
   const outRenderer = join(__dirname$1, "../renderer/index.html");
   if (existsSync(outRenderer)) return outRenderer;
   const distRenderer = join(REPO_ROOT, "apps/desktop/dist/renderer/index.html");
@@ -296,7 +349,7 @@ function resolveRendererPath() {
   return outRenderer;
 }
 async function setupAutoUpdates() {
-  if (!app.isPackaged || isDevInstance) {
+  if (!IS_PACKAGED || isDevInstance) {
     console.log("[Desktop] auto-update disabled (not packaged)");
     return;
   }
@@ -341,7 +394,12 @@ app.whenReady().then(() => {
   app.setName(APP_NAME);
   app.setAppUserModelId("ai.marketbot.desktop");
   app.setActivationPolicy("regular");
-  console.log("[Desktop] ready", { platform: process.platform });
+  console.log("[Desktop] ready", {
+    platform: process.platform,
+    packaged: IS_PACKAGED,
+    resourcesPath: IS_PACKAGED ? process.resourcesPath : "N/A (dev)",
+    gatewayBundle: GATEWAY_BUNDLE_DIR
+  });
   gatewayToken = ensureConfig();
   const gatewayFilter = { urls: [`http://127.0.0.1:${GATEWAY_PORT}/*`, `http://localhost:${GATEWAY_PORT}/*`] };
   session.defaultSession.webRequest.onBeforeSendHeaders(gatewayFilter, (details, callback) => {
@@ -356,15 +414,143 @@ app.whenReady().then(() => {
     headers["access-control-allow-headers"] = ["Content-Type, Authorization"];
     callback({ cancel: false, responseHeaders: headers });
   });
+  const webviewPreloadPath = resolveWebviewPreloadPath();
   ipcMain.handle("gateway:token", () => gatewayToken);
   ipcMain.handle("gateway:url", () => GATEWAY_URL);
-  ipcMain.handle("webview:preload-path", () => `file://${WEBVIEW_PRELOAD_PATH}`);
+  ipcMain.handle("webview:preload-path", () => `file://${webviewPreloadPath}`);
   ipcMain.handle("gateway:restart", () => {
     stopGateway();
     startGateway();
   });
   ipcMain.handle("shell:open", (_event, url) => {
     if (url?.startsWith("http")) shell.openExternal(url);
+  });
+  ipcMain.handle("config:read", () => {
+    try {
+      const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+      const configPath = envConfigPath ? resolve(REPO_ROOT, envConfigPath) : CONFIG_PATH;
+      if (existsSync(configPath)) {
+        return JSON.parse(readFileSync(configPath, "utf8"));
+      }
+    } catch {
+    }
+    return {};
+  });
+  ipcMain.handle("config:write", (_event, patch) => {
+    try {
+      const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+      const configPath = envConfigPath ? resolve(REPO_ROOT, envConfigPath) : CONFIG_PATH;
+      let config = {};
+      if (existsSync(configPath)) {
+        try {
+          config = JSON.parse(readFileSync(configPath, "utf8"));
+        } catch {
+        }
+      }
+      for (const [key, value] of Object.entries(patch)) {
+        if (typeof value === "object" && value !== null && !Array.isArray(value) && typeof config[key] === "object" && config[key] !== null && !Array.isArray(config[key])) {
+          config[key] = { ...config[key], ...value };
+        } else {
+          config[key] = value;
+        }
+      }
+      mkdirSync(resolve(configPath, ".."), { recursive: true, mode: 448 });
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", {
+        encoding: "utf-8",
+        mode: 384
+      });
+      console.log("[Desktop] config updated via IPC");
+      return { ok: true };
+    } catch (err) {
+      console.error("[Desktop] config:write failed", err);
+      return { ok: false, error: String(err) };
+    }
+  });
+  ipcMain.handle("config:check-onboarding", () => {
+    try {
+      const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+      const configPath = envConfigPath ? resolve(REPO_ROOT, envConfigPath) : CONFIG_PATH;
+      const authStorePath = join(STATE_DIR, "agents", "main", "agent", "auth-profiles.json");
+      let hasAuthProfiles = false;
+      if (existsSync(authStorePath)) {
+        try {
+          const store = JSON.parse(readFileSync(authStorePath, "utf8"));
+          hasAuthProfiles = store?.profiles && Object.keys(store.profiles).length > 0;
+        } catch {
+        }
+      }
+      if (hasAuthProfiles) return { needsOnboarding: false };
+      if (process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY) {
+        return { needsOnboarding: false };
+      }
+      if (!existsSync(configPath)) return { needsOnboarding: true };
+      const config = JSON.parse(readFileSync(configPath, "utf8"));
+      const hasOnboardingDone = config._desktop?.onboardingComplete === true;
+      if (hasOnboardingDone) return { needsOnboarding: false };
+      const authProfiles = config.auth?.profiles;
+      if (authProfiles && typeof authProfiles === "object" && Object.keys(authProfiles).length > 0) {
+        return { needsOnboarding: false };
+      }
+      return { needsOnboarding: true };
+    } catch {
+      return { needsOnboarding: true };
+    }
+  });
+  ipcMain.handle("config:mark-onboarding-done", () => {
+    try {
+      const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+      const configPath = envConfigPath ? resolve(REPO_ROOT, envConfigPath) : CONFIG_PATH;
+      let config = {};
+      if (existsSync(configPath)) {
+        try {
+          config = JSON.parse(readFileSync(configPath, "utf8"));
+        } catch {
+        }
+      }
+      config._desktop = { ...config._desktop ?? {}, onboardingComplete: true };
+      mkdirSync(resolve(configPath, ".."), { recursive: true, mode: 448 });
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", {
+        encoding: "utf-8",
+        mode: 384
+      });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  });
+  ipcMain.handle("credentials:write", (_event, args) => {
+    try {
+      const agentDir = join(STATE_DIR, "agents", "main", "agent");
+      const authStorePath = join(agentDir, "auth-profiles.json");
+      mkdirSync(agentDir, { recursive: true, mode: 448 });
+      let store = {
+        version: 1,
+        profiles: {}
+      };
+      if (existsSync(authStorePath)) {
+        try {
+          const raw = JSON.parse(readFileSync(authStorePath, "utf8"));
+          if (raw && typeof raw === "object" && raw.profiles) {
+            store = raw;
+          }
+        } catch {
+        }
+      }
+      store.profiles[args.profileId] = {
+        type: "api_key",
+        provider: args.provider,
+        key: args.apiKey
+      };
+      writeFileSync(authStorePath, JSON.stringify(store, null, 2) + "\n", {
+        encoding: "utf-8",
+        mode: 384
+      });
+      console.log("[Desktop] credentials written for", args.profileId);
+      return { ok: true };
+    } catch (err) {
+      console.error("[Desktop] credentials:write failed", err);
+      return { ok: false, error: String(err) };
+    }
   });
   if (process.platform === "darwin") {
     try {
