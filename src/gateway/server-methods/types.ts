@@ -46,7 +46,7 @@ export type GatewayRequestContext = {
   deps: ReturnType<typeof createDefaultDeps>;
   cron: CronService;
   cronStorePath: string;
-  loadGatewayModelCatalog: () => Promise<ModelCatalogEntry[]>;
+  loadGatewayModelCatalog: (opts?: { useCache?: boolean }) => Promise<ModelCatalogEntry[]>;
   getHealthCache: () => HealthSummary | null;
   refreshHealthSnapshot: (opts?: { probe?: boolean }) => Promise<HealthSummary>;
   logHealth: { error: (message: string) => void };

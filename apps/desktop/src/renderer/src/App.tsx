@@ -651,20 +651,30 @@ function ModelSettings({
     setSaving(true);
     setSaveMsg('');
     try {
+      // Write to config file via IPC (for persistence).
       const result = await window.marketbot.setOllamaModel(modelId);
-      if (result.ok) {
-        setPrimaryModel(`ollama/${modelId}`);
-        setSaveMsg(`Primary model set to ollama/${modelId}`);
-        setTimeout(() => setSaveMsg(''), 3000);
-      } else {
+      if (!result.ok) {
         setSaveMsg(`Error: ${result.error}`);
+        return;
       }
+      setPrimaryModel(`ollama/${modelId}`);
+      setSaveMsg(`Primary model set to ollama/${modelId}`);
+      // Tell the gateway to reload config via RPC.
+      try {
+        await rpc('config.patch', {
+          patch: { agents: { defaults: { model: { primary: `ollama/${modelId}` } } } },
+        });
+      } catch {
+        // Fallback if RPC unavailable.
+        await window.marketbot.restartGateway();
+      }
+      setTimeout(() => setSaveMsg(''), 3000);
     } catch (err) {
       setSaveMsg(`Error: ${String(err)}`);
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [rpc]);
 
   // Group models by provider for the dropdown, merging installed local models.
   const groupedModels = useMemo(() => {
@@ -784,14 +794,29 @@ function ModelSettings({
         }
         setKeySuccess('Key saved. Restarting gateway...');
         setEditKey('');
-        // Restart gateway to pick up new creds
-        await window.marketbot.restartGateway();
+        // Trigger gateway restart via RPC so it reloads auth-profiles.
+        // This works even when the desktop app is piggybacking on an
+        // external (CLI-started) gateway, unlike the IPC restartGateway
+        // which only kills/restarts processes the desktop spawned itself.
+        try {
+          await window.marketbot.restartGateway();
+        } catch {
+          // Ignore restart errors; the gateway may already be restarting.
+        }
         setKeySuccess('Key saved and gateway restarted');
         setTimeout(() => {
           setEditingProvider(null);
           setKeySuccess('');
-          // Re-fetch after a brief delay for gateway to come up
-          setTimeout(fetchData, 4000);
+          // Re-fetch with refresh=true to bust the model catalog cache
+          // so newly-configured providers appear immediately.
+          setTimeout(async () => {
+            try {
+              await rpc('models.list', { refresh: true });
+            } catch {
+              // ignore; fetchData below will retry with cache
+            }
+            fetchData();
+          }, 4000);
         }, 1500);
       } catch (err) {
         setKeyError(String(err));
@@ -799,7 +824,7 @@ function ModelSettings({
         setKeySaving(false);
       }
     },
-    [editKey, fetchData],
+    [editKey, fetchData, rpc],
   );
 
   if (!running) {

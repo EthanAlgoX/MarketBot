@@ -64,7 +64,12 @@ export const AgentsListResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const ModelsListParamsSchema = Type.Object({}, { additionalProperties: false });
+export const ModelsListParamsSchema = Type.Object(
+  {
+    refresh: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
 
 export const ModelsListResultSchema = Type.Object(
   {
