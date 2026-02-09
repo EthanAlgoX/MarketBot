@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('marketbot', {
   pullOllamaModel: (modelId) => ipcRenderer.invoke('ollama:pull', modelId),
   setOllamaModel: (modelId) => ipcRenderer.invoke('ollama:set-model', modelId),
   onOllamaPullProgress: (handler) => {
-    ipcRenderer.on('ollama:pull-progress', (_event, progress) => handler(progress));
+    const wrapped = (_event, progress) => handler(progress);
+    ipcRenderer.on('ollama:pull-progress', wrapped);
+    return () => ipcRenderer.removeListener('ollama:pull-progress', wrapped);
   },
 });

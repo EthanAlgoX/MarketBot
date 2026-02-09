@@ -27,7 +27,7 @@ declare global {
         percent?: number;
         done?: boolean;
         error?: string;
-      }) => void) => void;
+      }) => void) => () => void;
     };
   }
 }
@@ -605,7 +605,7 @@ function ModelSettings({
   }, [checkOllamaStatus]);
 
   useEffect(() => {
-    window.marketbot.onOllamaPullProgress((progress) => {
+    const cleanup = window.marketbot.onOllamaPullProgress((progress) => {
       if (progress.done) {
         setPullingModel(null);
         setPullPercent(0);
@@ -630,6 +630,7 @@ function ModelSettings({
         }
       }
     });
+    return cleanup;
   }, [checkOllamaStatus, fetchData]);
 
   // Pull a local model via ollama.
