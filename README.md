@@ -6,18 +6,13 @@
 
 Finance-first autonomous agent for market research and multi-channel delivery.
 
-MarketBot is designed around 2 primary surfaces:
-
-- **MarketBot Desktop (primary)**: unified Finance Desk UI with built-in Control UI tabs (chat, stocks, runs, config, channels)
-- TUI: local file analysis and interactive workflows
-
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-22+-green)](https://nodejs.org/)
 
 ![Demo video](docs/video.gif)
 
-A single command for the entire stock analysis workflow 👉 Turns “download data → analyze → visualize → report” into a single AI task.
+A single command for the entire stock analysis workflow -- turns "download data, analyze, visualize, report" into a single AI task.
 
 ## What MarketBot Does
 
@@ -28,21 +23,21 @@ A single command for the entire stock analysis workflow 👉 Turns “download d
 
 ## Core Features
 
-- Daily Stocks: watchlist-driven, repeatable daily analysis with decision dashboards and report output
-- Research Chat: browse, capture sources, and write memo-like summaries (finance tone)
-- Tech UI: neon grid, glass panels, and high-contrast data surfaces for desk workflows
-- Portfolio analytics: risk, correlation, optimization, and comparisons
-- File analysis: summarize local CSV/JSON/PDF and generate finance-style notes
-- Delivery ops: connect channels, inspect sessions, schedule cron, tail logs
-- Multi-channel delivery: built-in channels plus optional extensions (including China IM plugins)
+- **Daily Stocks**: watchlist-driven, repeatable daily analysis with decision dashboards and report output
+- **Research Chat**: browse, capture sources, and write memo-like summaries (finance tone)
+- **Desktop App**: standalone Electron app with native sidebar, embedded Control UI, and auto-managed gateway
+- **Portfolio analytics**: risk, correlation, optimization, and comparisons
+- **File analysis**: summarize local CSV/JSON/PDF and generate finance-style notes
+- **Delivery ops**: connect channels, inspect sessions, schedule cron, tail logs
+- **Multi-channel delivery**: built-in channels plus optional extensions (including China IM plugins)
 
-## Functional Design
+## Architecture
 
-MarketBot is structured as a local Gateway that exposes finance + ops capabilities to both Desktop UI and TUI.
+MarketBot is structured as a local Gateway that exposes finance and ops capabilities to both the Desktop app and TUI.
 
 ```mermaid
 flowchart LR
-  U["You (Desktop UI / TUI)"] --> G["Gateway"]
+  U["You (Desktop / TUI)"] --> G["Gateway"]
   G --> B["Built-in Browser (profile: marketbot)"]
   G --> F["Finance Engine (Daily Stocks, reports, risk)"]
   G --> O["Ops (Channels, Sessions, Cron, Logs)"]
@@ -50,6 +45,125 @@ flowchart LR
   B --> F
   F --> D
 ```
+
+Key design choices:
+
+- **Browser-first data capture**: market endpoints and pages are fetched through a managed browser to reduce request blocking and to keep capture behavior consistent.
+- **Report outputs**: primary outputs are markdown reports intended to read like research notes.
+- **Separation of concerns**: finance calculations are deterministic; agent writing and summarization is layered on top.
+- **Delivery is explicit**: connect a channel, verify status, then send or schedule.
+
+## MarketBot Desktop
+
+MarketBot Desktop is a standalone Electron application. Install it, launch it, and it works -- no manual gateway setup, no token configuration, no terminal commands.
+
+**What happens on first launch:**
+
+1. The app creates `~/.marketbot/marketbot.json` with a generated auth token (if no config exists).
+2. The gateway starts automatically as a background subprocess on port 18789.
+3. The UI connects to the gateway and loads the Chat tab.
+
+**What happens on subsequent launches:**
+
+1. The existing config and token are reused.
+2. If an external gateway is already running (e.g. started from the CLI), the app piggybacks on it instead of spawning a duplicate.
+3. If the gateway crashes, the app restarts it automatically after 3 seconds.
+
+**Sidebar navigation:**
+
+| Section | Tabs |
+|---------|------|
+| Chat | Chat |
+| Finance | Desk, Stocks, Runs |
+| Control | Connection, Config, Channels, Sessions, Cron Jobs, Logs |
+
+### Running the Desktop App (Development)
+
+```bash
+# Install dependencies and build the Control UI
+pnpm install
+pnpm build
+pnpm ui:build
+
+# Start the Desktop app in dev mode (hot-reload for renderer)
+pnpm desktop:dev
+```
+
+### Building the Desktop App (Production)
+
+```bash
+# Build for macOS (DMG + ZIP, arm64 + x64)
+pnpm --dir apps/desktop package:mac
+```
+
+The built `.dmg` is written to `apps/desktop/release/`.
+
+## Quick Start (CLI)
+
+If you prefer the CLI over the Desktop app:
+
+```bash
+git clone https://github.com/marketbot/marketbot.git
+cd marketbot
+pnpm install
+pnpm build
+pnpm ui:build
+```
+
+### Quick Start with Local LLM
+
+MarketBot works out-of-the-box with **Qwen3-0.6B** via Ollama.
+
+```bash
+# One-shot quickstart (configure Qwen3-0.6B + start Gateway)
+pnpm quickstart:web
+```
+
+<details>
+<summary>Manual Local LLM Setup</summary>
+
+1. **Install Ollama**: [Download from ollama.com](https://ollama.com) or `brew install ollama`.
+2. **Pull Model**: `ollama pull qwen3:0.6b` (or any other model you prefer).
+3. **Configure**: `pnpm -s marketbot setup` or `pnpm -s marketbot onboard`.
+4. **Start**: `pnpm -s marketbot gateway run --bind loopback --port 18789`.
+
+</details>
+
+### Configuration
+
+MarketBot uses `~/.marketbot/marketbot.json` for configuration. The Desktop app creates this file automatically on first launch.
+
+To use cloud APIs (like DeepSeek or OpenAI):
+
+1. Open the Config tab in the Desktop app (or edit `~/.marketbot/marketbot.json` directly).
+2. Add a provider with your API key.
+3. Set `agents.defaults.model.primary` to the cloud model ID.
+
+### Gateway and Control UI
+
+The Gateway serves the Control UI as a built-in web interface. You can access it directly in a browser as a fallback:
+
+```text
+http://127.0.0.1:18789/
+```
+
+Primary pages:
+
+- Desk: `/desk`
+- Stocks: `/stocks`
+- Research Chat: `/chat`
+- Connection: `/overview`
+- Config: `/config`
+- Channels: `/channels`
+- Sessions: `/sessions`
+- Cron: `/cron`
+- Logs: `/logs`
+
+Notes:
+
+- The Control UI is served by the Gateway (no separate web server).
+- `pnpm ui:dev` is for Control UI frontend development only.
+- Gateway auth is required by default. The Desktop app handles this automatically. For browser access, use the token from `~/.marketbot/marketbot.json`.
 
 Key design choices:
 

@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("marketbot", {
-  openControlUi: () => ipcRenderer.invoke("gateway:open"),
   getGatewayToken: () => ipcRenderer.invoke("gateway:token"),
+  getGatewayUrl: () => ipcRenderer.invoke("gateway:url"),
   getWebviewPreloadPath: () => ipcRenderer.invoke("webview:preload-path"),
-  quickstart: () => ipcRenderer.invoke("gateway:quickstart"),
+  restartGateway: () => ipcRenderer.invoke("gateway:restart"),
   openExternal: (url) => ipcRenderer.invoke("shell:open", url),
   onGatewayStatus: (handler) => {
     ipcRenderer.on("gateway:status", (_event, status) => handler(status));
