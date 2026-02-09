@@ -5,6 +5,7 @@ declare global {
     marketbot: {
       openControlUi: () => Promise<void>;
       getGatewayToken: () => Promise<string>;
+      getWebviewPreloadPath: () => Promise<string>;
       quickstart: () => Promise<void>;
       openExternal: (url: string) => Promise<void>;
       onGatewayStatus: (handler: (status: { running: boolean }) => void) => void;
@@ -12,72 +13,17 @@ declare global {
   }
 }
 
-type NavTab = {
-  id: string;
-  label: string;
-  path: string;
-};
-
-type HealthStatus = {
-  ok: boolean;
-  detail?: string;
-};
-
-type TraceRun = {
-  runId: string;
-  createdAt?: string;
-  title?: string;
-};
-
-const NAV_TABS: NavTab[] = [
-  { id: 'desk', label: 'Desk', path: '/desk' },
-  { id: 'chat', label: 'Chat', path: '/chat' },
-  { id: 'stocks', label: 'Stocks', path: '/stocks' },
-  { id: 'runs', label: 'Runs', path: '/runs' },
-  { id: 'logs', label: 'Logs', path: '/logs' },
-  { id: 'overview', label: 'Gateway', path: '/overview' },
-  { id: 'config', label: 'AI Models', path: '/config' },
-  { id: 'channels', label: 'Channels', path: '/channels' },
-  { id: 'sessions', label: 'Sessions', path: '/sessions' },
-  { id: 'cron', label: 'Cron', path: '/cron' },
-];
-
-const NAV_GROUPS: { title: string; items: string[] }[] = [
-  { title: 'Core', items: ['desk', 'stocks'] },
-  { title: 'Operations', items: ['runs', 'logs'] },
-  { title: 'Gateway', items: ['overview', 'config', 'channels', 'sessions', 'cron'] },
-];
-
-function findTab(id: string) {
-  return NAV_TABS.find((tab) => tab.id === id) ?? NAV_TABS[0];
-}
-
 function normalizeBase(url: string) {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
-function buildTabUrl(base: string, path: string, token: string) {
+function buildChatUrl(base: string, token: string) {
   const normalized = normalizeBase(base);
-  const url = `${normalized}${path}`;
-  if (!token.trim()) return url;
-  const encoded = encodeURIComponent(token.trim());
-  return `${url}?token=${encoded}`;
-}
-
-async function postJson<T>(url: string, params?: unknown): Promise<T | null> {
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { ok?: boolean; result?: T };
-    if (!data?.ok) return null;
-    return (data.result ?? null) as T | null;
-  } catch {
-    return null;
-  }
+  const url = `${normalized}/chat`;
+  const params = new URLSearchParams();
+  if (token.trim()) params.set('token', token.trim());
+  params.set('embed', '1');
+  return `${url}?${params.toString()}`;
 }
 
 function injectTokenToWebview(webview: Electron.WebviewTag, token: string) {
@@ -89,6 +35,7 @@ function injectTokenToWebview(webview: Electron.WebviewTag, token: string) {
     try { if (raw) next = JSON.parse(raw); } catch {}
     next.token = "${token.replace(/"/g, '\\"')}";
     localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.removeItem("marketbot.device.auth.v1");
     return true;
   })();`;
   webview.executeJavaScript(script, true).catch(() => undefined);
@@ -97,38 +44,76 @@ function injectTokenToWebview(webview: Electron.WebviewTag, token: string) {
 export default function App() {
   const [running, setRunning] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [activeTab, setActiveTab] = useState<NavTab>(
-    NAV_TABS.find((tab) => tab.id === 'chat') ?? NAV_TABS[0],
-  );
   const [gatewayUrl, setGatewayUrl] = useState('http://127.0.0.1:18789');
   const [gatewayToken, setGatewayToken] = useState('');
-  const [health, setHealth] = useState<HealthStatus>({ ok: false, detail: 'Unknown' });
-  const [runs, setRuns] = useState<TraceRun[]>([]);
-  const [logLines, setLogLines] = useState<string[]>([]);
-  const [logFilter, setLogFilter] = useState('');
-  const logCursorRef = useRef<number | undefined>(undefined);
+  const [tokenReady, setTokenReady] = useState(false);
+  const [webviewPreload, setWebviewPreload] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
   const webviewRef = useRef<Electron.WebviewTag | null>(null);
 
   useEffect(() => {
     window.marketbot?.onGatewayStatus((status) => setRunning(status.running));
   }, []);
 
+  // Fetch token + preload path from main process.
   useEffect(() => {
     let mounted = true;
     if (!gatewayToken.trim()) {
-      window.marketbot?.getGatewayToken().then((token) => {
-        if (mounted && token) setGatewayToken(token);
+      Promise.all([
+        window.marketbot?.getGatewayToken(),
+        window.marketbot?.getWebviewPreloadPath(),
+      ]).then(([token, preloadPath]) => {
+        if (mounted) {
+          if (token) setGatewayToken(token);
+          if (preloadPath) setWebviewPreload(preloadPath);
+          setTokenReady(true);
+        }
+      }).catch(() => {
+        if (mounted) setTokenReady(true);
       });
+    } else {
+      setTokenReady(true);
     }
     return () => {
       mounted = false;
     };
   }, [gatewayToken]);
 
-  const tabUrl = useMemo(() => {
-    return buildTabUrl(gatewayUrl, activeTab.path, gatewayToken);
-  }, [gatewayUrl, activeTab, gatewayToken]);
+  const chatUrl = useMemo(() => {
+    return buildChatUrl(gatewayUrl, gatewayToken);
+  }, [gatewayUrl, gatewayToken]);
 
+  const prevUrlRef = useRef<string>('');
+
+  // Navigate when chatUrl changes.
+  useEffect(() => {
+    const view = webviewRef.current;
+    if (!view) return;
+    if (!prevUrlRef.current) {
+      prevUrlRef.current = chatUrl;
+      return;
+    }
+    if (chatUrl === prevUrlRef.current) return;
+    prevUrlRef.current = chatUrl;
+    const timer = window.setTimeout(() => {
+      webviewRef.current?.loadURL(chatUrl);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [chatUrl]);
+
+  // Reload webview when gateway comes up.
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setTimeout(() => {
+      if (webviewRef.current) {
+        webviewRef.current.loadURL(chatUrl);
+        prevUrlRef.current = chatUrl;
+      }
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [running]);
+
+  // Inject token on dom-ready, retry on load failure.
   useEffect(() => {
     const view = webviewRef.current;
     if (!view) return;
@@ -140,9 +125,7 @@ export default function App() {
     const handleFail = () => {
       if (running) {
         window.setTimeout(() => {
-          if (webviewRef.current) {
-            webviewRef.current.reload();
-          }
+          webviewRef.current?.reload();
         }, 1200);
       }
     };
@@ -155,57 +138,34 @@ export default function App() {
     };
   }, [gatewayToken, running]);
 
+  // Lightweight health poll to track gateway status.
   useEffect(() => {
     let mounted = true;
-    let timer: number | undefined;
-
     const poll = async () => {
-      const base = normalizeBase(gatewayUrl);
-      const healthRes = await postJson<{ ok?: boolean; detail?: string }>(
-        `${base}/api/health`,
-        {},
-      );
-      if (mounted) {
-        const ok = Boolean(healthRes && (healthRes as { ok?: boolean }).ok !== false);
-        setHealth({ ok, detail: ok ? 'Healthy' : 'Unavailable' });
-        setRunning(ok);
-      }
-
-      const runsRes = await postJson<{ runs?: TraceRun[] }>(
-        `${base}/api/trace.runs.list`,
-        { limit: 5 },
-      );
-      if (mounted && runsRes?.runs) {
-        setRuns(runsRes.runs);
-      }
-
-      const logsRes = await postJson<{
-        cursor?: number;
-        lines?: string[];
-      }>(`${base}/api/logs.tail`, {
-        cursor: logCursorRef.current,
-        limit: 8,
-      });
-      if (mounted && logsRes?.lines) {
-        logCursorRef.current = logsRes.cursor;
-        setLogLines(logsRes.lines);
+      try {
+        const res = await fetch(`${normalizeBase(gatewayUrl)}/api/health`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ params: {} }),
+        });
+        if (!mounted) return;
+        if (res.ok) {
+          const data = (await res.json()) as { ok?: boolean };
+          setRunning(Boolean(data?.ok !== false));
+        } else {
+          setRunning(false);
+        }
+      } catch {
+        if (mounted) setRunning(false);
       }
     };
-
     poll();
-    timer = window.setInterval(poll, 5000);
-
+    const timer = window.setInterval(poll, 5000);
     return () => {
       mounted = false;
-      if (timer) window.clearInterval(timer);
+      window.clearInterval(timer);
     };
   }, [gatewayUrl]);
-
-  const filteredLogs = useMemo(() => {
-    if (!logFilter.trim()) return logLines;
-    const needle = logFilter.trim().toLowerCase();
-    return logLines.filter((line) => line.toLowerCase().includes(needle));
-  }, [logLines, logFilter]);
 
   const onQuickstart = async () => {
     setBusy(true);
@@ -216,9 +176,8 @@ export default function App() {
     }
   };
 
-  const onAuthOpen = async () => {
-    if (!gatewayToken.trim()) return;
-    const url = buildTabUrl(gatewayUrl, '/', gatewayToken);
+  const onOpenGateway = async () => {
+    const url = buildChatUrl(gatewayUrl, gatewayToken).replace('/chat', '/overview');
     await window.marketbot.openExternal(url);
   };
 
@@ -228,157 +187,66 @@ export default function App() {
         <div className="brand">
           <div className="logo">MB</div>
           <div>
-            <div className="title">MarketBot Desktop</div>
-            <div className="subtitle">Finance Desk Control UI</div>
+            <div className="title">MarketBot</div>
+            <div className="subtitle">AI Chat</div>
           </div>
         </div>
 
         <div className={`status ${running ? 'ok' : 'off'}`}>
-          {running ? 'Gateway running' : 'Gateway stopped'}
+          {running ? 'Connected' : 'Disconnected'}
         </div>
 
-        <div className="section">
-          <div className="section-title">Main</div>
-          <div className="actions compact">
-            <button className="primary" onClick={() => setActiveTab(findTab('chat'))}>
-              Open Chat
-            </button>
-          </div>
-        </div>
+        {!running && (
+          <button className="primary" disabled={busy} onClick={onQuickstart}>
+            {busy ? 'Starting...' : 'Start Gateway'}
+          </button>
+        )}
 
-        <div className="section">
-          <div className="section-title">Quick Actions</div>
-          <div className="actions compact">
-            <button className="primary" disabled={busy} onClick={onQuickstart}>
-              Quickstart (Qwen3 + UI)
-            </button>
-          </div>
-        </div>
+        <div className="sidebar-spacer" />
 
-        <div className="section">
-          <div className="section-title">Gateway URL</div>
-          <input
-            value={gatewayUrl}
-            onChange={(event) => setGatewayUrl(event.target.value)}
-            placeholder="http://127.0.0.1:18789"
-          />
-        </div>
+        <button className="ghost sidebar-btn" onClick={onOpenGateway}>
+          Gateway Settings
+        </button>
 
-        <div className="section">
-          <div className="section-title">Gateway Token</div>
-          <input
-            value={gatewayToken}
-            onChange={(event) => setGatewayToken(event.target.value)}
-            placeholder="Paste gateway.auth.token"
-          />
-          <div className="token-actions">
-            <button className="ghost" onClick={onAuthOpen}>
-              Open Authenticated URL
-            </button>
-          </div>
-          <div className="hint">
-            Token is auto-injected into embedded Control UI and local settings.
-          </div>
-        </div>
+        <button
+          className="ghost sidebar-btn"
+          onClick={() => setShowSettings((prev) => !prev)}
+        >
+          {showSettings ? 'Hide Connection' : 'Connection'}
+        </button>
 
-        <div className="section">
-          <div className="section-title">Navigation</div>
-          <div className="nav-groups">
-            {NAV_GROUPS.map((group) => (
-              <div key={group.title} className="nav-group">
-                <div className="nav-group-title">{group.title}</div>
-                <nav className="nav">
-                  {group.items.map((id) => {
-                    const tab = findTab(id);
-                    return (
-                      <button
-                        key={tab.id}
-                        className={tab.id === activeTab.id ? 'nav-item active' : 'nav-item'}
-                        onClick={() => setActiveTab(tab)}
-                      >
-                        {tab.label}
-                      </button>
-                    );
-                  })}
-                </nav>
-              </div>
-            ))}
+        {showSettings && (
+          <div className="settings-panel">
+            <label className="field-label">Gateway URL</label>
+            <input
+              value={gatewayUrl}
+              onChange={(e) => setGatewayUrl(e.target.value)}
+              placeholder="http://127.0.0.1:18789"
+            />
+            <label className="field-label">Token</label>
+            <input
+              value={gatewayToken}
+              onChange={(e) => setGatewayToken(e.target.value)}
+              placeholder="gateway.auth.token"
+              type="password"
+            />
           </div>
-        </div>
+        )}
       </aside>
 
       <main className="content">
-        <div className="content-header">
-          <div>
-            <div className="content-title">{activeTab.label}</div>
-            <div className="content-subtitle">{tabUrl}</div>
+        {tokenReady && running ? (
+          <webview
+            ref={webviewRef}
+            src={chatUrl}
+            {...(webviewPreload ? { preload: webviewPreload } : {})}
+            className="chat-frame"
+          />
+        ) : (
+          <div className="chat-frame chat-loading">
+            {!tokenReady ? 'Loading...' : 'Waiting for gateway...'}
           </div>
-        </div>
-        <div className="content-body">
-          <div className="viewer">
-            <webview ref={webviewRef} src={tabUrl} className="viewer-frame" />
-          </div>
-          <aside className="sidepanel">
-            <div className="panel-card">
-              <div className="panel-title">Run Status</div>
-              <div className="panel-list">
-                <div className="panel-row">
-                  <span>Gateway Health</span>
-                  <strong>{health.ok ? 'Healthy' : 'Unavailable'}</strong>
-                </div>
-                <div className="panel-row">
-                  <span>Recent Runs</span>
-                  <strong>{runs.length}</strong>
-                </div>
-                <div className="panel-row">
-                  <span>Logs Lines</span>
-                  <strong>{filteredLogs.length}</strong>
-                </div>
-              </div>
-            </div>
-            <div className="panel-card">
-            <div className="panel-title">Run Graph</div>
-            {runs.length === 0 ? (
-              <div className="panel-note">No runs captured yet.</div>
-            ) : (
-              <div className="panel-list">
-                {runs.map((run) => (
-                  <div key={run.runId} className="panel-row">
-                    <span>{run.title ?? run.runId.slice(0, 8)}</span>
-                    <strong>{run.createdAt ? 'Active' : 'Logged'}</strong>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button className="ghost" onClick={() => setActiveTab(findTab('runs'))}>
-              Go to Runs
-            </button>
-          </div>
-          <div className="panel-card">
-            <div className="panel-title">Logs</div>
-            <input
-              className="log-filter"
-                value={logFilter}
-                onChange={(event) => setLogFilter(event.target.value)}
-                placeholder="Filter logs"
-              />
-              {filteredLogs.length === 0 ? (
-                <div className="panel-note">No log lines yet.</div>
-              ) : (
-                <div className="log-lines">
-                  {filteredLogs.map((line, idx) => (
-                    <div key={`${idx}-${line.slice(0, 12)}`} className="log-line">
-                      {line}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button className="ghost" onClick={() => setActiveTab(findTab('logs'))}>
-                Go to Logs
-              </button>
-            </div>
-          </aside>
-        </div>
+        )}
       </main>
     </div>
   );

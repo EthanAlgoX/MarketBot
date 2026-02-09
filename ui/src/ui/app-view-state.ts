@@ -34,6 +34,7 @@ export type AppViewState = {
   password: string;
   tab: Tab;
   onboarding: boolean;
+  embed: boolean;
   basePath: string;
   connected: boolean;
   theme: ThemeMode;

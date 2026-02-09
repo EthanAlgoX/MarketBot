@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
   contextBridge.exposeInMainWorld('marketbot', {
     openControlUi: () => ipcRenderer.invoke('gateway:open'),
     getGatewayToken: () => ipcRenderer.invoke('gateway:token'),
+    getWebviewPreloadPath: () => ipcRenderer.invoke('webview:preload-path'),
     quickstart: () => ipcRenderer.invoke('gateway:quickstart'),
     openExternal: (url: string) => ipcRenderer.invoke('shell:open', url),
     onGatewayStatus: (handler: (status: { running: boolean }) => void) => {
@@ -13,6 +14,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 export type MarketbotDesktopApi = typeof window & {
   marketbot: {
     openControlUi: () => Promise<void>;
+    getGatewayToken: () => Promise<string>;
+    getWebviewPreloadPath: () => Promise<string>;
     startGateway: () => Promise<void>;
     quickstart: () => Promise<void>;
     stopGateway: () => Promise<void>;

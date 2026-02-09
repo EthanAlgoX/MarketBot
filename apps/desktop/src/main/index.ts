@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, Tray, nativeImage, shell, session } from 'electron';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -13,6 +13,7 @@ const GATEWAY_URL = 'http://127.0.0.1:18789/';
 const CWD = process.cwd();
 const REPO_ROOT = CWD.endsWith('/apps/desktop') ? resolve(CWD, '../..') : CWD;
 const PRELOAD_PATH = join(REPO_ROOT, 'apps/desktop/preload.cjs');
+const WEBVIEW_PRELOAD_PATH = join(REPO_ROOT, 'apps/desktop/webview-preload.cjs');
 
 let mainWindow: BrowserWindow | null = null;
 let gatewayProc: ChildProcess | null = null;
@@ -132,6 +133,10 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
       webviewTag: true,
+      // Disable CORS enforcement so the renderer can call the local gateway
+      // API (127.0.0.1:18789) from the Vite dev server (localhost:5173).
+      // Safe here because both endpoints are local.
+      webSecurity: false,
     },
   });
 
@@ -333,6 +338,29 @@ app.whenReady().then(() => {
   app.setAppUserModelId('ai.marketbot.desktop');
   app.setActivationPolicy('regular');
   console.log('[Desktop] ready', { platform: process.platform, name: app.getName() });
+
+  // Allow the renderer (localhost:5173 in dev) to call the gateway API
+  // (127.0.0.1:18789) without CORS blocks. We need two hooks:
+  // 1. Strip the Origin header from outgoing requests so the gateway
+  //    does not reject OPTIONS preflight.
+  // 2. Inject permissive CORS headers into every gateway response so
+  //    the browser accepts the data.
+  const gatewayFilter = { urls: ['http://127.0.0.1:18789/*', 'http://localhost:18789/*'] };
+
+  session.defaultSession.webRequest.onBeforeSendHeaders(gatewayFilter, (details, callback) => {
+    const headers = { ...details.requestHeaders };
+    delete headers['Origin'];
+    callback({ cancel: false, requestHeaders: headers });
+  });
+
+  session.defaultSession.webRequest.onHeadersReceived(gatewayFilter, (details, callback) => {
+    const headers = { ...details.responseHeaders };
+    headers['access-control-allow-origin'] = ['*'];
+    headers['access-control-allow-methods'] = ['GET, POST, PUT, DELETE, OPTIONS'];
+    headers['access-control-allow-headers'] = ['Content-Type, Authorization'];
+    callback({ cancel: false, responseHeaders: headers });
+  });
+
   ensureDockVisible();
   ensureTray();
   createWindow();
@@ -395,17 +423,58 @@ app.on('activate', () => {
     mainWindow?.focus();
   }
 });
+  ipcMain.handle('webview:preload-path', () => {
+    return `file://${WEBVIEW_PRELOAD_PATH}`;
+  });
+
   ipcMain.handle('gateway:token', () => {
     try {
-      const configPath = join(os.homedir(), '.marketbot', 'marketbot.json');
-      if (!existsSync(configPath)) return '';
-      const raw = readFileSync(configPath, 'utf8');
-      const data = JSON.parse(raw) as {
-        gateway?: { auth?: { mode?: string; token?: string } };
-      };
-      const auth = data.gateway?.auth;
-      if (auth?.mode !== 'token') return '';
-      return auth?.token ?? '';
+      // Load .env from the repo root (same as gateway's dotenv.ts),
+      // without adding a dotenv dependency. Only set vars that aren't
+      // already present in process.env.
+      const dotenvPath = join(REPO_ROOT, '.env');
+      if (existsSync(dotenvPath)) {
+        const envRaw = readFileSync(dotenvPath, 'utf8');
+        for (const line of envRaw.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx <= 0) continue;
+          const key = trimmed.slice(0, eqIdx).trim();
+          const val = trimmed.slice(eqIdx + 1).trim();
+          if (!(key in process.env)) {
+            process.env[key] = val;
+          }
+        }
+      }
+
+      // Resolve config path using the same priority as the gateway:
+      // 1. MARKETBOT_CONFIG_PATH env var (highest)
+      // 2. ~/.marketbot/marketbot.json (canonical)
+      let configPath: string;
+      const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+      if (envConfigPath) {
+        // Resolve relative paths against REPO_ROOT (same CWD as the gateway).
+        configPath = resolve(REPO_ROOT, envConfigPath);
+      } else {
+        configPath = join(os.homedir(), '.marketbot', 'marketbot.json');
+      }
+
+      let configToken: string | undefined;
+      if (existsSync(configPath)) {
+        const raw = readFileSync(configPath, 'utf8');
+        const data = JSON.parse(raw) as {
+          gateway?: { auth?: { mode?: string; token?: string } };
+        };
+        const auth = data.gateway?.auth;
+        if (auth?.mode === 'token') {
+          configToken = auth?.token;
+        }
+      }
+
+      // Match gateway's token resolution: authConfig.token ?? MARKETBOT_GATEWAY_TOKEN
+      const token = configToken ?? process.env.MARKETBOT_GATEWAY_TOKEN ?? '';
+      return token;
     } catch (error) {
       console.error('[Desktop] failed to read gateway token', error);
       return '';

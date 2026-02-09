@@ -60,6 +60,23 @@
   padding-top: 0;
 }
 
+/* Embed mode: hide topbar, nav, and focus-exit for desktop app embedding. */
+.shell--embed {
+  grid-template-rows: 0 1fr;
+}
+
+.shell--embed .topbar {
+  display: none;
+}
+
+.shell--embed .content {
+  padding-top: 0;
+}
+
+.shell--embed .chat-focus-exit {
+  display: none;
+}
+
 .shell--chat-focus .content {
   padding-top: 0;
 }

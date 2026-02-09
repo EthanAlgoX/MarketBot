@@ -114,9 +114,11 @@ pnpm quickstart:web -- --no-open
 Then open MarketBot Desktop (recommended):
 
 ```bash
-pnpm desktop:dev
+# Electron Desktop (dev build, non-dev runtime)
+pnpm --dir apps/desktop start
 ```
 
+MarketBot Desktop will auto-start the local Gateway on launch and stop it on quit.
 If the UI shows `unauthorized`, paste `gateway.auth.token` from `~/.marketbot/marketbot.json`
 into the Control UI “Gateway Token” field and connect.
 

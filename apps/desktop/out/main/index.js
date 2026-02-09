@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeImage, Tray, Menu, dialog } from "electron";
+import { app, BrowserWindow, session, ipcMain, shell, nativeImage, Tray, Menu, dialog } from "electron";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -15,6 +15,7 @@ const GATEWAY_URL = "http://127.0.0.1:18789/";
 const CWD = process.cwd();
 const REPO_ROOT = CWD.endsWith("/apps/desktop") ? resolve(CWD, "../..") : CWD;
 const PRELOAD_PATH = join(REPO_ROOT, "apps/desktop/preload.cjs");
+const WEBVIEW_PRELOAD_PATH = join(REPO_ROOT, "apps/desktop/webview-preload.cjs");
 let mainWindow = null;
 let gatewayProc = null;
 let isQuitting = false;
@@ -125,7 +126,11 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      webviewTag: true
+      webviewTag: true,
+      // Disable CORS enforcement so the renderer can call the local gateway
+      // API (127.0.0.1:18789) from the Vite dev server (localhost:5173).
+      // Safe here because both endpoints are local.
+      webSecurity: false
     }
   });
   const devServerUrl = process.env.VITE_DEV_SERVER_URL ?? process.env.ELECTRON_RENDERER_URL;
@@ -306,6 +311,19 @@ app.whenReady().then(() => {
   app.setAppUserModelId("ai.marketbot.desktop");
   app.setActivationPolicy("regular");
   console.log("[Desktop] ready", { platform: process.platform, name: app.getName() });
+  const gatewayFilter = { urls: ["http://127.0.0.1:18789/*", "http://localhost:18789/*"] };
+  session.defaultSession.webRequest.onBeforeSendHeaders(gatewayFilter, (details, callback) => {
+    const headers = { ...details.requestHeaders };
+    delete headers["Origin"];
+    callback({ cancel: false, requestHeaders: headers });
+  });
+  session.defaultSession.webRequest.onHeadersReceived(gatewayFilter, (details, callback) => {
+    const headers = { ...details.responseHeaders };
+    headers["access-control-allow-origin"] = ["*"];
+    headers["access-control-allow-methods"] = ["GET, POST, PUT, DELETE, OPTIONS"];
+    headers["access-control-allow-headers"] = ["Content-Type, Authorization"];
+    callback({ cancel: false, responseHeaders: headers });
+  });
   ensureDockVisible();
   ensureTray();
   createWindow();
@@ -359,15 +377,44 @@ app.on("activate", () => {
     mainWindow?.focus();
   }
 });
+ipcMain.handle("webview:preload-path", () => {
+  return `file://${WEBVIEW_PRELOAD_PATH}`;
+});
 ipcMain.handle("gateway:token", () => {
   try {
-    const configPath = join(os.homedir(), ".marketbot", "marketbot.json");
-    if (!existsSync(configPath)) return "";
-    const raw = readFileSync(configPath, "utf8");
-    const data = JSON.parse(raw);
-    const auth = data.gateway?.auth;
-    if (auth?.mode !== "token") return "";
-    return auth?.token ?? "";
+    const dotenvPath = join(REPO_ROOT, ".env");
+    if (existsSync(dotenvPath)) {
+      const envRaw = readFileSync(dotenvPath, "utf8");
+      for (const line of envRaw.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eqIdx = trimmed.indexOf("=");
+        if (eqIdx <= 0) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim();
+        if (!(key in process.env)) {
+          process.env[key] = val;
+        }
+      }
+    }
+    let configPath;
+    const envConfigPath = process.env.MARKETBOT_CONFIG_PATH?.trim();
+    if (envConfigPath) {
+      configPath = resolve(REPO_ROOT, envConfigPath);
+    } else {
+      configPath = join(os.homedir(), ".marketbot", "marketbot.json");
+    }
+    let configToken;
+    if (existsSync(configPath)) {
+      const raw = readFileSync(configPath, "utf8");
+      const data = JSON.parse(raw);
+      const auth = data.gateway?.auth;
+      if (auth?.mode === "token") {
+        configToken = auth?.token;
+      }
+    }
+    const token = configToken ?? process.env.MARKETBOT_GATEWAY_TOKEN ?? "";
+    return token;
   } catch (error) {
     console.error("[Desktop] failed to read gateway token", error);
     return "";

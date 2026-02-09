@@ -125,7 +125,7 @@ export function renderApp(state: AppViewState) {
   const text = resolveUiText(language);
   const chatDisabledReason = state.connected ? null : text.chatDisconnected;
   const isChat = state.tab === "chat";
-  const chatFocus = isChat && (state.settings.chatFocusMode || state.onboarding);
+  const chatFocus = isChat && (state.settings.chatFocusMode || state.onboarding || state.embed);
   const showThinking = state.onboarding ? false : state.settings.chatShowThinking;
   const assistantAvatarUrl = resolveAssistantAvatarUrl(state);
   const chatAvatarUrl = state.chatAvatarUrl ?? assistantAvatarUrl ?? null;
@@ -133,7 +133,7 @@ export function renderApp(state: AppViewState) {
     state.channelsLastSuccess != null ? formatAgo(state.channelsLastSuccess) : null;
 
   return html`
-    <div class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""}">
+    <div class="shell ${isChat ? "shell--chat" : ""} ${chatFocus ? "shell--chat-focus" : ""} ${state.settings.navCollapsed ? "shell--nav-collapsed" : ""} ${state.onboarding ? "shell--onboarding" : ""} ${state.embed ? "shell--embed" : ""}">
       <header class="topbar">
         <div class="topbar-left">
           <button
