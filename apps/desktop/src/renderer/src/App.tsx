@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
 declare global {
   interface Window {
@@ -31,6 +31,7 @@ interface NavTab {
   id: TabId;
   label: string;
   path: string;
+  icon: string;
 }
 
 interface NavGroup {
@@ -38,17 +39,68 @@ interface NavGroup {
   tabs: NavTab[];
 }
 
+// Simple SVG icons (inline, no dependencies).
 const TABS: Record<TabId, NavTab> = {
-  chat: { id: 'chat', label: 'Chat', path: '/chat' },
-  desk: { id: 'desk', label: 'Desk', path: '/desk' },
-  stocks: { id: 'stocks', label: 'Stocks', path: '/stocks' },
-  runs: { id: 'runs', label: 'Runs', path: '/runs' },
-  overview: { id: 'overview', label: 'Connection', path: '/overview' },
-  config: { id: 'config', label: 'Config', path: '/config' },
-  channels: { id: 'channels', label: 'Channels', path: '/channels' },
-  sessions: { id: 'sessions', label: 'Sessions', path: '/sessions' },
-  cron: { id: 'cron', label: 'Cron Jobs', path: '/cron' },
-  logs: { id: 'logs', label: 'Logs', path: '/logs' },
+  chat: {
+    id: 'chat',
+    label: 'Chat',
+    path: '/chat',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h12M4 8.5h8M4 12h10"/><path d="M3 3h14a1 1 0 011 1v9a1 1 0 01-1 1H7l-4 3V4a1 1 0 011-1z"/></svg>',
+  },
+  desk: {
+    id: 'desk',
+    label: 'Desk',
+    path: '/desk',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="16" height="12" rx="2"/><path d="M7 18h6M10 15v3"/></svg>',
+  },
+  stocks: {
+    id: 'stocks',
+    label: 'Stocks',
+    path: '/stocks',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17l4-6 3 3 4-7 3 4"/></svg>',
+  },
+  runs: {
+    id: 'runs',
+    label: 'Runs',
+    path: '/runs',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l10 6-10 6V4z"/></svg>',
+  },
+  overview: {
+    id: 'overview',
+    label: 'Connection',
+    path: '/overview',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="3"/><path d="M10 3v2M10 15v2M3 10h2M15 10h2M5.05 5.05l1.41 1.41M13.54 13.54l1.41 1.41M5.05 14.95l1.41-1.41M13.54 6.46l1.41-1.41"/></svg>',
+  },
+  config: {
+    id: 'config',
+    label: 'Config',
+    path: '/config',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3M4.22 4.22l2.12 2.12M13.66 13.66l2.12 2.12M4.22 15.78l2.12-2.12M13.66 6.34l2.12-2.12"/></svg>',
+  },
+  channels: {
+    id: 'channels',
+    label: 'Channels',
+    path: '/channels',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 2l-2 16M15 2l-2 16M3 7h16M2 13h16"/></svg>',
+  },
+  sessions: {
+    id: 'sessions',
+    label: 'Sessions',
+    path: '/sessions',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14M7 4V2M13 4V2"/></svg>',
+  },
+  cron: {
+    id: 'cron',
+    label: 'Cron Jobs',
+    path: '/cron',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7.5"/><path d="M10 5v5l3 3"/></svg>',
+  },
+  logs: {
+    id: 'logs',
+    label: 'Logs',
+    path: '/logs',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="14" height="16" rx="1.5"/><path d="M7 6h6M7 10h6M7 14h4"/></svg>',
+  },
 };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -108,6 +160,7 @@ export default function App() {
   const [webviewPreload, setWebviewPreload] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('chat');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const webviewRef = useRef<Electron.WebviewTag | null>(null);
 
   useEffect(() => {
@@ -146,7 +199,7 @@ export default function App() {
 
   const prevUrlRef = useRef<string>('');
 
-  // Navigate when tabUrl changes.
+  // Navigate webview instantly when tab changes (no delay).
   useEffect(() => {
     const view = webviewRef.current;
     if (!view) return;
@@ -156,10 +209,7 @@ export default function App() {
     }
     if (tabUrl === prevUrlRef.current) return;
     prevUrlRef.current = tabUrl;
-    const timer = window.setTimeout(() => {
-      webviewRef.current?.loadURL(tabUrl);
-    }, 300);
-    return () => window.clearTimeout(timer);
+    view.loadURL(tabUrl);
   }, [tabUrl]);
 
   // Reload webview when gateway comes up.
@@ -170,7 +220,7 @@ export default function App() {
         webviewRef.current.loadURL(tabUrl);
         prevUrlRef.current = tabUrl;
       }
-    }, 1500);
+    }, 800);
     return () => window.clearTimeout(timer);
   }, [running]);
 
@@ -228,36 +278,51 @@ export default function App() {
     };
   }, [gatewayUrl]);
 
-  const onQuickstart = async () => {
+  const onQuickstart = useCallback(async () => {
     setBusy(true);
     try {
       await window.marketbot.quickstart();
     } finally {
       setBusy(false);
     }
-  };
+  }, []);
 
-  const handleTabClick = (tabId: TabId) => {
+  const handleTabClick = useCallback((tabId: TabId) => {
     setActiveTab(tabId);
-  };
+  }, []);
 
   return (
-    <div className="app">
+    <div className={`app${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
       <aside className="sidebar">
-        <div className="brand">
-          <div className="logo">MB</div>
-          <div>
-            <div className="title">MarketBot</div>
-            <div className="subtitle">Desktop</div>
+        {/* Drag region for frameless window (sits behind traffic lights) */}
+        <div className="drag-region" />
+
+        <div className="sidebar-header">
+          <div className="brand">
+            <div className="logo">MB</div>
+            {!sidebarCollapsed && (
+              <div>
+                <div className="title">MarketBot</div>
+                <div className="subtitle">Desktop</div>
+              </div>
+            )}
           </div>
+          <button
+            className="collapse-toggle"
+            onClick={() => setSidebarCollapsed((v) => !v)}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? '\u25B6' : '\u25C0'}
+          </button>
         </div>
 
         <div className={`status ${running ? 'ok' : 'off'}`}>
-          {running ? 'Connected' : 'Disconnected'}
+          <span className={`status-dot ${running ? 'ok' : 'off'}`} />
+          {!sidebarCollapsed && (running ? 'Connected' : 'Disconnected')}
         </div>
 
-        {!running && (
-          <button className="primary" disabled={busy} onClick={onQuickstart}>
+        {!running && !sidebarCollapsed && (
+          <button className="primary start-btn" disabled={busy} onClick={onQuickstart}>
             {busy ? 'Starting...' : 'Start Gateway'}
           </button>
         )}
@@ -265,14 +330,23 @@ export default function App() {
         <nav className="nav">
           {NAV_GROUPS.map((group) => (
             <div key={group.label} className="nav-group">
-              <div className="nav-group-title">{group.label}</div>
+              {!sidebarCollapsed && (
+                <div className="nav-group-title">{group.label}</div>
+              )}
               {group.tabs.map((tab) => (
                 <button
                   key={tab.id}
                   className={`nav-item${activeTab === tab.id ? ' active' : ''}`}
                   onClick={() => handleTabClick(tab.id)}
+                  title={sidebarCollapsed ? tab.label : undefined}
                 >
-                  {tab.label}
+                  <span
+                    className="nav-icon"
+                    dangerouslySetInnerHTML={{ __html: tab.icon }}
+                  />
+                  {!sidebarCollapsed && (
+                    <span className="nav-label">{tab.label}</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -281,29 +355,41 @@ export default function App() {
 
         <div className="sidebar-spacer" />
 
-        <button
-          className="ghost sidebar-btn"
-          onClick={() => setShowSettings((prev) => !prev)}
-        >
-          {showSettings ? 'Hide Connection' : 'Connection'}
-        </button>
+        {!sidebarCollapsed && (
+          <>
+            <button
+              className="ghost sidebar-btn"
+              onClick={() => setShowSettings((prev) => !prev)}
+              title="Connection settings"
+            >
+              <span
+                className="nav-icon"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="2"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3"/></svg>',
+                }}
+              />
+              <span>{showSettings ? 'Hide Settings' : 'Settings'}</span>
+            </button>
 
-        {showSettings && (
-          <div className="settings-panel">
-            <label className="field-label">Gateway URL</label>
-            <input
-              value={gatewayUrl}
-              onChange={(e) => setGatewayUrl(e.target.value)}
-              placeholder="http://127.0.0.1:18789"
-            />
-            <label className="field-label">Token</label>
-            <input
-              value={gatewayToken}
-              onChange={(e) => setGatewayToken(e.target.value)}
-              placeholder="gateway.auth.token"
-              type="password"
-            />
-          </div>
+            {showSettings && (
+              <div className="settings-panel">
+                <label className="field-label">Gateway URL</label>
+                <input
+                  value={gatewayUrl}
+                  onChange={(e) => setGatewayUrl(e.target.value)}
+                  placeholder="http://127.0.0.1:18789"
+                />
+                <label className="field-label">Token</label>
+                <input
+                  value={gatewayToken}
+                  onChange={(e) => setGatewayToken(e.target.value)}
+                  placeholder="gateway.auth.token"
+                  type="password"
+                />
+              </div>
+            )}
+          </>
         )}
       </aside>
 
@@ -313,11 +399,21 @@ export default function App() {
             ref={webviewRef}
             src={tabUrl}
             {...(webviewPreload ? { preload: webviewPreload } : {})}
-            className="chat-frame"
+            className="webview-frame"
           />
         ) : (
-          <div className="chat-frame chat-loading">
-            {!tokenReady ? 'Loading...' : 'Waiting for gateway...'}
+          <div className="webview-frame loading-state">
+            <div className="loading-content">
+              <div className="loading-spinner" />
+              <div className="loading-text">
+                {!tokenReady ? 'Initializing...' : 'Connecting to gateway...'}
+              </div>
+              {!running && tokenReady && !busy && (
+                <button className="primary" onClick={onQuickstart}>
+                  Start Gateway
+                </button>
+              )}
+            </div>
           </div>
         )}
       </main>

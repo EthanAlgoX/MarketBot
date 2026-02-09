@@ -18,11 +18,9 @@ const WEBVIEW_PRELOAD_PATH = join(REPO_ROOT, 'apps/desktop/webview-preload.cjs')
 let mainWindow: BrowserWindow | null = null;
 let gatewayProc: ChildProcess | null = null;
 let isQuitting = false;
-let dockPulseTimer: NodeJS.Timeout | null = null;
 let tray: Tray | null = null;
 let updateTimer: NodeJS.Timeout | null = null;
 let autoUpdater: typeof import('electron-updater').autoUpdater | null = null;
-let visibilityTimer: NodeJS.Timeout | null = null;
 
 async function probeGatewayHealth(timeoutMs = 1200) {
   const controller = new AbortController();
@@ -124,9 +122,14 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 760,
+    minWidth: 800,
+    minHeight: 500,
     backgroundColor: '#0b1118',
     title: APP_NAME,
     show: true,
+    // Frameless with native macOS traffic lights inset into the sidebar.
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 14, y: 14 },
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,
@@ -157,47 +160,15 @@ function createWindow() {
   mainWindow.show();
   mainWindow.focus();
   console.log('[Desktop] window created', { visible: mainWindow.isVisible() });
-  if (visibilityTimer) clearInterval(visibilityTimer);
-  visibilityTimer = setInterval(() => {
-    if (!mainWindow || isQuitting) return;
-    if (!mainWindow.isVisible()) {
-      mainWindow.show();
-      mainWindow.focus();
-      console.log('[Desktop] forced show (visibility guard)');
-    }
-  }, 1000);
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow?.center();
-    mainWindow?.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     mainWindow?.show();
     mainWindow?.focus();
     console.log('[Desktop] ready-to-show', { visible: mainWindow?.isVisible() });
     if (process.platform === 'darwin') {
       ensureDockVisible();
     }
-    app.focus({ steal: true });
-    mainWindow?.setAlwaysOnTop(true, 'screen-saver');
-    setTimeout(() => {
-      if (mainWindow) mainWindow.setAlwaysOnTop(false);
-    }, 2000);
   });
-
-  // Safety net in case ready-to-show is never fired.
-  setTimeout(() => {
-    if (!mainWindow) return;
-    if (!mainWindow.isVisible()) {
-      mainWindow.center();
-      mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-      mainWindow.show();
-      mainWindow.focus();
-      console.log('[Desktop] forced show after timeout', { visible: mainWindow.isVisible() });
-      if (process.platform === 'darwin') {
-        ensureDockVisible();
-      }
-      app.focus({ steal: true });
-    }
-  }, 800);
 
   mainWindow.webContents.on('did-fail-load', (_event, code, desc, url) => {
     console.error('[Desktop] did-fail-load', { code, desc, url });
@@ -214,37 +185,14 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    if (visibilityTimer) {
-      clearInterval(visibilityTimer);
-      visibilityTimer = null;
-    }
-  });
-
-  mainWindow.on('show', () => {
-    console.log('[Desktop] window show');
-  });
-
-  mainWindow.on('hide', () => {
-    console.log('[Desktop] window hide');
-    if (!isQuitting) {
-      setTimeout(() => {
-        mainWindow?.show();
-        mainWindow?.focus();
-      }, 100);
-    }
-  });
-
-  mainWindow.on('minimize', (event) => {
-    if (isQuitting) return;
-    event.preventDefault();
-    mainWindow?.restore();
   });
 
   mainWindow.on('close', (event) => {
-    if (isQuitting) return;
-    event.preventDefault();
-    mainWindow?.show();
-    mainWindow?.focus();
+    // On macOS, hide instead of quitting (standard behavior).
+    if (process.platform === 'darwin' && !isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
   });
 }
 
@@ -366,17 +314,6 @@ app.whenReady().then(() => {
   createWindow();
   void setupAutoUpdates();
 
-  if (process.platform === 'darwin') {
-    if (dockPulseTimer) clearInterval(dockPulseTimer);
-    dockPulseTimer = setInterval(() => {
-      ensureDockVisible();
-    }, 1200);
-    setTimeout(() => {
-      if (dockPulseTimer) clearInterval(dockPulseTimer);
-      dockPulseTimer = null;
-    }, 8000);
-  }
-
   runGateway(['pnpm', '-s', 'marketbot', 'gateway', 'run', '--bind', 'loopback', '--port', '18789', '--force']);
 
   ipcMain.handle('gateway:open', () => {
@@ -404,10 +341,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
-  if (dockPulseTimer) {
-    clearInterval(dockPulseTimer);
-    dockPulseTimer = null;
-  }
   if (updateTimer) {
     clearInterval(updateTimer);
     updateTimer = null;

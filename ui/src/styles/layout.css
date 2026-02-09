@@ -60,8 +60,9 @@
   padding-top: 0;
 }
 
-/* Embed mode: hide topbar, nav, and focus-exit for desktop app embedding. */
+/* Embed mode: hide topbar, nav sidebar, and focus-exit for desktop app embedding. */
 .shell--embed {
+  grid-template-columns: 0px minmax(0, 1fr);
   grid-template-rows: 0 1fr;
 }
 
@@ -69,8 +70,16 @@
   display: none;
 }
 
+.shell--embed .nav {
+  display: none;
+}
+
 .shell--embed .content {
   padding-top: 0;
+}
+
+.shell--embed .content-header {
+  display: none;
 }
 
 .shell--embed .chat-focus-exit {
