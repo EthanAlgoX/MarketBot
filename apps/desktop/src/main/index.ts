@@ -16,6 +16,31 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import os from 'node:os';
 
+// ── Helpers ──
+
+/** Recursive config merge (RFC 7396 JSON Merge Patch).
+ *  Objects merge recursively, arrays/primitives: patch wins, null deletes. */
+function applyMergePatch(base: unknown, patch: unknown): unknown {
+  if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) return patch;
+  const result: Record<string, unknown> =
+    typeof base === 'object' && base !== null && !Array.isArray(base)
+      ? { ...(base as Record<string, unknown>) }
+      : {};
+  for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
+    if (value === null) { delete result[key]; continue; }
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      const baseVal = result[key];
+      result[key] = applyMergePatch(
+        typeof baseVal === 'object' && baseVal !== null && !Array.isArray(baseVal) ? baseVal : {},
+        value,
+      );
+      continue;
+    }
+    result[key] = value;
+  }
+  return result;
+}
+
 // ── Paths ──
 // In dev mode, paths resolve relative to the repo root.
 // In production (packaged), paths resolve relative to the app bundle's
@@ -559,15 +584,9 @@ app.whenReady().then(() => {
       if (existsSync(configPath)) {
         try { config = JSON.parse(readFileSync(configPath, 'utf8')); } catch { /* ignore */ }
       }
-      // Deep merge patch into config.
-      for (const [key, value] of Object.entries(patch)) {
-        if (typeof value === 'object' && value !== null && !Array.isArray(value) &&
-            typeof config[key] === 'object' && config[key] !== null && !Array.isArray(config[key])) {
-          config[key] = { ...(config[key] as Record<string, unknown>), ...(value as Record<string, unknown>) };
-        } else {
-          config[key] = value;
-        }
-      }
+      // Recursive deep merge (RFC 7396 JSON Merge Patch) so nested keys
+      // like agents.defaults.model.primary don't clobber sibling fields.
+      config = applyMergePatch(config, patch) as Record<string, unknown>;
       mkdirSync(resolve(configPath, '..'), { recursive: true, mode: 0o700 });
       writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', {
         encoding: 'utf-8',
@@ -603,8 +622,18 @@ app.whenReady().then(() => {
 
       if (hasAuthProfiles) return { needsOnboarding: false };
 
-      // Check environment variable API keys.
-      if (process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY) {
+      // Check environment variable API keys (covers all desktop-supported providers).
+      const envKeys = [
+        'ANTHROPIC_API_KEY',
+        'OPENAI_API_KEY',
+        'DEEPSEEK_API_KEY',
+        'GEMINI_API_KEY',
+        'GROQ_API_KEY',
+        'OPENROUTER_API_KEY',
+        'MISTRAL_API_KEY',
+        'XAI_API_KEY',
+      ];
+      if (envKeys.some((k) => process.env[k])) {
         return { needsOnboarding: false };
       }
 

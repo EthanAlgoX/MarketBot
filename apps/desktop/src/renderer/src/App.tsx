@@ -824,6 +824,20 @@ function ModelSettings({
           setKeyError(result.error || 'Failed to save key');
           return;
         }
+
+        // If no primary model is configured yet, set this provider's
+        // default model as primary so the user doesn't have to do it
+        // manually (mirrors the onboarding wizard behaviour).
+        if (!primaryModel) {
+          await window.marketbot.writeConfig({
+            agents: {
+              defaults: {
+                model: { primary: provider.defaultModel },
+              },
+            },
+          });
+        }
+
         setKeySuccess('Key saved. Refreshing models...');
         setEditKey('');
         // Bust the gateway's model catalog cache via RPC so it re-reads
@@ -855,7 +869,7 @@ function ModelSettings({
         setKeySaving(false);
       }
     },
-    [editKey, fetchData, rpc],
+    [editKey, primaryModel, fetchData, rpc],
   );
 
   if (!running) {
