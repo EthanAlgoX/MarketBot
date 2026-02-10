@@ -67,7 +67,7 @@ export const ModelDefinitionSchema = z
 
 export const ModelProviderSchema = z
   .object({
-    baseUrl: z.string().min(1),
+    baseUrl: z.string().min(1).optional(),
     apiKey: z.string().optional(),
     auth: z
       .union([z.literal("api-key"), z.literal("aws-sdk"), z.literal("oauth"), z.literal("token")])
@@ -75,9 +75,12 @@ export const ModelProviderSchema = z
     api: ModelApiSchema.optional(),
     headers: z.record(z.string(), z.string()).optional(),
     authHeader: z.boolean().optional(),
-    models: z.array(ModelDefinitionSchema),
+    models: z.array(ModelDefinitionSchema).optional(),
   })
-  .strict();
+  .strict()
+  .refine((value) => Boolean(value.baseUrl || value.models?.length || value.apiKey), {
+    message: "Provider must define baseUrl, models, or apiKey",
+  });
 
 export const BedrockDiscoverySchema = z
   .object({

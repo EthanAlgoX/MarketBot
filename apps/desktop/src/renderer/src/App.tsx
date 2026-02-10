@@ -587,14 +587,6 @@ function ModelSettings({
         setModels(modelList);
       }
 
-      // Determine configured providers from the auth-profiles store
-      // (and env vars) rather than from the model catalog, which
-      // includes built-in models regardless of key availability.
-      if (credResult.status === 'fulfilled') {
-        const ids: string[] = credResult.value?.providers ?? [];
-        setConfiguredProviders(new Set(ids));
-      }
-
       if (configResult.status === 'fulfilled') {
         // Extract current primary model from config
         const snapshot = configResult.value as Record<string, unknown> | undefined;
@@ -608,6 +600,31 @@ function ModelSettings({
         const fb = (model?.fallbacks as string[]) ?? [];
         setPrimaryModel(primary);
         setFallbacks(fb);
+      }
+      // Determine configured providers from auth-profiles/env plus
+      // models.providers.*.apiKey in config (AI models UI).
+      if (credResult.status === 'fulfilled' || configResult.status === 'fulfilled') {
+        const nextConfigured = new Set<string>();
+        if (credResult.status === 'fulfilled') {
+          const ids: string[] = credResult.value?.providers ?? [];
+          for (const id of ids) nextConfigured.add(id);
+        }
+        if (configResult.status === 'fulfilled') {
+          const snapshot = configResult.value as Record<string, unknown> | undefined;
+          const cfg = snapshot?.config as Record<string, unknown> | undefined;
+          const modelsCfg = cfg?.models as Record<string, unknown> | undefined;
+          const providers = modelsCfg?.providers as Record<string, unknown> | undefined;
+          if (providers && typeof providers === 'object') {
+            for (const [id, raw] of Object.entries(providers)) {
+              if (!raw || typeof raw !== 'object') continue;
+              const apiKey = (raw as { apiKey?: unknown }).apiKey;
+              if (typeof apiKey === 'string' && apiKey.trim()) {
+                nextConfigured.add(id);
+              }
+            }
+          }
+        }
+        setConfiguredProviders(nextConfigured);
       }
 
       // Show error only if both failed during initial load.
