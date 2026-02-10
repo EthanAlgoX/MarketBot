@@ -9,6 +9,26 @@ import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
 const __dirname = import.meta.dirname;
 const require2 = __cjs_mod__.createRequire(import.meta.url);
+function applyMergePatch(base, patch) {
+  if (typeof patch !== "object" || patch === null || Array.isArray(patch)) return patch;
+  const result = typeof base === "object" && base !== null && !Array.isArray(base) ? { ...base } : {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) {
+      delete result[key];
+      continue;
+    }
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const baseVal = result[key];
+      result[key] = applyMergePatch(
+        typeof baseVal === "object" && baseVal !== null && !Array.isArray(baseVal) ? baseVal : {},
+        value
+      );
+      continue;
+    }
+    result[key] = value;
+  }
+  return result;
+}
 const __filename$1 = fileURLToPath(import.meta.url);
 const __dirname$1 = resolve(__filename$1, "..");
 const APP_NAME = "MarketBot Desktop";
@@ -447,13 +467,7 @@ app.whenReady().then(() => {
         } catch {
         }
       }
-      for (const [key, value] of Object.entries(patch)) {
-        if (typeof value === "object" && value !== null && !Array.isArray(value) && typeof config[key] === "object" && config[key] !== null && !Array.isArray(config[key])) {
-          config[key] = { ...config[key], ...value };
-        } else {
-          config[key] = value;
-        }
-      }
+      config = applyMergePatch(config, patch);
       mkdirSync(resolve(configPath, ".."), { recursive: true, mode: 448 });
       writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", {
         encoding: "utf-8",
@@ -480,7 +494,17 @@ app.whenReady().then(() => {
         }
       }
       if (hasAuthProfiles) return { needsOnboarding: false };
-      if (process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY) {
+      const envKeys = [
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "GEMINI_API_KEY",
+        "GROQ_API_KEY",
+        "OPENROUTER_API_KEY",
+        "MISTRAL_API_KEY",
+        "XAI_API_KEY"
+      ];
+      if (envKeys.some((k) => process.env[k])) {
         return { needsOnboarding: false };
       }
       if (!existsSync(configPath)) return { needsOnboarding: true };
@@ -551,6 +575,39 @@ app.whenReady().then(() => {
       console.error("[Desktop] credentials:write failed", err);
       return { ok: false, error: String(err) };
     }
+  });
+  ipcMain.handle("credentials:configured-providers", () => {
+    const providers = /* @__PURE__ */ new Set();
+    try {
+      const authStorePath = join(STATE_DIR, "agents", "main", "agent", "auth-profiles.json");
+      if (existsSync(authStorePath)) {
+        try {
+          const store = JSON.parse(readFileSync(authStorePath, "utf8"));
+          if (store?.profiles && typeof store.profiles === "object") {
+            for (const profile of Object.values(store.profiles)) {
+              if (profile?.provider) providers.add(profile.provider);
+            }
+          }
+        } catch {
+        }
+      }
+      const envProviders = [
+        ["anthropic", "ANTHROPIC_API_KEY"],
+        ["openai", "OPENAI_API_KEY"],
+        ["openai-codex", "OPENAI_API_KEY"],
+        ["deepseek", "DEEPSEEK_API_KEY"],
+        ["google", "GEMINI_API_KEY"],
+        ["groq", "GROQ_API_KEY"],
+        ["openrouter", "OPENROUTER_API_KEY"],
+        ["mistral", "MISTRAL_API_KEY"],
+        ["xai", "XAI_API_KEY"]
+      ];
+      for (const [id, envVar] of envProviders) {
+        if (process.env[envVar]) providers.add(id);
+      }
+    } catch {
+    }
+    return { providers: [...providers] };
   });
   const OLLAMA_API = "http://127.0.0.1:11434";
   ipcMain.handle("ollama:check", async () => {

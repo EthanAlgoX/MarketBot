@@ -723,6 +723,46 @@ app.whenReady().then(() => {
     }
   });
 
+  // Return the set of provider IDs that have credentials stored in
+  // auth-profiles or available via environment variables.  The renderer uses
+  // this to determine which providers are truly "configured" (rather than
+  // inferring from the model catalog, which includes built-in models that
+  // don't require a key).
+  ipcMain.handle('credentials:configured-providers', () => {
+    const providers = new Set<string>();
+    try {
+      // 1. Check auth-profiles store.
+      const authStorePath = join(STATE_DIR, 'agents', 'main', 'agent', 'auth-profiles.json');
+      if (existsSync(authStorePath)) {
+        try {
+          const store = JSON.parse(readFileSync(authStorePath, 'utf8'));
+          if (store?.profiles && typeof store.profiles === 'object') {
+            for (const profile of Object.values(store.profiles) as Array<{ provider?: string }>) {
+              if (profile?.provider) providers.add(profile.provider);
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      // 2. Check well-known environment variable API keys.
+      const envProviders: [string, string][] = [
+        ['anthropic', 'ANTHROPIC_API_KEY'],
+        ['openai', 'OPENAI_API_KEY'],
+        ['openai-codex', 'OPENAI_API_KEY'],
+        ['deepseek', 'DEEPSEEK_API_KEY'],
+        ['google', 'GEMINI_API_KEY'],
+        ['groq', 'GROQ_API_KEY'],
+        ['openrouter', 'OPENROUTER_API_KEY'],
+        ['mistral', 'MISTRAL_API_KEY'],
+        ['xai', 'XAI_API_KEY'],
+      ];
+      for (const [id, envVar] of envProviders) {
+        if (process.env[envVar]) providers.add(id);
+      }
+    } catch { /* ignore */ }
+    return { providers: [...providers] };
+  });
+
   // ── Ollama Local Model Management ──
 
   const OLLAMA_API = 'http://127.0.0.1:11434';

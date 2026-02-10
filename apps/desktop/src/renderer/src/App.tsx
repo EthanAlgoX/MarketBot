@@ -15,6 +15,7 @@ declare global {
       markOnboardingDone: () => Promise<{ ok: boolean; error?: string }>;
       writeCredentials: (args: { profileId: string; provider: string; apiKey: string }) =>
         Promise<{ ok: boolean; error?: string }>;
+      getConfiguredProviders: () => Promise<{ providers: string[] }>;
       // Ollama local model management.
       checkOllama: () => Promise<{ available: boolean; models: string[] }>;
       pullOllamaModel: (modelId: string) => Promise<{ ok: boolean; error?: string }>;
@@ -573,21 +574,25 @@ function ModelSettings({
     if (showSpinner) setLoading(true);
     setError('');
     try {
-      // Fetch models and config independently so one failing doesn't block
-      // the other from updating state (e.g. config.get failure shouldn't
-      // prevent configuredProviders from being set).
-      const [modelsResult, configResult] = await Promise.allSettled([
+      // Fetch models, config, and configured-provider status independently
+      // so one failing doesn't block the others from updating state.
+      const [modelsResult, configResult, credResult] = await Promise.allSettled([
         rpc('models.list'),
         rpc('config.get'),
+        window.marketbot.getConfiguredProviders(),
       ]);
 
       if (modelsResult.status === 'fulfilled') {
         const modelList: ModelInfo[] = modelsResult.value?.models ?? [];
         setModels(modelList);
+      }
 
-        // Determine configured providers from the model list
-        const providerIds = new Set(modelList.map((m) => m.provider));
-        setConfiguredProviders(providerIds);
+      // Determine configured providers from the auth-profiles store
+      // (and env vars) rather than from the model catalog, which
+      // includes built-in models regardless of key availability.
+      if (credResult.status === 'fulfilled') {
+        const ids: string[] = credResult.value?.providers ?? [];
+        setConfiguredProviders(new Set(ids));
       }
 
       if (configResult.status === 'fulfilled') {

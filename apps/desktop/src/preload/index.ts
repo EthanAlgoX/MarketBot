@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('marketbot', {
   markOnboardingDone: () => ipcRenderer.invoke('config:mark-onboarding-done'),
   writeCredentials: (args: { profileId: string; provider: string; apiKey: string }) =>
     ipcRenderer.invoke('credentials:write', args),
+  getConfiguredProviders: () => ipcRenderer.invoke('credentials:configured-providers'),
   // Ollama local model management.
   checkOllama: () => ipcRenderer.invoke('ollama:check'),
   pullOllamaModel: (modelId: string) => ipcRenderer.invoke('ollama:pull', modelId),
@@ -40,6 +41,7 @@ export type MarketBotDesktopApi = {
   markOnboardingDone: () => Promise<{ ok: boolean; error?: string }>;
   writeCredentials: (args: { profileId: string; provider: string; apiKey: string }) =>
     Promise<{ ok: boolean; error?: string }>;
+  getConfiguredProviders: () => Promise<{ providers: string[] }>;
   checkOllama: () => Promise<{ available: boolean; models: string[] }>;
   pullOllamaModel: (modelId: string) => Promise<{ ok: boolean; error?: string }>;
   setOllamaModel: (modelId: string) => Promise<{ ok: boolean; error?: string }>;

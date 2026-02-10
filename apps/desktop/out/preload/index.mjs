@@ -13,5 +13,17 @@ contextBridge.exposeInMainWorld("marketbot", {
   writeConfig: (patch) => ipcRenderer.invoke("config:write", patch),
   checkOnboarding: () => ipcRenderer.invoke("config:check-onboarding"),
   markOnboardingDone: () => ipcRenderer.invoke("config:mark-onboarding-done"),
-  writeCredentials: (args) => ipcRenderer.invoke("credentials:write", args)
+  writeCredentials: (args) => ipcRenderer.invoke("credentials:write", args),
+  getConfiguredProviders: () => ipcRenderer.invoke("credentials:configured-providers"),
+  // Ollama local model management.
+  checkOllama: () => ipcRenderer.invoke("ollama:check"),
+  pullOllamaModel: (modelId) => ipcRenderer.invoke("ollama:pull", modelId),
+  setOllamaModel: (modelId) => ipcRenderer.invoke("ollama:set-model", modelId),
+  onOllamaPullProgress: (handler) => {
+    const listener = (_event, progress) => handler(progress);
+    ipcRenderer.on("ollama:pull-progress", listener);
+    return () => {
+      ipcRenderer.removeListener("ollama:pull-progress", listener);
+    };
+  }
 });
