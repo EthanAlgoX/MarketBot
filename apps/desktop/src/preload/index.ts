@@ -16,6 +16,15 @@ contextBridge.exposeInMainWorld('marketbot', {
   markOnboardingDone: () => ipcRenderer.invoke('config:mark-onboarding-done'),
   writeCredentials: (args: { profileId: string; provider: string; apiKey: string }) =>
     ipcRenderer.invoke('credentials:write', args),
+  // Ollama local model management.
+  checkOllama: () => ipcRenderer.invoke('ollama:check'),
+  pullOllamaModel: (modelId: string) => ipcRenderer.invoke('ollama:pull', modelId),
+  setOllamaModel: (modelId: string) => ipcRenderer.invoke('ollama:set-model', modelId),
+  onOllamaPullProgress: (handler: (progress: { model: string; status: string; percent?: number; done: boolean; error?: string }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: { model: string; status: string; percent?: number; done: boolean; error?: string }) => handler(progress);
+    ipcRenderer.on('ollama:pull-progress', listener);
+    return () => { ipcRenderer.removeListener('ollama:pull-progress', listener); };
+  },
 });
 
 export type MarketBotDesktopApi = {
@@ -31,4 +40,8 @@ export type MarketBotDesktopApi = {
   markOnboardingDone: () => Promise<{ ok: boolean; error?: string }>;
   writeCredentials: (args: { profileId: string; provider: string; apiKey: string }) =>
     Promise<{ ok: boolean; error?: string }>;
+  checkOllama: () => Promise<{ available: boolean; models: string[] }>;
+  pullOllamaModel: (modelId: string) => Promise<{ ok: boolean; error?: string }>;
+  setOllamaModel: (modelId: string) => Promise<{ ok: boolean; error?: string }>;
+  onOllamaPullProgress: (handler: (progress: { model: string; status: string; percent?: number; done: boolean; error?: string }) => void) => () => void;
 };

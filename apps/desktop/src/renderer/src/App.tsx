@@ -304,7 +304,7 @@ const LOCAL_MODELS: LocalModelDef[] = [
 
 type OnboardingStep = 'welcome' | 'provider' | 'apikey' | 'done';
 
-function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
+function OnboardingWizard({ onComplete, gatewayUrl }: { onComplete: () => void; gatewayUrl: string }) {
   const [step, setStep] = useState<OnboardingStep>('welcome');
   const [selectedProvider, setSelectedProvider] = useState<ProviderDef | null>(null);
   const [apiKey, setApiKey] = useState('');
@@ -371,10 +371,24 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   }, [selectedProvider, apiKey]);
 
   const handleFinish = useCallback(async () => {
-    // Restart gateway so it picks up the new credentials.
+    // Bust the gateway's model catalog cache so it re-reads credentials
+    // from disk.  This is essential for external (CLI-started) gateways
+    // where restartGateway() is a no-op.  For desktop-managed gateways
+    // the subsequent restart makes this redundant, but it's harmless.
+    const base = normalizeBase(gatewayUrl);
+    try {
+      await fetch(`${base}/api/models.list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ params: { refresh: true } }),
+      });
+    } catch {
+      // Gateway may not be reachable yet; the restart below will handle it.
+    }
+    // Restart gateway so desktop-managed gateways pick up new config.
     await window.marketbot.restartGateway();
     onComplete();
-  }, [onComplete]);
+  }, [gatewayUrl, onComplete]);
 
   return (
     <div className="onboarding">
@@ -542,7 +556,11 @@ function ModelSettings({
         body: JSON.stringify({ params }),
       });
       if (!res.ok) throw new Error(`RPC ${method} failed: ${res.status}`);
-      return res.json();
+      // The HTTP RPC endpoint wraps responses in { ok, result, error }.
+      // Unwrap the envelope so callers receive the payload directly.
+      const envelope = await res.json();
+      if (!envelope.ok) throw new Error(envelope.error?.message ?? `RPC ${method} failed`);
+      return envelope.result;
     },
     [base],
   );
@@ -555,28 +573,42 @@ function ModelSettings({
     if (showSpinner) setLoading(true);
     setError('');
     try {
-      const [modelsRes, configRes] = await Promise.all([
+      // Fetch models and config independently so one failing doesn't block
+      // the other from updating state (e.g. config.get failure shouldn't
+      // prevent configuredProviders from being set).
+      const [modelsResult, configResult] = await Promise.allSettled([
         rpc('models.list'),
         rpc('config.get'),
       ]);
 
-      const modelList: ModelInfo[] = modelsRes?.models ?? [];
-      setModels(modelList);
+      if (modelsResult.status === 'fulfilled') {
+        const modelList: ModelInfo[] = modelsResult.value?.models ?? [];
+        setModels(modelList);
 
-      // Determine configured providers from the model list
-      const providerIds = new Set(modelList.map((m) => m.provider));
-      setConfiguredProviders(providerIds);
+        // Determine configured providers from the model list
+        const providerIds = new Set(modelList.map((m) => m.provider));
+        setConfiguredProviders(providerIds);
+      }
 
-      // Extract current primary model from config
-      const agentModel = (configRes as Record<string, unknown>)?.agents as
-        | Record<string, unknown>
-        | undefined;
-      const defaults = agentModel?.defaults as Record<string, unknown> | undefined;
-      const model = defaults?.model as Record<string, unknown> | undefined;
-      const primary = (model?.primary as string) ?? '';
-      const fb = (model?.fallbacks as string[]) ?? [];
-      setPrimaryModel(primary);
-      setFallbacks(fb);
+      if (configResult.status === 'fulfilled') {
+        // Extract current primary model from config
+        const snapshot = configResult.value as Record<string, unknown> | undefined;
+        const cfg = snapshot?.config as Record<string, unknown> | undefined;
+        const agentModel = cfg?.agents as
+          | Record<string, unknown>
+          | undefined;
+        const defaults = agentModel?.defaults as Record<string, unknown> | undefined;
+        const model = defaults?.model as Record<string, unknown> | undefined;
+        const primary = (model?.primary as string) ?? '';
+        const fb = (model?.fallbacks as string[]) ?? [];
+        setPrimaryModel(primary);
+        setFallbacks(fb);
+      }
+
+      // Show error only if both failed during initial load.
+      if (showSpinner && modelsResult.status === 'rejected' && configResult.status === 'rejected') {
+        setError('Failed to load models');
+      }
     } catch {
       // Silently ignore refresh errors (gateway may be restarting).
       if (showSpinner) setError('Failed to load models');
@@ -662,7 +694,7 @@ function ModelSettings({
       // Tell the gateway to reload config via RPC.
       try {
         await rpc('config.patch', {
-          patch: { agents: { defaults: { model: { primary: `ollama/${modelId}` } } } },
+          raw: JSON.stringify({ agents: { defaults: { model: { primary: `ollama/${modelId}` } } } }),
         });
       } catch {
         // Fallback if RPC unavailable.
@@ -716,9 +748,9 @@ function ModelSettings({
       setSaveMsg('');
       try {
         await rpc('config.patch', {
-          patch: {
+          raw: JSON.stringify({
             agents: { defaults: { model: { primary: newModel } } },
-          },
+          }),
         });
         setPrimaryModel(newModel);
         setSaveMsg('Primary model updated');
@@ -739,9 +771,9 @@ function ModelSettings({
       setSaving(true);
       try {
         await rpc('config.patch', {
-          patch: {
+          raw: JSON.stringify({
             agents: { defaults: { model: { fallbacks: next } } },
-          },
+          }),
         });
         setFallbacks(next);
       } catch (err) {
@@ -761,9 +793,9 @@ function ModelSettings({
       setSaving(true);
       try {
         await rpc('config.patch', {
-          patch: {
+          raw: JSON.stringify({
             agents: { defaults: { model: { fallbacks: next } } },
-          },
+          }),
         });
         setFallbacks(next);
       } catch (err) {
@@ -792,31 +824,30 @@ function ModelSettings({
           setKeyError(result.error || 'Failed to save key');
           return;
         }
-        setKeySuccess('Key saved. Restarting gateway...');
+        setKeySuccess('Key saved. Refreshing models...');
         setEditKey('');
-        // Trigger gateway restart via RPC so it reloads auth-profiles.
-        // This works even when the desktop app is piggybacking on an
-        // external (CLI-started) gateway, unlike the IPC restartGateway
-        // which only kills/restarts processes the desktop spawned itself.
+        // Bust the gateway's model catalog cache via RPC so it re-reads
+        // auth-profiles from disk. This works for both desktop-managed and
+        // external (CLI-started) gateways without needing a restart.
+        // A short delay ensures the credential file write is fully flushed.
+        await new Promise((r) => setTimeout(r, 500));
         try {
-          await window.marketbot.restartGateway();
+          await rpc('models.list', { refresh: true });
         } catch {
-          // Ignore restart errors; the gateway may already be restarting.
+          // If the first attempt fails (gateway may be busy), retry once.
+          await new Promise((r) => setTimeout(r, 2000));
+          try {
+            await rpc('models.list', { refresh: true });
+          } catch {
+            // ignore; fetchData below will retry
+          }
         }
-        setKeySuccess('Key saved and gateway restarted');
+        // Re-fetch all data (models + config) to update the UI.
+        await fetchData();
+        setKeySuccess('Key saved');
         setTimeout(() => {
           setEditingProvider(null);
           setKeySuccess('');
-          // Re-fetch with refresh=true to bust the model catalog cache
-          // so newly-configured providers appear immediately.
-          setTimeout(async () => {
-            try {
-              await rpc('models.list', { refresh: true });
-            } catch {
-              // ignore; fetchData below will retry with cache
-            }
-            fetchData();
-          }, 4000);
         }, 1500);
       } catch (err) {
         setKeyError(String(err));
@@ -1327,7 +1358,7 @@ export default function App() {
 
   // During onboarding, render only the wizard (no sidebar).
   if (phase === 'onboarding') {
-    return <OnboardingWizard onComplete={handleOnboardingComplete} />;
+    return <OnboardingWizard onComplete={handleOnboardingComplete} gatewayUrl={gatewayUrl} />;
   }
 
   const showWebview = phase === 'ready' && running && tabUrl;
