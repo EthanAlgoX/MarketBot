@@ -143,6 +143,18 @@ body {
   width: fit-content;
 }
 
+.status-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.status-model {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
 .status-dot {
   width: 7px;
   height: 7px;

@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('marketbot', {
   checkOnboarding: () => ipcRenderer.invoke('config:check-onboarding'),
   markOnboardingDone: () => ipcRenderer.invoke('config:mark-onboarding-done'),
   writeCredentials: (args) => ipcRenderer.invoke('credentials:write', args),
+  getConfiguredProviders: () => ipcRenderer.invoke('credentials:configured-providers'),
   // Ollama local model management.
   checkOllama: () => ipcRenderer.invoke('ollama:check'),
   pullOllamaModel: (modelId) => ipcRenderer.invoke('ollama:pull', modelId),

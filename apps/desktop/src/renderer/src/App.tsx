@@ -1220,6 +1220,7 @@ export default function App() {
   const [webviewPreload, setWebviewPreload] = useState('');
   const [activeTab, setActiveTab] = useState<TabId>('chat');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [currentModel, setCurrentModel] = useState('');
   const webviewRef = useRef<(HTMLElement & { loadURL: (url: string) => void; reload: () => void; executeJavaScript: (code: string, userGesture?: boolean) => Promise<unknown> }) | null>(null);
   const prevUrlRef = useRef('');
 
@@ -1326,6 +1327,43 @@ export default function App() {
     return () => { mounted = false; clearInterval(timer); };
   }, [phase, gatewayUrl]);
 
+  // Fetch current primary model for the sidebar status.
+  useEffect(() => {
+    if (phase !== 'ready') return;
+    let mounted = true;
+
+    const fetchModel = async () => {
+      if (!gatewayUrl || !running) {
+        if (mounted) setCurrentModel('');
+        return;
+      }
+      try {
+        const res = await fetch(`${normalizeBase(gatewayUrl)}/api/config.get`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ params: {} }),
+        });
+        if (!res.ok) return;
+        const envelope = await res.json();
+        if (!envelope?.ok) return;
+        const cfg = envelope.result?.config as Record<string, unknown> | undefined;
+        const agents = cfg?.agents as Record<string, unknown> | undefined;
+        const defaults = agents?.defaults as Record<string, unknown> | undefined;
+        const model = defaults?.model as Record<string, unknown> | undefined;
+        const primary = model?.primary;
+        if (mounted) {
+          setCurrentModel(typeof primary === 'string' ? primary : '');
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchModel();
+    const timer = setInterval(fetchModel, 10000);
+    return () => { mounted = false; clearInterval(timer); };
+  }, [phase, gatewayUrl, running]);
+
   const tabUrl = useMemo(() => {
     if (!gatewayUrl || activeTab === 'models') return '';
     return buildTabUrl(gatewayUrl, TABS[activeTab].path, gatewayToken);
@@ -1426,7 +1464,14 @@ export default function App() {
 
         <div className={`status ${running ? 'ok' : 'off'}`}>
           <span className={`status-dot ${running ? 'ok' : 'off'}`} />
-          {!sidebarCollapsed && (running ? 'Connected' : phase === 'init' ? 'Initializing' : 'Connecting')}
+          {!sidebarCollapsed && (
+            <div className="status-text">
+              <div>{running ? 'Connected' : phase === 'init' ? 'Initializing' : 'Connecting'}</div>
+              {running && currentModel ? (
+                <div className="status-model">{currentModel}</div>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <nav className="nav">
