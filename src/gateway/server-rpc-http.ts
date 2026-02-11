@@ -26,6 +26,11 @@ export async function handleRpcHttpRequest(
     return false;
   }
 
+  // Let dedicated sub-handlers (e.g. /api/files/) handle their own prefixes.
+  if (url.startsWith("/api/files/")) {
+    return false;
+  }
+
   const method = url.slice(5); // Remove "/api/"
   if (req.method !== "POST") {
     res.statusCode = 405;

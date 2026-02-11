@@ -55,6 +55,8 @@ Key design choices:
 
 ## MarketBot Desktop
 
+![MarketBot Desktop](docs/desktop.gif)
+
 MarketBot Desktop is a standalone Electron application. Install it, launch it, and it works -- no manual gateway setup, no token configuration, no terminal commands.
 
 **What happens on first launch:**
@@ -79,22 +81,25 @@ MarketBot Desktop is a standalone Electron application. Install it, launch it, a
 
 ### Running the Desktop App
 
-**Development mode** (hot-reload for renderer):
-
 ```bash
-# 1. Install deps and build core + Control UI (first time only)
+# 1. Install all deps (first time, or after pulling new changes)
 pnpm install
+
+# 2. Build the core gateway and Control UI
 pnpm build
 pnpm ui:build
 
-# 2. Start the gateway (required -- dev mode does not auto-start it)
-pnpm -s marketbot gateway run --bind loopback --port 18789 --force
-
-# 3. In a separate terminal, start the Desktop app
-pnpm desktop:dev
-# or equivalently:
-#   pnpm --dir apps/desktop dev
+# 3. Start the Desktop app in dev mode (hot-reload for renderer)
+pnpm desktop:dev          # shorthand
+# pnpm --dir apps/desktop dev   # equivalent long form
 ```
+
+> **Note:** Dev mode does **not** auto-start the gateway. Start it manually in a
+> separate terminal before launching the Desktop app:
+>
+> ```bash
+> pnpm -s marketbot gateway run --bind loopback --port 18789 --force
+> ```
 
 **Production-like local run** (builds the Electron app, then launches it):
 
@@ -103,6 +108,10 @@ pnpm --dir apps/desktop start
 ```
 
 This auto-starts the gateway as a subprocess, same as the packaged app.
+
+If the UI shows `unauthorized`, paste the value of `gateway.auth.token` from
+`~/.marketbot/marketbot.json` into the Control UI "Gateway Token" field and
+connect.
 
 ### Building the Desktop App (Production)
 
@@ -185,13 +194,6 @@ Notes:
 - `pnpm ui:dev` is for Control UI frontend development only.
 - Gateway auth is required by default. The Desktop app handles this automatically. For browser access, use the token from `~/.marketbot/marketbot.json`.
 
-Key design choices:
-
-- Browser data capture: a managed browser profile is available for pages that block direct API access.
-- Report outputs: primary outputs are markdown reports intended to read like research notes.
-- Separation of concerns: finance calculations are deterministic; agent writing and summarization is layered on top.
-- Delivery is explicit: connect a channel, verify status, then send or schedule.
-
 ## Daily Stocks (Design)
 
 Daily Stocks is a first-class workflow (think: a built-in skill).
@@ -217,112 +219,6 @@ File analysis supports local datasets:
 
 - CSV/JSON: quick schema + anomalies + key stats
 - PDFs: extract relevant sections and summarize for finance use cases
-
-## Quick Start (Dev)
-
-Prereqs: Node 22+, pnpm.
-
-```bash
-git clone https://github.com/marketbot/marketbot.git
-cd marketbot
-pnpm install
-pnpm build
-pnpm ui:build
-```
-
-### Quick Start with Local LLM (Recommended)
-
-MarketBot works out-of-the-box with **Qwen3-0.6B** via Ollama.
-
-```bash
-# 1. One-shot quickstart (configure Qwen3-0.6B + start Desktop + Gateway)
-pnpm quickstart:web
-```
-
-To run without auto-opening the browser:
-
-```bash
-pnpm quickstart:web -- --no-open
-```
-
-Then open MarketBot Desktop:
-
-```bash
-# Production-like local run (auto-starts gateway)
-pnpm --dir apps/desktop start
-
-# Or dev mode (hot-reload, requires gateway running separately)
-pnpm desktop:dev
-```
-
-MarketBot Desktop auto-starts the gateway on launch (in `start` mode) and stops it on quit.
-In `dev` mode, start the gateway manually first: `pnpm -s marketbot gateway run --bind loopback --port 18789 --force`.
-If the UI shows `unauthorized`, paste `gateway.auth.token` from `~/.marketbot/marketbot.json`
-into the Control UI "Gateway Token" field and connect.
-
-<details>
-<summary>Manual Local LLM Setup (Click to expand)</summary>
-
-If you prefer to set up manually:
-
-1. **Install Ollama**: [Download from ollama.com](https://ollama.com) or `brew install ollama`.
-2. **Pull Model**: `ollama pull qwen3:0.6b` (or any other model you prefer).
-3. **Configure**: Copy `marketbot.json.example` to `marketbot.json`.
-4. **Start**: `pnpm -s marketbot gateway run --bind loopback --port 18789`.
-
-</details>
-
-### configuration
-
-MarketBot uses `marketbot.json` for configuration. The default local setup uses **Qwen3** via Ollama.
-
-To use cloud APIs (like DeepSeek or OpenAI):
-
-1. Edit `marketbot.json`.
-2. Uncomment the provider configuration (e.g., `deepseek`).
-3. Add your API key.
-4. Change `agents.defaults.model.primary` to the cloud model ID.
-
-Or continue with manual dev setup:
-
-```bash
-pnpm -s marketbot setup
-# or
-pnpm -s marketbot onboard
-```
-
-Run a local gateway:
-
-```bash
-pnpm -s marketbot gateway run --bind loopback --port 18789
-```
-
-Open the Control UI directly in a browser (dev/ops fallback):
-
-```text
-http://127.0.0.1:18789/
-```
-
-Notes:
-
-- The Web Control UI is served by the Gateway (no separate web server in the product).
-- `pnpm ui:dev` is only for Control UI frontend development.
-- Gateway auth is required by default. If you see `unauthorized`, paste the value of `gateway.auth.token` into the Control UI "Gateway Token" field, then click Connect.
-
-Primary pages:
-
-- Desk: `/` (or `/desk`)
-- Stocks: `/stocks`
-- Ops: `/channels` `/sessions` `/cron` `/logs`
-- Research: `/chat`
-- Connection: `/overview`
-- Config: `/config`
-
-If your config is not yet set up for local mode, either run `setup/onboard` or explicitly set:
-
-```bash
-pnpm -s marketbot config set gateway.mode local
-```
 
 ## Symbol Conventions (Yahoo-backed, browser-fetched)
 
@@ -548,7 +444,7 @@ This repo ships a CLI for scripting and dev workflows. The primary user surfaces
 | `src/` | CLI, gateway, channels, browser, finance, infra |
 | `extensions/` | Optional plugins (workspace packages) |
 | `skills/` | Reusable skills and workflows |
-| `apps/` | Native clients (macOS, iOS, Android) |
+| `apps/` | Native clients (Desktop/Electron, macOS, iOS, Android) |
 | `ui/` | Web Control UI (current) |
 | `docs/` | Documentation sources |
 
