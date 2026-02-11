@@ -108,6 +108,41 @@ function installHooks() {
   });
 }
 
+const FENCED_CODE_BLOCK_RE = /```[^\n]*\n([\s\S]*?)```/g;
+const BOX_DRAWING_CHAR_RE = /[│┤┬┼┌┐└┘─━╭╮╰╯]/g;
+const DATE_TICK_RE = /\b20\d{2}[-/]\d{2}\b/g;
+const NUMBER_LABEL_RE = /\b\d{2,5}\b/g;
+const ASCII_CHART_BLOCK_NOTICE =
+  "> **图表已拦截**：检测到 ASCII 文本曲线。请重生成 PNG/SVG 图片图表后再发送。";
+
+function looksLikeAsciiChartBlock(block: string): boolean {
+  const lines = block
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0);
+  if (lines.length < 6) {
+    return false;
+  }
+
+  const boxChars = (block.match(BOX_DRAWING_CHAR_RE) ?? []).length;
+  if (boxChars < 8) {
+    return false;
+  }
+
+  const dateTicks = (block.match(DATE_TICK_RE) ?? []).length;
+  const numberLabels = (block.match(NUMBER_LABEL_RE) ?? []).length;
+  return dateTicks >= 2 || numberLabels >= 8;
+}
+
+function maskAsciiChartCodeBlocks(markdown: string): string {
+  return markdown.replace(FENCED_CODE_BLOCK_RE, (full, code) => {
+    if (!looksLikeAsciiChartBlock(code)) {
+      return full;
+    }
+    return ASCII_CHART_BLOCK_NOTICE;
+  });
+}
+
 export function toSanitizedMarkdownHtml(markdown: string): string {
   const input = markdown.trim();
   if (!input) return "";
@@ -120,8 +155,9 @@ export function toSanitizedMarkdownHtml(markdown: string): string {
   const suffix = truncated.truncated
     ? `\n\n… truncated (${truncated.total} chars, showing first ${truncated.text.length}).`
     : "";
+  const guarded = maskAsciiChartCodeBlocks(truncated.text);
   if (truncated.text.length > MARKDOWN_PARSE_LIMIT) {
-    const escaped = escapeHtml(`${truncated.text}${suffix}`);
+    const escaped = escapeHtml(`${guarded}${suffix}`);
     const html = `<pre class="code-block">${escaped}</pre>`;
     const sanitized = DOMPurify.sanitize(html, {
       ALLOWED_TAGS: allowedTags,
@@ -132,7 +168,7 @@ export function toSanitizedMarkdownHtml(markdown: string): string {
     }
     return sanitized;
   }
-  const rendered = marked.parse(`${truncated.text}${suffix}`) as string;
+  const rendered = marked.parse(`${guarded}${suffix}`) as string;
   const sanitized = DOMPurify.sanitize(rendered, {
     ALLOWED_TAGS: allowedTags,
     ALLOWED_ATTR: allowedAttrs,
