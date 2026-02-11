@@ -11,7 +11,7 @@ import {
   extractThinkingCached,
   formatReasoningMarkdown,
 } from "./message-extract";
-import { extractToolCards, renderToolCardSidebar } from "./tool-cards";
+import { extractToolCards, renderToolStepsTimeline } from "./tool-cards";
 
 type ImageBlock = {
   url: string;
@@ -265,9 +265,7 @@ function renderGroupedMessage(
     .join(" ");
 
   if (!markdown && hasToolCards && isToolResult) {
-    return html`${toolCards.map((card) =>
-      renderToolCardSidebar(card, onOpenSidebar),
-    )}`;
+    return renderToolStepsTimeline(toolCards, onOpenSidebar);
   }
 
   if (!markdown && !hasToolCards && !hasImages) return nothing;
@@ -284,7 +282,7 @@ function renderGroupedMessage(
       ${markdown
         ? html`<div class="chat-text">${unsafeHTML(toSanitizedMarkdownHtml(markdown))}</div>`
         : nothing}
-      ${toolCards.map((card) => renderToolCardSidebar(card, onOpenSidebar))}
+      ${renderToolStepsTimeline(toolCards, onOpenSidebar)}
     </div>
   `;
 }

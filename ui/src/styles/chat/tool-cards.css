@@ -1,42 +1,109 @@
 /* =========================================================
-   Tool Step — compact inline indicators (typing-indicator style)
+   Tool Steps — Timeline layout with smart grouping
    ========================================================= */
 
-/* Shared base: single-line inline-flex row */
+/* Timeline container */
+.tool-timeline {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+/* -------------------------------------------------------
+   Individual tool step — timeline row
+   ------------------------------------------------------- */
 .tool-step {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   font-size: 12px;
   line-height: 1;
-  padding: 4px 0;
-  min-height: 22px;
+  min-height: 28px;
+  position: relative;
 }
 
-/* --- Executing state --- */
-.tool-step--executing {
-  color: var(--accent);
+/* Vertical connector line between steps */
+.tool-step__connector {
+  position: absolute;
+  left: 9px; /* center of the 20px node */
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
 }
 
-.tool-step--executing .tool-step__label {
-  opacity: 0.9;
+/* Hide connector on the first step (top) */
+.tool-timeline > .tool-step:first-child > .tool-step__connector,
+.tool-group__body > .tool-step:first-child > .tool-step__connector {
+  top: 50%;
 }
 
-/* Spinner icon rotates */
+/* Hide connector on the last step (bottom) */
+.tool-timeline > .tool-step:last-child > .tool-step__connector,
+.tool-group__body > .tool-step:last-child > .tool-step__connector {
+  bottom: 50%;
+}
+
+/* Single step: no connector */
+.tool-timeline > .tool-step:only-child > .tool-step__connector,
+.tool-group__body > .tool-step:only-child > .tool-step__connector {
+  display: none;
+}
+
+/* Timeline node: the circle/icon container */
+.tool-step__node {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+}
+
+.tool-step__node--active {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* Tool-type icon inside the node */
+.tool-step__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 11px;
+  height: 11px;
+}
+
+.tool-step__icon svg {
+  width: 11px;
+  height: 11px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Spinner inside active node */
 .tool-step__spinner {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
   animation: tool-step-spin 1s linear infinite;
 }
 
 .tool-step__spinner svg {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
+  width: 12px;
+  height: 12px;
+  stroke: var(--accent);
   fill: none;
   stroke-width: 2px;
   stroke-linecap: round;
@@ -48,6 +115,33 @@
   to   { transform: rotate(360deg); }
 }
 
+/* Body: label + optional view link */
+.tool-step__body {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  min-width: 0;
+}
+
+/* Label */
+.tool-step__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 480px;
+}
+
+/* --- Executing state --- */
+.tool-step--executing {
+  color: var(--accent);
+}
+
+.tool-step--executing .tool-step__label {
+  opacity: 0.95;
+  font-weight: 500;
+}
+
 /* Typing dots (3-dot bounce) */
 .tool-step__dots {
   display: inline-flex;
@@ -57,8 +151,8 @@
 }
 
 .tool-step__dots span {
-  width: 4px;
-  height: 4px;
+  width: 3px;
+  height: 3px;
   border-radius: 50%;
   background: currentColor;
   opacity: 0.5;
@@ -82,32 +176,19 @@
   opacity: 0.7;
 }
 
-.tool-step__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  color: var(--ok);
+.tool-step--done .tool-step__node {
+  border-color: var(--border);
 }
 
-.tool-step__icon svg {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.tool-step--done .tool-step__icon {
+  color: var(--muted);
 }
 
 /* Clickable completed step */
 .tool-step--clickable {
   cursor: pointer;
-  border-radius: 4px;
-  padding: 4px 6px;
-  margin-left: -6px;
+  border-radius: 6px;
+  padding: 2px 6px 2px 0;
   transition: background 120ms ease-out;
 }
 
@@ -124,26 +205,162 @@
   outline-offset: 1px;
 }
 
+/* View link */
 .tool-step__view {
   font-size: 11px;
   color: var(--accent);
   opacity: 0;
   transition: opacity 120ms ease-out;
+  flex-shrink: 0;
 }
 
 .tool-step--clickable:hover .tool-step__view {
   opacity: 0.8;
 }
 
-/* Label: truncate long text */
-.tool-step__label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 480px;
+/* -------------------------------------------------------
+   Collapsible tool group
+   ------------------------------------------------------- */
+.tool-group {
+  position: relative;
 }
 
-/* Reading Indicator (unchanged) */
+.tool-group__summary {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  min-height: 28px;
+  position: relative;
+  color: var(--muted);
+  list-style: none; /* hide default marker */
+  border-radius: 6px;
+  padding: 2px 6px 2px 0;
+  transition: background 120ms ease-out;
+  user-select: none;
+}
+
+.tool-group__summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-group__summary::marker {
+  display: none;
+  content: "";
+}
+
+.tool-group__summary:hover {
+  background: var(--bg-hover);
+}
+
+.tool-group__summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Connector in summary row */
+.tool-group__connector {
+  position: absolute;
+  left: 9px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+/* Node in summary row */
+.tool-group__node {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--bg);
+  border: 1.5px solid var(--ok);
+}
+
+.tool-group__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 11px;
+  height: 11px;
+  color: var(--ok);
+}
+
+.tool-group__icon svg {
+  width: 11px;
+  height: 11px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Step count label */
+.tool-group__count {
+  margin-left: 8px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+/* Chevron */
+.tool-group__chevron {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  transition: transform 200ms ease-out;
+}
+
+.tool-group__chevron-svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tool-group[open] .tool-group__chevron {
+  transform: rotate(90deg);
+}
+
+/* Body (expanded content) */
+.tool-group__body {
+  display: flex;
+  flex-direction: column;
+  padding-left: 0;
+  animation: tool-group-expand 200ms ease-out;
+}
+
+@keyframes tool-group-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* When inside a group body, connector continues */
+.tool-group__body .tool-step__connector {
+  background: var(--border);
+}
+
+/* -------------------------------------------------------
+   Reading Indicator (unchanged)
+   ------------------------------------------------------- */
 .chat-reading-indicator {
   background: transparent;
   border: 1px solid var(--border);

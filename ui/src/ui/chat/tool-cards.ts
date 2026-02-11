@@ -1,7 +1,7 @@
 import { html, nothing } from "lit";
 
 import { formatToolDetail, resolveToolDisplay } from "../tool-display";
-import { icons } from "../icons";
+import { icons, type IconName } from "../icons";
 import type { ToolCard } from "../types/chat-types";
 import {
   formatToolOutputForSidebar,
@@ -54,14 +54,16 @@ export function extractToolCards(message: unknown): ToolCard[] {
   return cards;
 }
 
+// ---------------------------------------------------------------------------
+// Timeline rendering — groups tool steps into a vertical timeline
+// with collapsible completed sections and per-tool-type icons.
+// ---------------------------------------------------------------------------
+
 /**
- * Renders a tool step as a compact inline indicator.
+ * Renders a single tool step as a timeline row.
  *
- * - Executing: single-line with spinner + label + "..."
- * - Completed: single-line with check icon + label, muted, clickable for output
- *
- * Designed to feel transient (like a chat "typing..." indicator) rather than
- * a heavyweight block card.
+ * - Executing: accent-coloured row with spinner icon + label + dots animation
+ * - Completed: muted row with tool-type icon + label, clickable for sidebar
  */
 export function renderToolCardSidebar(
   card: ToolCard,
@@ -71,8 +73,6 @@ export function renderToolCardSidebar(
   const detail = formatToolDetail(display);
   const hasText = Boolean(card.text?.trim());
 
-  // A tool is executing if it has a phase that isn't "result",
-  // or if it's a call card with no corresponding result yet.
   const isExecuting =
     card.phase != null && card.phase !== "result";
 
@@ -90,21 +90,30 @@ export function renderToolCardSidebar(
       }
     : undefined;
 
-  // --- Executing: transient inline indicator ---
+  const toolIcon = display.icon in icons
+    ? icons[display.icon as IconName]
+    : icons.puzzle;
+
+  // --- Executing: prominent inline indicator ---
   if (isExecuting) {
     const summary = detail ? `${display.label}: ${detail}` : display.label;
     return html`
       <div class="tool-step tool-step--executing">
-        <span class="tool-step__spinner">${icons.loader}</span>
-        <span class="tool-step__label">${summary}</span>
-        <span class="tool-step__dots">
-          <span></span><span></span><span></span>
+        <span class="tool-step__connector"></span>
+        <span class="tool-step__node tool-step__node--active">
+          <span class="tool-step__spinner">${icons.loader}</span>
+        </span>
+        <span class="tool-step__body">
+          <span class="tool-step__label">${summary}</span>
+          <span class="tool-step__dots">
+            <span></span><span></span><span></span>
+          </span>
         </span>
       </div>
     `;
   }
 
-  // --- Completed: compact one-liner ---
+  // --- Completed: compact one-liner with tool-type icon ---
   const summary = detail ? `${display.label}: ${detail}` : display.label;
   return html`
     <div
@@ -120,14 +129,125 @@ export function renderToolCardSidebar(
           }
         : nothing}
     >
-      <span class="tool-step__icon">${icons.check}</span>
-      <span class="tool-step__label">${summary}</span>
-      ${hasText && canClick
-        ? html`<span class="tool-step__view">View</span>`
-        : nothing}
+      <span class="tool-step__connector"></span>
+      <span class="tool-step__node">
+        <span class="tool-step__icon">${toolIcon}</span>
+      </span>
+      <span class="tool-step__body">
+        <span class="tool-step__label">${summary}</span>
+        ${hasText && canClick
+          ? html`<span class="tool-step__view">View</span>`
+          : nothing}
+      </span>
     </div>
   `;
 }
+
+// ---------------------------------------------------------------------------
+// Smart grouping — groups consecutive completed tool steps into a
+// collapsible timeline section. Executing steps stay ungrouped.
+// ---------------------------------------------------------------------------
+
+/** Minimum completed steps required to auto-collapse into a group. */
+const COLLAPSE_THRESHOLD = 3;
+
+type ToolStepGroup =
+  | { kind: "executing"; card: ToolCard }
+  | { kind: "completed"; cards: ToolCard[] };
+
+function groupToolCards(cards: ToolCard[]): ToolStepGroup[] {
+  const groups: ToolStepGroup[] = [];
+  let pending: ToolCard[] = [];
+
+  for (const card of cards) {
+    const isExec = card.phase != null && card.phase !== "result";
+    if (isExec) {
+      if (pending.length) {
+        groups.push({ kind: "completed", cards: pending });
+        pending = [];
+      }
+      groups.push({ kind: "executing", card });
+    } else {
+      pending.push(card);
+    }
+  }
+  if (pending.length) {
+    groups.push({ kind: "completed", cards: pending });
+  }
+  return groups;
+}
+
+/**
+ * Renders an array of tool cards as a timeline with smart grouping.
+ *
+ * - Completed steps that exceed COLLAPSE_THRESHOLD are collapsed into
+ *   a summary row ("N steps completed ▸") that expands on click.
+ * - Executing steps are always shown.
+ */
+export function renderToolStepsTimeline(
+  cards: ToolCard[],
+  onOpenSidebar?: (content: string) => void,
+) {
+  if (cards.length === 0) return nothing;
+
+  const groups = groupToolCards(cards);
+
+  return html`
+    <div class="tool-timeline">
+      ${groups.map((group) => {
+        if (group.kind === "executing") {
+          return renderToolCardSidebar(group.card, onOpenSidebar);
+        }
+        // Completed group
+        const { cards: completed } = group;
+        if (completed.length < COLLAPSE_THRESHOLD) {
+          // Few enough — render inline, no collapsible
+          return completed.map((card) =>
+            renderToolCardSidebar(card, onOpenSidebar),
+          );
+        }
+        // Collapsible group
+        return renderCollapsibleGroup(completed, onOpenSidebar);
+      })}
+    </div>
+  `;
+}
+
+function renderCollapsibleGroup(
+  cards: ToolCard[],
+  onOpenSidebar?: (content: string) => void,
+) {
+  const handleToggle = (e: Event) => {
+    const details = e.currentTarget as HTMLDetailsElement;
+    // Animate open/close via CSS — no JS needed
+    details.classList.toggle(
+      "tool-group--open",
+      details.open,
+    );
+  };
+
+  return html`
+    <details class="tool-group" @toggle=${handleToggle}>
+      <summary class="tool-group__summary">
+        <span class="tool-group__connector"></span>
+        <span class="tool-group__node">
+          <span class="tool-group__icon">${icons.check}</span>
+        </span>
+        <span class="tool-group__count">${cards.length} steps completed</span>
+        <span class="tool-group__chevron">${chevronRight}</span>
+      </summary>
+      <div class="tool-group__body">
+        ${cards.map((card) => renderToolCardSidebar(card, onOpenSidebar))}
+      </div>
+    </details>
+  `;
+}
+
+const chevronRight = html`<svg viewBox="0 0 24 24" class="tool-group__chevron-svg"><path d="m9 18 6-6-6-6"/></svg>`;
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
 
 function normalizeContent(content: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(content)) return [];
