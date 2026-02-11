@@ -46,6 +46,9 @@ export async function handleRpcHttpRequest(
     await handleGatewayRequest({
       req: { method, params: body.params, type: "req", id: `http-${Date.now()}` },
       respond: (ok, result, error) => {
+        if (res.writableEnded) {
+          return;
+        } // already sent (e.g. agent "accepted" ack)
         res.statusCode = ok ? 200 : 400;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify({ ok, result, error }));
@@ -64,8 +67,10 @@ export async function handleRpcHttpRequest(
     return true;
   } catch (err) {
     log.error(`RPC HTTP failed: ${String(err)}`);
-    res.statusCode = 500;
-    res.end("Internal Server Error");
+    if (!res.writableEnded) {
+      res.statusCode = 500;
+      res.end("Internal Server Error");
+    }
     return true;
   }
 }

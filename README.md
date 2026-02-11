@@ -17,7 +17,7 @@ A single command for the entire stock analysis workflow -- turns "download data,
 ## What MarketBot Does
 
 - Turns market context into repeatable analysis.
-- Fetches data via a built-in browser profile (preferred data path) for robustness and reproducibility.
+- Fetches data via APIs, scraping, or a built-in browser profile.
 - Produces research-style markdown outputs (briefs, decision dashboards).
 - Delivers results to chat channels and scheduled runs.
 
@@ -38,7 +38,7 @@ MarketBot is structured as a local Gateway that exposes finance and ops capabili
 ```mermaid
 flowchart LR
   U["You (Desktop / TUI)"] --> G["Gateway"]
-  G --> B["Built-in Browser (profile: marketbot)"]
+  G --> B["Built-in Browser (optional)"]
   G --> F["Finance Engine (Daily Stocks, reports, risk)"]
   G --> O["Ops (Channels, Sessions, Cron, Logs)"]
   G --> D["Delivery (built-in + extensions)"]
@@ -48,7 +48,7 @@ flowchart LR
 
 Key design choices:
 
-- **Browser-first data capture**: market endpoints and pages are fetched through a managed browser to reduce request blocking and to keep capture behavior consistent.
+- **Browser data capture**: a managed browser profile is available for pages that block direct API access.
 - **Report outputs**: primary outputs are markdown reports intended to read like research notes.
 - **Separation of concerns**: finance calculations are deterministic; agent writing and summarization is layered on top.
 - **Delivery is explicit**: connect a channel, verify status, then send or schedule.
@@ -77,26 +77,46 @@ MarketBot Desktop is a standalone Electron application. Install it, launch it, a
 | Finance | Desk, Stocks, Runs |
 | Control | Connection, Config, Channels, Sessions, Cron Jobs, Logs |
 
-### Running the Desktop App (Development)
+### Running the Desktop App
+
+**Development mode** (hot-reload for renderer):
 
 ```bash
-# Install dependencies and build the Control UI
+# 1. Install deps and build core + Control UI (first time only)
 pnpm install
 pnpm build
 pnpm ui:build
 
-# Start the Desktop app in dev mode (hot-reload for renderer)
+# 2. Start the gateway (required -- dev mode does not auto-start it)
+pnpm -s marketbot gateway run --bind loopback --port 18789 --force
+
+# 3. In a separate terminal, start the Desktop app
 pnpm desktop:dev
+# or equivalently:
+#   pnpm --dir apps/desktop dev
 ```
+
+**Production-like local run** (builds the Electron app, then launches it):
+
+```bash
+pnpm --dir apps/desktop start
+```
+
+This auto-starts the gateway as a subprocess, same as the packaged app.
 
 ### Building the Desktop App (Production)
 
 ```bash
 # Build for macOS (DMG + ZIP, arm64 + x64)
 pnpm --dir apps/desktop package:mac
+
+# Build for other platforms
+pnpm --dir apps/desktop package:win
+pnpm --dir apps/desktop package:linux
+pnpm --dir apps/desktop package:all
 ```
 
-The built `.dmg` is written to `apps/desktop/release/`.
+The built installers are written to `apps/desktop/release/`.
 
 ## Quick Start (CLI)
 
@@ -167,7 +187,7 @@ Notes:
 
 Key design choices:
 
-- Browser-first data capture: market endpoints and pages are fetched through a managed browser to reduce request blocking and to keep capture behavior consistent.
+- Browser data capture: a managed browser profile is available for pages that block direct API access.
 - Report outputs: primary outputs are markdown reports intended to read like research notes.
 - Separation of concerns: finance calculations are deterministic; agent writing and summarization is layered on top.
 - Delivery is explicit: connect a channel, verify status, then send or schedule.
@@ -225,16 +245,20 @@ To run without auto-opening the browser:
 pnpm quickstart:web -- --no-open
 ```
 
-Then open MarketBot Desktop (recommended):
+Then open MarketBot Desktop:
 
 ```bash
-# Electron Desktop (dev build, non-dev runtime)
+# Production-like local run (auto-starts gateway)
 pnpm --dir apps/desktop start
+
+# Or dev mode (hot-reload, requires gateway running separately)
+pnpm desktop:dev
 ```
 
-MarketBot Desktop will auto-start the local Gateway on launch and stop it on quit.
+MarketBot Desktop auto-starts the gateway on launch (in `start` mode) and stops it on quit.
+In `dev` mode, start the gateway manually first: `pnpm -s marketbot gateway run --bind loopback --port 18789 --force`.
 If the UI shows `unauthorized`, paste `gateway.auth.token` from `~/.marketbot/marketbot.json`
-into the Control UI “Gateway Token” field and connect.
+into the Control UI "Gateway Token" field and connect.
 
 <details>
 <summary>Manual Local LLM Setup (Click to expand)</summary>

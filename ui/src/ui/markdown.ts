@@ -2,10 +2,44 @@ import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { truncateText } from "./format";
 
+/**
+ * Rewrite local file paths in markdown image references to gateway-served URLs.
+ *
+ * Handles two patterns the agent produces:
+ *  - Relative filenames: `![alt](chart.png)` -> `/api/files/chart.png`
+ *  - Absolute workspace paths: `![alt](/Users/.../workspace/chart.png)` -> `/api/files/chart.png`
+ *  - Already-valid URLs (http/https/data:) are left untouched.
+ */
+function rewriteImageSrc(src: string): string {
+  if (!src) return src;
+  // Already a URL or data-URI — leave untouched.
+  if (/^https?:\/\//i.test(src) || /^data:/i.test(src) || src.startsWith("/api/files/")) {
+    return src;
+  }
+  // Absolute filesystem path — serve via the files endpoint.
+  // The gateway's /api/files/ handler resolves paths relative to the workspace root,
+  // but for absolute paths we pass them as-is and let the server resolve safely.
+  if (src.startsWith("/")) {
+    return `/api/files${src}`;
+  }
+  // Relative path — treat as relative to workspace root.
+  return `/api/files/${src}`;
+}
+
+// Custom marked renderer that rewrites image sources to gateway file URLs.
+const renderer = new marked.Renderer();
+renderer.image = function ({ href, title, text }: { href: string; title: string | null; text: string }) {
+  const src = rewriteImageSrc(href);
+  const alt = text ? ` alt="${text}"` : "";
+  const titleAttr = title ? ` title="${title}"` : "";
+  // Wrap in a link so clicking opens the full image in a new tab.
+  return `<a href="${src}" target="_blank" rel="noreferrer noopener"><img src="${src}"${alt}${titleAttr} loading="lazy" class="chat-inline-image" /></a>`;
+};
+
 marked.setOptions({
   gfm: true,
   breaks: true,
-  mangle: false,
+  renderer,
 });
 
 const allowedTags = [
@@ -22,6 +56,7 @@ const allowedTags = [
   "h4",
   "hr",
   "i",
+  "img",
   "li",
   "ol",
   "p",
@@ -36,7 +71,7 @@ const allowedTags = [
   "ul",
 ];
 
-const allowedAttrs = ["class", "href", "rel", "target", "title", "start"];
+const allowedAttrs = ["alt", "class", "href", "loading", "rel", "src", "target", "title", "start"];
 
 let hooksInstalled = false;
 const MARKDOWN_CHAR_LIMIT = 140_000;

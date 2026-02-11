@@ -346,7 +346,21 @@ export function normalizeProviders(params: {
       normalizedProvider = googleNormalized;
     }
 
-    next[key] = normalizedProvider;
+    // Drop providers that define models but still have no apiKey after
+    // resolution.  pi's ModelRegistry.validateConfig() rejects the entire
+    // models.json when *any* provider fails validation, so one keyless
+    // provider would poison all custom models (including valid ones).
+    const stillMissingKey =
+      Array.isArray(normalizedProvider.models) &&
+      normalizedProvider.models.length > 0 &&
+      !normalizedProvider.apiKey?.trim() &&
+      normalizedProvider.auth !== "aws-sdk";
+    if (stillMissingKey) {
+      mutated = true;
+      // skip – don't add to `next`
+    } else {
+      next[key] = normalizedProvider;
+    }
   }
 
   return mutated ? next : providers;

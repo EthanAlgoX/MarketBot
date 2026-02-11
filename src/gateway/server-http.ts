@@ -48,6 +48,7 @@ import {
 import { applyHookMappings } from "./hooks-mapping.js";
 import { handleOpenAiHttpRequest } from "./openai-http.js";
 import { handleOpenResponsesHttpRequest } from "./openresponses-http.js";
+import { handleFilesHttpRequest } from "./server-files.js";
 import { handleRpcHttpRequest } from "./server-rpc-http.js";
 import { handleToolsInvokeHttpRequest } from "./tools-invoke-http.js";
 
@@ -289,6 +290,9 @@ export function createGatewayHttpServer(opts: {
         return;
       }
       if (await handleSlackHttpRequest(req, res)) {
+        return;
+      }
+      if (await handleFilesHttpRequest(req, res, { config: configSnapshot })) {
         return;
       }
       if (handlePluginRequest && (await handlePluginRequest(req, res))) {
