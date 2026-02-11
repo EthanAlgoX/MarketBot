@@ -73,13 +73,21 @@ export async function handleFilesHttpRequest(
 
   // If the path is absolute, strip the workspace root prefix to get a relative path.
   // This handles agent output like `![chart](/Users/user/.marketbot/workspace/chart.png)`.
+  // Note: rewriteImageSrc() produces `/api/files/Users/...` (no leading slash on the
+  // filesystem portion) when the original markdown has an absolute path.  Re-add it so
+  // the workspace-prefix check works.
+  const absRawPath =
+    !rawPath.startsWith("/") && rawPath.match(/^[A-Za-z]:[\\/]|^Users\/|^home\/|^tmp\//)
+      ? `/${rawPath}`
+      : rawPath;
+
   const workspaceDirWithSep = workspaceDir.endsWith(path.sep)
     ? workspaceDir
     : workspaceDir + path.sep;
-  const relativePath = rawPath.startsWith(workspaceDirWithSep)
-    ? rawPath.slice(workspaceDirWithSep.length)
-    : rawPath.startsWith(workspaceDir + "/")
-      ? rawPath.slice(workspaceDir.length + 1)
+  const relativePath = absRawPath.startsWith(workspaceDirWithSep)
+    ? absRawPath.slice(workspaceDirWithSep.length)
+    : absRawPath.startsWith(workspaceDir + "/")
+      ? absRawPath.slice(workspaceDir.length + 1)
       : rawPath;
 
   try {
