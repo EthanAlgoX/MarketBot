@@ -40,4 +40,6 @@ export type ToolCard = {
   name: string;
   args?: unknown;
   text?: string;
+  /** Phase of the tool execution: "start" | "update" | "result". Absent for history messages (treat as completed). */
+  phase?: string;
 };

@@ -33,6 +33,54 @@
   outline-offset: 2px;
 }
 
+/* Executing state */
+.chat-tool-card--executing {
+  border-color: var(--accent);
+  border-left: 3px solid var(--accent);
+  animation: tool-card-pulse 2s ease-in-out infinite;
+}
+
+.chat-tool-card--executing .chat-tool-card__icon {
+  animation: tool-card-spin 1.2s linear infinite;
+  color: var(--accent);
+}
+
+.chat-tool-card__executing-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.chat-tool-card__executing-text {
+  color: var(--accent);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+@keyframes tool-card-pulse {
+  0%,
+  100% {
+    background: var(--card);
+  }
+  50% {
+    background: color-mix(in srgb, var(--accent) 4%, var(--card));
+  }
+}
+
+@keyframes tool-card-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Header with title and chevron */
 .chat-tool-card__header {
   display: flex;

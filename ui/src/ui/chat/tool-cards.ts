@@ -22,10 +22,12 @@ export function extractToolCards(message: unknown): ToolCard[] {
       ["toolcall", "tool_call", "tooluse", "tool_use"].includes(kind) ||
       (typeof item.name === "string" && item.arguments != null);
     if (isToolCall) {
+      const phase = typeof item.phase === "string" ? item.phase : undefined;
       cards.push({
         kind: "call",
         name: (item.name as string) ?? "tool",
         args: coerceArgs(item.arguments ?? item.args),
+        phase,
       });
     }
   }
@@ -35,7 +37,8 @@ export function extractToolCards(message: unknown): ToolCard[] {
     if (kind !== "toolresult" && kind !== "tool_result") continue;
     const text = extractToolText(item);
     const name = typeof item.name === "string" ? item.name : "tool";
-    cards.push({ kind: "result", name, text });
+    const phase = typeof item.phase === "string" ? item.phase : undefined;
+    cards.push({ kind: "result", name, text, phase });
   }
 
   if (
@@ -61,7 +64,12 @@ export function renderToolCardSidebar(
   const detail = formatToolDetail(display);
   const hasText = Boolean(card.text?.trim());
 
-  const canClick = Boolean(onOpenSidebar);
+  // A tool is executing if it has a phase that isn't "result",
+  // or if it's a call card with no corresponding result yet.
+  const isExecuting =
+    card.phase != null && card.phase !== "result";
+
+  const canClick = Boolean(onOpenSidebar) && !isExecuting;
   const handleClick = canClick
     ? () => {
         if (hasText) {
@@ -76,13 +84,21 @@ export function renderToolCardSidebar(
     : undefined;
 
   const isShort = hasText && (card.text?.length ?? 0) <= TOOL_INLINE_THRESHOLD;
-  const showCollapsed = hasText && !isShort;
-  const showInline = hasText && isShort;
-  const isEmpty = !hasText;
+  const showCollapsed = hasText && !isShort && !isExecuting;
+  const showInline = hasText && isShort && !isExecuting;
+  const isEmpty = !hasText && !isExecuting;
+
+  const cardClasses = [
+    "chat-tool-card",
+    canClick ? "chat-tool-card--clickable" : "",
+    isExecuting ? "chat-tool-card--executing" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return html`
     <div
-      class="chat-tool-card ${canClick ? "chat-tool-card--clickable" : ""}"
+      class="${cardClasses}"
       @click=${handleClick}
       role=${canClick ? "button" : nothing}
       tabindex=${canClick ? "0" : nothing}
@@ -96,18 +112,24 @@ export function renderToolCardSidebar(
     >
       <div class="chat-tool-card__header">
         <div class="chat-tool-card__title">
-          <span class="chat-tool-card__icon">${icons[display.icon]}</span>
+          <span class="chat-tool-card__icon">${isExecuting ? icons.loader : icons[display.icon]}</span>
           <span>${display.label}</span>
         </div>
-        ${canClick
+        ${isExecuting
+          ? html`<span class="chat-tool-card__executing-badge">Running</span>`
+          : nothing}
+        ${!isExecuting && canClick
           ? html`<span class="chat-tool-card__action">${hasText ? "View" : ""} ${icons.check}</span>`
           : nothing}
-        ${isEmpty && !canClick ? html`<span class="chat-tool-card__status">${icons.check}</span>` : nothing}
+        ${!isExecuting && isEmpty && !canClick ? html`<span class="chat-tool-card__status">${icons.check}</span>` : nothing}
       </div>
       ${detail
         ? html`<div class="chat-tool-card__detail">${detail}</div>`
         : nothing}
-      ${isEmpty
+      ${isExecuting
+        ? html`<div class="chat-tool-card__status-text chat-tool-card__executing-text">Executing…</div>`
+        : nothing}
+      ${isEmpty && !isExecuting
         ? html`<div class="chat-tool-card__status-text muted">Completed</div>`
         : nothing}
       ${showCollapsed

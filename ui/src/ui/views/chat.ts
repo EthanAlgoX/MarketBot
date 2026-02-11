@@ -434,9 +434,8 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
     const msg = history[i];
     const normalized = normalizeMessage(msg);
 
-    if (!props.showThinking && normalized.role.toLowerCase() === "toolresult") {
-      continue;
-    }
+    // Tool result messages are always shown (not gated by showThinking)
+    // so users can see every tool execution step inline.
 
     items.push({
       kind: "message",
@@ -444,14 +443,13 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
       message: msg,
     });
   }
-  if (props.showThinking) {
-    for (let i = 0; i < tools.length; i++) {
-      items.push({
-        kind: "message",
-        key: messageKey(tools[i], i + history.length),
-        message: tools[i],
-      });
-    }
+  // Always show streaming tool messages so users see every tool step.
+  for (let i = 0; i < tools.length; i++) {
+    items.push({
+      kind: "message",
+      key: messageKey(tools[i], i + history.length),
+      message: tools[i],
+    });
   }
 
   if (props.stream !== null) {
