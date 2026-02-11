@@ -28,16 +28,14 @@ describe("splitMediaFromOutput", () => {
     expect(result.text).toBe("Hello world");
   });
 
-  it("rejects absolute media paths to prevent LFI", () => {
+  it("accepts absolute media paths", () => {
     const result = splitMediaFromOutput("MEDIA:/Users/pete/My File.png");
-    expect(result.mediaUrls).toBeUndefined();
-    expect(result.text).toBe("MEDIA:/Users/pete/My File.png");
+    expect(result.mediaUrls).toEqual(["/Users/pete/My File.png"]);
   });
 
-  it("rejects quoted absolute media paths to prevent LFI", () => {
+  it("accepts quoted absolute media paths", () => {
     const result = splitMediaFromOutput('MEDIA:"/Users/pete/My File.png"');
-    expect(result.mediaUrls).toBeUndefined();
-    expect(result.text).toBe('MEDIA:"/Users/pete/My File.png"');
+    expect(result.mediaUrls).toEqual(["/Users/pete/My File.png"]);
   });
 
   it("rejects tilde media paths to prevent LFI", () => {

@@ -47,8 +47,12 @@ function isValidMedia(candidate: string, opts?: { allowSpaces?: boolean }) {
     return true;
   }
 
-  // Local paths: only allow safe relative paths starting with ./ that do not traverse upwards.
-  return candidate.startsWith("./") && !candidate.includes("..");
+  // Local paths: allow safe relative paths (./) and absolute paths (/).
+  // Block directory traversal (..) in both cases.
+  if (candidate.includes("..")) {
+    return false;
+  }
+  return candidate.startsWith("./") || candidate.startsWith("/");
 }
 
 function unwrapQuoted(value: string): string | undefined {
