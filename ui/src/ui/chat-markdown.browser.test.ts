@@ -46,14 +46,14 @@ describe("chat markdown rendering", () => {
 
     await app.updateComplete;
 
-    const toolCards = Array.from(
-      app.querySelectorAll<HTMLElement>(".chat-tool-card"),
+    const toolSteps = Array.from(
+      app.querySelectorAll<HTMLElement>(".tool-step"),
     );
-    const toolCard = toolCards.find((card) =>
-      card.querySelector(".chat-tool-card__preview, .chat-tool-card__inline"),
+    const toolStep = toolSteps.find((el) =>
+      el.classList.contains("tool-step--clickable") || el.classList.contains("tool-step--done"),
     );
-    expect(toolCard).not.toBeUndefined();
-    toolCard?.click();
+    expect(toolStep).not.toBeUndefined();
+    toolStep?.click();
 
     await app.updateComplete;
 

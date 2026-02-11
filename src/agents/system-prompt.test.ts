@@ -101,6 +101,16 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("Do not invent commands");
   });
 
+  it("requires real image charts and forbids ASCII pseudo-charts", () => {
+    const prompt = buildAgentSystemPrompt({
+      workspaceDir: "/tmp/marketbot",
+    });
+
+    expect(prompt).toContain("Never use ASCII/Unicode pseudo-charts");
+    expect(prompt).toContain("generate a real PNG/SVG from actual numeric series");
+    expect(prompt).toContain("avoid stair-step rendering unless the data is truly stepwise");
+  });
+
   it("lists available tools when provided", () => {
     const prompt = buildAgentSystemPrompt({
       workspaceDir: "/tmp/marketbot",

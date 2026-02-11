@@ -3,10 +3,8 @@ import { html, nothing } from "lit";
 import { formatToolDetail, resolveToolDisplay } from "../tool-display";
 import { icons } from "../icons";
 import type { ToolCard } from "../types/chat-types";
-import { TOOL_INLINE_THRESHOLD } from "./constants";
 import {
   formatToolOutputForSidebar,
-  getTruncatedPreview,
 } from "./tool-helpers";
 import { isToolResultMessage } from "./message-normalizer";
 import { extractTextCached } from "./message-extract";
@@ -56,6 +54,15 @@ export function extractToolCards(message: unknown): ToolCard[] {
   return cards;
 }
 
+/**
+ * Renders a tool step as a compact inline indicator.
+ *
+ * - Executing: single-line with spinner + label + "..."
+ * - Completed: single-line with check icon + label, muted, clickable for output
+ *
+ * Designed to feel transient (like a chat "typing..." indicator) rather than
+ * a heavyweight block card.
+ */
 export function renderToolCardSidebar(
   card: ToolCard,
   onOpenSidebar?: (content: string) => void,
@@ -83,22 +90,25 @@ export function renderToolCardSidebar(
       }
     : undefined;
 
-  const isShort = hasText && (card.text?.length ?? 0) <= TOOL_INLINE_THRESHOLD;
-  const showCollapsed = hasText && !isShort && !isExecuting;
-  const showInline = hasText && isShort && !isExecuting;
-  const isEmpty = !hasText && !isExecuting;
+  // --- Executing: transient inline indicator ---
+  if (isExecuting) {
+    const summary = detail ? `${display.label}: ${detail}` : display.label;
+    return html`
+      <div class="tool-step tool-step--executing">
+        <span class="tool-step__spinner">${icons.loader}</span>
+        <span class="tool-step__label">${summary}</span>
+        <span class="tool-step__dots">
+          <span></span><span></span><span></span>
+        </span>
+      </div>
+    `;
+  }
 
-  const cardClasses = [
-    "chat-tool-card",
-    canClick ? "chat-tool-card--clickable" : "",
-    isExecuting ? "chat-tool-card--executing" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
+  // --- Completed: compact one-liner ---
+  const summary = detail ? `${display.label}: ${detail}` : display.label;
   return html`
     <div
-      class="${cardClasses}"
+      class="tool-step tool-step--done${canClick ? " tool-step--clickable" : ""}"
       @click=${handleClick}
       role=${canClick ? "button" : nothing}
       tabindex=${canClick ? "0" : nothing}
@@ -110,33 +120,10 @@ export function renderToolCardSidebar(
           }
         : nothing}
     >
-      <div class="chat-tool-card__header">
-        <div class="chat-tool-card__title">
-          <span class="chat-tool-card__icon">${isExecuting ? icons.loader : icons[display.icon]}</span>
-          <span>${display.label}</span>
-        </div>
-        ${isExecuting
-          ? html`<span class="chat-tool-card__executing-badge">Running</span>`
-          : nothing}
-        ${!isExecuting && canClick
-          ? html`<span class="chat-tool-card__action">${hasText ? "View" : ""} ${icons.check}</span>`
-          : nothing}
-        ${!isExecuting && isEmpty && !canClick ? html`<span class="chat-tool-card__status">${icons.check}</span>` : nothing}
-      </div>
-      ${detail
-        ? html`<div class="chat-tool-card__detail">${detail}</div>`
-        : nothing}
-      ${isExecuting
-        ? html`<div class="chat-tool-card__status-text chat-tool-card__executing-text">Executing…</div>`
-        : nothing}
-      ${isEmpty && !isExecuting
-        ? html`<div class="chat-tool-card__status-text muted">Completed</div>`
-        : nothing}
-      ${showCollapsed
-        ? html`<div class="chat-tool-card__preview mono">${getTruncatedPreview(card.text!)}</div>`
-        : nothing}
-      ${showInline
-        ? html`<div class="chat-tool-card__inline mono">${card.text}</div>`
+      <span class="tool-step__icon">${icons.check}</span>
+      <span class="tool-step__label">${summary}</span>
+      ${hasText && canClick
+        ? html`<span class="tool-step__view">View</span>`
         : nothing}
     </div>
   `;

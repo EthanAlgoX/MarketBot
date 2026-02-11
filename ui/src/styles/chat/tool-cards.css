@@ -1,155 +1,39 @@
-/* Tool Card Styles */
-.chat-tool-card {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  margin-top: 8px;
-  background: var(--card);
-  box-shadow: inset 0 1px 0 var(--card-highlight);
-  transition:
-    border-color 150ms ease-out,
-    background 150ms ease-out;
-  /* Fixed max-height to ensure cards don't expand too much */
-  max-height: 120px;
-  overflow: hidden;
-}
+/* =========================================================
+   Tool Step — compact inline indicators (typing-indicator style)
+   ========================================================= */
 
-.chat-tool-card:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-hover);
-}
-
-/* First tool card in a group - no top margin */
-.chat-tool-card:first-child {
-  margin-top: 0;
-}
-
-.chat-tool-card--clickable {
-  cursor: pointer;
-}
-
-.chat-tool-card--clickable:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* Executing state */
-.chat-tool-card--executing {
-  border-color: var(--accent);
-  border-left: 3px solid var(--accent);
-  animation: tool-card-pulse 2s ease-in-out infinite;
-}
-
-.chat-tool-card--executing .chat-tool-card__icon {
-  animation: tool-card-spin 1.2s linear infinite;
-  color: var(--accent);
-}
-
-.chat-tool-card__executing-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--accent);
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.chat-tool-card__executing-text {
-  color: var(--accent);
-  font-size: 11px;
-  margin-top: 4px;
-}
-
-@keyframes tool-card-pulse {
-  0%,
-  100% {
-    background: var(--card);
-  }
-  50% {
-    background: color-mix(in srgb, var(--accent) 4%, var(--card));
-  }
-}
-
-@keyframes tool-card-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Header with title and chevron */
-.chat-tool-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.chat-tool-card__title {
+/* Shared base: single-line inline-flex row */
+.tool-step {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
-  font-size: 13px;
-  line-height: 1.2;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 0;
+  min-height: 22px;
 }
 
-.chat-tool-card__icon {
+/* --- Executing state --- */
+.tool-step--executing {
+  color: var(--accent);
+}
+
+.tool-step--executing .tool-step__label {
+  opacity: 0.9;
+}
+
+/* Spinner icon rotates */
+.tool-step__spinner {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-.chat-tool-card__icon svg {
   width: 14px;
   height: 14px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.5px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  flex-shrink: 0;
+  animation: tool-step-spin 1s linear infinite;
 }
 
-/* "View >" action link */
-.chat-tool-card__action {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--accent);
-  opacity: 0.8;
-  transition: opacity 150ms ease-out;
-}
-
-.chat-tool-card__action svg {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.5px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.chat-tool-card--clickable:hover .chat-tool-card__action {
-  opacity: 1;
-}
-
-/* Status indicator for completed/empty results */
-.chat-tool-card__status {
-  display: inline-flex;
-  align-items: center;
-  color: var(--ok);
-}
-
-.chat-tool-card__status svg {
+.tool-step__spinner svg {
   width: 14px;
   height: 14px;
   stroke: currentColor;
@@ -159,50 +43,107 @@
   stroke-linejoin: round;
 }
 
-.chat-tool-card__status-text {
-  font-size: 11px;
-  margin-top: 4px;
+@keyframes tool-step-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
-.chat-tool-card__detail {
-  font-size: 12px;
+/* Typing dots (3-dot bounce) */
+.tool-step__dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  margin-left: 2px;
+}
+
+.tool-step__dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+  animation: tool-step-bounce 1.2s ease-in-out infinite;
+}
+
+.tool-step__dots span:nth-child(2) { animation-delay: 0.15s; }
+.tool-step__dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes tool-step-bounce {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30%           { opacity: 1;   transform: translateY(-2px); }
+}
+
+/* --- Completed state --- */
+.tool-step--done {
   color: var(--muted);
-  margin-top: 4px;
 }
 
-/* Collapsed preview - fixed height with truncation */
-.chat-tool-card__preview {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: var(--secondary);
-  border-radius: var(--radius-md);
-  white-space: pre-wrap;
-  overflow: hidden;
-  max-height: 44px;
-  line-height: 1.4;
-  border: 1px solid var(--border);
+.tool-step--done .tool-step__label {
+  opacity: 0.7;
 }
 
-.chat-tool-card--clickable:hover .chat-tool-card__preview {
+.tool-step__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--ok);
+}
+
+.tool-step__icon svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Clickable completed step */
+.tool-step--clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin-left: -6px;
+  transition: background 120ms ease-out;
+}
+
+.tool-step--clickable:hover {
   background: var(--bg-hover);
-  border-color: var(--border-strong);
 }
 
-/* Short inline output */
-.chat-tool-card__inline {
+.tool-step--clickable:hover .tool-step__label {
+  opacity: 1;
+}
+
+.tool-step--clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tool-step__view {
   font-size: 11px;
-  color: var(--text);
-  margin-top: 6px;
-  padding: 6px 8px;
-  background: var(--secondary);
-  border-radius: var(--radius-sm);
-  white-space: pre-wrap;
-  word-break: break-word;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
 }
 
-/* Reading Indicator */
+.tool-step--clickable:hover .tool-step__view {
+  opacity: 0.8;
+}
+
+/* Label: truncate long text */
+.tool-step__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 480px;
+}
+
+/* Reading Indicator (unchanged) */
 .chat-reading-indicator {
   background: transparent;
   border: 1px solid var(--border);
