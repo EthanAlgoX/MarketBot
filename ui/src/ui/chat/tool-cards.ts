@@ -9,6 +9,87 @@ import {
 import { isToolResultMessage } from "./message-normalizer";
 import { extractTextCached } from "./message-extract";
 
+// ---------------------------------------------------------------------------
+// i18n text
+// ---------------------------------------------------------------------------
+
+type ToolTextMap = {
+  stepsCompleted: (n: number) => string;
+  view: string;
+  elapsed: (s: string) => string;
+  totalTime: (s: string) => string;
+};
+
+const TOOL_TEXT: Record<string, ToolTextMap> = {
+  en: {
+    stepsCompleted: (n: number) => `${n} steps completed`,
+    view: "View",
+    elapsed: (s: string) => s,
+    totalTime: (s: string) => `${s}`,
+  },
+  zh: {
+    stepsCompleted: (n: number) => `${n} 个步骤已完成`,
+    view: "查看",
+    elapsed: (s: string) => s,
+    totalTime: (s: string) => `${s}`,
+  },
+};
+
+function resolveToolText(language?: string): ToolTextMap {
+  return TOOL_TEXT[language ?? "en"] ?? TOOL_TEXT.en;
+}
+
+// ---------------------------------------------------------------------------
+// Duration formatting
+// ---------------------------------------------------------------------------
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.round((ms % 60_000) / 1000);
+  return `${minutes}m${seconds}s`;
+}
+
+function formatElapsedLive(startedAt: number): string {
+  const elapsed = Date.now() - startedAt;
+  if (elapsed < 1000) return "0s";
+  return `${Math.floor(elapsed / 1000)}s`;
+}
+
+// ---------------------------------------------------------------------------
+// Tool output preview
+// ---------------------------------------------------------------------------
+
+const PREVIEW_CHAR_LIMIT = 80;
+
+function getOutputPreview(text?: string): string | undefined {
+  if (!text?.trim()) return undefined;
+  const firstLine = text.trim().split(/\r?\n/)[0]?.trim() ?? "";
+  if (!firstLine) return undefined;
+  if (firstLine.length > PREVIEW_CHAR_LIMIT) {
+    return `${firstLine.slice(0, PREVIEW_CHAR_LIMIT - 1)}…`;
+  }
+  return firstLine;
+}
+
+// ---------------------------------------------------------------------------
+// Error detection in tool output
+// ---------------------------------------------------------------------------
+
+const ERROR_PATTERNS = /\b(error|exception|fail(ed|ure)?|ENOENT|EACCES|EPERM|denied|refused|timeout)\b/i;
+
+function looksLikeError(text?: string): boolean {
+  if (!text) return false;
+  // Only check first 500 chars to avoid scanning huge outputs
+  const sample = text.slice(0, 500);
+  return ERROR_PATTERNS.test(sample);
+}
+
+// ---------------------------------------------------------------------------
+// Extract tool cards from a message
+// ---------------------------------------------------------------------------
+
 export function extractToolCards(message: unknown): ToolCard[] {
   const m = message as Record<string, unknown>;
   const content = normalizeContent(m.content);
@@ -21,11 +102,15 @@ export function extractToolCards(message: unknown): ToolCard[] {
       (typeof item.name === "string" && item.arguments != null);
     if (isToolCall) {
       const phase = typeof item.phase === "string" ? item.phase : undefined;
+      const startedAt = typeof item.startedAt === "number" ? item.startedAt : undefined;
+      const durationMs = typeof item.durationMs === "number" ? item.durationMs : undefined;
       cards.push({
         kind: "call",
         name: (item.name as string) ?? "tool",
         args: coerceArgs(item.arguments ?? item.args),
         phase,
+        startedAt,
+        durationMs,
       });
     }
   }
@@ -36,7 +121,9 @@ export function extractToolCards(message: unknown): ToolCard[] {
     const text = extractToolText(item);
     const name = typeof item.name === "string" ? item.name : "tool";
     const phase = typeof item.phase === "string" ? item.phase : undefined;
-    cards.push({ kind: "result", name, text, phase });
+    const startedAt = typeof item.startedAt === "number" ? item.startedAt : undefined;
+    const durationMs = typeof item.durationMs === "number" ? item.durationMs : undefined;
+    cards.push({ kind: "result", name, text, phase, startedAt, durationMs });
   }
 
   if (
@@ -62,13 +149,15 @@ export function extractToolCards(message: unknown): ToolCard[] {
 /**
  * Renders a single tool step as a timeline row.
  *
- * - Executing: accent-coloured row with spinner icon + label + dots animation
- * - Completed: muted row with tool-type icon + label, clickable for sidebar
+ * - Executing: accent-coloured row with spinner icon + label + dots animation + live timer
+ * - Completed: muted row with status icon + label + duration badge + output preview
  */
 export function renderToolCardSidebar(
   card: ToolCard,
   onOpenSidebar?: (content: string) => void,
+  language?: string,
 ) {
+  const text = resolveToolText(language);
   const display = resolveToolDisplay({ name: card.name, args: card.args });
   const detail = formatToolDetail(display);
   const hasText = Boolean(card.text?.trim());
@@ -79,24 +168,24 @@ export function renderToolCardSidebar(
   const canClick = Boolean(onOpenSidebar) && !isExecuting;
   const handleClick = canClick
     ? () => {
-        if (hasText) {
-          onOpenSidebar!(formatToolOutputForSidebar(card.text!));
-          return;
-        }
-        const info = `## ${display.label}\n\n${
-          detail ? `**Command:** \`${detail}\`\n\n` : ""
-        }*No output — tool completed successfully.*`;
-        onOpenSidebar!(info);
+      if (hasText) {
+        onOpenSidebar!(formatToolOutputForSidebar(card.text!));
+        return;
       }
+      const info = `## ${display.label}\n\n${detail ? `**Command:** \`${detail}\`\n\n` : ""
+        }*No output — tool completed successfully.*`;
+      onOpenSidebar!(info);
+    }
     : undefined;
 
   const toolIcon = display.icon in icons
     ? icons[display.icon as IconName]
     : icons.puzzle;
 
-  // --- Executing: prominent inline indicator ---
+  // --- Executing: prominent inline indicator with live timer ---
   if (isExecuting) {
     const summary = detail ? `${display.label}: ${detail}` : display.label;
+    const elapsed = card.startedAt ? formatElapsedLive(card.startedAt) : null;
     return html`
       <div class="tool-step tool-step--executing">
         <span class="tool-step__connector"></span>
@@ -105,6 +194,9 @@ export function renderToolCardSidebar(
         </span>
         <span class="tool-step__body">
           <span class="tool-step__label">${summary}</span>
+          ${elapsed != null
+        ? html`<span class="tool-step__elapsed tool-step__elapsed--live">${text.elapsed(elapsed)}</span>`
+        : nothing}
           <span class="tool-step__dots">
             <span></span><span></span><span></span>
           </span>
@@ -113,31 +205,45 @@ export function renderToolCardSidebar(
     `;
   }
 
-  // --- Completed: compact one-liner with tool-type icon ---
+  // --- Completed: compact one-liner with status icon + duration + preview ---
   const summary = detail ? `${display.label}: ${detail}` : display.label;
+  const isError = looksLikeError(card.text);
+  const nodeClass = isError ? "tool-step__node--error" : "tool-step__node--success";
+  const statusIcon = isError ? icons.x : icons.check;
+  const duration = card.durationMs != null ? formatDuration(card.durationMs) : null;
+  const preview = getOutputPreview(card.text);
+
   return html`
     <div
-      class="tool-step tool-step--done${canClick ? " tool-step--clickable" : ""}"
+      class="tool-step tool-step--done${canClick ? " tool-step--clickable" : ""}${isError ? " tool-step--error" : ""}"
       @click=${handleClick}
       role=${canClick ? "button" : nothing}
       tabindex=${canClick ? "0" : nothing}
       @keydown=${canClick
-        ? (e: KeyboardEvent) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            e.preventDefault();
-            handleClick?.();
-          }
-        : nothing}
+      ? (e: KeyboardEvent) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        handleClick?.();
+      }
+      : nothing}
     >
       <span class="tool-step__connector"></span>
-      <span class="tool-step__node">
-        <span class="tool-step__icon">${toolIcon}</span>
+      <span class="tool-step__node ${nodeClass}">
+        <span class="tool-step__icon">${statusIcon}</span>
       </span>
       <span class="tool-step__body">
-        <span class="tool-step__label">${summary}</span>
-        ${hasText && canClick
-          ? html`<span class="tool-step__view">View</span>`
-          : nothing}
+        <span class="tool-step__row">
+          <span class="tool-step__label">${summary}</span>
+          ${duration != null
+      ? html`<span class="tool-step__elapsed">${duration}</span>`
+      : nothing}
+          ${hasText && canClick
+      ? html`<span class="tool-step__view">${text.view}</span>`
+      : nothing}
+        </span>
+        ${preview
+      ? html`<span class="tool-step__preview">${preview}</span>`
+      : nothing}
       </span>
     </div>
   `;
@@ -178,15 +284,31 @@ function groupToolCards(cards: ToolCard[]): ToolStepGroup[] {
 }
 
 /**
+ * Computes the total duration of a group of completed cards.
+ */
+function groupTotalDuration(cards: ToolCard[]): number | null {
+  let total = 0;
+  let hasAny = false;
+  for (const card of cards) {
+    if (card.durationMs != null) {
+      total += card.durationMs;
+      hasAny = true;
+    }
+  }
+  return hasAny ? total : null;
+}
+
+/**
  * Renders an array of tool cards as a timeline with smart grouping.
  *
  * - Completed steps that exceed COLLAPSE_THRESHOLD are collapsed into
- *   a summary row ("N steps completed ▸") that expands on click.
+ *   a summary row ("N steps completed · Xs") that expands on click.
  * - Executing steps are always shown.
  */
 export function renderToolStepsTimeline(
   cards: ToolCard[],
   onOpenSidebar?: (content: string) => void,
+  language?: string,
 ) {
   if (cards.length === 0) return nothing;
 
@@ -195,20 +317,20 @@ export function renderToolStepsTimeline(
   return html`
     <div class="tool-timeline">
       ${groups.map((group) => {
-        if (group.kind === "executing") {
-          return renderToolCardSidebar(group.card, onOpenSidebar);
-        }
-        // Completed group
-        const { cards: completed } = group;
-        if (completed.length < COLLAPSE_THRESHOLD) {
-          // Few enough — render inline, no collapsible
-          return completed.map((card) =>
-            renderToolCardSidebar(card, onOpenSidebar),
-          );
-        }
-        // Collapsible group
-        return renderCollapsibleGroup(completed, onOpenSidebar);
-      })}
+    if (group.kind === "executing") {
+      return renderToolCardSidebar(group.card, onOpenSidebar, language);
+    }
+    // Completed group
+    const { cards: completed } = group;
+    if (completed.length < COLLAPSE_THRESHOLD) {
+      // Few enough — render inline, no collapsible
+      return completed.map((card) =>
+        renderToolCardSidebar(card, onOpenSidebar, language),
+      );
+    }
+    // Collapsible group
+    return renderCollapsibleGroup(completed, onOpenSidebar, language);
+  })}
     </div>
   `;
 }
@@ -216,7 +338,12 @@ export function renderToolStepsTimeline(
 function renderCollapsibleGroup(
   cards: ToolCard[],
   onOpenSidebar?: (content: string) => void,
+  language?: string,
 ) {
+  const text = resolveToolText(language);
+  const totalMs = groupTotalDuration(cards);
+  const totalLabel = totalMs != null ? ` · ${formatDuration(totalMs)}` : "";
+
   const handleToggle = (e: Event) => {
     const details = e.currentTarget as HTMLDetailsElement;
     // Animate open/close via CSS — no JS needed
@@ -233,11 +360,11 @@ function renderCollapsibleGroup(
         <span class="tool-group__node">
           <span class="tool-group__icon">${icons.check}</span>
         </span>
-        <span class="tool-group__count">${cards.length} steps completed</span>
+        <span class="tool-group__count">${text.stepsCompleted(cards.length)}${totalLabel}</span>
         <span class="tool-group__chevron">${chevronRight}</span>
       </summary>
       <div class="tool-group__body">
-        ${cards.map((card) => renderToolCardSidebar(card, onOpenSidebar))}
+        ${cards.map((card) => renderToolCardSidebar(card, onOpenSidebar, language))}
       </div>
     </details>
   `;

@@ -42,4 +42,8 @@ export type ToolCard = {
   text?: string;
   /** Phase of the tool execution: "start" | "update" | "result". Absent for history messages (treat as completed). */
   phase?: string;
+  /** Epoch ms when the tool started executing. Used for live elapsed timer. */
+  startedAt?: number;
+  /** Total duration in milliseconds (set when phase === "result"). */
+  durationMs?: number;
 };

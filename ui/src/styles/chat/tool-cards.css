@@ -14,18 +14,20 @@
    ------------------------------------------------------- */
 .tool-step {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0;
   font-size: 12px;
-  line-height: 1;
+  line-height: 1.4;
   min-height: 28px;
   position: relative;
+  padding: 2px 0;
 }
 
 /* Vertical connector line between steps */
 .tool-step__connector {
   position: absolute;
-  left: 9px; /* center of the 20px node */
+  left: 9px;
+  /* center of the 20px node */
   top: 0;
   bottom: 0;
   width: 1px;
@@ -34,20 +36,20 @@
 }
 
 /* Hide connector on the first step (top) */
-.tool-timeline > .tool-step:first-child > .tool-step__connector,
-.tool-group__body > .tool-step:first-child > .tool-step__connector {
+.tool-timeline>.tool-step:first-child>.tool-step__connector,
+.tool-group__body>.tool-step:first-child>.tool-step__connector {
   top: 50%;
 }
 
 /* Hide connector on the last step (bottom) */
-.tool-timeline > .tool-step:last-child > .tool-step__connector,
-.tool-group__body > .tool-step:last-child > .tool-step__connector {
+.tool-timeline>.tool-step:last-child>.tool-step__connector,
+.tool-group__body>.tool-step:last-child>.tool-step__connector {
   bottom: 50%;
 }
 
 /* Single step: no connector */
-.tool-timeline > .tool-step:only-child > .tool-step__connector,
-.tool-group__body > .tool-step:only-child > .tool-step__connector {
+.tool-timeline>.tool-step:only-child>.tool-step__connector,
+.tool-group__body>.tool-step:only-child>.tool-step__connector {
   display: none;
 }
 
@@ -64,11 +66,56 @@
   flex-shrink: 0;
   background: var(--bg);
   border: 1.5px solid var(--border);
+  margin-top: 1px;
+  transition: border-color 200ms ease-out, background 200ms ease-out, box-shadow 200ms ease-out;
 }
 
+/* Active node (executing) */
 .tool-step__node--active {
   border-color: var(--accent);
   background: var(--accent-subtle);
+  box-shadow: 0 0 8px var(--accent-glow, rgba(94, 228, 255, 0.2));
+  animation: tool-node-glow 2s ease-in-out infinite;
+}
+
+@keyframes tool-node-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 6px var(--accent-glow, rgba(94, 228, 255, 0.15));
+  }
+
+  50% {
+    box-shadow: 0 0 14px var(--accent-glow, rgba(94, 228, 255, 0.4));
+  }
+}
+
+/* Success node (completed without error) */
+.tool-step__node--success {
+  border-color: var(--ok);
+  background: var(--ok-subtle);
+}
+
+.tool-step__node--success .tool-step__icon {
+  color: var(--ok);
+}
+
+.tool-step__node--success .tool-step__icon svg {
+  stroke-width: 2.5px;
+}
+
+/* Error node */
+.tool-step__node--error {
+  border-color: var(--danger);
+  background: var(--danger-subtle);
+}
+
+.tool-step__node--error .tool-step__icon {
+  color: var(--danger);
+}
+
+.tool-step__node--error .tool-step__icon svg {
+  stroke-width: 2.5px;
 }
 
 /* Tool-type icon inside the node */
@@ -111,16 +158,30 @@
 }
 
 @keyframes tool-step-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* Body: label + optional view link */
+/* Body: wraps the row and optional preview */
 .tool-step__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Primary row: label + elapsed + view */
+.tool-step__row {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: 8px;
   min-width: 0;
 }
 
@@ -130,6 +191,51 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 480px;
+}
+
+/* Elapsed time badge */
+.tool-step__elapsed {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-muted, rgba(255, 255, 255, 0.06));
+  color: var(--muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* Live elapsed — pulsing accent color */
+.tool-step__elapsed--live {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  animation: tool-elapsed-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes tool-elapsed-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Output preview line */
+.tool-step__preview {
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 500px;
+  line-height: 1.3;
+  padding-left: 0;
 }
 
 /* --- Executing state --- */
@@ -159,12 +265,27 @@
   animation: tool-step-bounce 1.2s ease-in-out infinite;
 }
 
-.tool-step__dots span:nth-child(2) { animation-delay: 0.15s; }
-.tool-step__dots span:nth-child(3) { animation-delay: 0.3s; }
+.tool-step__dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.tool-step__dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 @keyframes tool-step-bounce {
-  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-  30%           { opacity: 1;   transform: translateY(-2px); }
+
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
 }
 
 /* --- Completed state --- */
@@ -173,22 +294,25 @@
 }
 
 .tool-step--done .tool-step__label {
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
-.tool-step--done .tool-step__node {
-  border-color: var(--border);
+/* Error completed state */
+.tool-step--error .tool-step__label {
+  opacity: 0.9;
+  color: var(--danger-muted, var(--danger));
 }
 
-.tool-step--done .tool-step__icon {
-  color: var(--muted);
+.tool-step--error .tool-step__preview {
+  color: var(--danger-muted, var(--danger));
+  opacity: 0.6;
 }
 
 /* Clickable completed step */
 .tool-step--clickable {
   cursor: pointer;
   border-radius: 6px;
-  padding: 2px 6px 2px 0;
+  padding: 3px 6px 3px 0;
   transition: background 120ms ease-out;
 }
 
@@ -198,6 +322,10 @@
 
 .tool-step--clickable:hover .tool-step__label {
   opacity: 1;
+}
+
+.tool-step--clickable:hover .tool-step__preview {
+  opacity: 0.9;
 }
 
 .tool-step--clickable:focus-visible {
@@ -235,7 +363,8 @@
   min-height: 28px;
   position: relative;
   color: var(--muted);
-  list-style: none; /* hide default marker */
+  list-style: none;
+  /* hide default marker */
   border-radius: 6px;
   padding: 2px 6px 2px 0;
   transition: background 120ms ease-out;
@@ -339,17 +468,19 @@
   display: flex;
   flex-direction: column;
   padding-left: 0;
-  animation: tool-group-expand 200ms ease-out;
+  animation: tool-group-expand 200ms var(--ease-out, ease-out);
+  transform-origin: top;
 }
 
 @keyframes tool-group-expand {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: scaleY(0.95) translateY(-4px);
   }
+
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scaleY(1) translateY(0);
   }
 }
 
@@ -395,12 +526,14 @@
 }
 
 @keyframes reading-pulse {
+
   0%,
   60%,
   100% {
     opacity: 0.3;
     transform: scale(0.8);
   }
+
   30% {
     opacity: 1;
     transform: scale(1);

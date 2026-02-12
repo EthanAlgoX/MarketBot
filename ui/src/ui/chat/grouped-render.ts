@@ -75,6 +75,7 @@ export function renderStreamingGroup(
   startedAt: number,
   onOpenSidebar?: (content: string) => void,
   assistant?: AssistantIdentity,
+  language?: string,
 ) {
   const timestamp = new Date(startedAt).toLocaleTimeString([], {
     hour: "numeric",
@@ -87,14 +88,15 @@ export function renderStreamingGroup(
       ${renderAvatar("assistant", assistant)}
       <div class="chat-group-messages">
         ${renderGroupedMessage(
-          {
-            role: "assistant",
-            content: [{ type: "text", text }],
-            timestamp: startedAt,
-          },
-          { isStreaming: true, showReasoning: false },
-          onOpenSidebar,
-        )}
+    {
+      role: "assistant",
+      content: [{ type: "text", text }],
+      timestamp: startedAt,
+    },
+    { isStreaming: true, showReasoning: false },
+    onOpenSidebar,
+    language,
+  )}
         <div class="chat-group-footer">
           <span class="chat-sender-name">${name}</span>
           <span class="chat-group-timestamp">${timestamp}</span>
@@ -111,6 +113,7 @@ export function renderMessageGroup(
     showReasoning: boolean;
     assistantName?: string;
     assistantAvatar?: string | null;
+    language?: string;
   },
 ) {
   const normalizedRole = normalizeRoleForGrouping(group.role);
@@ -135,21 +138,22 @@ export function renderMessageGroup(
   return html`
     <div class="chat-group ${roleClass}">
       ${renderAvatar(group.role, {
-        name: assistantName,
-        avatar: opts.assistantAvatar ?? null,
-      })}
+    name: assistantName,
+    avatar: opts.assistantAvatar ?? null,
+  })}
       <div class="chat-group-messages">
         ${group.messages.map((item, index) =>
-          renderGroupedMessage(
-            item.message,
-            {
-              isStreaming:
-                group.isStreaming && index === group.messages.length - 1,
-              showReasoning: opts.showReasoning,
-            },
-            opts.onOpenSidebar,
-          ),
-        )}
+    renderGroupedMessage(
+      item.message,
+      {
+        isStreaming:
+          group.isStreaming && index === group.messages.length - 1,
+        showReasoning: opts.showReasoning,
+      },
+      opts.onOpenSidebar,
+      opts.language,
+    ),
+  )}
         <div class="chat-group-footer">
           <span class="chat-sender-name">${who}</span>
           <span class="chat-group-timestamp">${timestamp}</span>
@@ -179,7 +183,7 @@ function renderAvatar(
       ? "user"
       : normalized === "assistant"
         ? "assistant"
-      : normalized === "tool"
+        : normalized === "tool"
           ? "tool"
           : "other";
 
@@ -211,7 +215,7 @@ function renderMessageImages(images: ImageBlock[]) {
   return html`
     <div class="chat-message-images">
       ${images.map(
-        (img) => html`
+    (img) => html`
           <img
             src=${img.url}
             alt=${img.alt ?? "Attached image"}
@@ -219,7 +223,7 @@ function renderMessageImages(images: ImageBlock[]) {
             @click=${() => window.open(img.url, "_blank")}
           />
         `,
-      )}
+  )}
     </div>
   `;
 }
@@ -228,6 +232,7 @@ function renderGroupedMessage(
   message: unknown,
   opts: { isStreaming: boolean; showReasoning: boolean },
   onOpenSidebar?: (content: string) => void,
+  language?: string,
 ) {
   const m = message as Record<string, unknown>;
   const role = typeof m.role === "string" ? m.role : "unknown";
@@ -265,7 +270,7 @@ function renderGroupedMessage(
     .join(" ");
 
   if (!markdown && hasToolCards && isToolResult) {
-    return renderToolStepsTimeline(toolCards, onOpenSidebar);
+    return renderToolStepsTimeline(toolCards, onOpenSidebar, language);
   }
 
   if (!markdown && !hasToolCards && !hasImages) return nothing;
@@ -275,14 +280,14 @@ function renderGroupedMessage(
       ${canCopyMarkdown ? renderCopyAsMarkdownButton(markdown!) : nothing}
       ${renderMessageImages(images)}
       ${reasoningMarkdown
-        ? html`<div class="chat-thinking">${unsafeHTML(
-            toSanitizedMarkdownHtml(reasoningMarkdown),
-          )}</div>`
-        : nothing}
+      ? html`<div class="chat-thinking">${unsafeHTML(
+        toSanitizedMarkdownHtml(reasoningMarkdown),
+      )}</div>`
+      : nothing}
       ${markdown
-        ? html`<div class="chat-text">${unsafeHTML(toSanitizedMarkdownHtml(markdown))}</div>`
-        : nothing}
-      ${renderToolStepsTimeline(toolCards, onOpenSidebar)}
+      ? html`<div class="chat-text">${unsafeHTML(toSanitizedMarkdownHtml(markdown))}</div>`
+      : nothing}
+      ${renderToolStepsTimeline(toolCards, onOpenSidebar, language)}
     </div>
   `;
 }

@@ -25,6 +25,8 @@ export type ToolStreamEntry = {
   phase: ToolStreamPhase;
   startedAt: number;
   updatedAt: number;
+  /** Total duration in ms, computed when phase transitions to "result". */
+  durationMs?: number;
   message: Record<string, unknown>;
 };
 
@@ -85,6 +87,8 @@ function buildToolStreamMessage(entry: ToolStreamEntry): Record<string, unknown>
     name: entry.name,
     arguments: entry.args ?? {},
     phase: entry.phase,
+    startedAt: entry.startedAt,
+    durationMs: entry.durationMs,
   });
   if (entry.output) {
     content.push({
@@ -92,6 +96,8 @@ function buildToolStreamMessage(entry: ToolStreamEntry): Record<string, unknown>
       name: entry.name,
       text: entry.output,
       phase: entry.phase,
+      startedAt: entry.startedAt,
+      durationMs: entry.durationMs,
     });
   }
   return {
@@ -240,6 +246,9 @@ export function handleAgentEvent(host: ToolStreamHost, payload?: AgentEventPaylo
     if (output !== undefined) entry.output = output;
     if (phase) entry.phase = phase as ToolStreamPhase;
     entry.updatedAt = now;
+    if (phase === "result") {
+      entry.durationMs = now - entry.startedAt;
+    }
   }
 
   entry.message = buildToolStreamMessage(entry);
