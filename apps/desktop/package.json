@@ -41,7 +41,7 @@
     "files": [
       "out/main/**",
       "out/preload/**",
-      "out/renderer/**",
+      "dist/renderer/**",
       "preload.cjs",
       "webview-preload.cjs"
     ],
