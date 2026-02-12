@@ -89,25 +89,12 @@ pnpm install
 pnpm build
 pnpm ui:build
 
-# 3. Start the Desktop app in dev mode (hot-reload for renderer)
-pnpm desktop:dev          # shorthand
-# pnpm --dir apps/desktop dev   # equivalent long form
-```
-
-> **Note:** Dev mode does **not** auto-start the gateway. Start it manually in a
-> separate terminal before launching the Desktop app:
->
-> ```bash
-> pnpm -s marketbot gateway run --bind loopback --port 18789 --force
-> ```
-
-**Production-like local run** (builds the Electron app, then launches it):
-
-```bash
+# 3. Start the Desktop app
 pnpm --dir apps/desktop start
 ```
 
-This auto-starts the gateway as a subprocess, same as the packaged app.
+This starts the Desktop app and auto-starts the gateway as a subprocess, same
+as the packaged app.
 
 If the UI shows `unauthorized`, paste the value of `gateway.auth.token` from
 `~/.marketbot/marketbot.json` into the Control UI "Gateway Token" field and

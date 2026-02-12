@@ -88,6 +88,12 @@ function resolveWebviewPreloadPath(): string {
 const STATE_DIR = join(os.homedir(), '.marketbot');
 const CONFIG_PATH = join(STATE_DIR, 'marketbot.json');
 
+function isRunningFromDiskImage(): boolean {
+  if (!IS_PACKAGED) return false;
+  const resources = process.resourcesPath || '';
+  return resources.startsWith('/Volumes/');
+}
+
 // ── State ──
 
 let mainWindow: BrowserWindow | null = null;
@@ -522,7 +528,7 @@ async function setupAutoUpdates() {
 
 // ── App ready ──
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   app.setName(APP_NAME);
   app.setAppUserModelId('ai.marketbot.desktop');
   app.setActivationPolicy('regular');
@@ -532,6 +538,26 @@ app.whenReady().then(() => {
     resourcesPath: IS_PACKAGED ? process.resourcesPath : 'N/A (dev)',
     gatewayBundle: GATEWAY_BUNDLE_DIR,
   });
+
+  // Guardrail: running directly from a mounted DMG volume is read-only and can
+  // lead to unstable behavior. Require install to /Applications first.
+  if (isRunningFromDiskImage()) {
+    await dialog.showMessageBox({
+      type: 'warning',
+      buttons: ['OK'],
+      defaultId: 0,
+      title: 'Install MarketBot Desktop',
+      message: 'Please move MarketBot Desktop to Applications before opening it.',
+      detail: 'Do not run the app directly from the DMG volume.',
+    });
+    try {
+      await shell.openPath('/Applications');
+    } catch {
+      // Ignore openPath errors; we still quit to prevent bad startup from DMG.
+    }
+    app.quit();
+    return;
+  }
 
   // Bootstrap config & token before anything else.
   gatewayToken = ensureConfig();
