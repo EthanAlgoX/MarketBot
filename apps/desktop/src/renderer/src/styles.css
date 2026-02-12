@@ -351,6 +351,10 @@ button.ghost .nav-icon {
   border: none;
 }
 
+.webview-frame.hidden {
+  display: none;
+}
+
 /* ── Loading / boot state ── */
 
 .loading-state {

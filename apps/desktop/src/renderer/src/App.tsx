@@ -1368,6 +1368,7 @@ export default function App() {
     if (!gatewayUrl || activeTab === 'models') return '';
     return buildTabUrl(gatewayUrl, TABS[activeTab].path, gatewayToken);
   }, [gatewayUrl, gatewayToken, activeTab]);
+  const lastWebviewUrl = tabUrl || prevUrlRef.current;
 
   // Navigate webview on tab change.
   useEffect(() => {
@@ -1435,7 +1436,8 @@ export default function App() {
     return <OnboardingWizard onComplete={handleOnboardingComplete} gatewayUrl={gatewayUrl} />;
   }
 
-  const showWebview = phase === 'ready' && running && tabUrl;
+  const showWebviewContainer = phase === 'ready' && running && Boolean(lastWebviewUrl);
+  const showWebview = showWebviewContainer && activeTab !== 'models';
   const showModelSettings = activeTab === 'models' && phase === 'ready';
 
   return (
@@ -1510,16 +1512,18 @@ export default function App() {
       </aside>
 
       <main className="content">
-        {showModelSettings ? (
-          <ModelSettings gatewayUrl={gatewayUrl} gatewayToken={gatewayToken} running={running} />
-        ) : showWebview ? (
+        {showWebviewContainer ? (
           <webview
             ref={webviewRef as React.Ref<HTMLElement>}
-            src={tabUrl}
+            src={lastWebviewUrl}
             {...(webviewPreload ? { preload: webviewPreload } : {})}
-            className="webview-frame"
+            className={`webview-frame${showWebview ? '' : ' hidden'}`}
           />
-        ) : (
+        ) : null}
+
+        {showModelSettings ? (
+          <ModelSettings gatewayUrl={gatewayUrl} gatewayToken={gatewayToken} running={running} />
+        ) : !showWebviewContainer ? (
           <div className="webview-frame loading-state">
             <div className="loading-content">
               <div className="loading-logo">
