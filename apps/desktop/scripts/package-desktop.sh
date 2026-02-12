@@ -103,7 +103,7 @@ echo "[4/5] Building Electron app (electron-vite build)..."
 
 # ── Step 5: Package with electron-builder ──
 echo "[5/5] Running electron-builder..."
-(cd "$DESKTOP_DIR" && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder "${PLATFORM_FLAGS[@]}")
+(cd "$DESKTOP_DIR" && NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=8192" CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder "${PLATFORM_FLAGS[@]}")
 
 # ── Done ──
 echo ""
