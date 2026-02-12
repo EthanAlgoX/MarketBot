@@ -39,9 +39,9 @@
       "output": "release"
     },
     "files": [
-      "dist/main/**",
-      "dist/preload/**",
-      "dist/renderer/**",
+      "out/main/**",
+      "out/preload/**",
+      "out/renderer/**",
       "preload.cjs",
       "webview-preload.cjs"
     ],

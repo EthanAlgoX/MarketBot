@@ -64,16 +64,22 @@ cp "$ROOT_DIR/marketbot.mjs" "$BUNDLE_DIR/marketbot.mjs"
 # Copy package.json (needed for module resolution and version info).
 cp "$ROOT_DIR/package.json" "$BUNDLE_DIR/package.json"
 
-# Install production-only dependencies into the bundle.
-# This creates a minimal node_modules without dev dependencies.
-echo "  Installing production dependencies..."
-(cd "$BUNDLE_DIR" && npm install --omit=dev --ignore-scripts --no-audit --no-fund 2>&1 | tail -5)
+# Copy lockfile to keep dependency resolution reproducible.
+if [[ -f "$ROOT_DIR/pnpm-lock.yaml" ]]; then
+  cp "$ROOT_DIR/pnpm-lock.yaml" "$BUNDLE_DIR/pnpm-lock.yaml"
+fi
 
 # Copy any patches that pnpm applies (some deps need them at runtime).
+# Keep this before install so patchedDependencies can resolve correctly.
 if [[ -d "$ROOT_DIR/patches" ]]; then
   echo "  Copying patches/..."
   cp -R "$ROOT_DIR/patches" "$BUNDLE_DIR/patches"
 fi
+
+# Install production-only dependencies into the bundle.
+# Use pnpm in isolated mode to avoid npm override conflicts and workspace coupling.
+echo "  Installing production dependencies..."
+(cd "$BUNDLE_DIR" && CI=true pnpm install --prod --ignore-scripts --frozen-lockfile --ignore-workspace)
 
 # Copy extensions (channel plugins).
 if [[ -d "$ROOT_DIR/extensions" ]]; then
