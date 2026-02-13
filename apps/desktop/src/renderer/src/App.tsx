@@ -1486,8 +1486,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentModel, setCurrentModel] = useState('');
-  const webviewRef = useRef<(HTMLElement & { loadURL: (url: string) => void; reload: () => void; executeJavaScript: (code: string, userGesture?: boolean) => Promise<unknown> }) | null>(null);
+  const webviewRef = useRef<(HTMLElement & {
+    loadURL: (url: string) => void;
+    reload: () => void;
+    executeJavaScript: (code: string, userGesture?: boolean) => Promise<unknown>;
+    isLoading?: () => boolean;
+  }) | null>(null);
   const prevUrlRef = useRef('');
+  const activeTabRef = useRef<TabId>('chat');
+  const pendingTabRef = useRef<TabId | null>(null);
   const t = useCallback((key: string, vars?: Record<string, string>) => {
     return getText(language, key, vars);
   }, [language]);
@@ -1499,6 +1506,20 @@ export default function App() {
       // ignore storage errors
     }
   }, [language]);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  const handleRequestTabChange = useCallback((next: TabId) => {
+    const view = webviewRef.current;
+    if (view && typeof view.isLoading === 'function' && view.isLoading()) {
+      pendingTabRef.current = next;
+      return;
+    }
+    pendingTabRef.current = null;
+    setActiveTab(next);
+  }, []);
 
   // Phase 1: Fetch config from main process, then check onboarding.
   useEffect(() => {
@@ -1662,6 +1683,12 @@ export default function App() {
     const handleReady = () => {
       injectTokenToWebview(view, gatewayToken);
     };
+    const handleStopLoading = () => {
+      const next = pendingTabRef.current;
+      if (!next || next === activeTabRef.current) return;
+      pendingTabRef.current = null;
+      setActiveTab(next);
+    };
     const handleFail = (event: Event) => {
       const details = event as Event & { errorCode?: number; isMainFrame?: boolean };
       // Electron reports superseded navigations as ERR_ABORTED (-3); these are
@@ -1674,9 +1701,11 @@ export default function App() {
     };
 
     view.addEventListener('dom-ready', handleReady);
+    view.addEventListener('did-stop-loading', handleStopLoading);
     view.addEventListener('did-fail-load', handleFail);
     return () => {
       view.removeEventListener('dom-ready', handleReady);
+      view.removeEventListener('did-stop-loading', handleStopLoading);
       view.removeEventListener('did-fail-load', handleFail);
     };
   }, [gatewayToken, running]);
@@ -1753,7 +1782,7 @@ export default function App() {
                 <button
                   key={tab.id}
                   className={`nav-item${activeTab === tab.id ? ' active' : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleRequestTabChange(tab.id)}
                   title={sidebarCollapsed ? getTabLabel(language, tab.id) : undefined}
                 >
                   <span className="nav-icon" dangerouslySetInnerHTML={{ __html: tab.icon }} />
