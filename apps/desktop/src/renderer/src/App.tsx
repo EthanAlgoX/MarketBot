@@ -1644,37 +1644,15 @@ export default function App() {
     if (!gatewayUrl || activeTab === 'models') return '';
     return buildTabUrl(gatewayUrl, TABS[activeTab].path, gatewayToken);
   }, [gatewayUrl, gatewayToken, activeTab]);
-  const lastWebviewUrl = tabUrl || prevUrlRef.current;
 
-  // Navigate webview on tab change.
+  // Keep the last non-empty URL so we can preserve webview state while the
+  // models panel is shown (tabUrl becomes empty for models).
   useEffect(() => {
-    const view = webviewRef.current;
-    if (!view || !tabUrl) return;
-    if (!prevUrlRef.current) {
-      prevUrlRef.current = tabUrl;
-      return;
-    }
-    if (tabUrl === prevUrlRef.current) return;
+    if (!tabUrl) return;
     prevUrlRef.current = tabUrl;
-    view.loadURL(tabUrl);
   }, [tabUrl]);
 
-  // Reload webview when gateway comes up after being down.
-  const wasRunning = useRef(false);
-  useEffect(() => {
-    if (phase !== 'ready') return;
-    if (running && !wasRunning.current && webviewRef.current && tabUrl) {
-      const timer = setTimeout(() => {
-        if (webviewRef.current) {
-          webviewRef.current.loadURL(tabUrl);
-          prevUrlRef.current = tabUrl;
-        }
-      }, 500);
-      wasRunning.current = running;
-      return () => clearTimeout(timer);
-    }
-    wasRunning.current = running;
-  }, [running, phase, tabUrl]);
+  const lastWebviewUrl = tabUrl || prevUrlRef.current;
 
   // Inject token on dom-ready, retry on load failure.
   useEffect(() => {
@@ -1684,7 +1662,12 @@ export default function App() {
     const handleReady = () => {
       injectTokenToWebview(view, gatewayToken);
     };
-    const handleFail = () => {
+    const handleFail = (event: Event) => {
+      const details = event as Event & { errorCode?: number; isMainFrame?: boolean };
+      // Electron reports superseded navigations as ERR_ABORTED (-3); these are
+      // expected during quick tab/session transitions and should not trigger reloads.
+      if (details.errorCode === -3) return;
+      if (details.isMainFrame === false) return;
       if (running) {
         setTimeout(() => webviewRef.current?.reload(), 1200);
       }
