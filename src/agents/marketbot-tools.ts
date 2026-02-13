@@ -160,7 +160,7 @@ export function createMarketBotTools(options?: {
       agentSessionKey: options?.agentSessionKey,
       config: options?.config,
     }),
-    createFinanceTool(),
+    createFinanceTool({ config: options?.config }),
     createDesktopTool(),
     ...(webSearchTool ? [webSearchTool] : []),
     ...(webFetchTool ? [webFetchTool] : []),

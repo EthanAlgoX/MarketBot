@@ -4,36 +4,41 @@
  * This file is part of MarketBot.
  */
 
-import { fetchTextWithBrowser } from "./browser-client.js";
+import type { MarketBotConfig } from "../config/config.js";
 import { TtlCache } from "./cache.js";
 import { resolveYahooRange } from "./timeframe.js";
-import {
-  buildYahooChartUrl,
-  buildYahooFundamentalsUrl,
-  buildYahooQuoteUrl,
-  normalizeYahooSymbol,
-  parseYahooChart,
-  parseYahooFundamentals,
-  parseYahooJsonFromText,
-  parseYahooQuotes,
-} from "./yahoo.js";
 import type { Fundamentals, MarketSeries, NewsItem, Quote } from "./types.js";
-import { parseGoogleNewsRss } from "./news.js";
-import { buildStooqDailyUrl, parseStooqDailyCsv, resolveStooqSymbol } from "./stooq.js";
+import {
+  createFinanceProviderRegistry,
+  normalizeFinanceProviderId,
+  type FinanceProvider,
+} from "./providers.js";
+import { normalizeYahooSymbol } from "./yahoo.js";
 
 export type MarketDataClientOptions = {
   profile?: string;
   cacheTtlMs?: number;
+  provider?: string;
+  providerOrder?: string[];
+  config?: MarketBotConfig;
 };
 
-function quoteFromSeries(series: MarketSeries): Quote {
-  const points = series.series.filter((p) => typeof p.close === "number");
+type FinanceAction = "market_data" | "quote" | "fundamentals" | "news";
+
+const DEFAULT_PROVIDER_ORDER: Record<FinanceAction, string[]> = {
+  market_data: ["yahoo", "stooq"],
+  quote: ["yahoo", "stooq"],
+  fundamentals: ["yahoo"],
+  news: ["google-news"],
+};
+
+function quoteFromSeries(series: MarketSeries, fallbackSymbol: string): Quote {
+  const points = series.series.filter((point) => typeof point.close === "number");
   const last = points.at(-1);
+  const symbol = series.symbol || fallbackSymbol.toUpperCase();
   if (!last || typeof last.close !== "number") {
-    // Some tickers (or transient data-source failures) can return empty/partial charts.
-    // Keep higher-level flows stable by returning a minimal quote instead of throwing.
     return {
-      symbol: series.symbol,
+      symbol,
       ...(series.currency ? { currency: series.currency } : {}),
       ...(series.exchange ? { exchange: series.exchange } : {}),
       marketState: "UNKNOWN",
@@ -45,7 +50,7 @@ function quoteFromSeries(series: MarketSeries): Quote {
   const changePct =
     prevClose !== undefined && prevClose !== 0 ? (change ?? 0) / prevClose : undefined;
   return {
-    symbol: series.symbol,
+    symbol,
     ...(series.currency ? { currency: series.currency } : {}),
     ...(series.exchange ? { exchange: series.exchange } : {}),
     regularMarketPrice: last.close,
@@ -62,110 +67,214 @@ export class MarketDataClient {
   private fundamentalsCache: TtlCache<Fundamentals>;
   private newsCache: TtlCache<NewsItem[]>;
   private profile?: string;
+  private provider?: string;
+  private providerOrder?: string[];
+  private config?: MarketBotConfig;
+  private registry: Map<string, FinanceProvider>;
 
   constructor(opts: MarketDataClientOptions = {}) {
     this.profile = opts.profile;
+    this.provider = opts.provider?.trim();
+    this.providerOrder = opts.providerOrder?.map((entry) => entry.trim()).filter(Boolean);
+    this.config = opts.config;
     const ttl = opts.cacheTtlMs ?? 60_000;
     this.chartCache = new TtlCache<MarketSeries>(ttl);
     this.quoteCache = new TtlCache<Quote[]>(ttl);
     this.fundamentalsCache = new TtlCache<Fundamentals>(ttl);
     this.newsCache = new TtlCache<NewsItem[]>(ttl);
+    this.registry = createFinanceProviderRegistry(this.config);
+  }
+
+  private providerSupportsAction(provider: FinanceProvider, action: FinanceAction): boolean {
+    if (action === "market_data") {
+      return provider.capabilities.marketData === true;
+    }
+    if (action === "quote") {
+      return provider.capabilities.quotes === true;
+    }
+    if (action === "fundamentals") {
+      return provider.capabilities.fundamentals === true;
+    }
+    return provider.capabilities.news === true;
+  }
+
+  private resolveAutoConnectedPriority(action: FinanceAction): string[] {
+    // If OpenBB is connected in config, try it first by default to honor
+    // "connect once" semantics without requiring per-call provider flags.
+    const openbb = this.registry.get("openbb");
+    if (!openbb || !this.providerSupportsAction(openbb, action)) {
+      return [];
+    }
+    return ["openbb"];
+  }
+
+  private resolveProviderOrder(action: FinanceAction): string[] {
+    const configuredByAction = this.config?.finance?.providerOrderByAction?.[action];
+    const configuredOrder = this.providerOrder ?? this.config?.finance?.providerOrder;
+    const preferredProvider = this.provider ?? this.config?.finance?.provider;
+    const rawOrder = [
+      ...(preferredProvider ? [preferredProvider] : []),
+      ...(configuredByAction ?? []),
+      ...(configuredOrder ?? []),
+      ...this.resolveAutoConnectedPriority(action),
+      ...DEFAULT_PROVIDER_ORDER[action],
+    ];
+    const normalized: string[] = [];
+    for (const entry of rawOrder) {
+      const key = normalizeFinanceProviderId(entry);
+      if (!key || normalized.includes(key)) {
+        continue;
+      }
+      normalized.push(key);
+    }
+    return normalized;
+  }
+
+  private providerDebugTag(action: FinanceAction): string {
+    return `${action}:${this.resolveProviderOrder(action).join(",")}`;
+  }
+
+  private async executeWithProviderFallback<T>(params: {
+    action: FinanceAction;
+    run: (provider: FinanceProvider) => Promise<T>;
+    supports: (provider: FinanceProvider) => boolean;
+  }): Promise<T> {
+    const order = this.resolveProviderOrder(params.action);
+    if (order.length === 0) {
+      throw new Error(`No providers configured for ${params.action}`);
+    }
+
+    const failures: string[] = [];
+    for (const providerId of order) {
+      const provider = this.registry.get(providerId);
+      if (!provider) {
+        failures.push(`${providerId}: provider not registered`);
+        continue;
+      }
+      if (!params.supports(provider)) {
+        failures.push(`${providerId}: action not supported`);
+        continue;
+      }
+
+      try {
+        return await params.run(provider);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push(`${provider.id}: ${message}`);
+      }
+    }
+
+    throw new Error(
+      `All providers failed for ${params.action}. Tried: ${order.join(", ")}. ${failures.join(
+        " | ",
+      )}`,
+    );
   }
 
   async getMarketData(params: { symbol: string; timeframe?: string; limit?: number }) {
     const range = resolveYahooRange(params.timeframe);
     const symbol = normalizeYahooSymbol(params.symbol);
-    const cacheKey = `${symbol}:${range.range}:${range.interval}`;
+    const cacheKey = `${symbol}:${range.range}:${range.interval}:${this.providerDebugTag("market_data")}`;
     const cached = this.chartCache.get(cacheKey);
     if (cached) {
       return params.limit ? { ...cached, series: cached.series.slice(-params.limit) } : cached;
     }
-    const url = buildYahooChartUrl({
-      symbol,
-      range: range.range,
-      interval: range.interval,
-      includePrePost: false,
+
+    const series = await this.executeWithProviderFallback({
+      action: "market_data",
+      supports: (provider) => typeof provider.getMarketData === "function",
+      run: async (provider) => {
+        if (!provider.getMarketData) {
+          throw new Error(`provider "${provider.id}" does not implement market_data`);
+        }
+        return await provider.getMarketData(
+          { symbol, timeframe: params.timeframe, limit: params.limit },
+          { profile: this.profile, config: this.config },
+        );
+      },
     });
-    let series: MarketSeries;
-    try {
-      const res = await fetchTextWithBrowser(url, {
-        profile: this.profile,
-        maxChars: 200000,
-        retryMaxChars: 400000,
-        content: "text",
-      });
-      const json = parseYahooJsonFromText(res.text);
-      series = parseYahooChart(json);
-    } catch (err) {
-      // Fallback: Stooq daily CSV (works well for equities when Yahoo API is rate limited).
-      if (range.interval !== "1d") {
-        throw err;
-      }
-      const stooq = resolveStooqSymbol(symbol);
-      if (!stooq) {
-        throw err;
-      }
-      const res = await fetchTextWithBrowser(buildStooqDailyUrl(stooq), {
-        profile: this.profile,
-        maxChars: 200000,
-        content: "text",
-      });
-      series = parseStooqDailyCsv(res.text, symbol);
-    }
+
     this.chartCache.set(cacheKey, series);
     return params.limit ? { ...series, series: series.series.slice(-params.limit) } : series;
   }
 
   async getQuotes(symbols: string[]): Promise<Quote[]> {
     const normalized = symbols.map(normalizeYahooSymbol).filter(Boolean);
-    const cacheKey = normalized.join(",");
+    const cacheKey = `${normalized.join(",")}:${this.providerDebugTag("quote")}`;
     const cached = this.quoteCache.get(cacheKey);
     if (cached) {
       return cached;
     }
-    const url = buildYahooQuoteUrl(normalized);
+
     let quotes: Quote[];
     try {
-      const res = await fetchTextWithBrowser(url, {
-        profile: this.profile,
-        maxChars: 120000,
-        retryMaxChars: 240000,
-        content: "text",
+      quotes = await this.executeWithProviderFallback({
+        action: "quote",
+        supports: (provider) => typeof provider.getQuotes === "function",
+        run: async (provider) => {
+          if (!provider.getQuotes) {
+            throw new Error(`provider "${provider.id}" does not implement quote`);
+          }
+          const result = await provider.getQuotes(normalized, {
+            profile: this.profile,
+            config: this.config,
+          });
+          if (!Array.isArray(result) || result.length === 0) {
+            throw new Error(`provider "${provider.id}" returned no quotes`);
+          }
+          return result;
+        },
       });
-      const json = parseYahooJsonFromText(res.text);
-      quotes = parseYahooQuotes(json);
-      if (quotes.length === 0) {
-        throw new Error("Yahoo quote API returned no results");
+    } catch (quoteError) {
+      const fromSeries: Quote[] = [];
+      const fallbackFailures: string[] = [];
+      for (const symbol of normalized) {
+        try {
+          const series = await this.getMarketData({ symbol, timeframe: "6mo", limit: 2 });
+          fromSeries.push(quoteFromSeries(series, symbol));
+        } catch (fallbackError) {
+          const message =
+            fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          fallbackFailures.push(`${symbol}: ${message}`);
+        }
       }
-    } catch {
-      // Fallback: derive a quote from the latest close in the daily chart.
-      quotes = [];
-      for (const sym of normalized) {
-        const series = await this.getMarketData({ symbol: sym, timeframe: "5d", limit: 2 });
-        quotes.push(quoteFromSeries(series));
+      if (fromSeries.length === normalized.length) {
+        quotes = fromSeries;
+      } else {
+        const message = quoteError instanceof Error ? quoteError.message : String(quoteError);
+        throw new Error(
+          `Quote providers failed and market-data fallback was incomplete. ${message}. Fallback: ${fallbackFailures.join(" | ")}`,
+          { cause: quoteError },
+        );
       }
     }
+
     this.quoteCache.set(cacheKey, quotes);
     return quotes;
   }
 
   async getFundamentals(symbol: string): Promise<Fundamentals> {
     const normalized = normalizeYahooSymbol(symbol);
-    const cacheKey = normalized;
+    const cacheKey = `${normalized}:${this.providerDebugTag("fundamentals")}`;
     const cached = this.fundamentalsCache.get(cacheKey);
     if (cached) {
       return cached;
     }
+
     try {
-      const url = buildYahooFundamentalsUrl(normalized);
-      const res = await fetchTextWithBrowser(url, {
-        profile: this.profile,
-        maxChars: 200000,
-        retryMaxChars: 400000,
-        content: "text",
+      const fundamentals = await this.executeWithProviderFallback({
+        action: "fundamentals",
+        supports: (provider) => typeof provider.getFundamentals === "function",
+        run: async (provider) => {
+          if (!provider.getFundamentals) {
+            throw new Error(`provider "${provider.id}" does not implement fundamentals`);
+          }
+          return await provider.getFundamentals(normalized, {
+            profile: this.profile,
+            config: this.config,
+          });
+        },
       });
-      const json = parseYahooJsonFromText(res.text);
-      const fundamentals = parseYahooFundamentals(json, normalized);
       this.fundamentalsCache.set(cacheKey, fundamentals);
       return fundamentals;
     } catch {
@@ -179,24 +288,26 @@ export class MarketDataClient {
     if (!trimmed) {
       throw new Error("news query required");
     }
-    const cacheKey = `${trimmed}:${params.locale ?? "US"}`;
+    const cacheKey = `${trimmed}:${params.locale ?? "US"}:${this.providerDebugTag("news")}`;
     const cached = this.newsCache.get(cacheKey);
     if (cached) {
       return params.limit ? cached.slice(0, params.limit) : cached;
     }
-    const locale = params.locale ?? "US";
-    const q = new URLSearchParams();
-    q.set("q", trimmed);
-    q.set("hl", "en-US");
-    q.set("gl", locale);
-    q.set("ceid", `${locale}:en`);
-    const url = `https://news.google.com/rss/search?${q.toString()}`;
-    const res = await fetchTextWithBrowser(url, {
-      profile: this.profile,
-      maxChars: 200000,
-      content: "text",
+
+    const items = await this.executeWithProviderFallback({
+      action: "news",
+      supports: (provider) => typeof provider.getNews === "function",
+      run: async (provider) => {
+        if (!provider.getNews) {
+          throw new Error(`provider "${provider.id}" does not implement news`);
+        }
+        return await provider.getNews(
+          { query: trimmed, limit: params.limit, locale: params.locale },
+          { profile: this.profile, config: this.config },
+        );
+      },
     });
-    const items = parseGoogleNewsRss(res.text);
+
     this.newsCache.set(cacheKey, items);
     return params.limit ? items.slice(0, params.limit) : items;
   }

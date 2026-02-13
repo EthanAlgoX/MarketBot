@@ -880,6 +880,8 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         let reportType: "simple" | "full" | undefined;
         let newsLimit: number | undefined;
         let locale: string | undefined;
+        let provider: string | undefined;
+        let providerOrder: string[] | undefined;
         const symbols: string[] = [];
         for (let i = 0; i < tokens.length; i += 1) {
           const t = tokens[i];
@@ -907,6 +909,21 @@ export function createCommandHandlers(context: CommandHandlerContext) {
             i += 1;
             continue;
           }
+          if (t === "--provider") {
+            provider = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--provider-order") {
+            const rawOrder = tokens[i + 1] ?? "";
+            const parsed = rawOrder
+              .split(",")
+              .map((entry) => entry.trim())
+              .filter(Boolean);
+            providerOrder = parsed.length > 0 ? parsed : undefined;
+            i += 1;
+            continue;
+          }
           symbols.push(t);
         }
 
@@ -930,6 +947,8 @@ export function createCommandHandlers(context: CommandHandlerContext) {
             newsLimit,
             locale,
             profile: "marketbot",
+            provider,
+            providerOrder,
             includeFundamentals: false,
           });
           setActivityStatus("daily stock ready");
@@ -960,6 +979,8 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         let reportType: "simple" | "full" | undefined;
         let newsLimit: number | undefined;
         let locale: string | undefined;
+        let provider: string | undefined;
+        let providerOrder: string[] | undefined;
         let includeFundamentals = true;
         for (let i = 1; i < tokens.length; i += 1) {
           const t = tokens[i];
@@ -987,6 +1008,21 @@ export function createCommandHandlers(context: CommandHandlerContext) {
             i += 1;
             continue;
           }
+          if (t === "--provider") {
+            provider = tokens[i + 1];
+            i += 1;
+            continue;
+          }
+          if (t === "--provider-order") {
+            const rawOrder = tokens[i + 1] ?? "";
+            const parsed = rawOrder
+              .split(",")
+              .map((entry) => entry.trim())
+              .filter(Boolean);
+            providerOrder = parsed.length > 0 ? parsed : undefined;
+            i += 1;
+            continue;
+          }
           if (t === "--no-fundamentals") {
             includeFundamentals = false;
           }
@@ -1007,6 +1043,8 @@ export function createCommandHandlers(context: CommandHandlerContext) {
             newsLimit,
             locale,
             profile: "marketbot",
+            provider,
+            providerOrder,
             includeFundamentals,
           });
           setActivityStatus("report ready");

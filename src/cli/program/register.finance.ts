@@ -108,10 +108,31 @@ export function registerFinanceCommand(program: Command) {
 
   finance
     .option("--profile <name>", "Browser profile (default: marketbot)")
+    .option("--provider <id>", "Finance data provider (e.g. yahoo, stooq, openbb)")
+    .option("--provider-order <list>", "Comma-separated provider fallback order")
     .option("--json", "Output JSON", false);
 
-  const getClient = (cmd: { profile?: string }) =>
-    new MarketDataClient({ profile: cmd.profile?.trim() || "marketbot" });
+  const getClient = (cmd: {
+    profile?: string;
+    provider?: string;
+    providerOrder?: string | string[];
+  }) => {
+    const providerOrderRaw = Array.isArray(cmd.providerOrder)
+      ? cmd.providerOrder.join(",")
+      : cmd.providerOrder;
+    const providerOrder =
+      typeof providerOrderRaw === "string"
+        ? providerOrderRaw
+            .split(",")
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+        : undefined;
+    return new MarketDataClient({
+      profile: cmd.profile?.trim() || "marketbot",
+      ...(cmd.provider?.trim() ? { provider: cmd.provider.trim() } : {}),
+      ...(providerOrder && providerOrder.length > 0 ? { providerOrder } : {}),
+    });
+  };
 
   finance
     .command("quote <symbol>")

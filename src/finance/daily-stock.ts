@@ -10,6 +10,7 @@ import { buildDecisionDashboard, formatDecisionDashboardMarkdown } from "./dashb
 import { buildEquityResearchReport, formatEquityResearchReportMarkdown } from "./report.js";
 import type { DecisionDashboard } from "./dashboard.js";
 import type { EquityResearchReport, FinanceReportType } from "./report.js";
+import type { MarketBotConfig } from "../config/config.js";
 
 export type DailyStockRunParams = {
   symbols: string[];
@@ -18,6 +19,9 @@ export type DailyStockRunParams = {
   newsLimit?: number;
   locale?: string;
   profile?: string;
+  provider?: string;
+  providerOrder?: string[];
+  config?: MarketBotConfig;
   includeFundamentals?: boolean;
 };
 
@@ -28,6 +32,9 @@ export type StockReportParams = {
   newsLimit?: number;
   locale?: string;
   profile?: string;
+  provider?: string;
+  providerOrder?: string[];
+  config?: MarketBotConfig;
   includeFundamentals?: boolean;
 };
 
@@ -114,7 +121,14 @@ export async function runDailyStock(params: DailyStockRunParams): Promise<DailyS
       : 2;
   const newsLimit = reportType === "simple" ? Math.min(2, baseNewsLimit) : baseNewsLimit;
 
-  const client = new MarketDataClient({ profile: params.profile?.trim() || "marketbot" });
+  const client = new MarketDataClient({
+    profile: params.profile?.trim() || "marketbot",
+    ...(params.provider?.trim() ? { provider: params.provider.trim() } : {}),
+    ...(params.providerOrder && params.providerOrder.length > 0
+      ? { providerOrder: params.providerOrder }
+      : {}),
+    ...(params.config ? { config: params.config } : {}),
+  });
 
   const counts = { buy: 0, watch: 0, sell: 0, failed: 0 };
   const items: DailyStockItemResult[] = [];
@@ -214,7 +228,14 @@ export async function runStockReport(params: StockReportParams): Promise<StockRe
       : 5;
   const newsLimit = reportType === "simple" ? Math.min(2, baseNewsLimit) : baseNewsLimit;
 
-  const client = new MarketDataClient({ profile: params.profile?.trim() || "marketbot" });
+  const client = new MarketDataClient({
+    profile: params.profile?.trim() || "marketbot",
+    ...(params.provider?.trim() ? { provider: params.provider.trim() } : {}),
+    ...(params.providerOrder && params.providerOrder.length > 0
+      ? { providerOrder: params.providerOrder }
+      : {}),
+    ...(params.config ? { config: params.config } : {}),
+  });
   const series = await client.getMarketData({ symbol: symbolInput, timeframe });
   const displaySymbol = series.symbol || symbolInput;
   const [quote] = await client.getQuotes([displaySymbol]);

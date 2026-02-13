@@ -52,6 +52,21 @@ function asStringArray(value: unknown): string[] | null {
   return out;
 }
 
+function asProviderOrder(value: unknown): string[] | undefined {
+  const arrayValue = asStringArray(value);
+  if (arrayValue && arrayValue.length > 0) {
+    return arrayValue;
+  }
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const parsed = value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : undefined;
+}
+
 export const financeHandlers: GatewayRequestHandlers = {
   "finance.watchlist.get": async ({ respond }) => {
     const symbols = await loadWatchlist("default");
@@ -97,6 +112,8 @@ export const financeHandlers: GatewayRequestHandlers = {
     const locale = asString(raw?.locale) || undefined;
     const includeFundamentals = asBoolean(raw?.includeFundamentals);
     const profile = asString(raw?.profile) || "marketbot";
+    const provider = asString(raw?.provider) || undefined;
+    const providerOrder = asProviderOrder(raw?.providerOrder);
 
     const result = await runDailyStock({
       symbols: watchlist,
@@ -105,6 +122,8 @@ export const financeHandlers: GatewayRequestHandlers = {
       newsLimit,
       locale,
       profile,
+      provider,
+      providerOrder,
       includeFundamentals: includeFundamentals ?? false,
     });
     await saveDailyStockLast(result).catch(() => undefined);
@@ -125,6 +144,8 @@ export const financeHandlers: GatewayRequestHandlers = {
     const locale = asString(raw?.locale) || undefined;
     const includeFundamentals = asBoolean(raw?.includeFundamentals);
     const profile = asString(raw?.profile) || "marketbot";
+    const provider = asString(raw?.provider) || undefined;
+    const providerOrder = asProviderOrder(raw?.providerOrder);
 
     const result = await runStockReport({
       symbol,
@@ -133,6 +154,8 @@ export const financeHandlers: GatewayRequestHandlers = {
       newsLimit,
       locale,
       profile,
+      provider,
+      providerOrder,
       includeFundamentals: includeFundamentals ?? true,
     });
     respond(true, { result }, undefined);

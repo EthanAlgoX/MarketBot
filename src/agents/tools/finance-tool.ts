@@ -12,6 +12,7 @@ import {
   readStringParam,
 } from "./common.js";
 import { FinanceToolSchema } from "./finance-tool.schema.js";
+import type { MarketBotConfig } from "../../config/config.js";
 import { MarketDataClient } from "../../finance/client.js";
 import { analyzeRisk, analyzeTechnicals } from "../../finance/analysis.js";
 import { buildPortfolioOverview } from "../../finance/portfolio.js";
@@ -31,7 +32,7 @@ function coerceMarketSeries(input: unknown): MarketSeries | null {
   }
   return {
     symbol: typeof obj.symbol === "string" ? obj.symbol : "UNKNOWN",
-    source: (obj.source as "yahoo" | "unknown") ?? "unknown",
+    source: (obj.source as "yahoo" | "openbb" | "unknown") ?? "unknown",
     currency: typeof obj.currency === "string" ? obj.currency : undefined,
     exchange: typeof obj.exchange === "string" ? obj.exchange : undefined,
     timezone: typeof obj.timezone === "string" ? obj.timezone : undefined,
@@ -43,7 +44,7 @@ function coerceMarketSeries(input: unknown): MarketSeries | null {
   };
 }
 
-export function createFinanceTool(): AnyAgentTool {
+export function createFinanceTool(options?: { config?: MarketBotConfig }): AnyAgentTool {
   return {
     label: "Finance",
     name: "finance",
@@ -54,7 +55,14 @@ export function createFinanceTool(): AnyAgentTool {
       const params = args as Record<string, unknown>;
       const action = readStringParam(params, "action", { required: true });
       const profile = readStringParam(params, "profile") ?? "marketbot";
-      const client = new MarketDataClient({ profile });
+      const provider = readStringParam(params, "provider");
+      const providerOrder = readStringArrayParam(params, "providerOrder");
+      const client = new MarketDataClient({
+        profile,
+        ...(provider ? { provider } : {}),
+        ...(providerOrder && providerOrder.length > 0 ? { providerOrder } : {}),
+        ...(options?.config ? { config: options.config } : {}),
+      });
 
       switch (action) {
         case "market_data": {

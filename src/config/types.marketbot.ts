@@ -30,6 +30,7 @@ import type {
   GatewayConfig,
   TalkConfig,
 } from "./types.gateway.js";
+import type { FinanceConfig } from "./types.finance.js";
 import type { HooksConfig } from "./types.hooks.js";
 import type {
   AudioConfig,
@@ -99,6 +100,7 @@ export type MarketBotConfig = {
   nodeHost?: NodeHostConfig;
   agents?: AgentsConfig;
   tools?: ToolsConfig;
+  finance?: FinanceConfig;
   bindings?: AgentBinding[];
   broadcast?: BroadcastConfig;
   audio?: AudioConfig;

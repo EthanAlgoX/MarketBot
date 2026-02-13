@@ -5,6 +5,7 @@
  */
 
 import { Type } from "@sinclair/typebox";
+import type { MarketBotConfig } from "../config/config.js";
 import { MarketDataClient } from "../finance/client.js";
 import { analyzeRisk, analyzeTechnicals } from "../finance/analysis.js";
 import { buildFinanceBrief } from "../finance/brief.js";
@@ -91,7 +92,7 @@ function coerceMarketSeries(input: unknown): MarketSeries | null {
   }
   return {
     symbol: typeof obj.symbol === "string" ? obj.symbol : "UNKNOWN",
-    source: (obj.source as "yahoo" | "unknown") ?? "unknown",
+    source: (obj.source as "yahoo" | "openbb" | "unknown") ?? "unknown",
     currency: typeof obj.currency === "string" ? obj.currency : undefined,
     exchange: typeof obj.exchange === "string" ? obj.exchange : undefined,
     timezone: typeof obj.timezone === "string" ? obj.timezone : undefined,
@@ -169,8 +170,18 @@ function weightsFromPositions(
   return weights;
 }
 
-export function createFinanceSkills(options?: { profile?: string }): Skill[] {
-  const client = new MarketDataClient({ profile: options?.profile ?? "marketbot" });
+export function createFinanceSkills(options?: {
+  profile?: string;
+  provider?: string;
+  providerOrder?: string[];
+  config?: MarketBotConfig;
+}): Skill[] {
+  const client = new MarketDataClient({
+    profile: options?.profile ?? "marketbot",
+    ...(options?.provider ? { provider: options.provider } : {}),
+    ...(options?.providerOrder ? { providerOrder: options.providerOrder } : {}),
+    ...(options?.config ? { config: options.config } : {}),
+  });
 
   const fetchSkill: Skill = {
     name: "fetch",

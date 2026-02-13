@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, ipcMain, shell, nativeImage, Tray, Menu, dialog } from "electron";
+import { app, BrowserWindow, dialog, shell, session, ipcMain, nativeImage, Tray, Menu } from "electron";
 import { fork, spawn } from "node:child_process";
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -38,6 +38,13 @@ const IS_PACKAGED = app.isPackaged;
 const CWD = process.cwd();
 const REPO_ROOT = CWD.endsWith("/apps/desktop") ? resolve(CWD, "../..") : CWD;
 const GATEWAY_BUNDLE_DIR = IS_PACKAGED ? join(process.resourcesPath, "gateway-bundle") : REPO_ROOT;
+const GATEWAY_NODE_FALLBACK = "/opt/homebrew/bin/node";
+function resolveGatewayExecPath() {
+  const envNode = process.env.MARKETBOT_GATEWAY_NODE?.trim();
+  if (envNode && existsSync(envNode)) return envNode;
+  if (existsSync(GATEWAY_NODE_FALLBACK)) return GATEWAY_NODE_FALLBACK;
+  return process.execPath;
+}
 function resolvePreloadPath() {
   if (IS_PACKAGED) {
     return join(app.getAppPath(), "preload.cjs");
@@ -52,6 +59,11 @@ function resolveWebviewPreloadPath() {
 }
 const STATE_DIR = join(os.homedir(), ".marketbot");
 const CONFIG_PATH = join(STATE_DIR, "marketbot.json");
+function isRunningFromDiskImage() {
+  if (!IS_PACKAGED) return false;
+  const resources = process.resourcesPath || "";
+  return resources.startsWith("/Volumes/");
+}
 let mainWindow = null;
 let gatewayProc = null;
 let isQuitting = false;
@@ -167,6 +179,8 @@ function startGateway() {
         "--force"
       ];
       console.log("[Desktop] forking", entryScript, gatewayArgs);
+      const gatewayExecPath = resolveGatewayExecPath();
+      console.log("[Desktop] gateway execPath", gatewayExecPath);
       child = fork(entryScript, gatewayArgs, {
         cwd: GATEWAY_BUNDLE_DIR,
         env: {
@@ -175,8 +189,8 @@ function startGateway() {
           NODE_PATH: join(GATEWAY_BUNDLE_DIR, "node_modules")
         },
         stdio: ["ignore", "pipe", "pipe", "ipc"],
-        // Use Electron's built-in Node.js to run the script.
-        execPath: process.execPath,
+        // Prefer system Node when available (gateway requires Node 22+).
+        execPath: gatewayExecPath,
         execArgv: ["--no-warnings"]
       });
       child.stdout?.on("data", (data) => {
@@ -410,7 +424,7 @@ async function setupAutoUpdates() {
     });
   }, 30 * 60 * 1e3);
 }
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   app.setName(APP_NAME);
   app.setAppUserModelId("ai.marketbot.desktop");
   app.setActivationPolicy("regular");
@@ -420,6 +434,22 @@ app.whenReady().then(() => {
     resourcesPath: IS_PACKAGED ? process.resourcesPath : "N/A (dev)",
     gatewayBundle: GATEWAY_BUNDLE_DIR
   });
+  if (isRunningFromDiskImage()) {
+    await dialog.showMessageBox({
+      type: "warning",
+      buttons: ["OK"],
+      defaultId: 0,
+      title: "Install MarketBot Desktop",
+      message: "Please move MarketBot Desktop to Applications before opening it.",
+      detail: "Do not run the app directly from the DMG volume."
+    });
+    try {
+      await shell.openPath("/Applications");
+    } catch {
+    }
+    app.quit();
+    return;
+  }
   gatewayToken = ensureConfig();
   const gatewayFilter = { urls: [`http://127.0.0.1:${GATEWAY_PORT}/*`, `http://localhost:${GATEWAY_PORT}/*`] };
   session.defaultSession.webRequest.onBeforeSendHeaders(gatewayFilter, (details, callback) => {

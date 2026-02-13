@@ -29,6 +29,8 @@ export const FinanceToolSchema = Type.Object({
   timeframe: Type.Optional(Type.String()),
   limit: Type.Optional(Type.Number()),
   profile: Type.Optional(Type.String()),
+  provider: Type.Optional(Type.String()),
+  providerOrder: Type.Optional(Type.Array(Type.String())),
   query: Type.Optional(Type.String()),
   locale: Type.Optional(Type.String()),
   benchmark: Type.Optional(Type.String()),

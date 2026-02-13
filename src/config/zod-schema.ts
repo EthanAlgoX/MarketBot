@@ -226,6 +226,46 @@ export const MarketBotSchema = z
       .strict()
       .optional(),
     models: ModelsConfigSchema,
+    finance: z
+      .object({
+        provider: z.string().optional(),
+        providerOrder: z.array(z.string()).optional(),
+        providerOrderByAction: z
+          .object({
+            market_data: z.array(z.string()).optional(),
+            quote: z.array(z.string()).optional(),
+            fundamentals: z.array(z.string()).optional(),
+            news: z.array(z.string()).optional(),
+          })
+          .strict()
+          .optional(),
+        providers: z
+          .record(
+            z.string(),
+            z
+              .object({
+                enabled: z.boolean().optional(),
+                baseUrl: z.string().optional(),
+                provider: z.string().optional(),
+                providerByAction: z
+                  .object({
+                    market_data: z.string().optional(),
+                    quote: z.string().optional(),
+                    fundamentals: z.string().optional(),
+                    news: z.string().optional(),
+                  })
+                  .strict()
+                  .optional(),
+                apiKey: z.string().optional(),
+                timeoutMs: z.number().int().positive().optional(),
+                headers: z.record(z.string(), z.string()).optional(),
+              })
+              .strict(),
+          )
+          .optional(),
+      })
+      .strict()
+      .optional(),
     nodeHost: NodeHostSchema,
     agents: AgentsSchema,
     tools: ToolsSchema,
