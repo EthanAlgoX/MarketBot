@@ -56,7 +56,7 @@ interface NavTab {
 }
 
 interface NavGroup {
-  label: string;
+  id: 'chat' | 'finance' | 'control' | 'settings';
   tabs: NavTab[];
 }
 
@@ -130,14 +130,243 @@ const TABS: Record<TabId, NavTab> = {
 };
 
 const NAV_GROUPS: NavGroup[] = [
-  { label: 'Chat', tabs: [TABS.chat] },
-  { label: 'Finance', tabs: [TABS.desk, TABS.stocks, TABS.runs] },
+  { id: 'chat', tabs: [TABS.chat] },
+  { id: 'finance', tabs: [TABS.desk, TABS.stocks, TABS.runs] },
   {
-    label: 'Control',
+    id: 'control',
     tabs: [TABS.overview, TABS.config, TABS.channels, TABS.sessions, TABS.cron, TABS.logs],
   },
-  { label: 'Settings', tabs: [TABS.models] },
+  { id: 'settings', tabs: [TABS.models] },
 ];
+
+type Language = 'en' | 'zh';
+
+const LANGUAGE_STORAGE_KEY = 'marketbot.desktop.language.v1';
+
+const MESSAGES: Record<Language, Record<string, string>> = {
+  en: {
+    expand: 'Expand',
+    collapse: 'Collapse',
+    connected: 'Connected',
+    initializing: 'Initializing',
+    connecting: 'Connecting',
+    restartGateway: 'Restart Gateway',
+    languageSwitch: 'Switch Language',
+    english: 'EN',
+    chinese: '中文',
+    desktopSubtitle: 'Desktop',
+    loadingInitializing: 'Initializing...',
+    loadingStarting: 'Starting gateway...',
+    loadingConnecting: 'Connecting to gateway...',
+    onboardingWelcomeTitle: 'Welcome to MarketBot',
+    onboardingWelcomeDesc: "Your autonomous financial analysis agent. Let's get you set up with an AI provider to get started.",
+    onboardingGetStarted: 'Get Started',
+    onboardingChooseProvider: 'Choose Your AI Provider',
+    onboardingChooseProviderDesc: "Select the provider you'd like to use. You can change this later in Settings.",
+    back: 'Back',
+    onboardingEnterApiKey: 'Enter API Key',
+    onboardingEnterApiKeyDesc: 'Paste your {{provider}} API key below.',
+    onboardingSaveContinue: 'Save & Continue',
+    saving: 'Saving...',
+    onboardingDoneTitle: "You're All Set",
+    onboardingDoneDesc: 'MarketBot is configured with {{provider}}. The gateway will restart with your new credentials.',
+    onboardingStartUsing: 'Start Using MarketBot',
+    offlineSettingsHint: 'Gateway is offline. Settings will load once connected.',
+    loadingModels: 'Loading models...',
+    modelsTitle: 'AI Models',
+    refresh: 'Refresh',
+    localModels: 'Local Models',
+    localModelsDesc: 'Run AI models locally via Ollama. No API key required, completely private.',
+    ollamaNotDetected: 'Ollama not detected',
+    ollamaNotDetectedDescA: 'Install Ollama from',
+    ollamaNotDetectedDescB: 'and make sure it is running.',
+    retry: 'Retry',
+    localContext: 'Context',
+    tokens: 'tokens',
+    installed: 'Installed',
+    primary: 'Primary',
+    setAsPrimary: 'Set as Primary',
+    install: 'Install',
+    selectModel: 'Select a model',
+    primaryModel: 'Primary Model',
+    primaryModelDesc: 'The default model used for all conversations and analysis.',
+    fallbackModels: 'Fallback Models',
+    fallbackModelsDesc: 'Used when the primary model is unavailable. Tried in order.',
+    fallbackEmpty: 'No fallback models configured.',
+    remove: 'Remove',
+    addFallback: 'Add fallback...',
+    apiKeys: 'API 密钥',
+    apiKeysDesc: 'Manage credentials for each AI provider. Keys are stored locally.',
+    configured: 'Configured',
+    notConfigured: 'Not configured',
+    cancel: 'Cancel',
+    change: 'Change',
+    addKey: 'Add Key',
+    saveKey: 'Save Key',
+    loadModelsFailed: 'Failed to load models',
+    saveCredentialsFailed: 'Failed to save credentials',
+    saveConfigFailed: 'Failed to save config',
+    saveKeyFailed: 'Failed to save key',
+    keySaved: 'Key saved',
+    keySavedRefreshing: 'Key saved. Refreshing models...',
+    pullStart: 'Starting download...',
+    pullFailed: 'Failed to pull model',
+    primaryModelUpdated: 'Primary model updated',
+    primaryModelSet: 'Primary model set to {{model}}',
+    errorPrefix: 'Error',
+    navChat: 'Chat',
+    navDesk: 'Desk',
+    navStocks: 'Stocks',
+    navRuns: 'Runs',
+    navConnection: 'Connection',
+    navConfig: 'Config',
+    navChannels: 'Channels',
+    navSessions: 'Sessions',
+    navCron: 'Cron Jobs',
+    navLogs: 'Logs',
+    navModels: 'AI Models',
+    groupChat: 'Chat',
+    groupFinance: 'Finance',
+    groupControl: 'Control',
+    groupSettings: 'Settings',
+  },
+  zh: {
+    expand: '展开',
+    collapse: '收起',
+    connected: '已连接',
+    initializing: '初始化中',
+    connecting: '连接中',
+    restartGateway: '重启网关',
+    languageSwitch: '切换语言',
+    english: 'EN',
+    chinese: '中文',
+    desktopSubtitle: '桌面端',
+    loadingInitializing: '正在初始化...',
+    loadingStarting: '正在启动网关...',
+    loadingConnecting: '正在连接网关...',
+    onboardingWelcomeTitle: '欢迎使用 MarketBot',
+    onboardingWelcomeDesc: '你的自主金融分析助手。先配置一个 AI 提供商即可开始使用。',
+    onboardingGetStarted: '开始配置',
+    onboardingChooseProvider: '选择 AI 提供商',
+    onboardingChooseProviderDesc: '选择你要使用的提供商，后续可在设置中修改。',
+    back: '返回',
+    onboardingEnterApiKey: '输入 API Key',
+    onboardingEnterApiKeyDesc: '请粘贴 {{provider}} 的 API Key。',
+    onboardingSaveContinue: '保存并继续',
+    saving: '保存中...',
+    onboardingDoneTitle: '配置完成',
+    onboardingDoneDesc: 'MarketBot 已配置为 {{provider}}，网关将使用新凭据重启。',
+    onboardingStartUsing: '开始使用',
+    offlineSettingsHint: '网关离线，连接后将加载设置。',
+    loadingModels: '正在加载模型...',
+    modelsTitle: 'AI 模型',
+    refresh: '刷新',
+    localModels: '本地模型',
+    localModelsDesc: '通过 Ollama 本地运行模型，无需 API Key，数据更私密。',
+    ollamaNotDetected: '未检测到 Ollama',
+    ollamaNotDetectedDescA: '请从',
+    ollamaNotDetectedDescB: '安装 Ollama，并确保其正在运行。',
+    retry: '重试',
+    localContext: '上下文',
+    tokens: 'tokens',
+    installed: '已安装',
+    primary: '主模型',
+    setAsPrimary: '设为主模型',
+    install: '安装',
+    selectModel: '选择一个模型',
+    primaryModel: '主模型',
+    primaryModelDesc: '用于所有对话和分析的默认模型。',
+    fallbackModels: '备用模型',
+    fallbackModelsDesc: '当主模型不可用时按顺序回退使用。',
+    fallbackEmpty: '尚未配置备用模型。',
+    remove: '移除',
+    addFallback: '添加备用模型...',
+    apiKeys: 'API Keys',
+    apiKeysDesc: '管理各个 AI 提供商的凭据，密钥仅保存在本机。',
+    configured: '已配置',
+    notConfigured: '未配置',
+    cancel: '取消',
+    change: '修改',
+    addKey: '添加密钥',
+    saveKey: '保存密钥',
+    loadModelsFailed: '加载模型失败',
+    saveCredentialsFailed: '保存凭据失败',
+    saveConfigFailed: '保存配置失败',
+    saveKeyFailed: '保存密钥失败',
+    keySaved: '密钥已保存',
+    keySavedRefreshing: '密钥已保存，正在刷新模型...',
+    pullStart: '开始下载...',
+    pullFailed: '模型下载失败',
+    primaryModelUpdated: '主模型已更新',
+    primaryModelSet: '主模型已设置为 {{model}}',
+    errorPrefix: '错误',
+    navChat: '聊天',
+    navDesk: '总览',
+    navStocks: '股票',
+    navRuns: '运行',
+    navConnection: '连接',
+    navConfig: '配置',
+    navChannels: '通道',
+    navSessions: '会话',
+    navCron: '定时任务',
+    navLogs: '日志',
+    navModels: 'AI 模型',
+    groupChat: '聊天',
+    groupFinance: '金融',
+    groupControl: '控制',
+    groupSettings: '设置',
+  },
+};
+
+function getText(language: Language, key: string, vars?: Record<string, string>) {
+  const template = MESSAGES[language][key] ?? MESSAGES.en[key] ?? key;
+  if (!vars) return template;
+  return Object.entries(vars).reduce((acc, [name, value]) => {
+    return acc.replaceAll(`{{${name}}}`, value);
+  }, template);
+}
+
+function getProviderHint(provider: ProviderDef, language: Language) {
+  if (language === 'en') return provider.hint;
+  const hints: Record<string, string> = {
+    anthropic: '在 console.anthropic.com 获取密钥',
+    'openai-codex': '在 platform.openai.com 获取密钥',
+    google: '在 aistudio.google.com 获取密钥',
+    deepseek: '在 platform.deepseek.com 获取密钥',
+    openrouter: '在 openrouter.ai 获取密钥',
+    groq: '在 console.groq.com 获取密钥',
+    mistral: '在 console.mistral.ai 获取密钥',
+    xai: '在 console.x.ai 获取密钥',
+  };
+  return hints[provider.id] ?? provider.hint;
+}
+
+function getTabLabel(language: Language, tabId: TabId) {
+  const keyById: Record<TabId, string> = {
+    chat: 'navChat',
+    desk: 'navDesk',
+    stocks: 'navStocks',
+    runs: 'navRuns',
+    overview: 'navConnection',
+    config: 'navConfig',
+    channels: 'navChannels',
+    sessions: 'navSessions',
+    cron: 'navCron',
+    logs: 'navLogs',
+    models: 'navModels',
+  };
+  return getText(language, keyById[tabId]);
+}
+
+function getGroupLabel(language: Language, groupId: NavGroup['id']) {
+  const keyById: Record<NavGroup['id'], string> = {
+    chat: 'groupChat',
+    finance: 'groupFinance',
+    control: 'groupControl',
+    settings: 'groupSettings',
+  };
+  return getText(language, keyById[groupId]);
+}
 
 // ── Helpers ──
 
@@ -268,6 +497,7 @@ interface LocalModelDef {
   size: string;      // approximate download size
   contextWindow: number;
   description: string;
+  descriptionZh: string;
 }
 
 const LOCAL_MODELS: LocalModelDef[] = [
@@ -277,6 +507,7 @@ const LOCAL_MODELS: LocalModelDef[] = [
     size: '~400MB',
     contextWindow: 32768,
     description: 'Ultra-lightweight, fast responses',
+    descriptionZh: '超轻量，响应速度快',
   },
   {
     id: 'qwen3:4b',
@@ -284,6 +515,7 @@ const LOCAL_MODELS: LocalModelDef[] = [
     size: '~2.5GB',
     contextWindow: 32768,
     description: 'Balanced speed and quality',
+    descriptionZh: '速度与效果平衡',
   },
   {
     id: 'qwen3:8b',
@@ -291,6 +523,7 @@ const LOCAL_MODELS: LocalModelDef[] = [
     size: '~4.9GB',
     contextWindow: 128000,
     description: 'Strong reasoning capability',
+    descriptionZh: '推理能力更强',
   },
   {
     id: 'qwen3:32b',
@@ -298,6 +531,7 @@ const LOCAL_MODELS: LocalModelDef[] = [
     size: '~19GB',
     contextWindow: 128000,
     description: 'Best quality, requires more RAM',
+    descriptionZh: '质量最佳，但需要更多内存',
   },
 ];
 
@@ -305,12 +539,23 @@ const LOCAL_MODELS: LocalModelDef[] = [
 
 type OnboardingStep = 'welcome' | 'provider' | 'apikey' | 'done';
 
-function OnboardingWizard({ onComplete, gatewayUrl }: { onComplete: () => void; gatewayUrl: string }) {
+function OnboardingWizard({
+  onComplete,
+  gatewayUrl,
+  language,
+}: {
+  onComplete: () => void;
+  gatewayUrl: string;
+  language: Language;
+}) {
   const [step, setStep] = useState<OnboardingStep>('welcome');
   const [selectedProvider, setSelectedProvider] = useState<ProviderDef | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const t = useCallback((key: string, vars?: Record<string, string>) => {
+    return getText(language, key, vars);
+  }, [language]);
 
   const handleProviderSelect = useCallback((provider: ProviderDef) => {
     setSelectedProvider(provider);
@@ -341,7 +586,7 @@ function OnboardingWizard({ onComplete, gatewayUrl }: { onComplete: () => void; 
         apiKey: apiKey.trim(),
       });
       if (!credResult.ok) {
-        setError(credResult.error || 'Failed to save credentials');
+        setError(credResult.error || t('saveCredentialsFailed'));
         setSaving(false);
         return;
       }
@@ -355,7 +600,7 @@ function OnboardingWizard({ onComplete, gatewayUrl }: { onComplete: () => void; 
         },
       });
       if (!configResult.ok) {
-        setError(configResult.error || 'Failed to save config');
+        setError(configResult.error || t('saveConfigFailed'));
         setSaving(false);
         return;
       }
@@ -369,7 +614,7 @@ function OnboardingWizard({ onComplete, gatewayUrl }: { onComplete: () => void; 
     } finally {
       setSaving(false);
     }
-  }, [selectedProvider, apiKey]);
+  }, [selectedProvider, apiKey, t]);
 
   const handleFinish = useCallback(async () => {
     // Bust the gateway's model catalog cache so it re-reads credentials
@@ -411,22 +656,21 @@ function OnboardingWizard({ onComplete, gatewayUrl }: { onComplete: () => void; 
             <div className="onboarding-logo">
               <div className="onboarding-logo-inner">MB</div>
             </div>
-            <h1 className="onboarding-title">Welcome to MarketBot</h1>
+            <h1 className="onboarding-title">{t('onboardingWelcomeTitle')}</h1>
             <p className="onboarding-desc">
-              Your autonomous financial analysis agent. Let&apos;s get you set up
-              with an AI provider to get started.
+              {t('onboardingWelcomeDesc')}
             </p>
             <button className="primary onboarding-btn" onClick={() => setStep('provider')}>
-              Get Started
+              {t('onboardingGetStarted')}
             </button>
           </div>
         )}
 
         {step === 'provider' && (
           <div className="onboarding-step fade-in">
-            <h2 className="onboarding-step-title">Choose Your AI Provider</h2>
+            <h2 className="onboarding-step-title">{t('onboardingChooseProvider')}</h2>
             <p className="onboarding-desc">
-              Select the provider you&apos;d like to use. You can change this later in Settings.
+              {t('onboardingChooseProviderDesc')}
             </p>
             <div className="provider-grid">
               {PROVIDERS.map((p) => (
@@ -443,16 +687,16 @@ function OnboardingWizard({ onComplete, gatewayUrl }: { onComplete: () => void; 
               ))}
             </div>
             <button className="ghost onboarding-back" onClick={handleBack}>
-              Back
+              {t('back')}
             </button>
           </div>
         )}
 
         {step === 'apikey' && selectedProvider && (
           <div className="onboarding-step fade-in">
-            <h2 className="onboarding-step-title">Enter API Key</h2>
+            <h2 className="onboarding-step-title">{t('onboardingEnterApiKey')}</h2>
             <p className="onboarding-desc">
-              Paste your <strong>{selectedProvider.label}</strong> API key below.
+              {t('onboardingEnterApiKeyDesc', { provider: selectedProvider.label })}
             </p>
             <div className="apikey-input-wrap">
               <input
@@ -464,17 +708,17 @@ function OnboardingWizard({ onComplete, gatewayUrl }: { onComplete: () => void; 
                 autoFocus
                 onKeyDown={(e) => { if (e.key === 'Enter' && apiKey.trim()) handleSaveKey(); }}
               />
-              <p className="apikey-hint">{selectedProvider.hint}</p>
+              <p className="apikey-hint">{getProviderHint(selectedProvider, language)}</p>
             </div>
             {error && <div className="onboarding-error">{error}</div>}
             <div className="onboarding-actions">
-              <button className="ghost" onClick={handleBack}>Back</button>
+              <button className="ghost" onClick={handleBack}>{t('back')}</button>
               <button
                 className="primary"
                 onClick={handleSaveKey}
                 disabled={!apiKey.trim() || saving}
               >
-                {saving ? 'Saving...' : 'Save & Continue'}
+                {saving ? t('saving') : t('onboardingSaveContinue')}
               </button>
             </div>
           </div>
@@ -488,13 +732,12 @@ function OnboardingWizard({ onComplete, gatewayUrl }: { onComplete: () => void; 
                 <path d="M8 12l3 3 5-6" />
               </svg>
             </div>
-            <h2 className="onboarding-step-title">You&apos;re All Set</h2>
+            <h2 className="onboarding-step-title">{t('onboardingDoneTitle')}</h2>
             <p className="onboarding-desc">
-              MarketBot is configured with <strong>{selectedProvider?.label}</strong>.
-              The gateway will restart with your new credentials.
+              {t('onboardingDoneDesc', { provider: selectedProvider?.label ?? '' })}
             </p>
             <button className="primary onboarding-btn" onClick={handleFinish}>
-              Start Using MarketBot
+              {t('onboardingStartUsing')}
             </button>
           </div>
         )}
@@ -517,10 +760,12 @@ function ModelSettings({
   gatewayUrl,
   gatewayToken: _gatewayToken,
   running,
+  language,
 }: {
   gatewayUrl: string;
   gatewayToken: string;
   running: boolean;
+  language: Language;
 }) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [primaryModel, setPrimaryModel] = useState('');
@@ -529,6 +774,7 @@ function ModelSettings({
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [saveMsgError, setSaveMsgError] = useState(false);
 
   // Provider key editing state
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
@@ -548,6 +794,9 @@ function ModelSettings({
   const [configuredProviders, setConfiguredProviders] = useState<Set<string>>(new Set());
 
   const base = normalizeBase(gatewayUrl);
+  const t = useCallback((key: string, vars?: Record<string, string>) => {
+    return getText(language, key, vars);
+  }, [language]);
 
   const rpc = useCallback(
     async (method: string, params: Record<string, unknown> = {}) => {
@@ -629,15 +878,15 @@ function ModelSettings({
 
       // Show error only if both failed during initial load.
       if (showSpinner && modelsResult.status === 'rejected' && configResult.status === 'rejected') {
-        setError('Failed to load models');
+        setError(t('loadModelsFailed'));
       }
     } catch {
       // Silently ignore refresh errors (gateway may be restarting).
-      if (showSpinner) setError('Failed to load models');
+      if (showSpinner) setError(t('loadModelsFailed'));
     } finally {
       setLoading(false);
     }
-  }, [running, rpc]);
+  }, [running, rpc, t]);
 
   useEffect(() => {
     fetchData(true);
@@ -691,14 +940,14 @@ function ModelSettings({
   const handlePullModel = useCallback(async (modelId: string) => {
     setPullingModel(modelId);
     setPullPercent(0);
-    setPullStatus('Starting download...');
+    setPullStatus(t('pullStart'));
     setPullError('');
     const result = await window.marketbot.pullOllamaModel(modelId);
     if (!result.ok) {
-      setPullError(result.error || 'Failed to pull model');
+      setPullError(result.error || t('pullFailed'));
       setPullingModel(null);
     }
-  }, []);
+  }, [t]);
 
   // Set a local model as primary.
   const handleSetLocalPrimary = useCallback(async (modelId: string) => {
@@ -708,11 +957,13 @@ function ModelSettings({
       // Write to config file via IPC (for persistence).
       const result = await window.marketbot.setOllamaModel(modelId);
       if (!result.ok) {
-        setSaveMsg(`Error: ${result.error}`);
+        setSaveMsg(`${t('errorPrefix')}: ${result.error}`);
+        setSaveMsgError(true);
         return;
       }
       setPrimaryModel(`ollama/${modelId}`);
-      setSaveMsg(`Primary model set to ollama/${modelId}`);
+      setSaveMsg(t('primaryModelSet', { model: `ollama/${modelId}` }));
+      setSaveMsgError(false);
       // Tell the gateway to reload config via RPC.
       try {
         await rpc('config.patch', {
@@ -724,11 +975,12 @@ function ModelSettings({
       }
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (err) {
-      setSaveMsg(`Error: ${String(err)}`);
+      setSaveMsg(`${t('errorPrefix')}: ${String(err)}`);
+      setSaveMsgError(true);
     } finally {
       setSaving(false);
     }
-  }, [rpc]);
+  }, [rpc, t]);
 
   // Group models by provider for the dropdown, merging installed local models.
   const groupedModels = useMemo(() => {
@@ -775,15 +1027,17 @@ function ModelSettings({
           }),
         });
         setPrimaryModel(newModel);
-        setSaveMsg('Primary model updated');
+        setSaveMsg(t('primaryModelUpdated'));
+        setSaveMsgError(false);
         setTimeout(() => setSaveMsg(''), 3000);
       } catch (err) {
-        setSaveMsg(`Error: ${String(err)}`);
+        setSaveMsg(`${t('errorPrefix')}: ${String(err)}`);
+        setSaveMsgError(true);
       } finally {
         setSaving(false);
       }
     },
-    [primaryModel, rpc],
+    [primaryModel, rpc, t],
   );
 
   // Remove a fallback
@@ -799,12 +1053,13 @@ function ModelSettings({
         });
         setFallbacks(next);
       } catch (err) {
-        setSaveMsg(`Error: ${String(err)}`);
+        setSaveMsg(`${t('errorPrefix')}: ${String(err)}`);
+        setSaveMsgError(true);
       } finally {
         setSaving(false);
       }
     },
-    [fallbacks, rpc],
+    [fallbacks, rpc, t],
   );
 
   // Add a fallback
@@ -821,12 +1076,13 @@ function ModelSettings({
         });
         setFallbacks(next);
       } catch (err) {
-        setSaveMsg(`Error: ${String(err)}`);
+        setSaveMsg(`${t('errorPrefix')}: ${String(err)}`);
+        setSaveMsgError(true);
       } finally {
         setSaving(false);
       }
     },
-    [fallbacks, rpc],
+    [fallbacks, rpc, t],
   );
 
   // Save API key for a provider
@@ -843,7 +1099,7 @@ function ModelSettings({
           apiKey: editKey.trim(),
         });
         if (!result.ok) {
-          setKeyError(result.error || 'Failed to save key');
+          setKeyError(result.error || t('saveKeyFailed'));
           return;
         }
 
@@ -860,7 +1116,7 @@ function ModelSettings({
           });
         }
 
-        setKeySuccess('Key saved. Refreshing models...');
+        setKeySuccess(t('keySavedRefreshing'));
         setEditKey('');
         // Bust the gateway's model catalog cache via RPC so it re-reads
         // auth-profiles from disk. This works for both desktop-managed and
@@ -880,7 +1136,7 @@ function ModelSettings({
         }
         // Re-fetch all data (models + config) to update the UI.
         await fetchData();
-        setKeySuccess('Key saved');
+        setKeySuccess(t('keySaved'));
         setTimeout(() => {
           setEditingProvider(null);
           setKeySuccess('');
@@ -891,17 +1147,17 @@ function ModelSettings({
         setKeySaving(false);
       }
     },
-    [editKey, primaryModel, fetchData, rpc],
+    [editKey, primaryModel, fetchData, rpc, t],
   );
 
   if (!running) {
     return (
       <div className="ms-panel">
         <div className="ms-header">
-          <h1 className="ms-title">AI Models</h1>
+          <h1 className="ms-title">{t('modelsTitle')}</h1>
         </div>
         <div className="ms-offline">
-          <p>Gateway is offline. Settings will load once connected.</p>
+          <p>{t('offlineSettingsHint')}</p>
         </div>
       </div>
     );
@@ -911,13 +1167,13 @@ function ModelSettings({
     return (
       <div className="ms-panel">
         <div className="ms-header">
-          <h1 className="ms-title">AI Models</h1>
+          <h1 className="ms-title">{t('modelsTitle')}</h1>
         </div>
         <div className="ms-loading">
           <div className="loading-progress" style={{ width: 120 }}>
             <div className="loading-progress-bar" />
           </div>
-          <span>Loading models...</span>
+          <span>{t('loadingModels')}</span>
         </div>
       </div>
     );
@@ -926,8 +1182,8 @@ function ModelSettings({
   return (
     <div className="ms-panel">
       <div className="ms-header">
-        <h1 className="ms-title">AI Models</h1>
-        <button className="ghost ms-refresh" onClick={() => fetchData(true)} title="Refresh">
+        <h1 className="ms-title">{t('modelsTitle')}</h1>
+        <button className="ghost ms-refresh" onClick={() => fetchData(true)} title={t('refresh')}>
           <span
             className="nav-icon"
             dangerouslySetInnerHTML={{
@@ -942,18 +1198,18 @@ function ModelSettings({
 
       {/* ── Local Models ── */}
       <section className="ms-section">
-        <h2 className="ms-section-title">Local Models</h2>
+        <h2 className="ms-section-title">{t('localModels')}</h2>
         <p className="ms-section-desc">
-          Run AI models locally via Ollama. No API key required, completely private.
+          {t('localModelsDesc')}
         </p>
 
         {!ollamaAvailable && (
           <div className="ms-local-warning">
             <span className="ms-local-warning-icon">!</span>
             <div>
-              <strong>Ollama not detected</strong>
+              <strong>{t('ollamaNotDetected')}</strong>
               <p>
-                Install Ollama from{' '}
+                {t('ollamaNotDetectedDescA')}{' '}
                 <a
                   href="#"
                   onClick={(e) => {
@@ -963,10 +1219,10 @@ function ModelSettings({
                 >
                   ollama.com
                 </a>{' '}
-                and make sure it is running.
+                {t('ollamaNotDetectedDescB')}
               </p>
               <button className="ghost ms-local-retry" onClick={checkOllamaStatus}>
-                Retry
+                {t('retry')}
               </button>
             </div>
           </div>
@@ -992,9 +1248,9 @@ function ModelSettings({
                   <div className="ms-local-card-name">{lm.name}</div>
                   <div className="ms-local-card-size">{lm.size}</div>
                 </div>
-                <div className="ms-local-card-desc">{lm.description}</div>
+                <div className="ms-local-card-desc">{language === 'zh' ? lm.descriptionZh : lm.description}</div>
                 <div className="ms-local-card-meta">
-                  Context: {Math.round(lm.contextWindow / 1000)}k tokens
+                  {t('localContext')}: {Math.round(lm.contextWindow / 1000)}k {t('tokens')}
                 </div>
 
                 {isPulling ? (
@@ -1011,16 +1267,16 @@ function ModelSettings({
                   </div>
                 ) : isInstalled ? (
                   <div className="ms-local-card-actions">
-                    <span className="ms-local-installed-badge">Installed</span>
+                    <span className="ms-local-installed-badge">{t('installed')}</span>
                     {isPrimary ? (
-                      <span className="ms-local-primary-badge">Primary</span>
+                      <span className="ms-local-primary-badge">{t('primary')}</span>
                     ) : (
                       <button
                         className="ms-local-set-primary"
                         onClick={() => handleSetLocalPrimary(lm.id)}
                         disabled={saving}
                       >
-                        Set as Primary
+                        {t('setAsPrimary')}
                       </button>
                     )}
                   </div>
@@ -1030,7 +1286,7 @@ function ModelSettings({
                     onClick={() => handlePullModel(lm.id)}
                     disabled={!ollamaAvailable || pullingModel !== null}
                   >
-                    Install
+                    {t('install')}
                   </button>
                 )}
               </div>
@@ -1041,9 +1297,9 @@ function ModelSettings({
 
       {/* ── Primary Model ── */}
       <section className="ms-section">
-        <h2 className="ms-section-title">Primary Model</h2>
+        <h2 className="ms-section-title">{t('primaryModel')}</h2>
         <p className="ms-section-desc">
-          The default model used for all conversations and analysis.
+          {t('primaryModelDesc')}
         </p>
         <div className="ms-model-select-wrap">
           <select
@@ -1052,7 +1308,7 @@ function ModelSettings({
             onChange={(e) => handlePrimaryChange(e.target.value)}
             disabled={saving}
           >
-            {!primaryModel && <option value="">Select a model</option>}
+            {!primaryModel && <option value="">{t('selectModel')}</option>}
             {Object.entries(groupedModels).map(([provider, providerModels]) => (
               <optgroup key={provider} label={provider}>
                 {providerModels.map((m) => (
@@ -1070,7 +1326,7 @@ function ModelSettings({
           )}
         </div>
         {saveMsg && (
-          <div className={`ms-save-msg${saveMsg.startsWith('Error') ? ' error' : ''}`}>
+          <div className={`ms-save-msg${saveMsgError ? ' error' : ''}`}>
             {saveMsg}
           </div>
         )}
@@ -1078,13 +1334,13 @@ function ModelSettings({
 
       {/* ── Fallback Models ── */}
       <section className="ms-section">
-        <h2 className="ms-section-title">Fallback Models</h2>
+        <h2 className="ms-section-title">{t('fallbackModels')}</h2>
         <p className="ms-section-desc">
-          Used when the primary model is unavailable. Tried in order.
+          {t('fallbackModelsDesc')}
         </p>
         <div className="ms-fallback-list">
           {fallbacks.length === 0 && (
-            <div className="ms-fallback-empty">No fallback models configured.</div>
+            <div className="ms-fallback-empty">{t('fallbackEmpty')}</div>
           )}
           {fallbacks.map((fb, idx) => (
             <div key={fb} className="ms-fallback-item">
@@ -1093,7 +1349,7 @@ function ModelSettings({
               <button
                 className="ms-fallback-remove"
                 onClick={() => removeFallback(idx)}
-                title="Remove"
+                title={t('remove')}
                 disabled={saving}
               >
                 x
@@ -1113,7 +1369,7 @@ function ModelSettings({
               disabled={saving}
             >
               <option value="" disabled>
-                Add fallback...
+                {t('addFallback')}
               </option>
               {Object.entries(groupedModels).map(([provider, providerModels]) => (
                 <optgroup key={provider} label={provider}>
@@ -1133,9 +1389,9 @@ function ModelSettings({
 
       {/* ── API Keys / Providers ── */}
       <section className="ms-section">
-        <h2 className="ms-section-title">API Keys</h2>
+        <h2 className="ms-section-title">{t('apiKeys')}</h2>
         <p className="ms-section-desc">
-          Manage credentials for each AI provider. Keys are stored locally.
+          {t('apiKeysDesc')}
         </p>
         <div className="ms-provider-grid">
           {PROVIDERS.map((p) => {
@@ -1151,7 +1407,7 @@ function ModelSettings({
                   <div className="ms-provider-info">
                     <div className="ms-provider-name">{p.label}</div>
                     <div className={`ms-provider-status${isConfigured ? ' ok' : ''}`}>
-                      {isConfigured ? 'Configured' : 'Not configured'}
+                      {isConfigured ? t('configured') : t('notConfigured')}
                     </div>
                   </div>
                   <button
@@ -1170,7 +1426,7 @@ function ModelSettings({
                       }
                     }}
                   >
-                    {isEditing ? 'Cancel' : isConfigured ? 'Change' : 'Add Key'}
+                    {isEditing ? t('cancel') : isConfigured ? t('change') : t('addKey')}
                   </button>
                 </div>
                 {isEditing && (
@@ -1189,7 +1445,7 @@ function ModelSettings({
                         if (e.key === 'Enter' && editKey.trim()) handleSaveKey(p);
                       }}
                     />
-                    <p className="apikey-hint">{p.hint}</p>
+                    <p className="apikey-hint">{getProviderHint(p, language)}</p>
                     {keyError && <div className="ms-key-error">{keyError}</div>}
                     {keySuccess && <div className="ms-key-success">{keySuccess}</div>}
                     <button
@@ -1197,7 +1453,7 @@ function ModelSettings({
                       onClick={() => handleSaveKey(p)}
                       disabled={!editKey.trim() || keySaving}
                     >
-                      {keySaving ? 'Saving...' : 'Save Key'}
+                      {keySaving ? t('saving') : t('saveKey')}
                     </button>
                   </div>
                 )}
@@ -1213,6 +1469,15 @@ function ModelSettings({
 // ── App Component ──
 
 export default function App() {
+  const [language, setLanguage] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      if (saved === 'en' || saved === 'zh') return saved;
+      return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+    } catch {
+      return 'en';
+    }
+  });
   const [phase, setPhase] = useState<BootPhase>('init');
   const [running, setRunning] = useState(false);
   const [gatewayUrl, setGatewayUrl] = useState('');
@@ -1223,6 +1488,17 @@ export default function App() {
   const [currentModel, setCurrentModel] = useState('');
   const webviewRef = useRef<(HTMLElement & { loadURL: (url: string) => void; reload: () => void; executeJavaScript: (code: string, userGesture?: boolean) => Promise<unknown> }) | null>(null);
   const prevUrlRef = useRef('');
+  const t = useCallback((key: string, vars?: Record<string, string>) => {
+    return getText(language, key, vars);
+  }, [language]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // ignore storage errors
+    }
+  }, [language]);
 
   // Phase 1: Fetch config from main process, then check onboarding.
   useEffect(() => {
@@ -1431,9 +1707,19 @@ export default function App() {
     setPhase('connecting');
   }, []);
 
+  const handleToggleLanguage = useCallback(() => {
+    setLanguage((prev) => (prev === 'zh' ? 'en' : 'zh'));
+  }, []);
+
   // During onboarding, render only the wizard (no sidebar).
   if (phase === 'onboarding') {
-    return <OnboardingWizard onComplete={handleOnboardingComplete} gatewayUrl={gatewayUrl} />;
+    return (
+      <OnboardingWizard
+        onComplete={handleOnboardingComplete}
+        gatewayUrl={gatewayUrl}
+        language={language}
+      />
+    );
   }
 
   const showWebviewContainer = phase === 'ready' && running && Boolean(lastWebviewUrl);
@@ -1451,14 +1737,14 @@ export default function App() {
             {!sidebarCollapsed && (
               <div>
                 <div className="title">MarketBot</div>
-                <div className="subtitle">Desktop</div>
+                <div className="subtitle">{t('desktopSubtitle')}</div>
               </div>
             )}
           </div>
           <button
             className="collapse-toggle"
             onClick={() => setSidebarCollapsed((v) => !v)}
-            title={sidebarCollapsed ? 'Expand' : 'Collapse'}
+            title={sidebarCollapsed ? t('expand') : t('collapse')}
           >
             {sidebarCollapsed ? '\u25B6' : '\u25C0'}
           </button>
@@ -1468,7 +1754,7 @@ export default function App() {
           <span className={`status-dot ${running ? 'ok' : 'off'}`} />
           {!sidebarCollapsed && (
             <div className="status-text">
-              <div>{running ? 'Connected' : phase === 'init' ? 'Initializing' : 'Connecting'}</div>
+              <div>{running ? t('connected') : phase === 'init' ? t('initializing') : t('connecting')}</div>
               {running && currentModel ? (
                 <div className="status-model">{currentModel}</div>
               ) : null}
@@ -1478,17 +1764,17 @@ export default function App() {
 
         <nav className="nav">
           {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="nav-group">
-              {!sidebarCollapsed && <div className="nav-group-title">{group.label}</div>}
+            <div key={group.id} className="nav-group">
+              {!sidebarCollapsed && <div className="nav-group-title">{getGroupLabel(language, group.id)}</div>}
               {group.tabs.map((tab) => (
                 <button
                   key={tab.id}
                   className={`nav-item${activeTab === tab.id ? ' active' : ''}`}
                   onClick={() => setActiveTab(tab.id)}
-                  title={sidebarCollapsed ? tab.label : undefined}
+                  title={sidebarCollapsed ? getTabLabel(language, tab.id) : undefined}
                 >
                   <span className="nav-icon" dangerouslySetInnerHTML={{ __html: tab.icon }} />
-                  {!sidebarCollapsed && <span className="nav-label">{tab.label}</span>}
+                  {!sidebarCollapsed && <span className="nav-label">{getTabLabel(language, tab.id)}</span>}
                 </button>
               ))}
             </div>
@@ -1497,8 +1783,17 @@ export default function App() {
 
         <div className="sidebar-spacer" />
 
+        <button
+          className="ghost sidebar-btn lang-btn"
+          onClick={handleToggleLanguage}
+          title={t('languageSwitch')}
+        >
+          <span className="lang-pill">{language === 'zh' ? t('english') : t('chinese')}</span>
+          {!sidebarCollapsed && <span>{t('languageSwitch')}</span>}
+        </button>
+
         {!sidebarCollapsed && (
-          <button className="ghost sidebar-btn" onClick={handleRestart} title="Restart gateway">
+          <button className="ghost sidebar-btn" onClick={handleRestart} title={t('restartGateway')}>
             <span
               className="nav-icon"
               dangerouslySetInnerHTML={{
@@ -1506,7 +1801,7 @@ export default function App() {
                   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a7 7 0 0113.36-2.83M17 10a7 7 0 01-13.36 2.83"/><path d="M16.5 3v4.5H12M3.5 17v-4.5H8"/></svg>',
               }}
             />
-            <span>Restart Gateway</span>
+            <span>{t('restartGateway')}</span>
           </button>
         )}
       </aside>
@@ -1522,7 +1817,12 @@ export default function App() {
         ) : null}
 
         {showModelSettings ? (
-          <ModelSettings gatewayUrl={gatewayUrl} gatewayToken={gatewayToken} running={running} />
+          <ModelSettings
+            gatewayUrl={gatewayUrl}
+            gatewayToken={gatewayToken}
+            running={running}
+            language={language}
+          />
         ) : !showWebviewContainer ? (
           <div className="webview-frame loading-state">
             <div className="loading-content">
@@ -1530,9 +1830,9 @@ export default function App() {
                 <div className="loading-logo-inner">MB</div>
               </div>
               <div className="loading-text">
-                {phase === 'init' && 'Initializing...'}
-                {phase === 'starting' && 'Starting gateway...'}
-                {phase === 'connecting' && 'Connecting to gateway...'}
+                {phase === 'init' && t('loadingInitializing')}
+                {phase === 'starting' && t('loadingStarting')}
+                {phase === 'connecting' && t('loadingConnecting')}
               </div>
               <div className="loading-progress">
                 <div className="loading-progress-bar" />

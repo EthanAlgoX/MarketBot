@@ -67,6 +67,15 @@ const GATEWAY_BUNDLE_DIR = IS_PACKAGED
   ? join(process.resourcesPath, 'gateway-bundle')
   : REPO_ROOT;
 
+const GATEWAY_NODE_FALLBACK = '/opt/homebrew/bin/node';
+
+function resolveGatewayExecPath(): string {
+  const envNode = process.env.MARKETBOT_GATEWAY_NODE?.trim();
+  if (envNode && existsSync(envNode)) return envNode;
+  if (existsSync(GATEWAY_NODE_FALLBACK)) return GATEWAY_NODE_FALLBACK;
+  return process.execPath;
+}
+
 // Preload scripts: in dev they live under apps/desktop/, in production
 // they're packaged into the app.asar (files entry in electron-builder).
 function resolvePreloadPath(): string {
@@ -250,6 +259,8 @@ function startGateway() {
       ];
 
       console.log('[Desktop] forking', entryScript, gatewayArgs);
+      const gatewayExecPath = resolveGatewayExecPath();
+      console.log('[Desktop] gateway execPath', gatewayExecPath);
       child = fork(entryScript, gatewayArgs, {
         cwd: GATEWAY_BUNDLE_DIR,
         env: {
@@ -258,8 +269,8 @@ function startGateway() {
           NODE_PATH: join(GATEWAY_BUNDLE_DIR, 'node_modules'),
         },
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-        // Use Electron's built-in Node.js to run the script.
-        execPath: process.execPath,
+        // Prefer system Node when available (gateway requires Node 22+).
+        execPath: gatewayExecPath,
         execArgv: ['--no-warnings'],
       });
 

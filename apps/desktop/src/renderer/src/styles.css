@@ -243,6 +243,26 @@ button.ghost .nav-icon {
   width: 100%;
 }
 
+.lang-btn {
+  justify-content: flex-start;
+  margin-bottom: 6px;
+}
+
+.lang-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(85, 115, 170, 0.45);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .sidebar-spacer {
   flex: 1;
   min-height: 8px;
@@ -334,6 +354,11 @@ button.ghost .nav-icon {
   padding: 4px;
   border: none;
   background: none;
+}
+
+.sidebar-collapsed .lang-btn {
+  justify-content: center;
+  padding: 6px 4px;
 }
 
 /* ── Content ── */
