@@ -29,6 +29,23 @@
   transform: translateY(-1px);
 }
 
+:root[data-theme="light"] .card {
+  border-color: rgba(60, 90, 140, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.97)),
+    var(--card);
+  box-shadow:
+    var(--shadow-sm),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+:root[data-theme="light"] .card:hover {
+  border-color: rgba(60, 90, 140, 0.34);
+  box-shadow:
+    var(--shadow-md),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
 .card-title {
   font-size: 15px;
   font-weight: 600;
@@ -208,6 +225,12 @@
   border-color: var(--danger-subtle);
   background: var(--danger-subtle);
   color: var(--danger);
+}
+
+:root[data-theme="light"] .pill {
+  border-color: var(--input);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--text-strong);
 }
 
 /* ===========================================
@@ -429,6 +452,17 @@
     0 0 20px var(--accent-glow);
 }
 
+.finance-cta.btn.primary {
+  border-color: #37d8ff;
+  background: linear-gradient(120deg, #36d8ff, #4fa4ff);
+  color: #041322;
+}
+
+.finance-cta.btn.primary:hover {
+  border-color: #67e2ff;
+  background: linear-gradient(120deg, #5ce2ff, #6fb5ff);
+}
+
 /* Keyboard shortcut badge (shadcn style) */
 .btn-kbd {
   display: inline-flex;
@@ -585,6 +619,12 @@
   border-color: var(--accent);
 }
 
+:root[data-theme="light"] .finance-cta.btn.primary {
+  background: linear-gradient(120deg, #00b9ec, #388fff);
+  border-color: #00b9ec;
+  color: #f5fbff;
+}
+
 /* ===========================================
    Utilities
    =========================================== */
@@ -615,6 +655,12 @@
   border-color: rgba(239, 68, 68, 0.25);
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.04) 100%);
   color: var(--danger);
+}
+
+.callout.warn {
+  border-color: rgba(242, 195, 114, 0.28);
+  background: linear-gradient(135deg, rgba(242, 195, 114, 0.12) 0%, rgba(242, 195, 114, 0.05) 100%);
+  color: #f2c372;
 }
 
 .callout.info {

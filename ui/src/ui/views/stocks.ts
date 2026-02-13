@@ -56,6 +56,28 @@ const STOCKS_TEXT = {
     noReport: "No report available yet.",
     simple: "simple (push-friendly)",
     full: "full (research)",
+    workbenchTitle: "Connect Once Workbench",
+    workbenchSub:
+      "OpenBB-style unified data surface: configure once, then run a single cross-source workflow.",
+    sourcePrice: "Price",
+    sourceFundamentals: "Fundamentals",
+    sourceNews: "News",
+    sourceMarket: "Market Context",
+    sourceReady: "ready",
+    sourceStandby: "standby",
+    symbolsSelected: "Symbols",
+    reportMode: "Mode",
+    localeLabel: "Locale",
+    unifiedQuery: "Unified Query Preview",
+    workbenchHint:
+      "This profile keeps symbols, timeframe, fundamentals, and news under one command path.",
+    presets: "Presets",
+    presetGlobal: "Global Snapshot",
+    presetDeep: "Equity Deep Dive",
+    presetNews: "News Pulse",
+    toggleSources: "Data Source Toggles",
+    toggleFundamentals: "Fundamentals",
+    toggleNews: "News Feed",
   },
   zh: {
     watchlistTitle: "观察列表",
@@ -83,13 +105,33 @@ const STOCKS_TEXT = {
     noReport: "暂无可用报告。",
     simple: "simple（适合推送）",
     full: "full（研究版）",
+    workbenchTitle: "Connect Once 工作台",
+    workbenchSub: "参考 OpenBB 的统一数据面板：一次配置，单次运行跨源工作流。",
+    sourcePrice: "行情",
+    sourceFundamentals: "基本面",
+    sourceNews: "新闻",
+    sourceMarket: "市场上下文",
+    sourceReady: "就绪",
+    sourceStandby: "待机",
+    symbolsSelected: "标的数",
+    reportMode: "模式",
+    localeLabel: "区域",
+    unifiedQuery: "统一查询预览",
+    workbenchHint: "该配置把标的、周期、基本面与新闻统一到同一执行路径。",
+    presets: "预设",
+    presetGlobal: "全球快照",
+    presetDeep: "股票深度",
+    presetNews: "新闻脉冲",
+    toggleSources: "数据源开关",
+    toggleFundamentals: "基本面",
+    toggleNews: "新闻流",
   },
 } as const;
 
 function renderSummary(last: DailyStockRunResult | null, text: (typeof STOCKS_TEXT)["en"]) {
   if (!last) return html`<div class="muted">${text.noSavedRun}</div>`;
   return html`
-    <div class="stat-grid" style="margin-top: 12px;">
+    <div class="stat-grid stocks-summary-grid">
       <div class="stat">
         <div class="stat-label">${text.date}</div>
         <div class="stat-value mono">${last.dateIso}</div>
@@ -117,23 +159,146 @@ function normalizeSymbolsFromText(text: string): string[] {
     .filter(Boolean);
 }
 
+function renderWorkbench(
+  props: StocksProps,
+  text: (typeof STOCKS_TEXT)["en"],
+  watchlist: string[],
+) {
+  const newsLimit = Number.parseInt(props.newsLimit.trim() || "0", 10);
+  const hasNews = Number.isFinite(newsLimit) && newsLimit > 0;
+  const queryPreview = [
+    "finance.daily.run",
+    `symbols=[${watchlist.slice(0, 8).join(", ")}${watchlist.length > 8 ? ", ..." : ""}]`,
+    `timeframe=${props.timeframe}`,
+    `reportType=${props.reportType}`,
+    `includeFundamentals=${props.includeFundamentals ? "true" : "false"}`,
+    `newsLimit=${Number.isFinite(newsLimit) ? newsLimit : 0}`,
+    `locale=${props.locale || "US"}`,
+    "profile=marketbot",
+  ].join("\n");
+
+  const applyPreset = (preset: "global" | "deep" | "news") => {
+    if (preset === "global") {
+      props.onTimeframeChange("6mo");
+      props.onReportTypeChange("simple");
+      props.onIncludeFundamentalsChange(false);
+      props.onNewsLimitChange("2");
+      props.onLocaleChange("US");
+      return;
+    }
+    if (preset === "deep") {
+      props.onTimeframeChange("1y");
+      props.onReportTypeChange("full");
+      props.onIncludeFundamentalsChange(true);
+      props.onNewsLimitChange("6");
+      props.onLocaleChange("US");
+      return;
+    }
+    props.onTimeframeChange("ytd");
+    props.onReportTypeChange("simple");
+    props.onIncludeFundamentalsChange(false);
+    props.onNewsLimitChange("10");
+    props.onLocaleChange(props.locale || "US");
+  };
+
+  return html`
+    <section class="card stocks-workbench">
+      <div class="card-title">${text.workbenchTitle}</div>
+      <div class="card-sub">${text.workbenchSub}</div>
+
+      <div class="field stocks-field-group">
+        <span>${text.presets}</span>
+        <div class="row stocks-row-wrap stocks-row-tight">
+          <button class="btn" type="button" @click=${() => applyPreset("global")}>
+            ${text.presetGlobal}
+          </button>
+          <button class="btn" type="button" @click=${() => applyPreset("deep")}>
+            ${text.presetDeep}
+          </button>
+          <button class="btn" type="button" @click=${() => applyPreset("news")}>
+            ${text.presetNews}
+          </button>
+        </div>
+      </div>
+
+      <div class="field stocks-field-group">
+        <span>${text.toggleSources}</span>
+        <div class="row stocks-row-wrap stocks-row-tight">
+          <button
+            class="btn ${props.includeFundamentals ? "primary" : ""}"
+            type="button"
+            @click=${() => props.onIncludeFundamentalsChange(!props.includeFundamentals)}
+          >
+            ${text.toggleFundamentals}
+          </button>
+          <button
+            class="btn ${hasNews ? "primary" : ""}"
+            type="button"
+            @click=${() => props.onNewsLimitChange(hasNews ? "0" : "5")}
+          >
+            ${text.toggleNews}
+          </button>
+        </div>
+      </div>
+
+      <div class="chip-row stocks-source-chips">
+        <span class="chip">${text.sourcePrice}: ${text.sourceReady}</span>
+        <span class="chip">${text.sourceFundamentals}: ${props.includeFundamentals ? text.sourceReady : text.sourceStandby}</span>
+        <span class="chip">${text.sourceNews}: ${hasNews ? text.sourceReady : text.sourceStandby}</span>
+        <span class="chip">${text.sourceMarket}: ${text.sourceReady}</span>
+      </div>
+
+      <div class="stat-grid stocks-summary-grid">
+        <div class="stat">
+          <div class="stat-label">${text.symbolsSelected}</div>
+          <div class="stat-value mono">${watchlist.length}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${text.timeframe}</div>
+          <div class="stat-value mono">${props.timeframe}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${text.reportMode}</div>
+          <div class="stat-value mono">${props.reportType}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${text.localeLabel}</div>
+          <div class="stat-value mono">${props.locale || "US"}</div>
+        </div>
+      </div>
+
+      <div class="field stocks-field-group">
+        <span>${text.unifiedQuery}</span>
+        <pre class="code-block stocks-query-code">${queryPreview}</pre>
+      </div>
+
+      <div class="row stocks-run-bar">
+        <span class="muted stocks-run-hint">${text.workbenchHint}</span>
+        <button class="btn primary finance-cta" ?disabled=${props.running} @click=${props.onRun}>
+          ${props.running ? text.running : text.runNow}
+        </button>
+      </div>
+    </section>
+  `;
+}
+
 export function renderStocks(props: StocksProps) {
   const language = props.language ?? "en";
   const text = STOCKS_TEXT[language] ?? STOCKS_TEXT.en;
   const watchlist = normalizeSymbolsFromText(props.watchlistText);
   const lastMarkdown = props.last?.reportMarkdown ?? "";
   return html`
-    <section class="stocks-layout">
+    <section class="stocks-layout finance-page">
       <div class="stocks-left">
-        <div class="card">
-          <div class="row" style="justify-content: space-between;">
+        <div class="card stocks-card">
+          <div class="row stocks-card-head">
             <div>
               <div class="card-title">${text.watchlistTitle}</div>
               <div class="card-sub">${text.watchlistSub}</div>
             </div>
             <div class="pill"><span class="mono">${watchlist.length}</span><span class="muted">${text.symbols}</span></div>
           </div>
-          <label class="field" style="margin-top: 12px;">
+          <label class="field stocks-watchlist-field">
             <textarea
               rows="10"
               .value=${props.watchlistText}
@@ -141,22 +306,22 @@ export function renderStocks(props: StocksProps) {
               @input=${(e: Event) => props.onWatchlistTextChange((e.target as HTMLTextAreaElement).value)}
             ></textarea>
           </label>
-          <div class="row" style="margin-top: 12px;">
+          <div class="row stocks-actions">
             <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
               ${props.loading ? text.refreshing : text.refresh}
             </button>
-            <button class="btn primary" ?disabled=${props.loading} @click=${props.onSaveWatchlist}>
+            <button class="btn primary finance-cta" ?disabled=${props.loading} @click=${props.onSaveWatchlist}>
               ${text.save}
             </button>
           </div>
-          ${props.error ? html`<div class="callout danger" style="margin-top: 12px;">${props.error}</div>` : nothing}
+          ${props.error ? html`<div class="callout danger stocks-callout">${props.error}</div>` : nothing}
         </div>
 
-        <div class="card">
+        <div class="card stocks-card">
           <div class="card-title">${text.dailyRunTitle}</div>
           <div class="card-sub">${text.dailyRunSub}</div>
           ${renderSummary(props.last, text)}
-          <div class="form-grid" style="margin-top: 16px;">
+          <div class="form-grid stocks-options-grid">
             <label class="field">
               <span>${text.timeframe}</span>
               <select .value=${props.timeframe} @change=${(e: Event) => props.onTimeframeChange((e.target as HTMLSelectElement).value)}>
@@ -170,7 +335,10 @@ export function renderStocks(props: StocksProps) {
               <span>${text.reportType}</span>
               <select
                 .value=${props.reportType}
-                @change=${(e: Event) => props.onReportTypeChange(((e.target as HTMLSelectElement).value as any) === "full" ? "full" : "simple")}
+                @change=${(e: Event) => {
+                  const value = (e.target as HTMLSelectElement).value;
+                  props.onReportTypeChange(value === "full" ? "full" : "simple");
+                }}
               >
                 <option value="simple">${text.simple}</option>
                 <option value="full">${text.full}</option>
@@ -205,8 +373,8 @@ export function renderStocks(props: StocksProps) {
               />
             </label>
           </div>
-          <div class="row" style="margin-top: 12px;">
-            <button class="btn primary" ?disabled=${props.running} @click=${props.onRun}>
+          <div class="row stocks-actions">
+            <button class="btn primary finance-cta" ?disabled=${props.running} @click=${props.onRun}>
               ${props.running ? text.running : text.runNow}
             </button>
           </div>
@@ -214,7 +382,9 @@ export function renderStocks(props: StocksProps) {
       </div>
 
       <div class="stocks-right">
-        <section class="card report-pane">
+        ${renderWorkbench(props, text, watchlist)}
+
+        <section class="card report-pane stocks-report-pane">
           <div class="report-pane__header">
             <div>
               <div class="card-title">${text.reportTitle}</div>
@@ -228,7 +398,7 @@ export function renderStocks(props: StocksProps) {
           </div>
           <div class="report-pane__body">
             ${lastMarkdown
-              ? html`<div class="sidebar-markdown" style="max-width: 100%;">${unsafeHTML(toSanitizedMarkdownHtml(lastMarkdown))}</div>`
+              ? html`<div class="sidebar-markdown report-pane__markdown">${unsafeHTML(toSanitizedMarkdownHtml(lastMarkdown))}</div>`
               : html`<div class="muted">${text.noReport}</div>`}
           </div>
         </section>

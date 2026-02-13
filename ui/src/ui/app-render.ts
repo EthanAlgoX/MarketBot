@@ -48,6 +48,10 @@ import {
 } from "./controllers/cron";
 import { loadLogs } from "./controllers/logs";
 import { loadRun, loadRuns } from "./controllers/runs";
+import {
+  DEFAULT_UI_STOCKS_PREFERENCES,
+  type UiStocksPreferences,
+} from "./storage";
 
 const AVATAR_DATA_RE = /^data:/i;
 const AVATAR_HTTP_RE = /^https?:\/\//i;
@@ -101,6 +105,27 @@ const UI_TEXT = {
 
 function resolveUiText(language: "en" | "zh") {
   return UI_TEXT[language] ?? UI_TEXT.en;
+}
+
+function resolveStocksPreferences(state: AppViewState): UiStocksPreferences {
+  return {
+    ...DEFAULT_UI_STOCKS_PREFERENCES,
+    ...(state.settings.stocksPreferences ?? {}),
+  };
+}
+
+function persistStocksPreferences(
+  state: AppViewState,
+  patch: Partial<UiStocksPreferences>,
+) {
+  const next = {
+    ...resolveStocksPreferences(state),
+    ...patch,
+  };
+  state.applySettings({
+    ...state.settings,
+    stocksPreferences: next,
+  });
 }
 
 
@@ -412,14 +437,30 @@ export function renderApp(state: AppViewState) {
         locale: state.stocksLocale,
         last: state.stocksLast,
         onWatchlistTextChange: (next) => (state.stocksWatchlistText = next),
-        onTimeframeChange: (next) => (state.stocksTimeframe = next),
+        onTimeframeChange: (next) => {
+          state.stocksTimeframe = next;
+          persistStocksPreferences(state, { timeframe: next });
+        },
         onReportTypeChange: (next) => {
           state.stocksReportType = next;
           state.stocksIncludeFundamentals = next === "full";
+          persistStocksPreferences(state, {
+            reportType: next,
+            includeFundamentals: next === "full",
+          });
         },
-        onIncludeFundamentalsChange: (next) => (state.stocksIncludeFundamentals = next),
-        onNewsLimitChange: (next) => (state.stocksNewsLimit = next),
-        onLocaleChange: (next) => (state.stocksLocale = next),
+        onIncludeFundamentalsChange: (next) => {
+          state.stocksIncludeFundamentals = next;
+          persistStocksPreferences(state, { includeFundamentals: next });
+        },
+        onNewsLimitChange: (next) => {
+          state.stocksNewsLimit = next;
+          persistStocksPreferences(state, { newsLimit: next });
+        },
+        onLocaleChange: (next) => {
+          state.stocksLocale = next;
+          persistStocksPreferences(state, { locale: next });
+        },
         onRefresh: () => state.loadStocks(),
         onSaveWatchlist: () => state.saveStocksWatchlist(),
         onRun: () => state.runStocks(),

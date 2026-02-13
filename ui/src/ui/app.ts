@@ -258,11 +258,13 @@ export class MarketBotApp extends LitElement {
   @state() stocksRunning = false;
   @state() stocksError: string | null = null;
   @state() stocksWatchlistText = "";
-  @state() stocksTimeframe = "6mo";
-  @state() stocksReportType: "simple" | "full" = "simple";
-  @state() stocksIncludeFundamentals = false;
-  @state() stocksNewsLimit = "2";
-  @state() stocksLocale = "US";
+  @state() stocksTimeframe = this.settings.stocksPreferences?.timeframe ?? "6mo";
+  @state() stocksReportType: "simple" | "full" =
+    this.settings.stocksPreferences?.reportType === "full" ? "full" : "simple";
+  @state() stocksIncludeFundamentals =
+    this.settings.stocksPreferences?.includeFundamentals ?? false;
+  @state() stocksNewsLimit = this.settings.stocksPreferences?.newsLimit ?? "2";
+  @state() stocksLocale = this.settings.stocksPreferences?.locale ?? "US";
   @state() stocksLast: DailyStockRunResult | null = null;
 
   client: GatewayBrowserClient | null = null;

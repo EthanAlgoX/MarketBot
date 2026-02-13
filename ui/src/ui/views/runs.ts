@@ -95,6 +95,10 @@ function safeNum(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function toClassToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+}
+
 function deriveEventLabel(evt: TraceRunEvent, text: (typeof RUNS_TEXT)["en"]): string {
   if (evt.stream === "tool") {
     const phase = typeof evt.data?.phase === "string" ? evt.data.phase : "";
@@ -155,15 +159,15 @@ function renderRunRow(
   const durationMs =
     run.startedAtMs != null && run.endedAtMs != null ? run.endedAtMs - run.startedAtMs : null;
   return html`
-    <button class="list-row ${selected ? "selected" : ""}" @click=${onClick}>
-      <div class="row" style="justify-content: space-between;">
-        <div class="mono" style="font-weight: 700;">${runId.slice(0, 12)}</div>
+    <button class="runs-row ${selected ? "selected" : ""}" @click=${onClick}>
+      <div class="row runs-row__head">
+        <div class="mono runs-row__id">${runId.slice(0, 12)}</div>
         <span class="chip ${run.status === "running" ? "warn" : ""}">${status}</span>
       </div>
-      <div class="muted" style="margin-top: 4px;">
+      <div class="muted runs-row__session">
         ${run.sessionKey ? clampText(run.sessionKey, 42) : text.sessionNA}
       </div>
-      <div class="row muted" style="margin-top: 6px; gap: 10px;">
+      <div class="row muted runs-row__meta">
         <span>${text.last} ${formatAgo(run.lastEventAtMs)}</span>
         <span>${text.tools} ${safeNum(run.toolCalls, 0)} (${safeNum(run.toolErrors, 0)} ${text.err})</span>
         ${durationMs != null ? html`<span>${text.dur} ${formatDurationMs(durationMs)}</span>` : nothing}
@@ -185,27 +189,27 @@ export function renderRuns(props: RunsProps) {
   const filtered = eventsWindow.filter((evt) => props.streamsFilter[evt.stream] !== false);
 
   return html`
-    <section class="card">
-      <div class="row" style="justify-content: space-between;">
+    <section class="card runs-layout finance-page">
+      <div class="row runs-header">
         <div>
           <div class="card-title">${text.title}</div>
           <div class="card-sub">${text.sub}</div>
         </div>
-        <div class="row" style="gap: 8px;">
+        <div class="row runs-header__actions">
           <button class="btn" ?disabled=${props.loading} @click=${props.onRefreshRuns}>
             ${props.loading ? text.loading : text.refresh}
           </button>
         </div>
       </div>
 
-      ${props.error ? html`<div class="callout danger" style="margin-top: 10px;">${props.error}</div>` : nothing}
+      ${props.error ? html`<div class="callout danger runs-callout">${props.error}</div>` : nothing}
 
-      <div class="split" style="margin-top: 14px; display: grid; grid-template-columns: 360px 1fr; gap: 12px;">
-        <div class="list">
-          <div class="muted" style="margin-bottom: 8px;">${text.recent}</div>
-          <div class="list-box">
+      <div class="runs-split">
+        <div class="list runs-list">
+          <div class="muted runs-list__title">${text.recent}</div>
+          <div class="runs-list-box">
             ${props.runs.length === 0
-              ? html`<div class="muted" style="padding: 12px;">${text.noRuns}</div>`
+              ? html`<div class="muted runs-empty">${text.noRuns}</div>`
               : props.runs.map((run) =>
                   renderRunRow(
                     run,
@@ -217,8 +221,8 @@ export function renderRuns(props: RunsProps) {
           </div>
         </div>
 
-        <div class="detail">
-          <div class="row" style="justify-content: space-between;">
+        <div class="detail runs-detail">
+          <div class="row runs-detail__head">
             <div>
               <div class="card-title">${text.replay}</div>
               <div class="card-sub">
@@ -227,24 +231,24 @@ export function renderRuns(props: RunsProps) {
                   : text.selectRun}
               </div>
             </div>
-            <div class="row" style="gap: 8px;">
+            <div class="row runs-header__actions">
               <button class="btn" ?disabled=${!selected || props.runLoading} @click=${props.onRefreshRun}>
                 ${props.runLoading ? text.loading : text.reload}
               </button>
             </div>
           </div>
 
-          ${props.runError ? html`<div class="callout danger" style="margin-top: 10px;">${props.runError}</div>` : nothing}
+          ${props.runError ? html`<div class="callout danger runs-callout">${props.runError}</div>` : nothing}
           ${props.runTruncated
-            ? html`<div class="callout" style="margin-top: 10px;">
+            ? html`<div class="callout runs-callout">
                 ${text.traceTruncated}
               </div>`
             : nothing}
 
           ${selected
             ? html`
-                <div class="row" style="margin-top: 12px; gap: 10px; align-items: end;">
-                  <label class="field" style="min-width: 220px;">
+                <div class="row runs-replay-row">
+                  <label class="field runs-replay-slider">
                     <span>${text.replayLabel}</span>
                     <input
                       type="range"
@@ -257,16 +261,16 @@ export function renderRuns(props: RunsProps) {
                         )}
                     />
                   </label>
-                  <div class="muted">
+                  <div class="muted runs-replay-meta">
                     ${replayIndex}/${eventsAll.length} ${text.events}
                   </div>
                 </div>
 
-                <div class="chip-row" style="margin-top: 10px;">
+                <div class="chip-row runs-stream-filters">
                   ${availableStreams.map((stream) => {
                     const enabled = props.streamsFilter[stream] !== false;
                     return html`
-                      <label class="chip">
+                      <label class="chip runs-stream-chip">
                         <input
                           type="checkbox"
                           .checked=${enabled}
@@ -282,16 +286,17 @@ export function renderRuns(props: RunsProps) {
                   })}
                 </div>
 
-                <div class="log-stream" style="margin-top: 12px;">
+                <div class="log-stream runs-log-stream">
                   ${filtered.length === 0
-                    ? html`<div class="muted" style="padding: 12px;">${text.noEvents}</div>`
+                    ? html`<div class="muted runs-empty">${text.noEvents}</div>`
                     : filtered.map((evt) => {
                         const label = deriveEventLabel(evt, text);
                         const summary = summarizeEvent(evt, text);
+                        const streamClass = `log-level--${toClassToken(evt.stream)}`;
                         return html`
                           <div class="log-row">
                             <div class="log-time mono">${new Date(evt.ts).toLocaleTimeString()}</div>
-                            <div class="log-level">${evt.stream}</div>
+                            <div class="log-level ${streamClass}">${evt.stream}</div>
                             <div class="log-subsystem mono">${label}</div>
                             <div class="log-message mono">
                               ${summary ?? nothing}
@@ -304,34 +309,6 @@ export function renderRuns(props: RunsProps) {
             : nothing}
         </div>
       </div>
-
-      <style>
-        .list-box {
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          overflow: hidden;
-          background: var(--panel);
-        }
-        .list-row {
-          width: 100%;
-          text-align: left;
-          border: 0;
-          background: transparent;
-          color: inherit;
-          padding: 12px;
-          cursor: pointer;
-          border-bottom: 1px solid var(--border);
-        }
-        .list-row:hover {
-          background: rgba(255, 255, 255, 0.04);
-        }
-        .list-row.selected {
-          background: rgba(255, 255, 255, 0.06);
-        }
-        .list-row:last-child {
-          border-bottom: 0;
-        }
-      </style>
     </section>
   `;
 }

@@ -142,6 +142,60 @@
     font-size: 13px;
   }
 
+  .desk-hero {
+    padding: 14px;
+    border-radius: var(--radius-lg);
+  }
+
+  .desk-hero__title {
+    font-size: 20px;
+  }
+
+  .desk-hero__sub {
+    font-size: 13px;
+  }
+
+  .desk-grid,
+  .stocks-layout,
+  .runs-split {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .stocks-watchlist-field textarea {
+    min-height: 170px;
+  }
+
+  .stocks-run-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .runs-layout {
+    padding: 12px;
+  }
+
+  .runs-row__meta {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .runs-replay-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .runs-replay-slider {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .report-pane__body {
+    max-height: 360px;
+    padding: 10px;
+  }
+
   /* Stats */
   .stat-grid {
     gap: 8px;

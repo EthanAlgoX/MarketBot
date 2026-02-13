@@ -18,6 +18,17 @@ function nextFrame() {
   });
 }
 
+function findButtonByText(
+  root: ParentNode,
+  text: string,
+): HTMLButtonElement | null {
+  return (
+    Array.from(root.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === text,
+    ) ?? null
+  );
+}
+
 beforeEach(() => {
   MarketBotApp.prototype.connect = () => {
     // no-op: avoid real gateway WS connections in browser tests
@@ -202,6 +213,7 @@ describe("control UI routing", () => {
     );
     await app.updateComplete;
     expect(app.textContent).toContain("观察列表");
+    expect(app.textContent).toContain("Connect Once 工作台");
 
     const runsLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/runs"]');
     expect(runsLink).not.toBeNull();
@@ -211,6 +223,39 @@ describe("control UI routing", () => {
     await app.updateComplete;
     expect(app.textContent).toContain("运行记录");
     expect(app.textContent).toContain("暂无运行记录");
+  });
+
+  it("persists stocks workbench preferences across reloads", async () => {
+    const app = mountApp("/stocks");
+    await app.updateComplete;
+
+    const deepPreset = findButtonByText(app, "Equity Deep Dive");
+    expect(deepPreset).not.toBeNull();
+    deepPreset?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await app.updateComplete;
+
+    const persisted = localStorage.getItem("marketbot.control.settings.v1");
+    expect(persisted).not.toBeNull();
+    const parsed = JSON.parse(persisted ?? "{}") as {
+      stocksPreferences?: Record<string, unknown>;
+    };
+    expect(parsed.stocksPreferences).toMatchObject({
+      timeframe: "1y",
+      reportType: "full",
+      includeFundamentals: true,
+      newsLimit: "6",
+      locale: "US",
+    });
+
+    document.body.innerHTML = "";
+
+    const reloaded = mountApp("/stocks");
+    await reloaded.updateComplete;
+    expect(reloaded.stocksTimeframe).toBe("1y");
+    expect(reloaded.stocksReportType).toBe("full");
+    expect(reloaded.stocksIncludeFundamentals).toBe(true);
+    expect(reloaded.stocksNewsLimit).toBe("6");
+    expect(reloaded.stocksLocale).toBe("US");
   });
 
   it("switches language for overview, config, sessions, cron, and logs views", async () => {

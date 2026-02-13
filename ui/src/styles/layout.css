@@ -527,6 +527,426 @@
   gap: 8px;
 }
 
+/* ===========================================
+   Finance Views
+   =========================================== */
+
+.finance-page {
+  display: grid;
+  gap: 16px;
+}
+
+/* Desk */
+.desk-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.desk-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(120% 180% at 0% 0%, rgba(56, 197, 255, 0.16), transparent 55%),
+    radial-gradient(90% 160% at 100% 100%, rgba(42, 162, 235, 0.14), transparent 60%),
+    linear-gradient(150deg, rgba(14, 22, 44, 0.92), rgba(12, 20, 38, 0.9));
+  box-shadow:
+    var(--shadow-md),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.desk-hero__left {
+  max-width: 900px;
+}
+
+.desk-hero__title {
+  font-size: clamp(24px, 2vw, 30px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  color: var(--text-strong);
+}
+
+.desk-hero__sub {
+  margin-top: 8px;
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.desk-hero__right {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.desk-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.desk-card {
+  padding: 20px;
+}
+
+.desk-card--highlight {
+  border-color: rgba(62, 170, 245, 0.38);
+  background:
+    linear-gradient(160deg, rgba(20, 34, 62, 0.86), rgba(14, 26, 48, 0.9)),
+    var(--card);
+}
+
+.desk-card-head {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.desk-note-grid {
+  margin-top: 14px;
+}
+
+.desk-actions {
+  margin-top: 14px;
+}
+
+.desk-actions--wrap {
+  flex-wrap: wrap;
+}
+
+.desk-callout {
+  margin-top: 12px;
+}
+
+.desk-note {
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+/* Stocks */
+.stocks-layout {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(420px, 1.25fr);
+}
+
+.stocks-left,
+.stocks-right {
+  display: grid;
+  gap: 14px;
+}
+
+.stocks-card,
+.stocks-workbench,
+.stocks-report-pane {
+  padding: 20px;
+}
+
+.stocks-workbench {
+  border-color: rgba(62, 170, 245, 0.34);
+  background:
+    radial-gradient(120% 180% at 100% 0%, rgba(56, 197, 255, 0.14), transparent 60%),
+    linear-gradient(170deg, rgba(16, 26, 50, 0.9), rgba(12, 20, 38, 0.9));
+}
+
+.stocks-card-head {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.stocks-watchlist-field,
+.stocks-field-group {
+  margin-top: 12px;
+}
+
+.stocks-watchlist-field textarea {
+  min-height: 220px;
+}
+
+.stocks-row-wrap {
+  flex-wrap: wrap;
+}
+
+.stocks-row-tight {
+  gap: 8px;
+}
+
+.stocks-actions {
+  margin-top: 12px;
+}
+
+.stocks-callout {
+  margin-top: 12px;
+}
+
+.stocks-options-grid {
+  margin-top: 16px;
+}
+
+.stocks-source-chips,
+.stocks-summary-grid {
+  margin-top: 12px;
+}
+
+.stocks-query-code {
+  margin-top: 8px;
+  white-space: pre-wrap;
+}
+
+.stocks-run-bar {
+  margin-top: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.stocks-run-hint {
+  max-width: 540px;
+  line-height: 1.6;
+}
+
+.report-pane {
+  border-color: var(--border-strong);
+}
+
+.report-pane__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.report-pane__body {
+  margin-top: 12px;
+  max-height: min(72vh, 680px);
+  overflow: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(10, 16, 30, 0.55);
+  padding: 14px;
+}
+
+.report-pane__markdown {
+  max-width: 100%;
+}
+
+/* Runs */
+.runs-layout {
+  padding: 20px;
+}
+
+.runs-header {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.runs-header__actions {
+  gap: 8px;
+}
+
+.runs-callout {
+  margin-top: 10px;
+}
+
+.runs-split {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(300px, 350px) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.runs-list {
+  gap: 8px;
+}
+
+.runs-list__title {
+  margin-bottom: 8px;
+}
+
+.runs-list-box {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(10, 16, 30, 0.55);
+}
+
+.runs-row {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.runs-row:hover {
+  background: rgba(68, 166, 232, 0.12);
+}
+
+.runs-row.selected {
+  background: rgba(68, 166, 232, 0.18);
+}
+
+.runs-row:last-child {
+  border-bottom: 0;
+}
+
+.runs-row__head {
+  justify-content: space-between;
+}
+
+.runs-row__id {
+  font-weight: 700;
+}
+
+.runs-row__session {
+  margin-top: 4px;
+}
+
+.runs-row__meta {
+  margin-top: 6px;
+  gap: 10px;
+}
+
+.runs-detail__head {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.runs-replay-row {
+  margin-top: 12px;
+  gap: 10px;
+  align-items: end;
+}
+
+.runs-replay-slider {
+  min-width: 220px;
+}
+
+.runs-stream-filters {
+  margin-top: 10px;
+}
+
+.runs-stream-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.runs-log-stream {
+  margin-top: 12px;
+}
+
+.runs-empty {
+  padding: 12px;
+}
+
+.log-level--tool {
+  color: #70d4ff;
+  border-color: rgba(112, 212, 255, 0.3);
+}
+
+.log-level--policy {
+  color: #79d9b7;
+  border-color: rgba(121, 217, 183, 0.32);
+}
+
+.log-level--lifecycle {
+  color: #f2c372;
+  border-color: rgba(242, 195, 114, 0.32);
+}
+
+.log-level--compaction {
+  color: #a8b8dc;
+  border-color: rgba(168, 184, 220, 0.28);
+}
+
+:root[data-theme="light"] .finance-page .card-title,
+:root[data-theme="light"] .finance-page .stat-value,
+:root[data-theme="light"] .desk-hero__title {
+  color: var(--text-strong);
+}
+
+:root[data-theme="light"] .finance-page .card-sub,
+:root[data-theme="light"] .finance-page .muted,
+:root[data-theme="light"] .finance-page .stat-label,
+:root[data-theme="light"] .desk-hero__sub {
+  color: var(--muted-strong);
+}
+
+:root[data-theme="light"] .desk-hero {
+  border-color: rgba(60, 90, 140, 0.3);
+  background:
+    radial-gradient(120% 180% at 0% 0%, rgba(15, 199, 255, 0.1), transparent 58%),
+    radial-gradient(90% 160% at 100% 100%, rgba(58, 125, 255, 0.09), transparent 62%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(243, 248, 255, 0.96));
+  box-shadow:
+    0 8px 20px rgba(38, 64, 112, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="light"] .desk-card--highlight,
+:root[data-theme="light"] .stocks-workbench {
+  border-color: rgba(58, 125, 255, 0.28);
+  background:
+    radial-gradient(120% 180% at 100% 0%, rgba(15, 199, 255, 0.08), transparent 64%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(241, 247, 255, 0.95));
+}
+
+:root[data-theme="light"] .report-pane,
+:root[data-theme="light"] .runs-layout {
+  border-color: rgba(60, 90, 140, 0.26);
+}
+
+:root[data-theme="light"] .report-pane__body,
+:root[data-theme="light"] .runs-list-box {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(60, 90, 140, 0.24);
+}
+
+:root[data-theme="light"] .runs-row {
+  border-bottom-color: rgba(60, 90, 140, 0.18);
+}
+
+:root[data-theme="light"] .runs-row:hover {
+  background: rgba(58, 125, 255, 0.08);
+}
+
+:root[data-theme="light"] .runs-row.selected {
+  background: rgba(58, 125, 255, 0.14);
+}
+
+:root[data-theme="light"] .log-level--tool {
+  color: #1f78c7;
+  border-color: rgba(31, 120, 199, 0.24);
+}
+
+:root[data-theme="light"] .log-level--policy {
+  color: #1a9066;
+  border-color: rgba(26, 144, 102, 0.24);
+}
+
+:root[data-theme="light"] .log-level--lifecycle {
+  color: #b36f16;
+  border-color: rgba(179, 111, 22, 0.24);
+}
+
+:root[data-theme="light"] .log-level--compaction {
+  color: #4f6489;
+  border-color: rgba(79, 100, 137, 0.24);
+}
+
 /* Chat view header adjustments */
 .content--chat .content-header {
   flex-direction: row;
@@ -632,6 +1052,29 @@
   .grid-cols-2,
   .grid-cols-3 {
     grid-template-columns: 1fr;
+  }
+
+  .desk-grid,
+  .stocks-layout,
+  .runs-split {
+    grid-template-columns: 1fr;
+  }
+
+  .desk-hero {
+    align-items: flex-start;
+  }
+
+  .desk-hero__right {
+    justify-content: flex-start;
+  }
+
+  .stocks-run-bar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .report-pane__body {
+    max-height: 520px;
   }
 
   .topbar {

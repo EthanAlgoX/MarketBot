@@ -99,7 +99,7 @@ export function renderDesk(props: DeskProps) {
   const lastDate = props.stocksLast?.dateIso ?? null;
 
   return html`
-    <section class="desk-layout">
+    <section class="desk-layout finance-page">
       <section class="desk-hero">
         <div class="desk-hero__left">
           <div class="desk-hero__title">${text.heroTitle}</div>
@@ -117,9 +117,9 @@ export function renderDesk(props: DeskProps) {
         </div>
       </section>
 
-        <section class="grid grid-cols-2">
-        <section class="card">
-          <div class="row" style="justify-content: space-between;">
+      <section class="desk-grid">
+        <section class="card desk-card desk-card--highlight">
+          <div class="row desk-card-head">
             <div>
               <div class="card-title">${text.dailyStocksTitle}</div>
               <div class="card-sub">${text.dailyStocksSub}</div>
@@ -130,7 +130,7 @@ export function renderDesk(props: DeskProps) {
             </div>
           </div>
 
-          <div class="note-grid" style="margin-top: 14px;">
+          <div class="note-grid desk-note-grid">
             <div class="stat">
               <div class="stat-label">${text.lastRun}</div>
               <div class="stat-value mono">${lastDate ?? text.notAvailable}</div>
@@ -141,24 +141,28 @@ export function renderDesk(props: DeskProps) {
             </div>
           </div>
 
-          <div class="row" style="margin-top: 14px;">
-            <button class="btn primary" ?disabled=${!props.connected} @click=${props.onRunStocks}>
+          <div class="row desk-actions">
+            <button
+              class="btn primary finance-cta"
+              ?disabled=${!props.connected}
+              @click=${props.onRunStocks}
+            >
               ${text.runNow}
             </button>
             <button class="btn" @click=${props.onOpenStocks}>${text.openStocks}</button>
           </div>
           ${!props.connected
-            ? html`<div class="callout warn" style="margin-top: 12px;">
+            ? html`<div class="callout warn desk-callout">
                 ${text.connectHint}
               </div>`
             : nothing}
         </section>
 
-        <section class="card">
+        <section class="card desk-card">
           <div class="card-title">${text.opsTitle}</div>
           <div class="card-sub">${text.opsSub}</div>
 
-          <div class="row" style="margin-top: 14px;">
+          <div class="row desk-actions desk-actions--wrap">
             <button class="btn" @click=${props.onOpenChannels}>${text.channels}</button>
             <button class="btn" @click=${props.onOpenSessions}>${text.sessions}</button>
             <button class="btn" @click=${props.onOpenCron}>${text.cron}</button>
@@ -167,29 +171,29 @@ export function renderDesk(props: DeskProps) {
         </section>
       </section>
 
-      <section class="grid grid-cols-2">
-        <section class="card">
+      <section class="desk-grid">
+        <section class="card desk-card">
           <div class="card-title">${text.researchTitle}</div>
           <div class="card-sub">
             ${text.researchSub}
           </div>
-          <div class="muted" style="margin-top: 12px;">
+          <div class="muted desk-note">
             ${text.researchTip}
           </div>
-          <div class="row" style="margin-top: 14px;">
+          <div class="row desk-actions">
             <button class="btn" @click=${props.onOpenChat}>${text.openChat}</button>
           </div>
         </section>
 
-        <section class="card">
+        <section class="card desk-card">
           <div class="card-title">${text.fileTitle}</div>
           <div class="card-sub">
             ${text.fileSub}
           </div>
-          <div class="muted" style="margin-top: 12px;">
+          <div class="muted desk-note">
             ${text.fileTip}
           </div>
-          <div class="row" style="margin-top: 14px;">
+          <div class="row desk-actions">
             <button class="btn" @click=${props.onOpenChat}>${text.attachInChat}</button>
           </div>
         </section>
