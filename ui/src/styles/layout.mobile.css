@@ -196,6 +196,44 @@
     padding: 10px;
   }
 
+  .sessions-layout {
+    padding: 12px;
+  }
+
+  .sessions-filters {
+    grid-template-columns: 1fr;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .sessions-check {
+    margin-top: 0;
+    min-height: 32px;
+  }
+
+  .sessions-item {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .sessions-item__head {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sessions-item__meta {
+    justify-content: flex-start;
+  }
+
+  .sessions-controls {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .sessions-control--actions {
+    justify-content: flex-start;
+  }
+
   /* Stats */
   .stat-grid {
     gap: 8px;

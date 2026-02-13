@@ -1774,6 +1774,15 @@ export default function App() {
           )}
         </div>
 
+        <button
+          className="ghost sidebar-btn lang-btn"
+          onClick={handleToggleLanguage}
+          title={t('languageSwitch')}
+        >
+          <span className="lang-pill">{language === 'zh' ? t('english') : t('chinese')}</span>
+          {!sidebarCollapsed && <span>{t('languageSwitch')}</span>}
+        </button>
+
         <nav className="nav">
           {NAV_GROUPS.map((group) => (
             <div key={group.id} className="nav-group">
@@ -1794,15 +1803,6 @@ export default function App() {
         </nav>
 
         <div className="sidebar-spacer" />
-
-        <button
-          className="ghost sidebar-btn lang-btn"
-          onClick={handleToggleLanguage}
-          title={t('languageSwitch')}
-        >
-          <span className="lang-pill">{language === 'zh' ? t('english') : t('chinese')}</span>
-          {!sidebarCollapsed && <span>{t('languageSwitch')}</span>}
-        </button>
 
         {!sidebarCollapsed && (
           <button className="ghost sidebar-btn" onClick={handleRestart} title={t('restartGateway')}>
