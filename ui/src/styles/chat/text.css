@@ -137,3 +137,29 @@
 .chat-text :where(img.chat-inline-image:hover) {
   opacity: 0.9;
 }
+
+/* Defensive fallback for any raw HTML media that slips through markdown. */
+.chat-text img,
+.chat-text video,
+.chat-text canvas,
+.chat-text iframe,
+.chat-text svg {
+  max-width: 100%;
+}
+
+/* Guard against oversized fallback SVG icons in chat output. */
+.chat-thread :where(svg:not([width]):not([height])) {
+  width: 1em;
+  height: 1em;
+}
+
+.chat-thread :where(svg:not([fill])) {
+  fill: none;
+}
+
+.chat-thread :where(svg:not([stroke])) {
+  stroke: currentColor;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

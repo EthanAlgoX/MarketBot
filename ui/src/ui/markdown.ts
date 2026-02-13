@@ -106,6 +106,16 @@ function installHooks() {
     node.setAttribute("rel", "noreferrer noopener");
     node.setAttribute("target", "_blank");
   });
+
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (!(node instanceof HTMLImageElement)) return;
+    // Ensure all markdown images (including raw HTML <img>) use the same
+    // constrained chat styling and lazy loading behavior.
+    node.classList.add("chat-inline-image");
+    node.setAttribute("loading", "lazy");
+    node.removeAttribute("width");
+    node.removeAttribute("height");
+  });
 }
 
 const FENCED_CODE_BLOCK_RE = /```[^\n]*\n([\s\S]*?)```/g;
