@@ -1753,13 +1753,22 @@ export default function App() {
               </div>
             )}
           </div>
-          <button
-            className="collapse-toggle"
-            onClick={() => setSidebarCollapsed((v) => !v)}
-            title={sidebarCollapsed ? t('expand') : t('collapse')}
-          >
-            {sidebarCollapsed ? '\u25B6' : '\u25C0'}
-          </button>
+          <div className="sidebar-header-actions">
+            <button
+              className="header-lang-toggle"
+              onClick={handleToggleLanguage}
+              title={t('languageSwitch')}
+            >
+              {language === 'zh' ? t('english') : t('chinese')}
+            </button>
+            <button
+              className="collapse-toggle"
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              title={sidebarCollapsed ? t('expand') : t('collapse')}
+            >
+              {sidebarCollapsed ? '\u25B6' : '\u25C0'}
+            </button>
+          </div>
         </div>
 
         <div className={`status ${running ? 'ok' : 'off'}`}>

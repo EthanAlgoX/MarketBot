@@ -78,6 +78,12 @@ body {
   padding: 0 2px 4px;
 }
 
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -126,6 +132,31 @@ body {
 .collapse-toggle:hover {
   background: var(--accent-dim);
   color: var(--accent);
+}
+
+.header-lang-toggle {
+  all: unset;
+  cursor: pointer;
+  min-width: 30px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid rgba(85, 115, 170, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.header-lang-toggle:hover {
+  color: var(--text);
+  border-color: rgba(85, 115, 170, 0.65);
+  background: var(--accent-dim);
 }
 
 /* ── Status pill ── */
