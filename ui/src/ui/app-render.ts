@@ -247,6 +247,7 @@ export function renderApp(state: AppViewState) {
 
         ${state.tab === "desk"
       ? renderDesk({
+        language,
         connected: state.connected,
         lastError: state.lastError,
         stocksLast: state.stocksLast,
@@ -396,6 +397,7 @@ export function renderApp(state: AppViewState) {
 
         ${state.tab === "stocks"
       ? renderStocks({
+        language,
         loading: state.stocksLoading,
         running: state.stocksRunning,
         error: state.stocksError,
@@ -574,6 +576,7 @@ export function renderApp(state: AppViewState) {
 
         ${state.tab === "runs"
       ? renderRuns({
+        language,
         loading: state.runsLoading,
         error: state.runsError,
         runs: state.runs,

@@ -179,4 +179,37 @@ describe("control UI routing", () => {
     expect(window.location.pathname).toBe("/ui/overview");
     expect(window.location.search).toBe("");
   });
+
+  it("switches language for desk, stocks, and runs views", async () => {
+    const app = mountApp("/desk");
+    await app.updateComplete;
+
+    expect(app.textContent).toContain("Finance Desk");
+
+    const zhToggle = app.querySelector<HTMLButtonElement>(
+      '.lang-toggle__button[aria-label="Chinese"]',
+    );
+    expect(zhToggle).not.toBeNull();
+    zhToggle?.click();
+    await app.updateComplete;
+
+    expect(app.textContent).toContain("财经工作台");
+
+    const stocksLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/stocks"]');
+    expect(stocksLink).not.toBeNull();
+    stocksLink?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+    );
+    await app.updateComplete;
+    expect(app.textContent).toContain("观察列表");
+
+    const runsLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/runs"]');
+    expect(runsLink).not.toBeNull();
+    runsLink?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+    );
+    await app.updateComplete;
+    expect(app.textContent).toContain("运行记录");
+    expect(app.textContent).toContain("暂无运行记录");
+  });
 });

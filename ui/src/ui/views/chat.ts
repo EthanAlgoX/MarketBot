@@ -388,10 +388,13 @@ const NEW_SESSION_INTERNAL_MARKERS = [
 const TOOL_ACTIVITY_TYPES = new Set([
   "toolcall",
   "tool_call",
+  "tool-call",
   "tooluse",
   "tool_use",
+  "tool-use",
   "toolresult",
   "tool_result",
+  "tool-result",
 ]);
 
 function isInternalNewSessionPrompt(message: unknown): boolean {
@@ -410,15 +413,30 @@ function isInternalNewSessionPrompt(message: unknown): boolean {
 
 function hasToolActivity(message: unknown): boolean {
   const m = message as Record<string, unknown>;
-  if (typeof m.toolCallId === "string" || typeof m.tool_call_id === "string") {
+  if (
+    typeof m.toolCallId === "string" ||
+    typeof m.tool_call_id === "string" ||
+    typeof m.toolName === "string" ||
+    typeof m.tool_name === "string"
+  ) {
     return true;
   }
   const content = m.content;
   if (!Array.isArray(content)) return false;
   return content.some((item) => {
     if (!item || typeof item !== "object") return false;
-    const kind = String((item as Record<string, unknown>).type ?? "").toLowerCase();
-    return TOOL_ACTIVITY_TYPES.has(kind);
+    const entry = item as Record<string, unknown>;
+    const kind = String(entry.type ?? "").toLowerCase();
+    if (TOOL_ACTIVITY_TYPES.has(kind)) return true;
+    if (kind.includes("tool")) return true;
+    if (typeof entry.toolCallId === "string" || typeof entry.tool_call_id === "string") {
+      return true;
+    }
+    // Some providers omit explicit type and only send function-like payloads.
+    const hasNamedArgs =
+      typeof entry.name === "string" &&
+      (entry.arguments !== undefined || entry.args !== undefined);
+    return hasNamedArgs;
   });
 }
 

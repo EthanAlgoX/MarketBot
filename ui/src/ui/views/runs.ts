@@ -1,9 +1,11 @@
 import { html, nothing } from "lit";
 
-import { clampText, formatAgo, formatDurationMs, formatMs } from "../format";
+import { clampText, formatAgo, formatDurationMs } from "../format";
+import type { UiLanguage } from "../storage";
 import type { TraceRunEvent, TraceRunMeta } from "../types";
 
 export type RunsProps = {
+  language?: UiLanguage;
   loading: boolean;
   error: string | null;
   runs: TraceRunMeta[];
@@ -24,34 +26,99 @@ export type RunsProps = {
   onReplayIndex: (next: number) => void;
 };
 
+const RUNS_TEXT = {
+  en: {
+    tool: "tool",
+    event: "event",
+    policy: "policy",
+    lifecycle: "lifecycle",
+    compaction: "compaction",
+    error: "error",
+    ok: "ok",
+    toolsCount: (n: number) => `${n} tools`,
+    running: "RUNNING",
+    ended: "ENDED",
+    sessionNA: "session: n/a",
+    last: "last",
+    tools: "tools",
+    err: "err",
+    dur: "dur",
+    title: "Runs",
+    sub: "Replayable run graph built from agent lifecycle, tool, and policy events.",
+    loading: "Loading…",
+    refresh: "Refresh",
+    recent: "Recent",
+    noRuns: "No runs captured yet.",
+    replay: "Replay",
+    selectRun: "Select a run on the left.",
+    runPrefix: "Run:",
+    reload: "Reload",
+    traceTruncated: "Trace truncated. Showing the latest window from disk.",
+    replayLabel: "Replay",
+    events: "events",
+    noEvents: "No events (filter/replay window).",
+  },
+  zh: {
+    tool: "工具",
+    event: "事件",
+    policy: "策略",
+    lifecycle: "生命周期",
+    compaction: "压缩",
+    error: "错误",
+    ok: "正常",
+    toolsCount: (n: number) => `${n} 个工具`,
+    running: "运行中",
+    ended: "已结束",
+    sessionNA: "会话: 暂无",
+    last: "最近",
+    tools: "工具",
+    err: "错",
+    dur: "时长",
+    title: "运行记录",
+    sub: "基于代理生命周期、工具和策略事件构建的可回放运行图。",
+    loading: "加载中…",
+    refresh: "刷新",
+    recent: "最近",
+    noRuns: "暂无运行记录。",
+    replay: "回放",
+    selectRun: "请先在左侧选择一条运行记录。",
+    runPrefix: "运行:",
+    reload: "重新加载",
+    traceTruncated: "轨迹已截断，仅显示磁盘中的最新窗口。",
+    replayLabel: "回放",
+    events: "事件",
+    noEvents: "暂无事件（可能被筛选或回放窗口为空）。",
+  },
+} as const;
+
 function safeNum(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function deriveEventLabel(evt: TraceRunEvent): string {
+function deriveEventLabel(evt: TraceRunEvent, text: (typeof RUNS_TEXT)["en"]): string {
   if (evt.stream === "tool") {
     const phase = typeof evt.data?.phase === "string" ? evt.data.phase : "";
-    const name = typeof evt.data?.name === "string" ? evt.data.name : "tool";
+    const name = typeof evt.data?.name === "string" ? evt.data.name : text.tool;
     const call = typeof evt.data?.toolCallId === "string" ? evt.data.toolCallId : "";
     const suffix = call ? ` (${call})` : "";
-    return `tool.${phase || "event"} ${name}${suffix}`;
+    return `${text.tool}.${phase || text.event} ${name}${suffix}`;
   }
   if (evt.stream === "policy") {
-    const phase = typeof evt.data?.phase === "string" ? evt.data.phase : "event";
-    return `policy.${phase}`;
+    const phase = typeof evt.data?.phase === "string" ? evt.data.phase : text.event;
+    return `${text.policy}.${phase}`;
   }
   if (evt.stream === "lifecycle") {
-    const phase = typeof evt.data?.phase === "string" ? evt.data.phase : "event";
-    return `lifecycle.${phase}`;
+    const phase = typeof evt.data?.phase === "string" ? evt.data.phase : text.event;
+    return `${text.lifecycle}.${phase}`;
   }
   if (evt.stream === "compaction") {
-    const phase = typeof evt.data?.phase === "string" ? evt.data.phase : "event";
-    return `compaction.${phase}`;
+    const phase = typeof evt.data?.phase === "string" ? evt.data.phase : text.event;
+    return `${text.compaction}.${phase}`;
   }
   return evt.stream;
 }
 
-function summarizeEvent(evt: TraceRunEvent): string | null {
+function summarizeEvent(evt: TraceRunEvent, text: (typeof RUNS_TEXT)["en"]): string | null {
   if (evt.stream === "tool") {
     const phase = typeof evt.data?.phase === "string" ? evt.data.phase : "";
     if (phase === "start") {
@@ -65,21 +132,26 @@ function summarizeEvent(evt: TraceRunEvent): string | null {
     }
     if (phase === "result") {
       const isError = Boolean(evt.data?.isError);
-      return isError ? "error" : "ok";
+      return isError ? text.error : text.ok;
     }
   }
   if (evt.stream === "policy") {
     const tools = evt.data?.tools;
     if (Array.isArray(tools)) {
-      return `${tools.length} tools`;
+      return text.toolsCount(tools.length);
     }
   }
   return null;
 }
 
-function renderRunRow(run: TraceRunMeta, selected: boolean, onClick: () => void) {
+function renderRunRow(
+  run: TraceRunMeta,
+  selected: boolean,
+  onClick: () => void,
+  text: (typeof RUNS_TEXT)["en"],
+) {
   const runId = run.runId || "";
-  const status = run.status === "running" ? "RUNNING" : "ENDED";
+  const status = run.status === "running" ? text.running : text.ended;
   const durationMs =
     run.startedAtMs != null && run.endedAtMs != null ? run.endedAtMs - run.startedAtMs : null;
   return html`
@@ -89,18 +161,20 @@ function renderRunRow(run: TraceRunMeta, selected: boolean, onClick: () => void)
         <span class="chip ${run.status === "running" ? "warn" : ""}">${status}</span>
       </div>
       <div class="muted" style="margin-top: 4px;">
-        ${run.sessionKey ? clampText(run.sessionKey, 42) : "session: n/a"}
+        ${run.sessionKey ? clampText(run.sessionKey, 42) : text.sessionNA}
       </div>
       <div class="row muted" style="margin-top: 6px; gap: 10px;">
-        <span>last ${formatAgo(run.lastEventAtMs)}</span>
-        <span>tools ${safeNum(run.toolCalls, 0)} (${safeNum(run.toolErrors, 0)} err)</span>
-        ${durationMs != null ? html`<span>dur ${formatDurationMs(durationMs)}</span>` : nothing}
+        <span>${text.last} ${formatAgo(run.lastEventAtMs)}</span>
+        <span>${text.tools} ${safeNum(run.toolCalls, 0)} (${safeNum(run.toolErrors, 0)} ${text.err})</span>
+        ${durationMs != null ? html`<span>${text.dur} ${formatDurationMs(durationMs)}</span>` : nothing}
       </div>
     </button>
   `;
 }
 
 export function renderRuns(props: RunsProps) {
+  const language = props.language ?? "en";
+  const text = RUNS_TEXT[language] ?? RUNS_TEXT.en;
   const selected = props.selectedRunId;
   const eventsAll = Array.isArray(props.runEvents) ? props.runEvents : [];
   const replayIndex = Math.max(0, Math.min(props.replayIndex, eventsAll.length));
@@ -114,14 +188,12 @@ export function renderRuns(props: RunsProps) {
     <section class="card">
       <div class="row" style="justify-content: space-between;">
         <div>
-          <div class="card-title">Runs</div>
-          <div class="card-sub">
-            Replayable run graph built from agent lifecycle, tool, and policy events.
-          </div>
+          <div class="card-title">${text.title}</div>
+          <div class="card-sub">${text.sub}</div>
         </div>
         <div class="row" style="gap: 8px;">
           <button class="btn" ?disabled=${props.loading} @click=${props.onRefreshRuns}>
-            ${props.loading ? "Loading…" : "Refresh"}
+            ${props.loading ? text.loading : text.refresh}
           </button>
         </div>
       </div>
@@ -130,12 +202,17 @@ export function renderRuns(props: RunsProps) {
 
       <div class="split" style="margin-top: 14px; display: grid; grid-template-columns: 360px 1fr; gap: 12px;">
         <div class="list">
-          <div class="muted" style="margin-bottom: 8px;">Recent</div>
+          <div class="muted" style="margin-bottom: 8px;">${text.recent}</div>
           <div class="list-box">
             ${props.runs.length === 0
-              ? html`<div class="muted" style="padding: 12px;">No runs captured yet.</div>`
+              ? html`<div class="muted" style="padding: 12px;">${text.noRuns}</div>`
               : props.runs.map((run) =>
-                  renderRunRow(run, run.runId === selected, () => props.onSelectRun(run.runId)),
+                  renderRunRow(
+                    run,
+                    run.runId === selected,
+                    () => props.onSelectRun(run.runId),
+                    text,
+                  ),
                 )}
           </div>
         </div>
@@ -143,14 +220,16 @@ export function renderRuns(props: RunsProps) {
         <div class="detail">
           <div class="row" style="justify-content: space-between;">
             <div>
-              <div class="card-title">Replay</div>
+              <div class="card-title">${text.replay}</div>
               <div class="card-sub">
-                ${selected ? html`Run: <span class="mono">${selected}</span>` : "Select a run on the left."}
+                ${selected
+                  ? html`${text.runPrefix} <span class="mono">${selected}</span>`
+                  : text.selectRun}
               </div>
             </div>
             <div class="row" style="gap: 8px;">
               <button class="btn" ?disabled=${!selected || props.runLoading} @click=${props.onRefreshRun}>
-                ${props.runLoading ? "Loading…" : "Reload"}
+                ${props.runLoading ? text.loading : text.reload}
               </button>
             </div>
           </div>
@@ -158,7 +237,7 @@ export function renderRuns(props: RunsProps) {
           ${props.runError ? html`<div class="callout danger" style="margin-top: 10px;">${props.runError}</div>` : nothing}
           ${props.runTruncated
             ? html`<div class="callout" style="margin-top: 10px;">
-                Trace truncated. Showing the latest window from disk.
+                ${text.traceTruncated}
               </div>`
             : nothing}
 
@@ -166,7 +245,7 @@ export function renderRuns(props: RunsProps) {
             ? html`
                 <div class="row" style="margin-top: 12px; gap: 10px; align-items: end;">
                   <label class="field" style="min-width: 220px;">
-                    <span>Replay</span>
+                    <span>${text.replayLabel}</span>
                     <input
                       type="range"
                       min="0"
@@ -179,7 +258,7 @@ export function renderRuns(props: RunsProps) {
                     />
                   </label>
                   <div class="muted">
-                    ${replayIndex}/${eventsAll.length} events
+                    ${replayIndex}/${eventsAll.length} ${text.events}
                   </div>
                 </div>
 
@@ -205,10 +284,10 @@ export function renderRuns(props: RunsProps) {
 
                 <div class="log-stream" style="margin-top: 12px;">
                   ${filtered.length === 0
-                    ? html`<div class="muted" style="padding: 12px;">No events (filter/replay window).</div>`
+                    ? html`<div class="muted" style="padding: 12px;">${text.noEvents}</div>`
                     : filtered.map((evt) => {
-                        const label = deriveEventLabel(evt);
-                        const summary = summarizeEvent(evt);
+                        const label = deriveEventLabel(evt, text);
+                        const summary = summarizeEvent(evt, text);
                         return html`
                           <div class="log-row">
                             <div class="log-time mono">${new Date(evt.ts).toLocaleTimeString()}</div>
@@ -256,4 +335,3 @@ export function renderRuns(props: RunsProps) {
     </section>
   `;
 }
-

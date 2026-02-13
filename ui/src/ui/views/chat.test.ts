@@ -130,4 +130,45 @@ describe("chat view", () => {
       "Hi there! What would you like to work on today?",
     );
   });
+
+  it("hides assistant process messages that contain tool activity", () => {
+    const container = document.createElement("div");
+    render(
+      renderChat(
+        createProps({
+          messages: [
+            {
+              role: "user",
+              content: "请给我今天的全球股市新闻",
+              timestamp: Date.now() - 3000,
+            },
+            {
+              role: "assistant",
+              content: [
+                {
+                  type: "text",
+                  text: "让我尝试使用财经工具获取主要指数的市场数据，然后基于此提供分析：",
+                },
+                {
+                  type: "tool-call",
+                  name: "finance",
+                  arguments: { symbol: "SPY" },
+                },
+              ],
+              timestamp: Date.now() - 2000,
+            },
+            {
+              role: "assistant",
+              content: "这是今天的市场摘要：美股三大指数震荡，能源板块相对强势。",
+              timestamp: Date.now() - 1000,
+            },
+          ],
+        }),
+      ),
+      container,
+    );
+
+    expect(container.textContent).not.toContain("让我尝试使用财经工具");
+    expect(container.textContent).toContain("这是今天的市场摘要");
+  });
 });
