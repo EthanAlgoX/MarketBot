@@ -9,6 +9,7 @@ import {
   normalizeMessage,
   normalizeRoleForGrouping,
 } from "../chat/message-normalizer";
+import { extractTextCached } from "../chat/message-extract";
 import {
   renderMessageGroup,
   renderReadingIndicatorGroup,
@@ -379,6 +380,55 @@ export function renderChat(props: ChatProps) {
 }
 
 const CHAT_HISTORY_RENDER_LIMIT = 200;
+const NEW_SESSION_INTERNAL_MARKERS = [
+  "A new session was started via /new or /reset.",
+  "default_model in the system prompt",
+  "Do not mention internal steps, files, tools, or reasoning.",
+] as const;
+const TOOL_ACTIVITY_TYPES = new Set([
+  "toolcall",
+  "tool_call",
+  "tooluse",
+  "tool_use",
+  "toolresult",
+  "tool_result",
+]);
+
+function isInternalNewSessionPrompt(message: unknown): boolean {
+  const m = message as Record<string, unknown>;
+  const role = typeof m.role === "string" ? m.role.toLowerCase() : "";
+  // Internal bootstrap prompt is never user-facing even if logged as user/system.
+  if (role !== "user" && role !== "system") return false;
+  const text = extractTextCached(message)?.trim();
+  if (!text) return false;
+  let matchCount = 0;
+  for (const marker of NEW_SESSION_INTERNAL_MARKERS) {
+    if (text.includes(marker)) matchCount += 1;
+  }
+  return matchCount >= 2;
+}
+
+function hasToolActivity(message: unknown): boolean {
+  const m = message as Record<string, unknown>;
+  if (typeof m.toolCallId === "string" || typeof m.tool_call_id === "string") {
+    return true;
+  }
+  const content = m.content;
+  if (!Array.isArray(content)) return false;
+  return content.some((item) => {
+    if (!item || typeof item !== "object") return false;
+    const kind = String((item as Record<string, unknown>).type ?? "").toLowerCase();
+    return TOOL_ACTIVITY_TYPES.has(kind);
+  });
+}
+
+function shouldHideIntermediateMessage(message: unknown): boolean {
+  const normalized = normalizeMessage(message);
+  const groupedRole = normalizeRoleForGrouping(normalized.role);
+  if (groupedRole === "tool") return true;
+  if (groupedRole === "assistant" && hasToolActivity(message)) return true;
+  return false;
+}
 
 function groupMessages(items: ChatItem[]): Array<ChatItem | MessageGroup> {
   const result: Array<ChatItem | MessageGroup> = [];
@@ -435,6 +485,8 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
   }
   for (let i = historyStart; i < history.length; i++) {
     const msg = history[i];
+    if (isInternalNewSessionPrompt(msg)) continue;
+    if (shouldHideIntermediateMessage(msg)) continue;
     const normalized = normalizeMessage(msg);
 
     // Tool result messages are always shown (not gated by showThinking)
@@ -446,14 +498,8 @@ function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
       message: msg,
     });
   }
-  // Always show streaming tool messages so users see every tool step.
-  for (let i = 0; i < tools.length; i++) {
-    items.push({
-      kind: "message",
-      key: messageKey(tools[i], i + history.length),
-      message: tools[i],
-    });
-  }
+  // Hide streaming tool steps from the main chat timeline to keep replies concise.
+  void tools;
 
   if (props.stream !== null) {
     const key = `stream:${props.sessionKey}:${props.streamStartedAt ?? "live"}`;

@@ -65,12 +65,45 @@ const PREVIEW_CHAR_LIMIT = 80;
 
 function getOutputPreview(text?: string): string | undefined {
   if (!text?.trim()) return undefined;
-  const firstLine = text.trim().split(/\r?\n/)[0]?.trim() ?? "";
-  if (!firstLine) return undefined;
-  if (firstLine.length > PREVIEW_CHAR_LIMIT) {
-    return `${firstLine.slice(0, PREVIEW_CHAR_LIMIT - 1)}…`;
+  const trimmed = text.trim();
+  const structuredPreview = getStructuredPreview(trimmed);
+  if (structuredPreview) {
+    return truncatePreview(structuredPreview);
   }
-  return firstLine;
+  const firstLine = trimmed.split(/\r?\n/)[0]?.trim() ?? "";
+  if (!firstLine) return undefined;
+  if (firstLine === "{" || firstLine === "[") return undefined;
+  return truncatePreview(firstLine);
+}
+
+function truncatePreview(value: string): string {
+  if (value.length <= PREVIEW_CHAR_LIMIT) return value;
+  return `${value.slice(0, PREVIEW_CHAR_LIMIT - 1)}…`;
+}
+
+function getStructuredPreview(trimmed: string): string | undefined {
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return undefined;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return undefined;
+    }
+    const record = parsed as Record<string, unknown>;
+    const error =
+      typeof record.error === "string" ? record.error.trim() : "";
+    const message =
+      typeof record.message === "string" ? record.message.trim() : "";
+    const status =
+      typeof record.status === "string" ? record.status.trim() : "";
+    if (error && message) return `${error}: ${message}`;
+    if (error) return error;
+    if (status && message) return `${status}: ${message}`;
+    if (message) return message;
+    if (status) return `status: ${status}`;
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------

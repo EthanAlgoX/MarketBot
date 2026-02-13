@@ -257,7 +257,9 @@ function renderGroupedMessage(
   const reasoningMarkdown = extractedThinking
     ? formatReasoningMarkdown(extractedThinking)
     : null;
-  const markdown = markdownBase;
+  // Tool results can contain raw JSON/diagnostic payloads that are hard to scan.
+  // Keep the timeline card as the primary surface and move raw text to sidebar only.
+  const markdown = isToolResult && hasToolCards ? null : markdownBase;
   const canCopyMarkdown = role === "assistant" && Boolean(markdown?.trim());
 
   const bubbleClasses = [

@@ -93,4 +93,41 @@ describe("chat view", () => {
     expect(onNewSession).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain("Stop");
   });
+
+  it("hides internal /new bootstrap prompt from history", () => {
+    const container = document.createElement("div");
+    render(
+      renderChat(
+        createProps({
+          messages: [
+            {
+              role: "user",
+              content: [
+                "[System: Reply in English.]",
+                "",
+                "A new session was started via /new or /reset. Say hi briefly (1-2 sentences) and ask what the user wants to do next.",
+                "If the runtime model differs from default_model in the system prompt, mention the default model in the greeting.",
+                "Do not mention internal steps, files, tools, or reasoning.",
+              ].join("\n"),
+              timestamp: Date.now() - 1000,
+            },
+            {
+              role: "assistant",
+              content: "Hi there! What would you like to work on today?",
+              timestamp: Date.now(),
+            },
+          ],
+        }),
+      ),
+      container,
+    );
+
+    expect(container.textContent).not.toContain("[System: Reply in English.]");
+    expect(container.textContent).not.toContain(
+      "A new session was started via /new or /reset.",
+    );
+    expect(container.textContent).toContain(
+      "Hi there! What would you like to work on today?",
+    );
+  });
 });
