@@ -212,4 +212,50 @@ describe("control UI routing", () => {
     expect(app.textContent).toContain("运行记录");
     expect(app.textContent).toContain("暂无运行记录");
   });
+
+  it("switches language for overview, config, sessions, cron, and logs views", async () => {
+    const app = mountApp("/overview");
+    await app.updateComplete;
+
+    const zhToggle = app.querySelector<HTMLButtonElement>(
+      '.lang-toggle__button[aria-label="Chinese"]',
+    );
+    expect(zhToggle).not.toBeNull();
+    zhToggle?.click();
+    await app.updateComplete;
+
+    expect(app.textContent).toContain("网关连接");
+
+    const configLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/config"]');
+    expect(configLink).not.toBeNull();
+    configLink?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+    );
+    await app.updateComplete;
+    expect(app.textContent).toContain("全部设置");
+
+    const sessionsLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/sessions"]');
+    expect(sessionsLink).not.toBeNull();
+    sessionsLink?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+    );
+    await app.updateComplete;
+    expect(app.textContent).toContain("活跃时间（分钟）");
+
+    const cronLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/cron"]');
+    expect(cronLink).not.toBeNull();
+    cronLink?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+    );
+    await app.updateComplete;
+    expect(app.textContent).toContain("调度器");
+
+    const logsLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/logs"]');
+    expect(logsLink).not.toBeNull();
+    logsLink?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+    );
+    await app.updateComplete;
+    expect(app.textContent).toContain("网关文件日志");
+  });
 });

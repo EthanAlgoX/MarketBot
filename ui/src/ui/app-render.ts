@@ -264,6 +264,7 @@ export function renderApp(state: AppViewState) {
 
         ${state.tab === "overview"
       ? renderOverview({
+        language,
         connected: state.connected,
         settings: state.settings,
         password: state.password,
@@ -288,6 +289,7 @@ export function renderApp(state: AppViewState) {
 
         ${state.tab === "config"
       ? renderConfig({
+        language,
         raw: state.configRaw,
         originalRaw: state.configRawOriginal,
         valid: state.configValid,
@@ -358,6 +360,7 @@ export function renderApp(state: AppViewState) {
 
         ${state.tab === "channels"
       ? renderChannels({
+        language,
         connected: state.connected,
         loading: state.channelsLoading,
         snapshot: state.channelsSnapshot,
@@ -425,6 +428,7 @@ export function renderApp(state: AppViewState) {
 
         ${state.tab === "sessions"
       ? renderSessions({
+        language,
         loading: state.sessionsLoading,
         result: state.sessionsResult,
         error: state.sessionsError,
@@ -447,6 +451,7 @@ export function renderApp(state: AppViewState) {
 
         ${state.tab === "cron"
       ? renderCron({
+        language,
         loading: state.cronLoading,
         status: state.cronStatus,
         jobs: state.cronJobs,
@@ -555,6 +560,7 @@ export function renderApp(state: AppViewState) {
 
         ${state.tab === "logs"
       ? renderLogs({
+        language,
         loading: state.logsLoading,
         error: state.logsError,
         file: state.logsFile,

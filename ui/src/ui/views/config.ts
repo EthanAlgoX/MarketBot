@@ -1,11 +1,13 @@
 import { html, nothing } from "lit";
 
 import { icons } from "../icons";
+import type { UiLanguage } from "../storage";
 import type { ConfigUiHints } from "../types";
 import { renderConfigForm, SECTION_META } from "./config-form";
 import { hintForPath, humanize, schemaType, type JsonSchema } from "./config-form.shared";
 
 export type ConfigProps = {
+  language?: UiLanguage;
   raw: string;
   originalRaw: string;
   valid: boolean | null;
@@ -35,6 +37,59 @@ export type ConfigProps = {
   onApply: () => void;
   onUpdate: () => void;
 };
+
+const CONFIG_TEXT = {
+  en: {
+    saving: "Saving…",
+    save: "Save",
+    applying: "Applying…",
+    apply: "Apply",
+    updating: "Updating…",
+    update: "Update",
+    disconnected: "Disconnected",
+    validationUnknown: "Validation unknown",
+    valid: "Config valid",
+    invalid: "Config invalid",
+    title: "Configuration",
+    searchPlaceholder: "Search settings",
+    clearSearch: "Clear search",
+    all: "All",
+    noSchemaLoaded: "No schema loaded.",
+    form: "Form",
+    raw: "Raw",
+    unsaved: "Unsaved changes",
+    reload: "Reload",
+    allSettings: "All settings",
+    allSettingsDesc: "Configure AI models, tools, channels, and gateway settings.",
+    loading: "Loading configuration…",
+    rawConfig: "Raw config",
+  },
+  zh: {
+    saving: "保存中…",
+    save: "保存",
+    applying: "应用中…",
+    apply: "应用",
+    updating: "更新中…",
+    update: "更新",
+    disconnected: "未连接",
+    validationUnknown: "校验状态未知",
+    valid: "配置有效",
+    invalid: "配置无效",
+    title: "配置",
+    searchPlaceholder: "搜索设置",
+    clearSearch: "清空搜索",
+    all: "全部",
+    noSchemaLoaded: "未加载配置 Schema。",
+    form: "表单",
+    raw: "原始",
+    unsaved: "有未保存更改",
+    reload: "重新加载",
+    allSettings: "全部设置",
+    allSettingsDesc: "配置 AI 模型、工具、渠道与网关设置。",
+    loading: "正在加载配置…",
+    rawConfig: "原始配置",
+  },
+} as const;
 
 function jsonEqual(a: unknown, b: unknown) {
   try {
@@ -84,6 +139,8 @@ function resolveSubsections(
 }
 
 export function renderConfig(props: ConfigProps) {
+  const language = props.language ?? "en";
+  const text = CONFIG_TEXT[language] ?? CONFIG_TEXT.en;
   const schema = props.schema ?? null;
   const sections = resolveSchemaSections(schema, props.uiHints);
   const rawDirty = props.raw.trim() !== props.originalRaw.trim();
@@ -98,9 +155,9 @@ export function renderConfig(props: ConfigProps) {
     !isDirty ||
     (props.formMode === "form" && !schemaReady);
   const applyDisabled = saveDisabled;
-  const saveLabel = props.saving ? "Saving…" : "Save";
-  const applyLabel = props.applying ? "Applying…" : "Apply";
-  const updateLabel = props.updating ? "Updating…" : "Update";
+  const saveLabel = props.saving ? text.saving : text.save;
+  const applyLabel = props.applying ? text.applying : text.apply;
+  const updateLabel = props.updating ? text.updating : text.update;
   const hasSections = sections.length > 0;
   const activeSection = props.activeSection;
   const activeSubsection = props.activeSubsection;
@@ -110,24 +167,24 @@ export function renderConfig(props: ConfigProps) {
       : [];
 
   const statusLabel = (() => {
-    if (!props.connected) return "Disconnected";
-    if (props.valid == null) return "Validation unknown";
-    if (props.valid) return "Config valid";
-    return "Config invalid";
+    if (!props.connected) return text.disconnected;
+    if (props.valid == null) return text.validationUnknown;
+    if (props.valid) return text.valid;
+    return text.invalid;
   })();
 
   return html`
     <div class="config-layout">
       <aside class="config-sidebar">
         <div class="config-sidebar__header">
-          <div class="config-sidebar__title">Configuration</div>
+          <div class="config-sidebar__title">${text.title}</div>
         </div>
         <div class="config-search">
           <span class="config-search__icon">${icons.search}</span>
           <input
             class="config-search__input"
             type="search"
-            placeholder="Search settings"
+            placeholder=${text.searchPlaceholder}
             .value=${props.searchQuery}
             @input=${(event: Event) =>
               props.onSearchChange((event.target as HTMLInputElement).value)}
@@ -137,7 +194,7 @@ export function renderConfig(props: ConfigProps) {
                 <button
                   class="config-search__clear"
                   @click=${() => props.onSearchChange("")}
-                  aria-label="Clear search"
+                  aria-label=${text.clearSearch}
                 >
                   ×
                 </button>
@@ -150,7 +207,7 @@ export function renderConfig(props: ConfigProps) {
             @click=${() => props.onSectionChange(null)}
           >
             <span class="config-nav__icon">${icons.settings}</span>
-            <span class="config-nav__label">All</span>
+            <span class="config-nav__label">${text.all}</span>
           </button>
           ${sections.map(
             (section) => html`
@@ -167,7 +224,7 @@ export function renderConfig(props: ConfigProps) {
             `,
           )}
           ${!hasSections && !props.schemaLoading
-            ? html`<div class="muted" style="padding: 10px 14px;">No schema loaded.</div>`
+            ? html`<div class="muted" style="padding: 10px 14px;">${text.noSchemaLoaded}</div>`
             : nothing}
         </nav>
         <div class="config-sidebar__footer">
@@ -176,13 +233,13 @@ export function renderConfig(props: ConfigProps) {
               class="config-mode-toggle__btn ${props.formMode === "form" ? "active" : ""}"
               @click=${() => props.onFormModeChange("form")}
             >
-              Form
+              ${text.form}
             </button>
             <button
               class="config-mode-toggle__btn ${props.formMode === "raw" ? "active" : ""}"
               @click=${() => props.onFormModeChange("raw")}
             >
-              Raw
+              ${text.raw}
             </button>
           </div>
         </div>
@@ -191,12 +248,12 @@ export function renderConfig(props: ConfigProps) {
       <section class="config-main">
         <div class="config-actions">
           <div class="config-actions__left">
-            ${isDirty ? html`<span class="config-changes-badge">Unsaved changes</span>` : nothing}
+            ${isDirty ? html`<span class="config-changes-badge">${text.unsaved}</span>` : nothing}
             <span class="config-status">${statusLabel}</span>
           </div>
           <div class="config-actions__right">
             <button class="btn" @click=${() => props.onReload()}>
-              Reload
+              ${text.reload}
             </button>
             <button
               class="btn"
@@ -224,12 +281,12 @@ export function renderConfig(props: ConfigProps) {
             <div class="config-section-hero__title">
               ${activeSection
                 ? SECTION_META[activeSection]?.label ?? humanize(activeSection)
-                : "All settings"}
+                : text.allSettings}
             </div>
             <div class="config-section-hero__desc">
               ${activeSection
                 ? SECTION_META[activeSection]?.description ?? ""
-                : "Configure AI models, tools, channels, and gateway settings."}
+                : text.allSettingsDesc}
             </div>
           </div>
         </div>
@@ -241,7 +298,7 @@ export function renderConfig(props: ConfigProps) {
                   class="config-subnav__item ${!activeSubsection ? "active" : ""}"
                   @click=${() => props.onSubsectionChange(null)}
                 >
-                  All
+                  ${text.all}
                 </button>
                 ${subsectionOptions.map(
                   (entry) => html`
@@ -265,14 +322,14 @@ export function renderConfig(props: ConfigProps) {
             ? html`
                 <div class="config-loading">
                   <div class="config-loading__spinner"></div>
-                  <div>Loading configuration…</div>
+                  <div>${text.loading}</div>
                 </div>
               `
             : props.formMode === "raw"
               ? html`
                   <div class="config-raw-field field">
                     <label class="field">
-                      <span>Raw config</span>
+                      <span>${text.rawConfig}</span>
                       <textarea
                         class="mono"
                         .value=${props.raw}

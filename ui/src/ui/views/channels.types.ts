@@ -12,11 +12,13 @@ import type {
     TelegramStatus,
     WhatsAppStatus,
 } from "../types";
+import type { UiLanguage } from "../storage";
 import type { NostrProfileFormState } from "./channels.nostr-profile-form";
 
 export type ChannelKey = string;
 
 export type ChannelsProps = {
+  language?: UiLanguage;
   connected: boolean;
   loading: boolean;
   snapshot: ChannelsStatusSnapshot | null;

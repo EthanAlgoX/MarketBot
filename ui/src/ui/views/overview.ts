@@ -1,6 +1,6 @@
 import { html } from "lit";
 
-import type { UiSettings } from "../storage";
+import type { UiLanguage, UiSettings } from "../storage";
 
 function guessGatewayWebSocketUrlFromLocation(): string | null {
   if (typeof window === "undefined") return null;
@@ -37,6 +37,7 @@ async function copyToClipboard(text: string) {
 }
 
 export type OverviewProps = {
+  language?: UiLanguage;
   connected: boolean;
   settings: UiSettings;
   password: string;
@@ -48,7 +49,92 @@ export type OverviewProps = {
   onRefresh: () => void;
 };
 
+const OVERVIEW_TEXT = {
+  en: {
+    mobileTitle: "Mobile Remote Control",
+    mobileSub:
+      "Open this link on your phone to control the same gateway. The URL can include a token.",
+    shareLink: "Share Link",
+    copyTitle: "Copy share link",
+    copy: "Copy Link",
+    tokenWarning: "Treat this link like a password.",
+    tokenMissing:
+      "No token in URL. If your gateway requires auth, paste a Gateway Token first.",
+    loopbackPrefix: "This link points at",
+    loopbackBody:
+      "which a phone cannot reach unless it is the same device. Use HTTPS (Tailscale Serve) to expose the Control UI, then re-open this page on that HTTPS URL and copy again.",
+    tailscaleDocsTitle: "Tailscale Serve docs (opens in new tab)",
+    tailscaleDocsLabel: "Docs: Tailscale Serve",
+    authRequired:
+      "This gateway requires auth. Paste a tokenized Control UI URL or set a Gateway Token, then click Connect.",
+    authFailed:
+      "Auth failed. Re-copy a tokenized Control UI URL, or update the token, then click Connect.",
+    authDocsTitle: "Control UI auth docs (opens in new tab)",
+    authDocsLabel: "Docs: Control UI auth",
+    insecurePrefix:
+      "This page is HTTP, so the browser blocks device identity. Use HTTPS (Tailscale Serve) or open",
+    insecureSuffix: "on the gateway host.",
+    insecureAllow: "If you must stay on HTTP, set",
+    insecureAllowSuffix: "(token-only).",
+    insecureDocsTitle: "Insecure HTTP docs (opens in new tab)",
+    insecureDocsLabel: "Docs: Insecure HTTP",
+    gatewayTitle: "Gateway Connection",
+    gatewaySub: "Configure the gateway URL and credentials for this browser.",
+    connected: "Connected",
+    disconnected: "Disconnected",
+    wsUrl: "WebSocket URL",
+    token: "Gateway Token",
+    password: "Password (not stored)",
+    passwordPlaceholder: "system or shared password",
+    sessionKey: "Default Session Key",
+    connect: "Connect",
+    refresh: "Refresh",
+    connectHint: "Connect applies connection changes.",
+    emptyHint:
+      "Use Desk and Stocks for finance workflows. Use Ops for delivery and scheduling.",
+  },
+  zh: {
+    mobileTitle: "移动端远程控制",
+    mobileSub: "在手机打开此链接可控制同一网关。链接可包含令牌。",
+    shareLink: "分享链接",
+    copyTitle: "复制分享链接",
+    copy: "复制链接",
+    tokenWarning: "请将此链接视为密码。",
+    tokenMissing: "链接中未包含令牌。若网关要求认证，请先填写网关令牌。",
+    loopbackPrefix: "该链接指向",
+    loopbackBody:
+      "手机通常无法访问此地址（除非是同一设备）。请使用 HTTPS（Tailscale Serve）暴露控制台，再在该 HTTPS 地址重新打开并复制。",
+    tailscaleDocsTitle: "Tailscale Serve 文档（新标签打开）",
+    tailscaleDocsLabel: "文档：Tailscale Serve",
+    authRequired: "该网关需要认证。请粘贴带令牌的控制台 URL 或设置网关令牌，然后点击连接。",
+    authFailed: "认证失败。请重新复制带令牌的控制台 URL，或更新令牌后再点击连接。",
+    authDocsTitle: "控制台认证文档（新标签打开）",
+    authDocsLabel: "文档：控制台认证",
+    insecurePrefix: "当前页面为 HTTP，浏览器会阻止设备身份认证。请使用 HTTPS（Tailscale Serve）或在网关主机访问",
+    insecureSuffix: "。",
+    insecureAllow: "若必须使用 HTTP，请设置",
+    insecureAllowSuffix: "（仅令牌认证）。",
+    insecureDocsTitle: "HTTP 不安全模式文档（新标签打开）",
+    insecureDocsLabel: "文档：HTTP 不安全模式",
+    gatewayTitle: "网关连接",
+    gatewaySub: "为当前浏览器配置网关地址与认证信息。",
+    connected: "已连接",
+    disconnected: "未连接",
+    wsUrl: "WebSocket 地址",
+    token: "网关令牌",
+    password: "密码（不存储）",
+    passwordPlaceholder: "系统或共享密码",
+    sessionKey: "默认会话 Key",
+    connect: "连接",
+    refresh: "刷新",
+    connectHint: "点击连接会应用连接相关变更。",
+    emptyHint: "使用工作台和股票页处理金融流程，使用控制页处理交付与调度。",
+  },
+} as const;
+
 export function renderOverview(props: OverviewProps) {
+  const language = props.language ?? "en";
+  const text = OVERVIEW_TEXT[language] ?? OVERVIEW_TEXT.en;
   const remoteControl = (() => {
     if (typeof window === "undefined") return null;
     const token = props.settings.token.trim();
@@ -69,14 +155,12 @@ export function renderOverview(props: OverviewProps) {
 
     return html`
       <section class="card">
-        <div class="card-title">Mobile Remote Control</div>
-        <div class="card-sub">
-          Open this link on your phone to control the same gateway. The URL can include a token.
-        </div>
+        <div class="card-title">${text.mobileTitle}</div>
+        <div class="card-sub">${text.mobileSub}</div>
 
         <div class="form-grid" style="margin-top: 16px;">
           <label class="field" style="grid-column: 1 / -1;">
-            <span>Share Link</span>
+            <span>${text.shareLink}</span>
             <input class="mono" readonly .value=${shareUrl.toString()} />
           </label>
         </div>
@@ -85,30 +169,28 @@ export function renderOverview(props: OverviewProps) {
           <button
             class="btn"
             @click=${async () => copyToClipboard(shareUrl.toString())}
-            title="Copy share link"
+            title=${text.copyTitle}
           >
-            Copy Link
+            ${text.copy}
           </button>
           <span class="muted">
             ${token
-              ? "Treat this link like a password."
-              : "No token in URL. If your gateway requires auth, paste a Gateway Token first."}
+              ? text.tokenWarning
+              : text.tokenMissing}
           </span>
         </div>
 
         ${isLoopback
           ? html`<div class="callout warn" style="margin-top: 14px;">
-              This link points at <span class="mono">${hostname}</span>, which a phone cannot reach
-              unless it is the same device. Use HTTPS (Tailscale Serve) to expose the Control UI,
-              then re-open this page on that HTTPS URL and copy again.
+              ${text.loopbackPrefix} <span class="mono">${hostname}</span>, ${text.loopbackBody}
               <div style="margin-top: 6px;">
                 <a
                   class="session-link"
                   href="https://docs.marketbot.ai/gateway/tailscale"
                   target="_blank"
                   rel="noreferrer"
-                  title="Tailscale Serve docs (opens in new tab)"
-                  >Docs: Tailscale Serve</a
+                  title=${text.tailscaleDocsTitle}
+                  >${text.tailscaleDocsLabel}</a
                 >
               </div>
             </div>`
@@ -127,16 +209,15 @@ export function renderOverview(props: OverviewProps) {
     if (!hasToken && !hasPassword) {
       return html`
         <div class="muted" style="margin-top: 8px;">
-          This gateway requires auth. Paste a tokenized Control UI URL or set a Gateway Token, then
-          click Connect.
+          ${text.authRequired}
           <div style="margin-top: 6px;">
             <a
               class="session-link"
               href="https://docs.marketbot.ai/web/control-ui"
               target="_blank"
               rel="noreferrer"
-              title="Control UI auth docs (opens in new tab)"
-              >Docs: Control UI auth</a
+              title=${text.authDocsTitle}
+              >${text.authDocsLabel}</a
             >
           </div>
         </div>
@@ -144,15 +225,15 @@ export function renderOverview(props: OverviewProps) {
     }
     return html`
       <div class="muted" style="margin-top: 8px;">
-        Auth failed. Re-copy a tokenized Control UI URL, or update the token, then click Connect.
+        ${text.authFailed}
         <div style="margin-top: 6px;">
           <a
             class="session-link"
             href="https://docs.marketbot.ai/web/control-ui"
             target="_blank"
             rel="noreferrer"
-            title="Control UI auth docs (opens in new tab)"
-            >Docs: Control UI auth</a
+            title=${text.authDocsTitle}
+            >${text.authDocsLabel}</a
           >
         </div>
       </div>
@@ -169,11 +250,12 @@ export function renderOverview(props: OverviewProps) {
     }
     return html`
       <div class="muted" style="margin-top: 8px;">
-        This page is HTTP, so the browser blocks device identity. Use HTTPS (Tailscale Serve) or
-        open <span class="mono">http://127.0.0.1:18789</span> on the gateway host.
+        ${text.insecurePrefix}
+        <span class="mono">http://127.0.0.1:18789</span> ${text.insecureSuffix}
         <div style="margin-top: 6px;">
-          If you must stay on HTTP, set
-          <span class="mono">gateway.controlUi.allowInsecureAuth: true</span> (token-only).
+          ${text.insecureAllow}
+          <span class="mono">gateway.controlUi.allowInsecureAuth: true</span>
+          ${text.insecureAllowSuffix}
         </div>
         <div style="margin-top: 6px;">
           <a
@@ -181,8 +263,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.marketbot.ai/gateway/tailscale"
             target="_blank"
             rel="noreferrer"
-            title="Tailscale Serve docs (opens in new tab)"
-            >Docs: Tailscale Serve</a
+            title=${text.tailscaleDocsTitle}
+            >${text.tailscaleDocsLabel}</a
           >
           <span class="muted"> · </span>
           <a
@@ -190,8 +272,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.marketbot.ai/web/control-ui#insecure-http"
             target="_blank"
             rel="noreferrer"
-            title="Insecure HTTP docs (opens in new tab)"
-            >Docs: Insecure HTTP</a
+            title=${text.insecureDocsTitle}
+            >${text.insecureDocsLabel}</a
           >
         </div>
       </div>
@@ -202,18 +284,18 @@ export function renderOverview(props: OverviewProps) {
     <section class="card">
       <div class="row" style="justify-content: space-between; align-items: baseline;">
         <div>
-          <div class="card-title">Gateway Connection</div>
-          <div class="card-sub">Configure the gateway URL and credentials for this browser.</div>
+          <div class="card-title">${text.gatewayTitle}</div>
+          <div class="card-sub">${text.gatewaySub}</div>
         </div>
         <div class="pill ${props.connected ? "ok" : "warn"}">
           <span class="statusDot ${props.connected ? "ok" : "warn"}"></span>
-          <span class="mono">${props.connected ? "Connected" : "Disconnected"}</span>
+          <span class="mono">${props.connected ? text.connected : text.disconnected}</span>
         </div>
       </div>
 
       <div class="form-grid" style="margin-top: 16px;">
         <label class="field">
-          <span>WebSocket URL</span>
+          <span>${text.wsUrl}</span>
           <input
             .value=${props.settings.gatewayUrl}
             @input=${(e: Event) => {
@@ -224,7 +306,7 @@ export function renderOverview(props: OverviewProps) {
           />
         </label>
         <label class="field">
-          <span>Gateway Token</span>
+          <span>${text.token}</span>
           <input
             .value=${props.settings.token}
             @input=${(e: Event) => {
@@ -235,7 +317,7 @@ export function renderOverview(props: OverviewProps) {
           />
         </label>
         <label class="field">
-          <span>Password (not stored)</span>
+          <span>${text.password}</span>
           <input
             type="password"
             .value=${props.password}
@@ -243,11 +325,11 @@ export function renderOverview(props: OverviewProps) {
               const v = (e.target as HTMLInputElement).value;
               props.onPasswordChange(v);
             }}
-            placeholder="system or shared password"
+            placeholder=${text.passwordPlaceholder}
           />
         </label>
         <label class="field">
-          <span>Default Session Key</span>
+          <span>${text.sessionKey}</span>
           <input
             .value=${props.settings.sessionKey}
             @input=${(e: Event) => {
@@ -260,9 +342,9 @@ export function renderOverview(props: OverviewProps) {
       </div>
 
       <div class="row" style="margin-top: 14px;">
-        <button class="btn primary" @click=${() => props.onConnect()}>Connect</button>
-        <button class="btn" @click=${() => props.onRefresh()}>Refresh</button>
-        <span class="muted">Connect applies connection changes.</span>
+        <button class="btn primary" @click=${() => props.onConnect()}>${text.connect}</button>
+        <button class="btn" @click=${() => props.onRefresh()}>${text.refresh}</button>
+        <span class="muted">${text.connectHint}</span>
       </div>
 
       ${props.lastError
@@ -272,7 +354,7 @@ export function renderOverview(props: OverviewProps) {
             ${insecureContextHint ?? ""}
           </div>`
         : html`<div class="callout" style="margin-top: 14px;">
-            Use Desk and Stocks for finance workflows. Use Ops for delivery and scheduling.
+            ${text.emptyHint}
           </div>`}
     </section>
 

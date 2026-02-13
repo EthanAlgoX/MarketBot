@@ -3,9 +3,11 @@ import { html, nothing } from "lit";
 import { formatAgo } from "../format";
 import { formatSessionTokens } from "../presenter";
 import { pathForTab } from "../navigation";
+import type { UiLanguage } from "../storage";
 import type { GatewaySessionRow, SessionsListResult } from "../types";
 
 export type SessionsProps = {
+  language?: UiLanguage;
   loading: boolean;
   result: SessionsListResult | null;
   error: string | null;
@@ -35,12 +37,72 @@ export type SessionsProps = {
 
 const THINK_LEVELS = ["", "off", "minimal", "low", "medium", "high"] as const;
 const BINARY_THINK_LEVELS = ["", "off", "on"] as const;
-const VERBOSE_LEVELS = [
-  { value: "", label: "inherit" },
-  { value: "off", label: "off (explicit)" },
-  { value: "on", label: "on" },
-] as const;
 const REASONING_LEVELS = ["", "off", "on", "stream"] as const;
+
+const SESSIONS_TEXT = {
+  en: {
+    title: "Sessions",
+    sub: "Active session keys and per-session overrides.",
+    loading: "Loading…",
+    refresh: "Refresh",
+    activeWithin: "Active within (minutes)",
+    limit: "Limit",
+    includeGlobal: "Include global",
+    includeUnknown: "Include unknown",
+    store: "Store",
+    key: "Key",
+    label: "Label",
+    kind: "Kind",
+    updated: "Updated",
+    tokens: "Tokens",
+    thinking: "Thinking",
+    verbose: "Verbose",
+    reasoning: "Reasoning",
+    actions: "Actions",
+    noSessions: "No sessions found.",
+    notAvailable: "n/a",
+    optional: "(optional)",
+    inherit: "inherit",
+    offExplicit: "off (explicit)",
+    on: "on",
+    delete: "Delete",
+  },
+  zh: {
+    title: "会话",
+    sub: "活跃会话键与每会话覆盖项。",
+    loading: "加载中…",
+    refresh: "刷新",
+    activeWithin: "活跃时间（分钟）",
+    limit: "数量上限",
+    includeGlobal: "包含全局",
+    includeUnknown: "包含未知",
+    store: "存储路径",
+    key: "键",
+    label: "标签",
+    kind: "类型",
+    updated: "更新时间",
+    tokens: "Token",
+    thinking: "思考",
+    verbose: "详细级别",
+    reasoning: "推理",
+    actions: "操作",
+    noSessions: "未找到会话。",
+    notAvailable: "暂无",
+    optional: "（可选）",
+    inherit: "继承",
+    offExplicit: "关闭（显式）",
+    on: "开启",
+    delete: "删除",
+  },
+} as const;
+
+function resolveVerboseLevels(text: (typeof SESSIONS_TEXT)["en"]) {
+  return [
+    { value: "", label: text.inherit },
+    { value: "off", label: text.offExplicit },
+    { value: "on", label: text.on },
+  ] as const;
+}
 
 function normalizeProviderId(provider?: string | null): string {
   if (!provider) return "";
@@ -71,22 +133,25 @@ function resolveThinkLevelPatchValue(value: string, isBinary: boolean): string |
 }
 
 export function renderSessions(props: SessionsProps) {
+  const language = props.language ?? "en";
+  const text = SESSIONS_TEXT[language] ?? SESSIONS_TEXT.en;
+  const verboseLevels = resolveVerboseLevels(text);
   const rows = props.result?.sessions ?? [];
   return html`
     <section class="card">
       <div class="row" style="justify-content: space-between;">
         <div>
-          <div class="card-title">Sessions</div>
-          <div class="card-sub">Active session keys and per-session overrides.</div>
+          <div class="card-title">${text.title}</div>
+          <div class="card-sub">${text.sub}</div>
         </div>
         <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
-          ${props.loading ? "Loading…" : "Refresh"}
+          ${props.loading ? text.loading : text.refresh}
         </button>
       </div>
 
       <div class="filters" style="margin-top: 14px;">
         <label class="field">
-          <span>Active within (minutes)</span>
+          <span>${text.activeWithin}</span>
           <input
             .value=${props.activeMinutes}
             @input=${(e: Event) =>
@@ -99,7 +164,7 @@ export function renderSessions(props: SessionsProps) {
           />
         </label>
         <label class="field">
-          <span>Limit</span>
+          <span>${text.limit}</span>
           <input
             .value=${props.limit}
             @input=${(e: Event) =>
@@ -112,7 +177,7 @@ export function renderSessions(props: SessionsProps) {
           />
         </label>
         <label class="field checkbox">
-          <span>Include global</span>
+          <span>${text.includeGlobal}</span>
           <input
             type="checkbox"
             .checked=${props.includeGlobal}
@@ -126,7 +191,7 @@ export function renderSessions(props: SessionsProps) {
           />
         </label>
         <label class="field checkbox">
-          <span>Include unknown</span>
+          <span>${text.includeUnknown}</span>
           <input
             type="checkbox"
             .checked=${props.includeUnknown}
@@ -146,25 +211,33 @@ export function renderSessions(props: SessionsProps) {
         : nothing}
 
       <div class="muted" style="margin-top: 12px;">
-        ${props.result ? `Store: ${props.result.path}` : ""}
+        ${props.result ? `${text.store}: ${props.result.path}` : ""}
       </div>
 
       <div class="table" style="margin-top: 16px;">
         <div class="table-head">
-          <div>Key</div>
-          <div>Label</div>
-          <div>Kind</div>
-          <div>Updated</div>
-          <div>Tokens</div>
-          <div>Thinking</div>
-          <div>Verbose</div>
-          <div>Reasoning</div>
-          <div>Actions</div>
+          <div>${text.key}</div>
+          <div>${text.label}</div>
+          <div>${text.kind}</div>
+          <div>${text.updated}</div>
+          <div>${text.tokens}</div>
+          <div>${text.thinking}</div>
+          <div>${text.verbose}</div>
+          <div>${text.reasoning}</div>
+          <div>${text.actions}</div>
         </div>
         ${rows.length === 0
-          ? html`<div class="muted">No sessions found.</div>`
+          ? html`<div class="muted">${text.noSessions}</div>`
           : rows.map((row) =>
-              renderRow(row, props.basePath, props.onPatch, props.onDelete, props.loading),
+              renderRow(
+                row,
+                props.basePath,
+                props.onPatch,
+                props.onDelete,
+                props.loading,
+                text,
+                verboseLevels,
+              ),
             )}
       </div>
     </section>
@@ -177,8 +250,10 @@ function renderRow(
   onPatch: SessionsProps["onPatch"],
   onDelete: SessionsProps["onDelete"],
   disabled: boolean,
+  text: (typeof SESSIONS_TEXT)["en"],
+  verboseLevels: ReturnType<typeof resolveVerboseLevels>,
 ) {
-  const updated = row.updatedAt ? formatAgo(row.updatedAt) : "n/a";
+  const updated = row.updatedAt ? formatAgo(row.updatedAt) : text.notAvailable;
   const rawThinking = row.thinkingLevel ?? "";
   const isBinaryThinking = isBinaryThinkingProvider(row.modelProvider);
   const thinking = resolveThinkLevelDisplay(rawThinking, isBinaryThinking);
@@ -200,7 +275,7 @@ function renderRow(
         <input
           .value=${row.label ?? ""}
           ?disabled=${disabled}
-          placeholder="(optional)"
+          placeholder=${text.optional}
           @change=${(e: Event) => {
             const value = (e.target as HTMLInputElement).value.trim();
             onPatch(row.key, { label: value || null });
@@ -222,7 +297,7 @@ function renderRow(
           }}
         >
           ${thinkLevels.map((level) =>
-            html`<option value=${level}>${level || "inherit"}</option>`,
+            html`<option value=${level}>${level || text.inherit}</option>`,
           )}
         </select>
       </div>
@@ -235,7 +310,7 @@ function renderRow(
             onPatch(row.key, { verboseLevel: value || null });
           }}
         >
-          ${VERBOSE_LEVELS.map(
+          ${verboseLevels.map(
             (level) => html`<option value=${level.value}>${level.label}</option>`,
           )}
         </select>
@@ -250,13 +325,13 @@ function renderRow(
           }}
         >
           ${REASONING_LEVELS.map((level) =>
-            html`<option value=${level}>${level || "inherit"}</option>`,
+            html`<option value=${level}>${level || text.inherit}</option>`,
           )}
         </select>
       </div>
       <div>
         <button class="btn danger" ?disabled=${disabled} @click=${() => onDelete(row.key)}>
-          Delete
+          ${text.delete}
         </button>
       </div>
     </div>
