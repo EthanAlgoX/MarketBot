@@ -79,6 +79,20 @@ MarketBot Desktop is a standalone Electron application. Install it, launch it, a
 | Finance | Desk, Stocks, Runs |
 | Control | Connection, Config, Channels, Sessions, Cron Jobs, Logs |
 
+### Desktop Chat Runtime Behavior
+
+- While an agent run is active, the Chat primary action switches from `Send` to `Queue`.
+- Queued messages are sent automatically after the current run completes.
+- During fast tab switching, Desktop defers tab changes until the embedded webview finishes loading to reduce navigation contention.
+- Transient webview navigation aborts (`ERR_ABORTED`, code `-3`) can happen during superseded navigations and are treated as non-fatal.
+
+Quick runtime check:
+
+1. Open the Chat tab and send a message.
+2. Immediately send one or two more messages.
+3. Confirm the button shows `Queue`, then queued messages flush and appear in the thread.
+4. Switch between `Chat` and `Connection` quickly, then return to `Chat` and confirm the thread is still usable.
+
 ### Running the Desktop App
 
 ```bash
