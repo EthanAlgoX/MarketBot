@@ -4,6 +4,7 @@ import { formatAgo } from "../format";
 import type { DiscordStatus } from "../types";
 import type { ChannelsProps } from "./channels.types";
 import { renderChannelConfigSection } from "./channels.config";
+import { resolveChannelsText } from "./channels.shared";
 
 export function renderDiscordCard(params: {
   props: ChannelsProps;
@@ -11,29 +12,34 @@ export function renderDiscordCard(params: {
   accountCountLabel: unknown;
 }) {
   const { props, discord, accountCountLabel } = params;
+  const text = resolveChannelsText(props);
 
   return html`
     <div class="card">
       <div class="card-title">Discord</div>
-      <div class="card-sub">Bot status and channel configuration.</div>
+      <div class="card-sub">
+        ${props.language === "zh"
+          ? "机器人状态与渠道配置。"
+          : "Bot status and channel configuration."}
+      </div>
       ${accountCountLabel}
 
       <div class="status-list" style="margin-top: 16px;">
         <div>
-          <span class="label">Configured</span>
-          <span>${discord?.configured ? "Yes" : "No"}</span>
+          <span class="label">${text.configured}</span>
+          <span>${discord?.configured ? text.yes : text.no}</span>
         </div>
         <div>
-          <span class="label">Running</span>
-          <span>${discord?.running ? "Yes" : "No"}</span>
+          <span class="label">${text.running}</span>
+          <span>${discord?.running ? text.yes : text.no}</span>
         </div>
         <div>
-          <span class="label">Last start</span>
-          <span>${discord?.lastStartAt ? formatAgo(discord.lastStartAt) : "n/a"}</span>
+          <span class="label">${text.lastStart}</span>
+          <span>${discord?.lastStartAt ? formatAgo(discord.lastStartAt) : text.notAvailable}</span>
         </div>
         <div>
-          <span class="label">Last probe</span>
-          <span>${discord?.lastProbeAt ? formatAgo(discord.lastProbeAt) : "n/a"}</span>
+          <span class="label">${text.lastProbe}</span>
+          <span>${discord?.lastProbeAt ? formatAgo(discord.lastProbeAt) : text.notAvailable}</span>
         </div>
       </div>
 
@@ -45,7 +51,7 @@ export function renderDiscordCard(params: {
 
       ${discord?.probe
         ? html`<div class="callout" style="margin-top: 12px;">
-            Probe ${discord.probe.ok ? "ok" : "failed"} ·
+            ${text.probe} ${discord.probe.ok ? text.probeOk : text.probeFailed} ·
             ${discord.probe.status ?? ""} ${discord.probe.error ?? ""}
           </div>`
         : nothing}
@@ -54,7 +60,7 @@ export function renderDiscordCard(params: {
 
       <div class="row" style="margin-top: 12px;">
         <button class="btn" @click=${() => props.onRefresh(true)}>
-          Probe
+          ${text.probeButton}
         </button>
       </div>
     </div>

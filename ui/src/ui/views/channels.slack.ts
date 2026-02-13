@@ -4,6 +4,7 @@ import { formatAgo } from "../format";
 import type { SlackStatus } from "../types";
 import type { ChannelsProps } from "./channels.types";
 import { renderChannelConfigSection } from "./channels.config";
+import { resolveChannelsText } from "./channels.shared";
 
 export function renderSlackCard(params: {
   props: ChannelsProps;
@@ -11,29 +12,34 @@ export function renderSlackCard(params: {
   accountCountLabel: unknown;
 }) {
   const { props, slack, accountCountLabel } = params;
+  const text = resolveChannelsText(props);
 
   return html`
     <div class="card">
       <div class="card-title">Slack</div>
-      <div class="card-sub">Socket mode status and channel configuration.</div>
+      <div class="card-sub">
+        ${props.language === "zh"
+          ? "Socket 模式状态与渠道配置。"
+          : "Socket mode status and channel configuration."}
+      </div>
       ${accountCountLabel}
 
       <div class="status-list" style="margin-top: 16px;">
         <div>
-          <span class="label">Configured</span>
-          <span>${slack?.configured ? "Yes" : "No"}</span>
+          <span class="label">${text.configured}</span>
+          <span>${slack?.configured ? text.yes : text.no}</span>
         </div>
         <div>
-          <span class="label">Running</span>
-          <span>${slack?.running ? "Yes" : "No"}</span>
+          <span class="label">${text.running}</span>
+          <span>${slack?.running ? text.yes : text.no}</span>
         </div>
         <div>
-          <span class="label">Last start</span>
-          <span>${slack?.lastStartAt ? formatAgo(slack.lastStartAt) : "n/a"}</span>
+          <span class="label">${text.lastStart}</span>
+          <span>${slack?.lastStartAt ? formatAgo(slack.lastStartAt) : text.notAvailable}</span>
         </div>
         <div>
-          <span class="label">Last probe</span>
-          <span>${slack?.lastProbeAt ? formatAgo(slack.lastProbeAt) : "n/a"}</span>
+          <span class="label">${text.lastProbe}</span>
+          <span>${slack?.lastProbeAt ? formatAgo(slack.lastProbeAt) : text.notAvailable}</span>
         </div>
       </div>
 
@@ -45,7 +51,7 @@ export function renderSlackCard(params: {
 
       ${slack?.probe
         ? html`<div class="callout" style="margin-top: 12px;">
-            Probe ${slack.probe.ok ? "ok" : "failed"} ·
+            ${text.probe} ${slack.probe.ok ? text.probeOk : text.probeFailed} ·
             ${slack.probe.status ?? ""} ${slack.probe.error ?? ""}
           </div>`
         : nothing}
@@ -54,7 +60,7 @@ export function renderSlackCard(params: {
 
       <div class="row" style="margin-top: 12px;">
         <button class="btn" @click=${() => props.onRefresh(true)}>
-          Probe
+          ${text.probeButton}
         </button>
       </div>
     </div>

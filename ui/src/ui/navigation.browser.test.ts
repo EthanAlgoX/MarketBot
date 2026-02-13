@@ -250,6 +250,15 @@ describe("control UI routing", () => {
     await app.updateComplete;
     expect(app.textContent).toContain("调度器");
 
+    const channelsLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/channels"]');
+    expect(channelsLink).not.toBeNull();
+    channelsLink?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+    );
+    await app.updateComplete;
+    expect(app.textContent).toContain("渠道健康");
+    expect(app.textContent).toContain("绑定 WhatsApp Web 并监控连接健康");
+
     const logsLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/logs"]');
     expect(logsLink).not.toBeNull();
     logsLink?.dispatchEvent(

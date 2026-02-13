@@ -3,6 +3,7 @@ import { html, nothing } from "lit";
 import { formatAgo } from "../format";
 import type { GoogleChatStatus } from "../types";
 import { renderChannelConfigSection } from "./channels.config";
+import { resolveChannelsText } from "./channels.shared";
 import type { ChannelsProps } from "./channels.types";
 
 export function renderGoogleChatCard(params: {
@@ -11,41 +12,46 @@ export function renderGoogleChatCard(params: {
   accountCountLabel: unknown;
 }) {
   const { props, googleChat, accountCountLabel } = params;
+  const text = resolveChannelsText(props);
 
   return html`
     <div class="card">
       <div class="card-title">Google Chat</div>
-      <div class="card-sub">Chat API webhook status and channel configuration.</div>
+      <div class="card-sub">
+        ${props.language === "zh"
+          ? "Chat API Webhook 状态与渠道配置。"
+          : "Chat API webhook status and channel configuration."}
+      </div>
       ${accountCountLabel}
 
       <div class="status-list" style="margin-top: 16px;">
         <div>
-          <span class="label">Configured</span>
-          <span>${googleChat ? (googleChat.configured ? "Yes" : "No") : "n/a"}</span>
+          <span class="label">${text.configured}</span>
+          <span>${googleChat ? (googleChat.configured ? text.yes : text.no) : text.notAvailable}</span>
         </div>
         <div>
-          <span class="label">Running</span>
-          <span>${googleChat ? (googleChat.running ? "Yes" : "No") : "n/a"}</span>
+          <span class="label">${text.running}</span>
+          <span>${googleChat ? (googleChat.running ? text.yes : text.no) : text.notAvailable}</span>
         </div>
         <div>
-          <span class="label">Credential</span>
-          <span>${googleChat?.credentialSource ?? "n/a"}</span>
+          <span class="label">${text.credential}</span>
+          <span>${googleChat?.credentialSource ?? text.notAvailable}</span>
         </div>
         <div>
-          <span class="label">Audience</span>
+          <span class="label">${text.audience}</span>
           <span>
             ${googleChat?.audienceType
               ? `${googleChat.audienceType}${googleChat.audience ? ` · ${googleChat.audience}` : ""}`
-              : "n/a"}
+              : text.notAvailable}
           </span>
         </div>
         <div>
-          <span class="label">Last start</span>
-          <span>${googleChat?.lastStartAt ? formatAgo(googleChat.lastStartAt) : "n/a"}</span>
+          <span class="label">${text.lastStart}</span>
+          <span>${googleChat?.lastStartAt ? formatAgo(googleChat.lastStartAt) : text.notAvailable}</span>
         </div>
         <div>
-          <span class="label">Last probe</span>
-          <span>${googleChat?.lastProbeAt ? formatAgo(googleChat.lastProbeAt) : "n/a"}</span>
+          <span class="label">${text.lastProbe}</span>
+          <span>${googleChat?.lastProbeAt ? formatAgo(googleChat.lastProbeAt) : text.notAvailable}</span>
         </div>
       </div>
 
@@ -57,7 +63,7 @@ export function renderGoogleChatCard(params: {
 
       ${googleChat?.probe
         ? html`<div class="callout" style="margin-top: 12px;">
-            Probe ${googleChat.probe.ok ? "ok" : "failed"} ·
+            ${text.probe} ${googleChat.probe.ok ? text.probeOk : text.probeFailed} ·
             ${googleChat.probe.status ?? ""} ${googleChat.probe.error ?? ""}
           </div>`
         : nothing}
@@ -66,7 +72,7 @@ export function renderGoogleChatCard(params: {
 
       <div class="row" style="margin-top: 12px;">
         <button class="btn" @click=${() => props.onRefresh(true)}>
-          Probe
+          ${text.probeButton}
         </button>
       </div>
     </div>

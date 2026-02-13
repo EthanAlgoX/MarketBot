@@ -2,6 +2,7 @@ import { html } from "lit";
 
 import type { ConfigUiHints } from "../types";
 import type { ChannelsProps } from "./channels.types";
+import { resolveChannelsText } from "./channels.shared";
 import {
   analyzeConfigSchema,
   renderNode,
@@ -10,6 +11,7 @@ import {
 } from "./config-form";
 
 type ChannelConfigFormProps = {
+  language?: ChannelsProps["language"];
   channelId: string;
   configValue: Record<string, unknown> | null;
   schema: unknown | null;
@@ -68,14 +70,15 @@ function resolveChannelValue(
 }
 
 export function renderChannelConfigForm(props: ChannelConfigFormProps) {
+  const text = resolveChannelsText(props.language);
   const analysis = analyzeConfigSchema(props.schema);
   const normalized = analysis.schema;
   if (!normalized) {
-    return html`<div class="callout danger">Schema unavailable. Use Raw.</div>`;
+    return html`<div class="callout danger">${text.schemaUnavailable}</div>`;
   }
   const node = resolveSchemaNode(normalized, ["channels", props.channelId]);
   if (!node) {
-    return html`<div class="callout danger">Channel config schema unavailable.</div>`;
+    return html`<div class="callout danger">${text.channelSchemaUnavailable}</div>`;
   }
   const configValue = props.configValue ?? {};
   const value = resolveChannelValue(configValue, props.channelId);
@@ -100,12 +103,14 @@ export function renderChannelConfigSection(params: {
   props: ChannelsProps;
 }) {
   const { channelId, props } = params;
+  const text = resolveChannelsText(props);
   const disabled = props.configSaving || props.configSchemaLoading;
   return html`
     <div style="margin-top: 16px;">
       ${props.configSchemaLoading
-        ? html`<div class="muted">Loading config schema…</div>`
+        ? html`<div class="muted">${text.loadingConfigSchema}</div>`
         : renderChannelConfigForm({
+            language: props.language,
             channelId,
             configValue: props.configForm,
             schema: props.configSchema,
@@ -119,14 +124,14 @@ export function renderChannelConfigSection(params: {
           ?disabled=${disabled || !props.configFormDirty}
           @click=${() => props.onConfigSave()}
         >
-          ${props.configSaving ? "Saving…" : "Save"}
+          ${props.configSaving ? text.saving : text.save}
         </button>
         <button
           class="btn"
           ?disabled=${disabled}
           @click=${() => props.onConfigReload()}
         >
-          Reload
+          ${text.reload}
         </button>
       </div>
     </div>

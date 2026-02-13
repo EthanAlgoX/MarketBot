@@ -154,6 +154,7 @@ function renderChannel(
   const accountCountLabel = renderChannelAccountCount(
     key,
     data.channelAccounts,
+    props,
   );
   switch (key) {
     case "whatsapp":

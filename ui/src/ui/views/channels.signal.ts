@@ -4,6 +4,7 @@ import { formatAgo } from "../format";
 import type { SignalStatus } from "../types";
 import type { ChannelsProps } from "./channels.types";
 import { renderChannelConfigSection } from "./channels.config";
+import { resolveChannelsText } from "./channels.shared";
 
 export function renderSignalCard(params: {
   props: ChannelsProps;
@@ -11,33 +12,38 @@ export function renderSignalCard(params: {
   accountCountLabel: unknown;
 }) {
   const { props, signal, accountCountLabel } = params;
+  const text = resolveChannelsText(props);
 
   return html`
     <div class="card">
       <div class="card-title">Signal</div>
-      <div class="card-sub">signal-cli status and channel configuration.</div>
+      <div class="card-sub">
+        ${props.language === "zh"
+          ? "signal-cli 状态与渠道配置。"
+          : "signal-cli status and channel configuration."}
+      </div>
       ${accountCountLabel}
 
       <div class="status-list" style="margin-top: 16px;">
         <div>
-          <span class="label">Configured</span>
-          <span>${signal?.configured ? "Yes" : "No"}</span>
+          <span class="label">${text.configured}</span>
+          <span>${signal?.configured ? text.yes : text.no}</span>
         </div>
         <div>
-          <span class="label">Running</span>
-          <span>${signal?.running ? "Yes" : "No"}</span>
+          <span class="label">${text.running}</span>
+          <span>${signal?.running ? text.yes : text.no}</span>
         </div>
         <div>
-          <span class="label">Base URL</span>
-          <span>${signal?.baseUrl ?? "n/a"}</span>
+          <span class="label">${text.baseUrl}</span>
+          <span>${signal?.baseUrl ?? text.notAvailable}</span>
         </div>
         <div>
-          <span class="label">Last start</span>
-          <span>${signal?.lastStartAt ? formatAgo(signal.lastStartAt) : "n/a"}</span>
+          <span class="label">${text.lastStart}</span>
+          <span>${signal?.lastStartAt ? formatAgo(signal.lastStartAt) : text.notAvailable}</span>
         </div>
         <div>
-          <span class="label">Last probe</span>
-          <span>${signal?.lastProbeAt ? formatAgo(signal.lastProbeAt) : "n/a"}</span>
+          <span class="label">${text.lastProbe}</span>
+          <span>${signal?.lastProbeAt ? formatAgo(signal.lastProbeAt) : text.notAvailable}</span>
         </div>
       </div>
 
@@ -49,7 +55,7 @@ export function renderSignalCard(params: {
 
       ${signal?.probe
         ? html`<div class="callout" style="margin-top: 12px;">
-            Probe ${signal.probe.ok ? "ok" : "failed"} ·
+            ${text.probe} ${signal.probe.ok ? text.probeOk : text.probeFailed} ·
             ${signal.probe.status ?? ""} ${signal.probe.error ?? ""}
           </div>`
         : nothing}
@@ -58,7 +64,7 @@ export function renderSignalCard(params: {
 
       <div class="row" style="margin-top: 12px;">
         <button class="btn" @click=${() => props.onRefresh(true)}>
-          Probe
+          ${text.probeButton}
         </button>
       </div>
     </div>
