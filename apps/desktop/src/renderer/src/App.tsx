@@ -69,9 +69,34 @@ interface NavTab {
 }
 
 interface NavGroup {
-  id: 'chat' | 'finance' | 'control' | 'settings';
+  id: 'chat' | 'workspace' | 'ops' | 'system';
   tabs: NavTab[];
 }
+
+type NavBadgeTone = 'default' | 'info' | 'warn' | 'danger';
+
+interface NavBadge {
+  text: string;
+  tone: NavBadgeTone;
+}
+
+interface SidebarMetrics {
+  runsTotal: number;
+  runsActive: number;
+  sessions: number;
+  cronTotal: number;
+  cronEnabled: number;
+  logErrors: number;
+}
+
+const EMPTY_SIDEBAR_METRICS: SidebarMetrics = {
+  runsTotal: 0,
+  runsActive: 0,
+  sessions: 0,
+  cronTotal: 0,
+  cronEnabled: 0,
+  logErrors: 0,
+};
 
 const TABS: Record<TabId, NavTab> = {
   chat: {
@@ -144,12 +169,15 @@ const TABS: Record<TabId, NavTab> = {
 
 const NAV_GROUPS: NavGroup[] = [
   { id: 'chat', tabs: [TABS.chat] },
-  { id: 'finance', tabs: [TABS.desk, TABS.stocks, TABS.runs] },
+  { id: 'workspace', tabs: [TABS.desk, TABS.stocks, TABS.runs] },
   {
-    id: 'control',
-    tabs: [TABS.overview, TABS.config, TABS.channels, TABS.sessions, TABS.cron, TABS.logs],
+    id: 'ops',
+    tabs: [TABS.channels, TABS.sessions, TABS.cron, TABS.logs],
   },
-  { id: 'settings', tabs: [TABS.models] },
+  {
+    id: 'system',
+    tabs: [TABS.overview, TABS.config, TABS.models],
+  },
 ];
 
 type Language = 'en' | 'zh';
@@ -246,9 +274,9 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     navLogs: 'Logs',
     navModels: 'AI Models',
     groupChat: 'Chat',
-    groupFinance: 'Finance',
-    groupControl: 'Control',
-    groupSettings: 'Settings',
+    groupWorkspace: 'Workspace',
+    groupOps: 'Ops',
+    groupSystem: 'System',
   },
   zh: {
     expand: '展开',
@@ -339,9 +367,9 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     navLogs: '日志',
     navModels: 'AI 模型',
     groupChat: '聊天',
-    groupFinance: '金融',
-    groupControl: '控制',
-    groupSettings: '设置',
+    groupWorkspace: '工作区',
+    groupOps: '运维',
+    groupSystem: '系统',
   },
 };
 
@@ -388,14 +416,37 @@ function getTabLabel(language: Language, tabId: TabId) {
 function getGroupLabel(language: Language, groupId: NavGroup['id']) {
   const keyById: Record<NavGroup['id'], string> = {
     chat: 'groupChat',
-    finance: 'groupFinance',
-    control: 'groupControl',
-    settings: 'groupSettings',
+    workspace: 'groupWorkspace',
+    ops: 'groupOps',
+    system: 'groupSystem',
   };
   return getText(language, keyById[groupId]);
 }
 
 // ── Helpers ──
+
+function formatBadgeCount(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  const rounded = Math.floor(value);
+  return rounded > 99 ? '99+' : String(rounded);
+}
+
+function parseLogLevel(line: string) {
+  try {
+    const obj = JSON.parse(line) as Record<string, unknown>;
+    const meta = obj?._meta;
+    if (meta && typeof meta === 'object') {
+      const logLevelName = (meta as Record<string, unknown>).logLevelName;
+      if (typeof logLevelName === 'string') return logLevelName.toLowerCase();
+      const level = (meta as Record<string, unknown>).level;
+      if (typeof level === 'string') return level.toLowerCase();
+    }
+    if (typeof obj.level === 'string') return obj.level.toLowerCase();
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 function normalizeBase(url: string) {
   return url.endsWith('/') ? url.slice(0, -1) : url;
@@ -1520,6 +1571,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentModel, setCurrentModel] = useState('');
+  const [statusExpanded, setStatusExpanded] = useState(false);
+  const [sidebarMetrics, setSidebarMetrics] = useState<SidebarMetrics>(EMPTY_SIDEBAR_METRICS);
   const webviewRef = useRef<(HTMLElement & {
     loadURL: (url: string) => void;
     reload: () => void;
@@ -1723,6 +1776,126 @@ export default function App() {
     return () => { mounted = false; clearInterval(timer); };
   }, [phase, gatewayUrl, running]);
 
+  // Fetch compact sidebar metrics for ops tabs.
+  useEffect(() => {
+    if (phase !== 'ready' || !running || !gatewayUrl) {
+      setSidebarMetrics(EMPTY_SIDEBAR_METRICS);
+      return;
+    }
+    let mounted = true;
+    const base = normalizeBase(gatewayUrl);
+
+    const rpc = async (method: string, params: Record<string, unknown>) => {
+      const res = await fetch(`${base}/api/${method}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ params }),
+      });
+      if (!res.ok) throw new Error(`RPC ${method} failed: ${res.status}`);
+      const envelope = await res.json();
+      if (!envelope?.ok) throw new Error(envelope?.error?.message ?? `RPC ${method} failed`);
+      return envelope.result;
+    };
+
+    const fetchSidebarMetrics = async () => {
+      const [runsResult, sessionsResult, cronResult, logsResult] = await Promise.allSettled([
+        rpc('trace.runs.list', { limit: 80 }),
+        rpc('sessions.list', { includeGlobal: true, includeUnknown: false, limit: 120 }),
+        rpc('cron.list', { includeDisabled: true }),
+        rpc('logs.tail', { limit: 120, maxBytes: 262144 }),
+      ]);
+      if (!mounted) return;
+
+      setSidebarMetrics((prev) => {
+        const next = { ...prev };
+
+        if (runsResult.status === 'fulfilled') {
+          const payload = runsResult.value as { runs?: unknown };
+          const runs = Array.isArray(payload.runs)
+            ? payload.runs.filter((item) => item && typeof item === 'object')
+            : [];
+          next.runsTotal = runs.length;
+          next.runsActive = runs.filter((item) => {
+            const run = item as { status?: unknown };
+            return run.status === 'running';
+          }).length;
+        }
+
+        if (sessionsResult.status === 'fulfilled') {
+          const payload = sessionsResult.value as { count?: unknown; sessions?: unknown };
+          const count = typeof payload.count === 'number'
+            ? payload.count
+            : Array.isArray(payload.sessions)
+              ? payload.sessions.length
+              : 0;
+          next.sessions = Math.max(0, Math.floor(count));
+        }
+
+        if (cronResult.status === 'fulfilled') {
+          const payload = cronResult.value as { jobs?: unknown };
+          const jobs = Array.isArray(payload.jobs)
+            ? payload.jobs.filter((item) => item && typeof item === 'object')
+            : [];
+          next.cronTotal = jobs.length;
+          next.cronEnabled = jobs.filter((item) => {
+            const job = item as { enabled?: unknown };
+            return Boolean(job.enabled);
+          }).length;
+        }
+
+        if (logsResult.status === 'fulfilled') {
+          const payload = logsResult.value as { lines?: unknown };
+          const lines = Array.isArray(payload.lines)
+            ? payload.lines.filter((line) => typeof line === 'string') as string[]
+            : [];
+          next.logErrors = lines.reduce((count, line) => {
+            const level = parseLogLevel(line);
+            if (level === 'error' || level === 'fatal') return count + 1;
+            return count;
+          }, 0);
+        }
+
+        return next;
+      });
+    };
+
+    fetchSidebarMetrics().catch(() => undefined);
+    const timer = setInterval(() => {
+      fetchSidebarMetrics().catch(() => undefined);
+    }, 15000);
+
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, [phase, running, gatewayUrl]);
+
+  const navBadges = useMemo<Partial<Record<TabId, NavBadge>>>(() => {
+    const badges: Partial<Record<TabId, NavBadge>> = {};
+    if (sidebarMetrics.runsActive > 0) {
+      badges.runs = { text: formatBadgeCount(sidebarMetrics.runsActive), tone: 'info' };
+    } else if (sidebarMetrics.runsTotal > 0) {
+      badges.runs = { text: formatBadgeCount(sidebarMetrics.runsTotal), tone: 'default' };
+    }
+
+    if (sidebarMetrics.sessions > 0) {
+      badges.sessions = { text: formatBadgeCount(sidebarMetrics.sessions), tone: 'default' };
+    }
+
+    if (sidebarMetrics.cronTotal > 0) {
+      badges.cron = {
+        text: formatBadgeCount(sidebarMetrics.cronEnabled),
+        tone: sidebarMetrics.cronEnabled > 0 ? 'info' : 'warn',
+      };
+    }
+
+    if (sidebarMetrics.logErrors > 0) {
+      badges.logs = { text: formatBadgeCount(sidebarMetrics.logErrors), tone: 'danger' };
+    }
+
+    return badges;
+  }, [sidebarMetrics]);
+
   const tabUrl = useMemo(() => {
     if (!gatewayUrl || activeTab === 'models') return '';
     return buildTabUrl(gatewayUrl, TABS[activeTab].path, gatewayToken, language);
@@ -1812,6 +1985,10 @@ export default function App() {
     }
     return '';
   }, [currentModel, gatewayAttempts, gatewayMessage, gatewayUrl, phase, running, t]);
+  const canExpandStatus = Boolean(connectionDetail) && !running && !sidebarCollapsed;
+  const statusDetailClass = running
+    ? 'status-model'
+    : `status-model status-detail${statusExpanded ? ' status-detail-expanded' : ''}`;
 
   const showConnectingStalledHint = !running
     && (phase === 'starting' || phase === 'connecting')
@@ -1865,60 +2042,76 @@ export default function App() {
           </div>
         </div>
 
-        <div className={`status ${running ? 'ok' : 'off'}`}>
+        <div
+          className={`status ${running ? 'ok' : 'off'}${canExpandStatus ? ' status-expandable' : ''}`}
+          onClick={canExpandStatus ? () => setStatusExpanded((prev) => !prev) : undefined}
+          onKeyDown={
+            canExpandStatus
+              ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setStatusExpanded((prev) => !prev);
+                  }
+                }
+              : undefined
+          }
+          role={canExpandStatus ? 'button' : undefined}
+          tabIndex={canExpandStatus ? 0 : undefined}
+          title={canExpandStatus ? (statusExpanded ? t('collapse') : t('expand')) : undefined}
+        >
           <span className={`status-dot ${running ? 'ok' : 'off'}`} />
           {!sidebarCollapsed && (
             <div className="status-text">
               <div>{connectionLabel}</div>
               {connectionDetail ? (
-                <div className={`status-model${running ? '' : ' status-detail'}`}>{connectionDetail}</div>
+                <div className={statusDetailClass}>{connectionDetail}</div>
               ) : null}
             </div>
           )}
         </div>
 
-        <button
-          className="ghost sidebar-btn lang-btn"
-          onClick={handleToggleLanguage}
-          title={t('languageSwitch')}
-        >
-          <span className="lang-pill">{language === 'zh' ? t('english') : t('chinese')}</span>
-          {!sidebarCollapsed && <span>{t('languageSwitch')}</span>}
-        </button>
-
         <nav className="nav">
           {NAV_GROUPS.map((group) => (
             <div key={group.id} className="nav-group">
               {!sidebarCollapsed && <div className="nav-group-title">{getGroupLabel(language, group.id)}</div>}
-              {group.tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  className={`nav-item${activeTab === tab.id ? ' active' : ''}`}
-                  onClick={() => handleRequestTabChange(tab.id)}
-                  title={sidebarCollapsed ? getTabLabel(language, tab.id) : undefined}
-                >
-                  <span className="nav-icon" dangerouslySetInnerHTML={{ __html: tab.icon }} />
-                  {!sidebarCollapsed && <span className="nav-label">{getTabLabel(language, tab.id)}</span>}
-                </button>
-              ))}
+              {group.tabs.map((tab) => {
+                const badge = navBadges[tab.id];
+                const tabTitle = sidebarCollapsed
+                  ? `${getTabLabel(language, tab.id)}${badge ? ` (${badge.text})` : ''}`
+                  : undefined;
+                return (
+                  <button
+                    key={tab.id}
+                    className={`nav-item${activeTab === tab.id ? ' active' : ''}`}
+                    onClick={() => handleRequestTabChange(tab.id)}
+                    title={tabTitle}
+                  >
+                    <span className="nav-icon" dangerouslySetInnerHTML={{ __html: tab.icon }} />
+                    {!sidebarCollapsed && (
+                      <>
+                        <span className="nav-label">{getTabLabel(language, tab.id)}</span>
+                        {badge ? <span className={`nav-badge ${badge.tone}`}>{badge.text}</span> : null}
+                      </>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           ))}
         </nav>
 
         <div className="sidebar-spacer" />
 
-        {!sidebarCollapsed && (
-          <button className="ghost sidebar-btn" onClick={handleRestart} title={t('restartGateway')}>
-            <span
-              className="nav-icon"
-              dangerouslySetInnerHTML={{
-                __html:
-                  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a7 7 0 0113.36-2.83M17 10a7 7 0 01-13.36 2.83"/><path d="M16.5 3v4.5H12M3.5 17v-4.5H8"/></svg>',
-              }}
-            />
-            <span>{t('restartGateway')}</span>
-          </button>
-        )}
+        <button className="ghost sidebar-btn restart-btn" onClick={handleRestart} title={t('restartGateway')}>
+          <span
+            className="nav-icon"
+            dangerouslySetInnerHTML={{
+              __html:
+                '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a7 7 0 0113.36-2.83M17 10a7 7 0 01-13.36 2.83"/><path d="M16.5 3v4.5H12M3.5 17v-4.5H8"/></svg>',
+            }}
+          />
+          {!sidebarCollapsed && <span>{t('restartGateway')}</span>}
+        </button>
       </aside>
 
       <main className="content">

@@ -673,6 +673,24 @@
   margin-top: 12px;
 }
 
+.stocks-quality-callout {
+  margin-top: 10px;
+}
+
+.stocks-watchlist-health {
+  margin-top: 12px;
+}
+
+.stocks-watchlist-health .stat {
+  padding: 10px 12px;
+}
+
+.stocks-watchlist-tools {
+  margin-top: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .stocks-watchlist-field textarea {
   min-height: 220px;
 }
@@ -691,18 +709,30 @@
   gap: 10px;
 }
 
+.stocks-watchlist-persist {
+  justify-content: flex-end;
+}
+
 .stocks-callout {
   margin-top: 12px;
 }
 
 .stocks-options-grid {
   margin-top: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
 }
 
 .stocks-options-grid .field {
   min-width: 0;
+}
+
+.stocks-option--news {
+  grid-column: span 2;
+}
+
+.stocks-daily-head {
+  align-items: flex-end;
 }
 
 .stocks-options-grid .field--toggle {
@@ -715,6 +745,11 @@
 
 .stocks-options-grid .field--toggle > span {
   margin: 0;
+}
+
+.stocks-news-quick {
+  margin-top: 8px;
+  align-items: center;
 }
 
 .stocks-source-chips,
@@ -839,6 +874,14 @@
   margin-top: 10px;
 }
 
+.runs-summary-grid {
+  margin-top: 4px;
+}
+
+.runs-summary-grid .stat {
+  padding: 10px 12px;
+}
+
 .runs-split {
   margin-top: 14px;
   display: grid;
@@ -852,6 +895,8 @@
 
 .runs-list__title {
   margin-bottom: 8px;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .runs-list-box {
@@ -913,6 +958,10 @@
   align-items: end;
 }
 
+.runs-selected-meta {
+  margin-top: 10px;
+}
+
 .runs-replay-slider {
   min-width: 220px;
 }
@@ -969,12 +1018,24 @@
 
 .sessions-filters {
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(2, minmax(170px, 1fr)) repeat(2, minmax(150px, 1fr));
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: rgba(10, 16, 30, 0.45);
+}
+
+.sessions-filters__inputs {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(170px, 1fr));
+}
+
+.sessions-filters__toggles {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 14px;
 }
 
 .sessions-check {
@@ -982,11 +1043,12 @@
   align-items: center;
   gap: 8px;
   min-height: 36px;
-  margin-top: 22px;
-  padding: 0 4px;
+  margin: 0;
+  padding: 0 2px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .sessions-check input[type="checkbox"] {
@@ -1005,6 +1067,19 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.sessions-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.sessions-summary-grid {
+  gap: 10px;
+}
+
+.sessions-summary-grid .stat {
+  padding: 10px 12px;
 }
 
 .sessions-store__path {
@@ -1085,7 +1160,12 @@
 .sessions-controls {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(120px, 1fr)) auto;
+}
+
+.sessions-controls__row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(130px, 1fr)) auto;
   align-items: end;
 }
 
@@ -1306,14 +1386,19 @@
   }
 
   .sessions-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .sessions-filters__inputs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sessions-check {
-    margin-top: 0;
+  .sessions-filters__toggles {
+    align-items: center;
+    flex-wrap: wrap;
   }
 
-  .sessions-controls {
+  .sessions-controls__row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1342,8 +1427,16 @@
     grid-template-columns: 1fr;
   }
 
+  .stocks-option--news {
+    grid-column: auto;
+  }
+
   .stocks-options-grid .field--toggle {
     min-height: auto;
+  }
+
+  .stocks-watchlist-health {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .report-pane__body {

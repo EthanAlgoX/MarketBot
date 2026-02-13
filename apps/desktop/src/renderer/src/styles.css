@@ -171,13 +171,23 @@ body {
   font-size: 11px;
   background: #111827;
   border: 1px solid #1e293b;
-  width: fit-content;
+  width: 100%;
+  min-width: 0;
 }
 
 .status-text {
   display: flex;
   flex-direction: column;
   line-height: 1.1;
+  min-width: 0;
+}
+
+.status-expandable {
+  cursor: pointer;
+}
+
+.status-expandable:hover {
+  border-color: rgba(85, 115, 170, 0.6);
 }
 
 .status-model {
@@ -193,6 +203,15 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.status-model.status-detail.status-detail-expanded {
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
+  margin-top: 4px;
 }
 
 .status-dot {
@@ -283,26 +302,6 @@ button.ghost .nav-icon {
   width: 100%;
 }
 
-.lang-btn {
-  justify-content: flex-start;
-  margin-bottom: 6px;
-}
-
-.lang-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  border: 1px solid rgba(85, 115, 170, 0.45);
-  background: rgba(255, 255, 255, 0.04);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text);
-}
-
 .sidebar-spacer {
   flex: 1;
   min-height: 8px;
@@ -378,9 +377,57 @@ button.ghost .nav-icon {
 }
 
 .nav-label {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  border: 1px solid rgba(85, 115, 170, 0.45);
+  color: #9cb0d4;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nav-badge.default {
+  color: #90a9d1;
+}
+
+.nav-badge.info {
+  color: #67dbff;
+  border-color: rgba(43, 228, 255, 0.45);
+  background: rgba(43, 228, 255, 0.12);
+}
+
+.nav-badge.warn {
+  color: #f7c871;
+  border-color: rgba(247, 200, 113, 0.45);
+  background: rgba(247, 200, 113, 0.1);
+}
+
+.nav-badge.danger {
+  color: #ff9a9a;
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.16);
+}
+
+.nav-item.active .nav-badge.default {
+  color: var(--accent);
+  border-color: rgba(43, 228, 255, 0.45);
+  background: rgba(43, 228, 255, 0.1);
 }
 
 /* Collapsed sidebar */
@@ -396,7 +443,7 @@ button.ghost .nav-icon {
   background: none;
 }
 
-.sidebar-collapsed .lang-btn {
+.sidebar-collapsed .restart-btn {
   justify-content: center;
   padding: 6px 4px;
 }

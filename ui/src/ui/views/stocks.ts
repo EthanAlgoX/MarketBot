@@ -33,6 +33,17 @@ const STOCKS_TEXT = {
     watchlistTitle: "Watchlist",
     watchlistSub:
       "One symbol per line. Supports US tickers, A-share (600519), HK (hk00700).",
+    watchlistQuality: "Watchlist Quality",
+    watchlistReady: "Watchlist is clean and ready to run.",
+    watchlistNeedsDedupe: "Duplicates detected. Use Deduplicate to avoid repeated symbols.",
+    watchlistNeedsClean: "Invalid lines detected. Use Clean List before running.",
+    totalLines: "Lines",
+    uniqueSymbolsLabel: "Unique",
+    duplicateLines: "Duplicates",
+    invalidLines: "Invalid",
+    cleanList: "Clean List",
+    dedupeList: "Deduplicate",
+    clearList: "Clear",
     symbols: "symbols",
     refreshing: "Refreshing…",
     refresh: "Refresh",
@@ -47,6 +58,7 @@ const STOCKS_TEXT = {
     reportType: "Report Type",
     fundamentals: "Fundamentals",
     newsLimit: "News Limit",
+    newsQuick: "Quick",
     locale: "Locale",
     running: "Running…",
     runNow: "Run Now",
@@ -82,6 +94,17 @@ const STOCKS_TEXT = {
   zh: {
     watchlistTitle: "观察列表",
     watchlistSub: "每行一个标的。支持美股代码、A 股（600519）、港股（hk00700）。",
+    watchlistQuality: "列表质量",
+    watchlistReady: "列表质量良好，可直接运行。",
+    watchlistNeedsDedupe: "检测到重复项，建议先去重后再运行。",
+    watchlistNeedsClean: "检测到疑似无效行，建议先清洗后再运行。",
+    totalLines: "总行数",
+    uniqueSymbolsLabel: "去重后",
+    duplicateLines: "重复",
+    invalidLines: "疑似无效",
+    cleanList: "清洗列表",
+    dedupeList: "仅去重",
+    clearList: "清空",
     symbols: "个标的",
     refreshing: "刷新中…",
     refresh: "刷新",
@@ -96,6 +119,7 @@ const STOCKS_TEXT = {
     reportType: "报告类型",
     fundamentals: "基本面",
     newsLimit: "新闻数量",
+    newsQuick: "快捷",
     locale: "区域",
     running: "运行中…",
     runNow: "立即运行",
@@ -157,6 +181,43 @@ function normalizeSymbolsFromText(text: string): string[] {
     .split(/[\n,]+/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function symbolCanonicalKey(symbol: string) {
+  return symbol.trim().toUpperCase();
+}
+
+function normalizeSymbolDisplay(symbol: string) {
+  const trimmed = symbol.trim();
+  const hkMatch = /^hk(\d{4,5})$/i.exec(trimmed);
+  if (hkMatch) return `hk${hkMatch[1]}`;
+  return trimmed.toUpperCase();
+}
+
+function isLikelySymbol(symbol: string) {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,15}$/.test(symbol.trim());
+}
+
+function summarizeWatchlist(text: string) {
+  const lines = normalizeSymbolsFromText(text);
+  const seen = new Set<string>();
+  let duplicates = 0;
+  let invalid = 0;
+  for (const line of lines) {
+    const key = symbolCanonicalKey(line);
+    if (seen.has(key)) {
+      duplicates += 1;
+      continue;
+    }
+    seen.add(key);
+    if (!isLikelySymbol(line)) invalid += 1;
+  }
+  return {
+    lines,
+    uniqueCount: seen.size,
+    duplicates,
+    invalid,
+  };
 }
 
 function renderWorkbench(
@@ -285,8 +346,41 @@ function renderWorkbench(
 export function renderStocks(props: StocksProps) {
   const language = props.language ?? "en";
   const text = STOCKS_TEXT[language] ?? STOCKS_TEXT.en;
-  const watchlist = normalizeSymbolsFromText(props.watchlistText);
+  const watchlistSummary = summarizeWatchlist(props.watchlistText);
+  const watchlist = watchlistSummary.lines;
   const lastMarkdown = props.last?.reportMarkdown ?? "";
+  const dedupedWatchlist = (() => {
+    const seen = new Set<string>();
+    const next: string[] = [];
+    for (const symbol of watchlist) {
+      const key = symbolCanonicalKey(symbol);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      next.push(symbol);
+    }
+    return next;
+  })();
+  const cleanedWatchlist = (() => {
+    const seen = new Set<string>();
+    const next: string[] = [];
+    for (const symbol of watchlist) {
+      if (!isLikelySymbol(symbol)) continue;
+      const normalized = normalizeSymbolDisplay(symbol);
+      const key = symbolCanonicalKey(normalized);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      next.push(normalized);
+    }
+    return next;
+  })();
+  const hasInvalidLines = watchlistSummary.invalid > 0;
+  const hasDuplicateLines = watchlistSummary.duplicates > 0;
+  const qualityTone = hasInvalidLines ? "danger" : hasDuplicateLines ? "warn" : "success";
+  const qualityMessage = hasInvalidLines
+    ? text.watchlistNeedsClean
+    : hasDuplicateLines
+      ? text.watchlistNeedsDedupe
+      : text.watchlistReady;
   return html`
     <section class="stocks-layout finance-page">
       <div class="stocks-left">
@@ -298,6 +392,25 @@ export function renderStocks(props: StocksProps) {
             </div>
             <div class="pill"><span class="mono">${watchlist.length}</span><span class="muted">${text.symbols}</span></div>
           </div>
+          <div class="stat-grid stocks-watchlist-health">
+            <div class="stat">
+              <div class="stat-label">${text.totalLines}</div>
+              <div class="stat-value mono">${watchlist.length}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">${text.uniqueSymbolsLabel}</div>
+              <div class="stat-value mono">${watchlistSummary.uniqueCount}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">${text.duplicateLines}</div>
+              <div class="stat-value mono">${watchlistSummary.duplicates}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">${text.invalidLines}</div>
+              <div class="stat-value mono">${watchlistSummary.invalid}</div>
+            </div>
+          </div>
+          <div class="callout ${qualityTone} stocks-quality-callout">${qualityMessage}</div>
           <label class="field stocks-watchlist-field">
             <textarea
               rows="10"
@@ -306,7 +419,30 @@ export function renderStocks(props: StocksProps) {
               @input=${(e: Event) => props.onWatchlistTextChange((e.target as HTMLTextAreaElement).value)}
             ></textarea>
           </label>
-          <div class="row stocks-actions">
+          <div class="row stocks-watchlist-tools">
+            <button
+              class="btn"
+              ?disabled=${props.loading || cleanedWatchlist.length === 0}
+              @click=${() => props.onWatchlistTextChange(cleanedWatchlist.join("\n"))}
+            >
+              ${text.cleanList}
+            </button>
+            <button
+              class="btn"
+              ?disabled=${props.loading || dedupedWatchlist.length === watchlist.length}
+              @click=${() => props.onWatchlistTextChange(dedupedWatchlist.join("\n"))}
+            >
+              ${text.dedupeList}
+            </button>
+            <button
+              class="btn"
+              ?disabled=${props.loading || watchlist.length === 0}
+              @click=${() => props.onWatchlistTextChange("")}
+            >
+              ${text.clearList}
+            </button>
+          </div>
+          <div class="row stocks-actions stocks-watchlist-persist">
             <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
               ${props.loading ? text.refreshing : text.refresh}
             </button>
@@ -318,11 +454,18 @@ export function renderStocks(props: StocksProps) {
         </div>
 
         <div class="card stocks-card">
-          <div class="card-title">${text.dailyRunTitle}</div>
-          <div class="card-sub">${text.dailyRunSub}</div>
+          <div class="row stocks-card-head stocks-daily-head">
+            <div>
+              <div class="card-title">${text.dailyRunTitle}</div>
+              <div class="card-sub">${text.dailyRunSub}</div>
+            </div>
+            <button class="btn primary finance-cta" ?disabled=${props.running} @click=${props.onRun}>
+              ${props.running ? text.running : text.runNow}
+            </button>
+          </div>
           ${renderSummary(props.last, text)}
           <div class="form-grid stocks-options-grid">
-            <label class="field">
+            <label class="field stocks-option stocks-option--timeframe">
               <span>${text.timeframe}</span>
               <select .value=${props.timeframe} @change=${(e: Event) => props.onTimeframeChange((e.target as HTMLSelectElement).value)}>
                 <option value="6mo">6mo</option>
@@ -331,7 +474,7 @@ export function renderStocks(props: StocksProps) {
                 <option value="max">max</option>
               </select>
             </label>
-            <label class="field">
+            <label class="field stocks-option stocks-option--report">
               <span>${text.reportType}</span>
               <select
                 .value=${props.reportType}
@@ -344,7 +487,7 @@ export function renderStocks(props: StocksProps) {
                 <option value="full">${text.full}</option>
               </select>
             </label>
-            <div class="field field--toggle">
+            <div class="field field--toggle stocks-option stocks-option--fundamentals">
               <span>${text.fundamentals}</span>
               <label class="toggle">
                 <input
@@ -356,15 +499,22 @@ export function renderStocks(props: StocksProps) {
                 <span class="toggle__thumb" aria-hidden="true"></span>
               </label>
             </div>
-            <label class="field">
+            <label class="field stocks-option stocks-option--news">
               <span>${text.newsLimit}</span>
               <input
                 .value=${props.newsLimit}
                 @input=${(e: Event) => props.onNewsLimitChange((e.target as HTMLInputElement).value)}
                 placeholder="2"
               />
+              <div class="row stocks-row-wrap stocks-row-tight stocks-news-quick">
+                <span class="muted">${text.newsQuick}</span>
+                <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("0")}>0</button>
+                <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("2")}>2</button>
+                <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("5")}>5</button>
+                <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("10")}>10</button>
+              </div>
             </label>
-            <label class="field">
+            <label class="field stocks-option stocks-option--locale">
               <span>${text.locale}</span>
               <input
                 .value=${props.locale}
@@ -372,11 +522,6 @@ export function renderStocks(props: StocksProps) {
                 placeholder="US"
               />
             </label>
-          </div>
-          <div class="row stocks-actions">
-            <button class="btn primary finance-cta" ?disabled=${props.running} @click=${props.onRun}>
-              ${props.running ? text.running : text.runNow}
-            </button>
           </div>
         </div>
       </div>

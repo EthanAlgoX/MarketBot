@@ -45,6 +45,9 @@ const SESSIONS_TEXT = {
     sub: "Active session keys and per-session overrides.",
     loading: "Loading…",
     refresh: "Refresh",
+    sessionsCount: "Session Count",
+    defaultModel: "Default Model",
+    defaultContext: "Default Context",
     activeWithin: "Active within (minutes)",
     limit: "Limit",
     includeGlobal: "Include global",
@@ -72,6 +75,9 @@ const SESSIONS_TEXT = {
     sub: "活跃会话键与每会话覆盖项。",
     loading: "加载中…",
     refresh: "刷新",
+    sessionsCount: "会话总数",
+    defaultModel: "默认模型",
+    defaultContext: "默认上下文",
     activeWithin: "活跃时间（分钟）",
     limit: "数量上限",
     includeGlobal: "包含全局",
@@ -137,6 +143,9 @@ export function renderSessions(props: SessionsProps) {
   const text = SESSIONS_TEXT[language] ?? SESSIONS_TEXT.en;
   const verboseLevels = resolveVerboseLevels(text);
   const rows = props.result?.sessions ?? [];
+  const defaultsModel = props.result?.defaults?.model ?? "";
+  const defaultsContext = props.result?.defaults?.contextTokens;
+  const count = props.result?.count ?? rows.length;
   const nextFilters = (patch: Partial<{
     activeMinutes: string;
     limit: string;
@@ -163,48 +172,52 @@ export function renderSessions(props: SessionsProps) {
       </div>
 
       <div class="sessions-filters">
-        <label class="field">
-          <span>${text.activeWithin}</span>
-          <input
-            .value=${props.activeMinutes}
-            @input=${(e: Event) =>
-              nextFilters({
-                activeMinutes: (e.target as HTMLInputElement).value,
-              })}
-          />
-        </label>
-        <label class="field">
-          <span>${text.limit}</span>
-          <input
-            .value=${props.limit}
-            @input=${(e: Event) =>
-              nextFilters({
-                limit: (e.target as HTMLInputElement).value,
-              })}
-          />
-        </label>
-        <label class="sessions-check">
-          <input
-            type="checkbox"
-            .checked=${props.includeGlobal}
-            @change=${(e: Event) =>
-              nextFilters({
-                includeGlobal: (e.target as HTMLInputElement).checked,
-              })}
-          />
-          <span>${text.includeGlobal}</span>
-        </label>
-        <label class="sessions-check">
-          <input
-            type="checkbox"
-            .checked=${props.includeUnknown}
-            @change=${(e: Event) =>
-              nextFilters({
-                includeUnknown: (e.target as HTMLInputElement).checked,
-              })}
-          />
-          <span>${text.includeUnknown}</span>
-        </label>
+        <div class="sessions-filters__inputs">
+          <label class="field">
+            <span>${text.activeWithin}</span>
+            <input
+              .value=${props.activeMinutes}
+              @input=${(e: Event) =>
+                nextFilters({
+                  activeMinutes: (e.target as HTMLInputElement).value,
+                })}
+            />
+          </label>
+          <label class="field">
+            <span>${text.limit}</span>
+            <input
+              .value=${props.limit}
+              @input=${(e: Event) =>
+                nextFilters({
+                  limit: (e.target as HTMLInputElement).value,
+                })}
+            />
+          </label>
+        </div>
+        <div class="sessions-filters__toggles">
+          <label class="sessions-check">
+            <input
+              type="checkbox"
+              .checked=${props.includeGlobal}
+              @change=${(e: Event) =>
+                nextFilters({
+                  includeGlobal: (e.target as HTMLInputElement).checked,
+                })}
+            />
+            <span>${text.includeGlobal}</span>
+          </label>
+          <label class="sessions-check">
+            <input
+              type="checkbox"
+              .checked=${props.includeUnknown}
+              @change=${(e: Event) =>
+                nextFilters({
+                  includeUnknown: (e.target as HTMLInputElement).checked,
+                })}
+            />
+            <span>${text.includeUnknown}</span>
+          </label>
+        </div>
       </div>
 
       ${props.error
@@ -213,10 +226,30 @@ export function renderSessions(props: SessionsProps) {
 
       ${props.result
         ? html`
+          <div class="sessions-summary">
+            <div class="stat-grid sessions-summary-grid">
+              <div class="stat">
+                <div class="stat-label">${text.sessionsCount}</div>
+                <div class="stat-value mono">${count}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">${text.defaultModel}</div>
+                <div class="stat-value mono">${defaultsModel || text.inherit}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">${text.defaultContext}</div>
+                <div class="stat-value mono">
+                  ${typeof defaultsContext === "number" && Number.isFinite(defaultsContext)
+                    ? String(defaultsContext)
+                    : text.notAvailable}
+                </div>
+              </div>
+            </div>
             <div class="sessions-store">
               <span class="label">${text.store}</span>
               <span class="mono sessions-store__path">${props.result.path}</span>
             </div>
+          </div>
           `
         : nothing}
 
@@ -299,60 +332,62 @@ function renderRow(
           />
         </label>
 
-        <label class="field sessions-control">
-          <span>${text.thinking}</span>
-          <select
-            .value=${thinking}
-            ?disabled=${disabled}
-            @change=${(e: Event) => {
-              const value = (e.target as HTMLSelectElement).value;
-              onPatch(row.key, {
-                thinkingLevel: resolveThinkLevelPatchValue(value, isBinaryThinking),
-              });
-            }}
-          >
-            ${thinkLevels.map((level) =>
-              html`<option value=${level}>${level || text.inherit}</option>`,
-            )}
-          </select>
-        </label>
+        <div class="sessions-controls__row">
+          <label class="field sessions-control">
+            <span>${text.thinking}</span>
+            <select
+              .value=${thinking}
+              ?disabled=${disabled}
+              @change=${(e: Event) => {
+                const value = (e.target as HTMLSelectElement).value;
+                onPatch(row.key, {
+                  thinkingLevel: resolveThinkLevelPatchValue(value, isBinaryThinking),
+                });
+              }}
+            >
+              ${thinkLevels.map((level) =>
+                html`<option value=${level}>${level || text.inherit}</option>`,
+              )}
+            </select>
+          </label>
 
-        <label class="field sessions-control">
-          <span>${text.verbose}</span>
-          <select
-            .value=${verbose}
-            ?disabled=${disabled}
-            @change=${(e: Event) => {
-              const value = (e.target as HTMLSelectElement).value;
-              onPatch(row.key, { verboseLevel: value || null });
-            }}
-          >
-            ${verboseLevels.map(
-              (level) => html`<option value=${level.value}>${level.label}</option>`,
-            )}
-          </select>
-        </label>
+          <label class="field sessions-control">
+            <span>${text.verbose}</span>
+            <select
+              .value=${verbose}
+              ?disabled=${disabled}
+              @change=${(e: Event) => {
+                const value = (e.target as HTMLSelectElement).value;
+                onPatch(row.key, { verboseLevel: value || null });
+              }}
+            >
+              ${verboseLevels.map(
+                (level) => html`<option value=${level.value}>${level.label}</option>`,
+              )}
+            </select>
+          </label>
 
-        <label class="field sessions-control">
-          <span>${text.reasoning}</span>
-          <select
-            .value=${reasoning}
-            ?disabled=${disabled}
-            @change=${(e: Event) => {
-              const value = (e.target as HTMLSelectElement).value;
-              onPatch(row.key, { reasoningLevel: value || null });
-            }}
-          >
-            ${REASONING_LEVELS.map((level) =>
-              html`<option value=${level}>${level || text.inherit}</option>`,
-            )}
-          </select>
-        </label>
+          <label class="field sessions-control">
+            <span>${text.reasoning}</span>
+            <select
+              .value=${reasoning}
+              ?disabled=${disabled}
+              @change=${(e: Event) => {
+                const value = (e.target as HTMLSelectElement).value;
+                onPatch(row.key, { reasoningLevel: value || null });
+              }}
+            >
+              ${REASONING_LEVELS.map((level) =>
+                html`<option value=${level}>${level || text.inherit}</option>`,
+              )}
+            </select>
+          </label>
 
-        <div class="sessions-control sessions-control--actions">
-          <button class="btn danger btn--sm" ?disabled=${disabled} @click=${() => onDelete(row.key)}>
-            ${text.delete}
-          </button>
+          <div class="sessions-control sessions-control--actions">
+            <button class="btn danger btn--sm" ?disabled=${disabled} @click=${() => onDelete(row.key)}>
+              ${text.delete}
+            </button>
+          </div>
         </div>
       </div>
     </article>

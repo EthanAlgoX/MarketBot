@@ -53,6 +53,17 @@
   letter-spacing: -0.01em;
 }
 
+.config-sidebar__title-wrap {
+  display: grid;
+  gap: 4px;
+}
+
+.config-sidebar__meta {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
 .config-sidebar__footer {
   margin-top: auto;
   padding: 14px;
@@ -281,7 +292,28 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.config-actions__left {
+  justify-content: flex-start;
+}
+
+.config-actions__right {
   justify-content: flex-end;
+}
+
+.config-actions__cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-actions__cluster .btn {
+  min-width: 92px;
+}
+
+.config-actions__cluster--primary .btn.primary {
+  min-width: 104px;
 }
 
 .config-changes-badge {
@@ -1418,6 +1450,15 @@
   .config-actions__right {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .config-actions__cluster {
+    width: 100%;
+  }
+
+  .config-actions__cluster .btn {
+    flex: 1;
+    min-width: 0;
   }
 
   .config-section-hero {

@@ -57,6 +57,14 @@ const RUNS_TEXT = {
     replayLabel: "Replay",
     events: "events",
     noEvents: "No events (filter/replay window).",
+    totalRuns: "Total Runs",
+    activeRuns: "Active",
+    totalToolErrors: "Tool Errors",
+    selectedRun: "Selected",
+    streamsLabel: "Streams",
+    replayCoverage: "Coverage",
+    selectedNone: "None",
+    recentRuns: "Recent Runs",
   },
   zh: {
     tool: "工具",
@@ -88,6 +96,14 @@ const RUNS_TEXT = {
     replayLabel: "回放",
     events: "事件",
     noEvents: "暂无事件（可能被筛选或回放窗口为空）。",
+    totalRuns: "总运行数",
+    activeRuns: "运行中",
+    totalToolErrors: "工具错误",
+    selectedRun: "当前选择",
+    streamsLabel: "流",
+    replayCoverage: "回放覆盖",
+    selectedNone: "未选择",
+    recentRuns: "最近运行",
   },
 } as const;
 
@@ -180,6 +196,7 @@ export function renderRuns(props: RunsProps) {
   const language = props.language ?? "en";
   const text = RUNS_TEXT[language] ?? RUNS_TEXT.en;
   const selected = props.selectedRunId;
+  const selectedRun = props.runs.find((run) => run.runId === selected) ?? null;
   const eventsAll = Array.isArray(props.runEvents) ? props.runEvents : [];
   const replayIndex = Math.max(0, Math.min(props.replayIndex, eventsAll.length));
   const eventsWindow = eventsAll.slice(0, replayIndex);
@@ -187,6 +204,17 @@ export function renderRuns(props: RunsProps) {
     new Set(eventsAll.map((e) => (typeof e.stream === "string" ? e.stream : "event"))),
   ).sort();
   const filtered = eventsWindow.filter((evt) => props.streamsFilter[evt.stream] !== false);
+  const runsTotal = props.runs.length;
+  const runsActive = props.runs.filter((run) => run.status === "running").length;
+  const totalToolErrors = props.runs.reduce((sum, run) => sum + safeNum(run.toolErrors, 0), 0);
+  const replayCoverage = eventsAll.length === 0
+    ? "0%"
+    : `${Math.round((replayIndex / eventsAll.length) * 100)}%`;
+  const selectedDuration =
+    selectedRun?.startedAtMs != null && selectedRun.endedAtMs != null
+      ? Math.max(0, selectedRun.endedAtMs - selectedRun.startedAtMs)
+      : null;
+  const selectedLastAgo = selectedRun?.lastEventAtMs ? formatAgo(selectedRun.lastEventAtMs) : text.notAvailable;
 
   return html`
     <section class="card runs-layout finance-page">
@@ -204,9 +232,31 @@ export function renderRuns(props: RunsProps) {
 
       ${props.error ? html`<div class="callout danger runs-callout">${props.error}</div>` : nothing}
 
+      <div class="stat-grid runs-summary-grid">
+        <div class="stat">
+          <div class="stat-label">${text.totalRuns}</div>
+          <div class="stat-value mono">${runsTotal}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${text.activeRuns}</div>
+          <div class="stat-value mono">${runsActive}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${text.totalToolErrors}</div>
+          <div class="stat-value mono">${totalToolErrors}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${text.selectedRun}</div>
+          <div class="stat-value mono">${selected ? selected.slice(0, 10) : text.selectedNone}</div>
+        </div>
+      </div>
+
       <div class="runs-split">
         <div class="list runs-list">
-          <div class="muted runs-list__title">${text.recent}</div>
+          <div class="row runs-list__title">
+            <span class="muted">${text.recentRuns}</span>
+            <span class="chip mono">${runsTotal}</span>
+          </div>
           <div class="runs-list-box">
             ${props.runs.length === 0
               ? html`<div class="muted runs-empty">${text.noRuns}</div>`
@@ -247,6 +297,16 @@ export function renderRuns(props: RunsProps) {
 
           ${selected
             ? html`
+                <div class="chip-row runs-selected-meta">
+                  <span class="chip">${text.streamsLabel}: ${availableStreams.length}</span>
+                  <span class="chip">${text.events}: ${filtered.length}/${eventsAll.length}</span>
+                  <span class="chip">${text.replayCoverage}: ${replayCoverage}</span>
+                  <span class="chip">${text.last}: ${selectedLastAgo}</span>
+                  ${selectedDuration != null
+                    ? html`<span class="chip">${text.dur}: ${formatDurationMs(selectedDuration)}</span>`
+                    : nothing}
+                </div>
+
                 <div class="row runs-replay-row">
                   <label class="field runs-replay-slider">
                     <span>${text.replayLabel}</span>
@@ -306,7 +366,7 @@ export function renderRuns(props: RunsProps) {
                       })}
                 </div>
               `
-            : nothing}
+            : html`<div class="callout runs-callout">${text.selectRun}</div>`}
         </div>
       </div>
     </section>

@@ -63,6 +63,7 @@ const CONFIG_TEXT = {
     allSettingsDesc: "Configure AI models, tools, channels, and gateway settings.",
     loading: "Loading configuration…",
     rawConfig: "Raw config",
+    sections: "Sections",
   },
   zh: {
     saving: "保存中…",
@@ -88,6 +89,7 @@ const CONFIG_TEXT = {
     allSettingsDesc: "配置 AI 模型、工具、渠道与网关设置。",
     loading: "正在加载配置…",
     rawConfig: "原始配置",
+    sections: "分区",
   },
 } as const;
 
@@ -177,7 +179,10 @@ export function renderConfig(props: ConfigProps) {
     <div class="config-layout">
       <aside class="config-sidebar">
         <div class="config-sidebar__header">
-          <div class="config-sidebar__title">${text.title}</div>
+          <div class="config-sidebar__title-wrap">
+            <div class="config-sidebar__title">${text.title}</div>
+            <div class="config-sidebar__meta">${text.sections}: ${sections.length}</div>
+          </div>
         </div>
         <div class="config-search">
           <span class="config-search__icon">${icons.search}</span>
@@ -252,26 +257,30 @@ export function renderConfig(props: ConfigProps) {
             <span class="config-status">${statusLabel}</span>
           </div>
           <div class="config-actions__right">
-            <button class="btn" @click=${() => props.onReload()}>
-              ${text.reload}
-            </button>
-            <button
-              class="btn"
-              ?disabled=${props.updating || !props.connected}
-              @click=${() => props.onUpdate()}
-            >
-              ${updateLabel}
-            </button>
-            <button class="btn" ?disabled=${saveDisabled} @click=${() => props.onSave()}>
-              ${saveLabel}
-            </button>
-            <button
-              class="btn primary"
-              ?disabled=${applyDisabled}
-              @click=${() => props.onApply()}
-            >
-              ${applyLabel}
-            </button>
+            <div class="config-actions__cluster">
+              <button class="btn" @click=${() => props.onReload()}>
+                ${text.reload}
+              </button>
+              <button
+                class="btn"
+                ?disabled=${props.updating || !props.connected}
+                @click=${() => props.onUpdate()}
+              >
+                ${updateLabel}
+              </button>
+            </div>
+            <div class="config-actions__cluster config-actions__cluster--primary">
+              <button class="btn" ?disabled=${saveDisabled} @click=${() => props.onSave()}>
+                ${saveLabel}
+              </button>
+              <button
+                class="btn primary"
+                ?disabled=${applyDisabled}
+                @click=${() => props.onApply()}
+              >
+                ${applyLabel}
+              </button>
+            </div>
           </div>
         </div>
 

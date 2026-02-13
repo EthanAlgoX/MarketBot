@@ -17,10 +17,25 @@ export type StocksState = {
 };
 
 function normalizeSymbolsFromText(text: string): string[] {
-  return text
+  const symbols = text
     .split(/[\n,]+/)
     .map((s) => s.trim())
     .filter(Boolean);
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  for (const symbol of symbols) {
+    const key = symbol.toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(symbol);
+  }
+  return deduped;
+}
+
+function resolveNewsLimit(input: string): number | undefined {
+  const parsed = Number.parseInt(input.trim() || "0", 10);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.max(0, Math.min(parsed, 50));
 }
 
 export async function loadStocks(state: StocksState) {
@@ -68,13 +83,14 @@ export async function runStocks(state: StocksState) {
   state.stocksError = null;
   try {
     const symbols = normalizeSymbolsFromText(state.stocksWatchlistText);
-    const newsLimit = Number.parseInt(state.stocksNewsLimit.trim() || "0", 10);
+    const newsLimit = resolveNewsLimit(state.stocksNewsLimit);
+    const locale = state.stocksLocale.trim().toUpperCase();
     const res = await state.client.request("finance.daily.run", {
       symbols: symbols.length > 0 ? symbols : undefined,
       timeframe: state.stocksTimeframe.trim() || undefined,
       reportType: state.stocksReportType,
-      newsLimit: Number.isFinite(newsLimit) ? newsLimit : undefined,
-      locale: state.stocksLocale.trim() || undefined,
+      newsLimit,
+      locale: locale || undefined,
       includeFundamentals: state.stocksIncludeFundamentals,
       profile: "marketbot",
     });
