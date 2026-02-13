@@ -85,6 +85,11 @@ MarketBot Desktop is a standalone Electron application. Install it, launch it, a
 - Queued messages are sent automatically after the current run completes.
 - During fast tab switching, Desktop defers tab changes until the embedded webview finishes loading to reduce navigation contention.
 - Transient webview navigation aborts (`ERR_ABORTED`, code `-3`) can happen during superseded navigations and are treated as non-fatal.
+- Language switching in the Desktop shell now propagates to all embedded Control UI pages (`Desk`, `Stocks`, `Runs`, `Connection`, `Config`, `Sessions`, `Channels`, `Cron`, `Logs`, etc.).
+- Embedded page language updates are applied immediately after toggling (`EN`/`中文`) without restarting Desktop.
+- Gateway startup states are surfaced with richer status (`checking`, `starting`, `retrying`, `error`) so "Connecting..." is debuggable from the UI.
+- The `Config` page uses a stabilized responsive layout (clear section grouping + adaptive action rows) to avoid overlap and cramped controls on smaller desktop windows.
+- The `Sessions` page filter controls now use a structured responsive row layout to prevent label/input overlap and misalignment.
 
 Quick runtime check:
 
@@ -92,6 +97,7 @@ Quick runtime check:
 2. Immediately send one or two more messages.
 3. Confirm the button shows `Queue`, then queued messages flush and appear in the thread.
 4. Switch between `Chat` and `Connection` quickly, then return to `Chat` and confirm the thread is still usable.
+5. Toggle language (`EN`/`中文`) in Desktop sidebar and confirm `Desk`, `Stocks`, `Runs`, `Connection`, `Config`, and `Sessions` switch language immediately.
 
 ### Running the Desktop App
 

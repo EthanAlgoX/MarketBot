@@ -3,10 +3,17 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('marketbot', {
   getGatewayToken: () => ipcRenderer.invoke('gateway:token'),
   getGatewayUrl: () => ipcRenderer.invoke('gateway:url'),
+  getGatewayStatus: () => ipcRenderer.invoke('gateway:status:get'),
   getWebviewPreloadPath: () => ipcRenderer.invoke('webview:preload-path'),
   restartGateway: () => ipcRenderer.invoke('gateway:restart'),
   openExternal: (url: string) => ipcRenderer.invoke('shell:open', url),
-  onGatewayStatus: (handler: (status: { running: boolean }) => void) => {
+  onGatewayStatus: (handler: (status: {
+    running: boolean;
+    stage?: 'idle' | 'checking' | 'starting' | 'running' | 'retrying' | 'error';
+    message?: string;
+    attempts?: number;
+    lastExitCode?: number | null;
+  }) => void) => {
     ipcRenderer.on('gateway:status', (_event, status) => handler(status));
   },
   // Onboarding / config IPC.
@@ -31,10 +38,23 @@ contextBridge.exposeInMainWorld('marketbot', {
 export type MarketBotDesktopApi = {
   getGatewayToken: () => Promise<string>;
   getGatewayUrl: () => Promise<string>;
+  getGatewayStatus: () => Promise<{
+    running: boolean;
+    stage?: 'idle' | 'checking' | 'starting' | 'running' | 'retrying' | 'error';
+    message?: string;
+    attempts?: number;
+    lastExitCode?: number | null;
+  }>;
   getWebviewPreloadPath: () => Promise<string>;
   restartGateway: () => Promise<void>;
   openExternal: (url: string) => Promise<void>;
-  onGatewayStatus: (handler: (status: { running: boolean }) => void) => void;
+  onGatewayStatus: (handler: (status: {
+    running: boolean;
+    stage?: 'idle' | 'checking' | 'starting' | 'running' | 'retrying' | 'error';
+    message?: string;
+    attempts?: number;
+    lastExitCode?: number | null;
+  }) => void) => void;
   readConfig: () => Promise<Record<string, unknown>>;
   writeConfig: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
   checkOnboarding: () => Promise<{ needsOnboarding: boolean }>;

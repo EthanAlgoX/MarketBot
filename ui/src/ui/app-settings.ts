@@ -68,6 +68,7 @@ export function applySettingsFromUrl(host: SettingsHost) {
   const passwordRaw = params.get("password");
   const sessionRaw = params.get("session");
   const gatewayUrlRaw = params.get("gatewayUrl");
+  const langRaw = params.get("lang");
   let shouldCleanUrl = false;
 
   if (tokenRaw != null) {
@@ -106,6 +107,15 @@ export function applySettingsFromUrl(host: SettingsHost) {
       host.pendingGatewayUrl = gatewayUrl;
     }
     params.delete("gatewayUrl");
+    shouldCleanUrl = true;
+  }
+
+  if (langRaw != null) {
+    const nextLanguage = langRaw.trim().toLowerCase() === "zh" ? "zh" : "en";
+    if (nextLanguage !== host.settings.language) {
+      applySettings(host, { ...host.settings, language: nextLanguage });
+    }
+    params.delete("lang");
     shouldCleanUrl = true;
   }
 

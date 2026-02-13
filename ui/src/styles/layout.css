@@ -661,6 +661,11 @@
 .stocks-card-head {
   justify-content: space-between;
   align-items: flex-start;
+  gap: 10px;
+}
+
+.stocks-card-head .pill {
+  flex-shrink: 0;
 }
 
 .stocks-watchlist-field,
@@ -682,6 +687,8 @@
 
 .stocks-actions {
   margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .stocks-callout {
@@ -690,6 +697,24 @@
 
 .stocks-options-grid {
   margin-top: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+
+.stocks-options-grid .field {
+  min-width: 0;
+}
+
+.stocks-options-grid .field--toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+}
+
+.stocks-options-grid .field--toggle > span {
+  margin: 0;
 }
 
 .stocks-source-chips,
@@ -705,12 +730,70 @@
 .stocks-run-bar {
   margin-top: 12px;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .stocks-run-hint {
+  flex: 1 1 320px;
   max-width: 540px;
   line-height: 1.6;
+}
+
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.toggle input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toggle__track {
+  width: 48px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--input);
+  background: rgba(13, 22, 42, 0.64);
+  box-shadow: inset 0 1px 0 var(--card-highlight);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.toggle__thumb {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #f5f9ff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.toggle input:checked + .toggle__track {
+  border-color: rgba(56, 197, 255, 0.6);
+  background: linear-gradient(130deg, rgba(0, 186, 236, 0.42), rgba(56, 143, 255, 0.44));
+}
+
+.toggle input:checked + .toggle__track + .toggle__thumb {
+  transform: translateX(20px);
+}
+
+.toggle input:focus-visible + .toggle__track {
+  box-shadow: var(--focus-ring);
 }
 
 .report-pane {
@@ -1059,6 +1142,16 @@
   border-color: rgba(60, 90, 140, 0.24);
 }
 
+:root[data-theme="light"] .toggle__track {
+  background: rgba(241, 246, 255, 0.92);
+  border-color: rgba(60, 90, 140, 0.28);
+}
+
+:root[data-theme="light"] .toggle input:checked + .toggle__track {
+  border-color: rgba(56, 143, 255, 0.52);
+  background: linear-gradient(130deg, rgba(0, 186, 236, 0.56), rgba(56, 143, 255, 0.62));
+}
+
 :root[data-theme="light"] .sessions-filters,
 :root[data-theme="light"] .sessions-item {
   background:
@@ -1242,8 +1335,15 @@
   }
 
   .stocks-run-bar {
-    flex-wrap: wrap;
-    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .stocks-options-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stocks-options-grid .field--toggle {
+    min-height: auto;
   }
 
   .report-pane__body {

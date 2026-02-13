@@ -5,10 +5,23 @@ declare global {
     marketbot: {
       getGatewayToken: () => Promise<string>;
       getGatewayUrl: () => Promise<string>;
+      getGatewayStatus: () => Promise<{
+        running: boolean;
+        stage?: 'idle' | 'checking' | 'starting' | 'running' | 'retrying' | 'error';
+        message?: string;
+        attempts?: number;
+        lastExitCode?: number | null;
+      }>;
       getWebviewPreloadPath: () => Promise<string>;
       restartGateway: () => Promise<void>;
       openExternal: (url: string) => Promise<void>;
-      onGatewayStatus: (handler: (status: { running: boolean }) => void) => void;
+      onGatewayStatus: (handler: (status: {
+        running: boolean;
+        stage?: 'idle' | 'checking' | 'starting' | 'running' | 'retrying' | 'error';
+        message?: string;
+        attempts?: number;
+        lastExitCode?: number | null;
+      }) => void) => void;
       readConfig: () => Promise<Record<string, unknown>>;
       writeConfig: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
       checkOnboarding: () => Promise<{ needsOnboarding: boolean }>;
@@ -150,6 +163,10 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     connected: 'Connected',
     initializing: 'Initializing',
     connecting: 'Connecting',
+    gatewayChecking: 'Checking gateway',
+    gatewayStarting: 'Starting gateway',
+    gatewayRetrying: 'Retrying gateway',
+    gatewayError: 'Gateway error',
     restartGateway: 'Restart Gateway',
     languageSwitch: 'Switch Language',
     english: 'EN',
@@ -158,6 +175,9 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     loadingInitializing: 'Initializing...',
     loadingStarting: 'Starting gateway...',
     loadingConnecting: 'Connecting to gateway...',
+    loadingRetrying: 'Retrying gateway startup...',
+    loadingConnectingHint: 'Target: {{url}}',
+    loadingConnectingStalled: 'Still connecting. You can click "Restart Gateway".',
     onboardingWelcomeTitle: 'Welcome to MarketBot',
     onboardingWelcomeDesc: "Your autonomous financial analysis agent. Let's get you set up with an AI provider to get started.",
     onboardingGetStarted: 'Get Started',
@@ -236,6 +256,10 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     connected: '已连接',
     initializing: '初始化中',
     connecting: '连接中',
+    gatewayChecking: '检查网关中',
+    gatewayStarting: '启动网关中',
+    gatewayRetrying: '重试网关中',
+    gatewayError: '网关异常',
     restartGateway: '重启网关',
     languageSwitch: '切换语言',
     english: 'EN',
@@ -244,6 +268,9 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     loadingInitializing: '正在初始化...',
     loadingStarting: '正在启动网关...',
     loadingConnecting: '正在连接网关...',
+    loadingRetrying: '正在重试网关启动...',
+    loadingConnectingHint: '目标地址：{{url}}',
+    loadingConnectingStalled: '连接时间较长，可点击“重启网关”。',
     onboardingWelcomeTitle: '欢迎使用 MarketBot',
     onboardingWelcomeDesc: '你的自主金融分析助手。先配置一个 AI 提供商即可开始使用。',
     onboardingGetStarted: '开始配置',
@@ -374,12 +401,13 @@ function normalizeBase(url: string) {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
-function buildTabUrl(base: string, path: string, token: string) {
+function buildTabUrl(base: string, path: string, token: string, language: Language) {
   const normalized = normalizeBase(base);
   const url = `${normalized}${path}`;
   const params = new URLSearchParams();
   if (token.trim()) params.set('token', token.trim());
   params.set('embed', '1');
+  params.set('lang', language);
   return `${url}?${params.toString()}`;
 }
 
@@ -401,6 +429,7 @@ function injectTokenToWebview(webview: HTMLElement & { executeJavaScript: (code:
 // ── Boot phases ──
 
 type BootPhase = 'init' | 'onboarding' | 'starting' | 'connecting' | 'ready';
+type GatewayStage = 'idle' | 'checking' | 'starting' | 'running' | 'retrying' | 'error';
 
 // ── Provider definitions for the onboarding wizard ──
 
@@ -1480,6 +1509,11 @@ export default function App() {
   });
   const [phase, setPhase] = useState<BootPhase>('init');
   const [running, setRunning] = useState(false);
+  const [gatewayStage, setGatewayStage] = useState<GatewayStage>('idle');
+  const [gatewayMessage, setGatewayMessage] = useState('');
+  const [gatewayAttempts, setGatewayAttempts] = useState(0);
+  const [connectingSince, setConnectingSince] = useState<number | null>(null);
+  const [connectingElapsedMs, setConnectingElapsedMs] = useState(0);
   const [gatewayUrl, setGatewayUrl] = useState('');
   const [gatewayToken, setGatewayToken] = useState('');
   const [webviewPreload, setWebviewPreload] = useState('');
@@ -1529,11 +1563,18 @@ export default function App() {
     Promise.all([
       window.marketbot?.getGatewayToken(),
       window.marketbot?.getGatewayUrl(),
+      window.marketbot?.getGatewayStatus?.(),
       window.marketbot?.getWebviewPreloadPath(),
-    ]).then(async ([token, url, preload]) => {
+    ]).then(async ([token, url, status, preload]) => {
       if (!mounted) return;
       setGatewayToken(token || '');
       setGatewayUrl(url || 'http://127.0.0.1:18789/');
+      if (status) {
+        setRunning(Boolean(status.running));
+        setGatewayStage(status.stage ?? 'idle');
+        setGatewayMessage(status.message ?? '');
+        setGatewayAttempts(typeof status.attempts === 'number' ? status.attempts : 0);
+      }
       setWebviewPreload(preload || '');
 
       // Check if onboarding is needed before proceeding.
@@ -1560,8 +1601,29 @@ export default function App() {
   useEffect(() => {
     window.marketbot?.onGatewayStatus((status) => {
       setRunning(status.running);
+      setGatewayStage(status.stage ?? (status.running ? 'running' : 'idle'));
+      setGatewayMessage(status.message ?? '');
+      setGatewayAttempts(typeof status.attempts === 'number' ? status.attempts : 0);
     });
   }, []);
+
+  useEffect(() => {
+    const waiting = !running && (phase === 'starting' || phase === 'connecting');
+    if (waiting) {
+      setConnectingSince((prev) => prev ?? Date.now());
+      return;
+    }
+    setConnectingSince(null);
+    setConnectingElapsedMs(0);
+  }, [phase, running]);
+
+  useEffect(() => {
+    if (!connectingSince) return;
+    const refresh = () => setConnectingElapsedMs(Date.now() - connectingSince);
+    refresh();
+    const timer = setInterval(refresh, 1000);
+    return () => clearInterval(timer);
+  }, [connectingSince]);
 
   // Phase 2: Poll health until gateway is up.
   useEffect(() => {
@@ -1663,8 +1725,8 @@ export default function App() {
 
   const tabUrl = useMemo(() => {
     if (!gatewayUrl || activeTab === 'models') return '';
-    return buildTabUrl(gatewayUrl, TABS[activeTab].path, gatewayToken);
-  }, [gatewayUrl, gatewayToken, activeTab]);
+    return buildTabUrl(gatewayUrl, TABS[activeTab].path, gatewayToken, language);
+  }, [gatewayUrl, gatewayToken, activeTab, language]);
 
   // Keep the last non-empty URL so we can preserve webview state while the
   // models panel is shown (tabUrl becomes empty for models).
@@ -1723,6 +1785,38 @@ export default function App() {
     setLanguage((prev) => (prev === 'zh' ? 'en' : 'zh'));
   }, []);
 
+  const connectionLabel = useMemo(() => {
+    if (running) return t('connected');
+    if (phase === 'init') return t('initializing');
+    if (gatewayStage === 'checking') return t('gatewayChecking');
+    if (gatewayStage === 'starting') return t('gatewayStarting');
+    if (gatewayStage === 'retrying') return t('gatewayRetrying');
+    if (gatewayStage === 'error') return t('gatewayError');
+    return t('connecting');
+  }, [gatewayStage, phase, running, t]);
+
+  const loadingText = useMemo(() => {
+    if (phase === 'init') return t('loadingInitializing');
+    if (phase === 'starting') return t('loadingStarting');
+    if (phase === 'connecting' && gatewayStage === 'retrying') return t('loadingRetrying');
+    return t('loadingConnecting');
+  }, [gatewayStage, phase, t]);
+
+  const connectionDetail = useMemo(() => {
+    if (running && currentModel) return currentModel;
+    if (gatewayMessage.trim()) {
+      return gatewayAttempts > 0 ? `${gatewayMessage.trim()} (#${gatewayAttempts})` : gatewayMessage.trim();
+    }
+    if ((phase === 'starting' || phase === 'connecting') && gatewayUrl) {
+      return t('loadingConnectingHint', { url: normalizeBase(gatewayUrl) });
+    }
+    return '';
+  }, [currentModel, gatewayAttempts, gatewayMessage, gatewayUrl, phase, running, t]);
+
+  const showConnectingStalledHint = !running
+    && (phase === 'starting' || phase === 'connecting')
+    && connectingElapsedMs >= 15_000;
+
   // During onboarding, render only the wizard (no sidebar).
   if (phase === 'onboarding') {
     return (
@@ -1775,9 +1869,9 @@ export default function App() {
           <span className={`status-dot ${running ? 'ok' : 'off'}`} />
           {!sidebarCollapsed && (
             <div className="status-text">
-              <div>{running ? t('connected') : phase === 'init' ? t('initializing') : t('connecting')}</div>
-              {running && currentModel ? (
-                <div className="status-model">{currentModel}</div>
+              <div>{connectionLabel}</div>
+              {connectionDetail ? (
+                <div className={`status-model${running ? '' : ' status-detail'}`}>{connectionDetail}</div>
               ) : null}
             </div>
           )}
@@ -1850,11 +1944,18 @@ export default function App() {
               <div className="loading-logo">
                 <div className="loading-logo-inner">MB</div>
               </div>
-              <div className="loading-text">
-                {phase === 'init' && t('loadingInitializing')}
-                {phase === 'starting' && t('loadingStarting')}
-                {phase === 'connecting' && t('loadingConnecting')}
-              </div>
+              <div className="loading-text">{loadingText}</div>
+              {connectionDetail ? (
+                <div className="loading-subtext">{connectionDetail}</div>
+              ) : null}
+              {showConnectingStalledHint ? (
+                <div className="loading-actions">
+                  <div className="loading-stalled-hint">{t('loadingConnectingStalled')}</div>
+                  <button className="ghost loading-restart-btn" onClick={handleRestart}>
+                    {t('restartGateway')}
+                  </button>
+                </div>
+              ) : null}
               <div className="loading-progress">
                 <div className="loading-progress-bar" />
               </div>

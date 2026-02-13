@@ -344,7 +344,7 @@ export function renderStocks(props: StocksProps) {
                 <option value="full">${text.full}</option>
               </select>
             </label>
-            <label class="field field--toggle">
+            <div class="field field--toggle">
               <span>${text.fundamentals}</span>
               <label class="toggle">
                 <input
@@ -355,7 +355,7 @@ export function renderStocks(props: StocksProps) {
                 <span class="toggle__track" aria-hidden="true"></span>
                 <span class="toggle__thumb" aria-hidden="true"></span>
               </label>
-            </label>
+            </div>
             <label class="field">
               <span>${text.newsLimit}</span>
               <input

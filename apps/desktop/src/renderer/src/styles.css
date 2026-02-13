@@ -186,6 +186,15 @@ body {
   opacity: 0.7;
 }
 
+.status-model.status-detail {
+  max-width: 156px;
+  opacity: 0.9;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .status-dot {
   width: 7px;
   height: 7px;
@@ -458,6 +467,31 @@ button.ghost .nav-icon {
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
+}
+
+.loading-subtext {
+  color: var(--text-dim);
+  font-size: 11px;
+  max-width: 360px;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.loading-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-stalled-hint {
+  color: #f5c883;
+  font-size: 11px;
+}
+
+.loading-restart-btn {
+  padding: 6px 10px;
+  font-size: 11px;
 }
 
 .loading-progress {

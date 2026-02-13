@@ -72,6 +72,13 @@ let updateTimer = null;
 let autoUpdater = null;
 let gatewayToken = "";
 let gatewayRestartTimer = null;
+let gatewayStatus = {
+  running: false,
+  stage: "idle",
+  message: "",
+  attempts: 0,
+  lastExitCode: null
+};
 function ensureConfig() {
   if (!IS_PACKAGED) {
     const dotenvPath = join(REPO_ROOT, ".env");
@@ -153,19 +160,40 @@ async function probeGatewayHealth(timeoutMs = 2e3) {
     clearTimeout(timer);
   }
 }
-function broadcastGatewayStatus(running) {
-  mainWindow?.webContents.send("gateway:status", { running });
+function broadcastGatewayStatus(running, patch = {}) {
+  gatewayStatus = {
+    ...gatewayStatus,
+    ...patch,
+    running
+  };
+  mainWindow?.webContents.send("gateway:status", gatewayStatus);
 }
 function startGateway() {
   if (gatewayProc) return;
   void (async () => {
+    broadcastGatewayStatus(false, {
+      stage: "checking",
+      message: "Checking existing gateway health..."
+    });
     const alreadyRunning = await probeGatewayHealth();
     if (alreadyRunning) {
       console.log("[Desktop] external gateway already running");
-      broadcastGatewayStatus(true);
+      broadcastGatewayStatus(true, {
+        stage: "running",
+        message: "Connected to existing gateway.",
+        attempts: 0,
+        lastExitCode: null
+      });
       return;
     }
     console.log("[Desktop] starting gateway subprocess", { packaged: IS_PACKAGED });
+    const attempt = gatewayStatus.attempts + 1;
+    broadcastGatewayStatus(false, {
+      stage: "starting",
+      attempts: attempt,
+      message: `Starting gateway process (attempt ${attempt})...`,
+      lastExitCode: null
+    });
     let child;
     if (IS_PACKAGED) {
       const entryScript = join(GATEWAY_BUNDLE_DIR, "marketbot.mjs");
@@ -211,10 +239,20 @@ function startGateway() {
       );
     }
     gatewayProc = child;
+    child.on("error", (err) => {
+      broadcastGatewayStatus(false, {
+        stage: "error",
+        message: `Gateway process error: ${String(err)}`
+      });
+    });
     child.on("exit", (code) => {
       console.log("[Desktop] gateway exited", { code });
       gatewayProc = null;
-      broadcastGatewayStatus(false);
+      broadcastGatewayStatus(false, {
+        stage: isQuitting ? "idle" : "retrying",
+        message: isQuitting ? "Gateway stopped." : `Gateway exited (code ${String(code ?? "null")}). Retrying in 3s...`,
+        lastExitCode: code ?? null
+      });
       if (!isQuitting) {
         console.log("[Desktop] scheduling gateway restart in 3s");
         gatewayRestartTimer = setTimeout(() => {
@@ -225,7 +263,19 @@ function startGateway() {
     });
     await new Promise((r) => setTimeout(r, 2e3));
     const running = await probeGatewayHealth();
-    broadcastGatewayStatus(running);
+    if (running) {
+      broadcastGatewayStatus(true, {
+        stage: "running",
+        message: "Gateway is ready.",
+        attempts: 0,
+        lastExitCode: null
+      });
+    } else {
+      broadcastGatewayStatus(false, {
+        stage: "retrying",
+        message: "Gateway health check failed. Retrying..."
+      });
+    }
   })();
 }
 function stopGateway() {
@@ -233,11 +283,22 @@ function stopGateway() {
     clearTimeout(gatewayRestartTimer);
     gatewayRestartTimer = null;
   }
-  if (!gatewayProc) return;
+  if (!gatewayProc) {
+    broadcastGatewayStatus(false, {
+      stage: "idle",
+      message: "Gateway is not running.",
+      attempts: 0
+    });
+    return;
+  }
   console.log("[Desktop] stopping gateway");
   gatewayProc.kill("SIGTERM");
   gatewayProc = null;
-  broadcastGatewayStatus(false);
+  broadcastGatewayStatus(false, {
+    stage: "idle",
+    message: "Gateway stopped.",
+    attempts: 0
+  });
 }
 function ensureTray() {
   if (tray) return;
@@ -467,6 +528,7 @@ app.whenReady().then(async () => {
   const webviewPreloadPath = resolveWebviewPreloadPath();
   ipcMain.handle("gateway:token", () => gatewayToken);
   ipcMain.handle("gateway:url", () => GATEWAY_URL);
+  ipcMain.handle("gateway:status:get", () => gatewayStatus);
   ipcMain.handle("webview:preload-path", () => `file://${webviewPreloadPath}`);
   ipcMain.handle("gateway:restart", () => {
     stopGateway();

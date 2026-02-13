@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("marketbot", {
   getGatewayToken: () => ipcRenderer.invoke("gateway:token"),
   getGatewayUrl: () => ipcRenderer.invoke("gateway:url"),
+  getGatewayStatus: () => ipcRenderer.invoke("gateway:status:get"),
   getWebviewPreloadPath: () => ipcRenderer.invoke("webview:preload-path"),
   restartGateway: () => ipcRenderer.invoke("gateway:restart"),
   openExternal: (url) => ipcRenderer.invoke("shell:open", url),

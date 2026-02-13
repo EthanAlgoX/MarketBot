@@ -114,6 +114,23 @@ let autoUpdater: (typeof import('electron-updater'))['autoUpdater'] | null = nul
 let gatewayToken = '';
 let gatewayRestartTimer: NodeJS.Timeout | null = null;
 
+type GatewayStatusStage = 'idle' | 'checking' | 'starting' | 'running' | 'retrying' | 'error';
+type GatewayStatusPayload = {
+  running: boolean;
+  stage: GatewayStatusStage;
+  message?: string;
+  attempts: number;
+  lastExitCode?: number | null;
+};
+
+let gatewayStatus: GatewayStatusPayload = {
+  running: false,
+  stage: 'idle',
+  message: '',
+  attempts: 0,
+  lastExitCode: null,
+};
+
 // ── Config & Token bootstrap ──
 // Ensures ~/.marketbot/marketbot.json exists with a gateway auth token.
 // If none exists, generates one automatically so the app works out of the box.
@@ -221,8 +238,16 @@ async function probeGatewayHealth(timeoutMs = 2000): Promise<boolean> {
   }
 }
 
-function broadcastGatewayStatus(running: boolean) {
-  mainWindow?.webContents.send('gateway:status', { running });
+function broadcastGatewayStatus(
+  running: boolean,
+  patch: Partial<Omit<GatewayStatusPayload, 'running'>> = {},
+) {
+  gatewayStatus = {
+    ...gatewayStatus,
+    ...patch,
+    running,
+  };
+  mainWindow?.webContents.send('gateway:status', gatewayStatus);
 }
 
 // ── Gateway lifecycle ──
@@ -234,15 +259,32 @@ function startGateway() {
   if (gatewayProc) return;
 
   void (async () => {
+    broadcastGatewayStatus(false, {
+      stage: 'checking',
+      message: 'Checking existing gateway health...',
+    });
+
     // If an external gateway is already running (e.g. CLI), piggyback on it.
     const alreadyRunning = await probeGatewayHealth();
     if (alreadyRunning) {
       console.log('[Desktop] external gateway already running');
-      broadcastGatewayStatus(true);
+      broadcastGatewayStatus(true, {
+        stage: 'running',
+        message: 'Connected to existing gateway.',
+        attempts: 0,
+        lastExitCode: null,
+      });
       return;
     }
 
     console.log('[Desktop] starting gateway subprocess', { packaged: IS_PACKAGED });
+    const attempt = gatewayStatus.attempts + 1;
+    broadcastGatewayStatus(false, {
+      stage: 'starting',
+      attempts: attempt,
+      message: `Starting gateway process (attempt ${attempt})...`,
+      lastExitCode: null,
+    });
 
     let child: ChildProcess;
 
@@ -296,10 +338,23 @@ function startGateway() {
 
     gatewayProc = child;
 
+    child.on('error', (err) => {
+      broadcastGatewayStatus(false, {
+        stage: 'error',
+        message: `Gateway process error: ${String(err)}`,
+      });
+    });
+
     child.on('exit', (code) => {
       console.log('[Desktop] gateway exited', { code });
       gatewayProc = null;
-      broadcastGatewayStatus(false);
+      broadcastGatewayStatus(false, {
+        stage: isQuitting ? 'idle' : 'retrying',
+        message: isQuitting
+          ? 'Gateway stopped.'
+          : `Gateway exited (code ${String(code ?? 'null')}). Retrying in 3s...`,
+        lastExitCode: code ?? null,
+      });
 
       // Auto-restart unless we're quitting.
       if (!isQuitting) {
@@ -314,7 +369,19 @@ function startGateway() {
     // Wait briefly then confirm it's up.
     await new Promise((r) => setTimeout(r, 2000));
     const running = await probeGatewayHealth();
-    broadcastGatewayStatus(running);
+    if (running) {
+      broadcastGatewayStatus(true, {
+        stage: 'running',
+        message: 'Gateway is ready.',
+        attempts: 0,
+        lastExitCode: null,
+      });
+    } else {
+      broadcastGatewayStatus(false, {
+        stage: 'retrying',
+        message: 'Gateway health check failed. Retrying...',
+      });
+    }
   })();
 }
 
@@ -323,11 +390,22 @@ function stopGateway() {
     clearTimeout(gatewayRestartTimer);
     gatewayRestartTimer = null;
   }
-  if (!gatewayProc) return;
+  if (!gatewayProc) {
+    broadcastGatewayStatus(false, {
+      stage: 'idle',
+      message: 'Gateway is not running.',
+      attempts: 0,
+    });
+    return;
+  }
   console.log('[Desktop] stopping gateway');
   gatewayProc.kill('SIGTERM');
   gatewayProc = null;
-  broadcastGatewayStatus(false);
+  broadcastGatewayStatus(false, {
+    stage: 'idle',
+    message: 'Gateway stopped.',
+    attempts: 0,
+  });
 }
 
 // ── Tray ──
@@ -592,6 +670,7 @@ app.whenReady().then(async () => {
   const webviewPreloadPath = resolveWebviewPreloadPath();
   ipcMain.handle('gateway:token', () => gatewayToken);
   ipcMain.handle('gateway:url', () => GATEWAY_URL);
+  ipcMain.handle('gateway:status:get', () => gatewayStatus);
   ipcMain.handle('webview:preload-path', () => `file://${webviewPreloadPath}`);
   ipcMain.handle('gateway:restart', () => {
     stopGateway();
