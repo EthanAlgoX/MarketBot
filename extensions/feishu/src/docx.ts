@@ -441,6 +441,7 @@ export function registerFeishuDocTools(api: MarketBotPluginApi) {
               return json({ error: err instanceof Error ? err.message : String(err) });
             }
           }
+        };
       },
       { name: "feishu_doc" },
     );
