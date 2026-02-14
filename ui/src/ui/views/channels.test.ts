@@ -179,7 +179,37 @@ describe("channels view", () => {
       container.querySelectorAll(".channels-grid .card-title"),
     ).map((el) => el.textContent?.trim());
 
-    expect(titles).toContain("feishu");
-    expect(titles).toContain("dingtalk");
+    expect(titles).toContain("Feishu");
+    expect(titles).toContain("DingTalk");
+  });
+
+  it("shows localized baseline plugin channel labels in Chinese mode", () => {
+    const container = document.createElement("div");
+    render(
+      renderChannels(
+        createProps({
+          language: "zh",
+          snapshot: createSnapshot({
+            channelOrder: ["discord"],
+            channelLabels: { discord: "Discord" },
+            channels: {
+              discord: {
+                configured: true,
+                running: true,
+              },
+            },
+            channelAccounts: { discord: [] },
+          }),
+        }),
+      ),
+      container,
+    );
+
+    const titles = Array.from(
+      container.querySelectorAll(".channels-grid .card-title"),
+    ).map((el) => el.textContent?.trim());
+
+    expect(titles).toContain("飞书");
+    expect(titles).toContain("钉钉");
   });
 });

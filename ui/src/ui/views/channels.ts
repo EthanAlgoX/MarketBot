@@ -86,6 +86,30 @@ const CHANNEL_ORDER_BASELINE: ChannelKey[] = [
   "tlon",
 ];
 
+const CHANNEL_LABEL_BASELINE: Record<string, { en: string; zh: string }> = {
+  telegram: { en: "Telegram", zh: "Telegram" },
+  whatsapp: { en: "WhatsApp", zh: "WhatsApp" },
+  discord: { en: "Discord", zh: "Discord" },
+  googlechat: { en: "Google Chat", zh: "Google Chat" },
+  slack: { en: "Slack", zh: "Slack" },
+  signal: { en: "Signal", zh: "Signal" },
+  imessage: { en: "iMessage", zh: "iMessage" },
+  bluebubbles: { en: "BlueBubbles", zh: "BlueBubbles" },
+  mattermost: { en: "Mattermost", zh: "Mattermost" },
+  feishu: { en: "Feishu", zh: "飞书" },
+  nostr: { en: "Nostr", zh: "Nostr" },
+  msteams: { en: "Microsoft Teams", zh: "微软 Teams" },
+  "nextcloud-talk": { en: "Nextcloud Talk", zh: "Nextcloud Talk" },
+  matrix: { en: "Matrix", zh: "Matrix" },
+  wecom: { en: "WeCom", zh: "企业微信" },
+  dingtalk: { en: "DingTalk", zh: "钉钉" },
+  qqbot: { en: "QQ Bot", zh: "QQ 机器人" },
+  line: { en: "LINE", zh: "LINE" },
+  zalo: { en: "Zalo", zh: "Zalo" },
+  zalouser: { en: "Zalo Personal", zh: "Zalo 个人号" },
+  tlon: { en: "Tlon", zh: "Tlon" },
+};
+
 export function renderChannels(props: ChannelsProps) {
   const language = props.language ?? "en";
   const text = CHANNELS_TEXT[language] ?? CHANNELS_TEXT.en;
@@ -269,7 +293,7 @@ function renderGenericChannelCard(
   channelAccounts: Record<string, ChannelAccountSnapshot[]>,
   text: (typeof CHANNELS_TEXT)["en"],
 ) {
-  const label = resolveChannelLabel(props.snapshot, key);
+  const label = resolveChannelLabel(props.snapshot, key, props.language ?? "en");
   const status = props.snapshot?.channels?.[key] as Record<string, unknown> | undefined;
   const configured = typeof status?.configured === "boolean" ? status.configured : undefined;
   const running = typeof status?.running === "boolean" ? status.running : undefined;
@@ -328,9 +352,14 @@ function resolveChannelMetaMap(
 function resolveChannelLabel(
   snapshot: ChannelsStatusSnapshot | null,
   key: string,
+  language: "en" | "zh",
 ): string {
   const meta = resolveChannelMetaMap(snapshot)[key];
-  return meta?.label ?? snapshot?.channelLabels?.[key] ?? key;
+  const baseline = CHANNEL_LABEL_BASELINE[key];
+  if (language === "zh" && baseline?.zh) {
+    return baseline.zh;
+  }
+  return meta?.label ?? snapshot?.channelLabels?.[key] ?? baseline?.en ?? key;
 }
 
 const RECENT_ACTIVITY_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
