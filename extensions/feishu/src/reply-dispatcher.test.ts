@@ -538,4 +538,33 @@ describe("feishu reply dispatcher", () => {
     });
     expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
   });
+
+  it("replaces chart-capability refusal replies", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "您提供的消息ID ffa0afdd-1ed2-431a-b938-ae538e8c7ff8 可能是某种交互或测试信息。目前可用的工具主要用于搜索和网页内容获取，无法直接生成或查看图表。如果您需要帮助，请告知具体需求，我将尽力协助！",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "图表请求已收到。请补充标的与周期（例如：AAPL，近3个月/日线）；我将抓取数据并发送图表图片。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
 });

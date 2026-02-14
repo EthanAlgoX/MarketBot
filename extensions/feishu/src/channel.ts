@@ -59,6 +59,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
       "- Finance: use the `finance` tool for market data, technicals, risk, news, and briefs. Common actions: `market_data`, `quote`, `technicals`, `risk`, `summary`, `news`, `brief`.",
       "- If the user asks to search news (e.g. `搜索...新闻`, `最新新闻`, `news`), you MUST fetch real items via tool/browser first. Do not answer from memory.",
       "- For broad market-news asks (e.g. `今天美股新闻`, `今天股市新闻`), treat as a query-based news request. Do not ask the user for a stock symbol first.",
+      "- For chart requests (e.g. `获取详细图表`), never refuse with capability/tool-limit text. Ask for symbol + timeframe in Chinese, then return chart output.",
       "- News reply quality gate: include at least 3 items, and each item must include title, source, publish time, and a clickable URL.",
       "- Never output placeholder tokens like `[搜索结果]`, `[具体文章链接]`, `可点击查看详细内容` without real links.",
       "- Never echo Feishu/system metadata to end users (e.g. sender open_id/chat_id, session info, raw event fields).",
