@@ -93,8 +93,12 @@ const FEISHU_SEARCH_KEY_ERROR_FALLBACK_TEXT =
   "实时新闻检索服务当前不可用（搜索密钥未配置或不可用）。请稍后重试，或改为“今天美股新闻，返回5条（标题/来源/时间/链接）”。";
 const FEISHU_FINANCE_PARAM_ERROR_FALLBACK_TEXT =
   "新闻检索参数不足（symbol 要求不适用于本次泛市场请求）。请重试：例如“今天美股新闻，返回5条（标题/来源/时间/链接）”；也可指定“美股新闻 AAPL”。";
+const FEISHU_SYMBOL_REQUIRED_FALLBACK_TEXT =
+  "已识别为 symbol 参数缺失。若你要“美股七姐妹图表”，我将按 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA 生成并发送；也可直接指定单个代码与周期（如 AAPL 日线近3个月）。";
 const FEISHU_CHART_REFUSAL_FALLBACK_TEXT =
   "图表请求已收到。请补充标的与周期（例如：AAPL，近3个月/日线）；我将抓取数据并发送图表图片。";
+const FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT =
+  "已忽略无关的 Feishu 文档参数报错（space_id 等）。我将直接使用浏览器与行情工具抓取美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）并绘制图表。";
 
 function claimsImageDelivered(text: string): boolean {
   if (!text.trim()) {
@@ -167,6 +171,7 @@ function looksLikeInternalTraceLeak(text: string): boolean {
   }
 
   return (
+    /(?:^|\n)\s*_forum\b/i.test(trimmed) ||
     /(?:^|\n)\s*\/thinking\b/i.test(trimmed) ||
     /\[web_search_result]/i.test(trimmed) ||
     /\[message_id:[^\]]+]/i.test(trimmed) ||
@@ -199,12 +204,13 @@ function looksLikeFinanceSymbolParamError(text: string): boolean {
     return false;
   }
 
-  const hasSymbolRequired = /(symbol required|requires a symbol parameter|provide the market symbol)/i.test(
-    trimmed,
-  );
-  const hasFinanceFunction = /(finance function|finance tool|function call)/i.test(trimmed);
-  const hasQuestionContext = /(today.*stock.*news|今天.*股市.*新闻|今天.*美股.*新闻)/i.test(trimmed);
-  return hasSymbolRequired && (hasFinanceFunction || hasQuestionContext);
+  const hasSymbolRequired =
+    /(symbol required|requires a symbol parameter|symbol parameter|provide (?:the )?symbol|market symbol|included in the call)/i.test(
+      trimmed,
+    );
+  const hasErrorFrame =
+    /(error indicates|not included|missing|requires|to resolve|please provide)/i.test(trimmed);
+  return hasSymbolRequired && hasErrorFrame;
 }
 
 function looksLikeChartCapabilityRefusal(text: string): boolean {
@@ -225,6 +231,23 @@ function looksLikeChartCapabilityRefusal(text: string): boolean {
   const hasToolExcuse =
     /(消息ID|message\s*id|测试信息|交互|工具|tool|web(?:_search)?|搜索|网页内容)/i.test(trimmed);
   return hasRefusal && hasToolExcuse;
+}
+
+function looksLikeFeishuDocArgError(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || hasUrl(trimmed)) {
+    return false;
+  }
+
+  const hasDocTerms = /(Feishu document|feishu[_\s-]?doc|文档|space_id|folder token|path argument)/i.test(
+    trimmed,
+  );
+  const hasErrorTerms =
+    /(error|requires?|missing|not included|correct function call|please provide|参数|缺失|报错)/i.test(
+      trimmed,
+    );
+  const hasWrongAskContext = /(图表|股票|美股|七姐妹|行情|数据|news|chart)/i.test(trimmed);
+  return hasDocTerms && hasErrorTerms && hasWrongAskContext;
 }
 
 /**
@@ -363,13 +386,22 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           params.runtime.log?.(
             `feishu deliver: detected finance symbol parameter error reply, replacing with fallback text`,
           );
-          text = FEISHU_FINANCE_PARAM_ERROR_FALLBACK_TEXT;
+          const hasSevenSistersHint = /(七姐妹|magnificent\s*7|mag\s*7)/i.test(payloadText);
+          text = hasSevenSistersHint
+            ? FEISHU_SYMBOL_REQUIRED_FALLBACK_TEXT
+            : FEISHU_FINANCE_PARAM_ERROR_FALLBACK_TEXT;
         }
         if (looksLikeChartCapabilityRefusal(text)) {
           params.runtime.log?.(
             `feishu deliver: detected chart capability refusal reply, replacing with fallback text`,
           );
           text = FEISHU_CHART_REFUSAL_FALLBACK_TEXT;
+        }
+        if (looksLikeFeishuDocArgError(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected feishu-doc argument error leakage, replacing with fallback text`,
+          );
+          text = FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT;
         }
         const hasText = Boolean(text.trim());
         if (!hasText && !hasMedia) {
