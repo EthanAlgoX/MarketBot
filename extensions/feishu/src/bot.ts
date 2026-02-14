@@ -789,6 +789,7 @@ export async function handleFeishuMessage(params: {
       runtime: runtime as RuntimeEnv,
       chatId: ctx.chatId,
       replyToMessageId: ctx.messageId,
+      sourceText: ctx.content,
       mentionTargets: ctx.mentionTargets,
     });
 

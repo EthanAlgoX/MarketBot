@@ -97,6 +97,8 @@ const FEISHU_SYMBOL_REQUIRED_FALLBACK_TEXT =
   "已识别为 symbol 参数缺失。若你要“美股七姐妹图表”，我将按 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA 生成并发送；也可直接指定单个代码与周期（如 AAPL 日线近3个月）。";
 const FEISHU_CHART_REFUSAL_FALLBACK_TEXT =
   "图表请求已收到。请补充标的与周期（例如：AAPL，近3个月/日线）；我将抓取数据并发送图表图片。";
+const FEISHU_CHART_NEWS_MISROUTE_FALLBACK_TEXT =
+  "图表请求误入新闻检索流程，已自动纠正。我将按美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）抓取行情并绘制图表后发送。";
 const FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT =
   "已忽略无关的 Feishu 文档参数报错（space_id 等）。我将直接使用浏览器与行情工具抓取美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）并绘制图表。";
 
@@ -118,6 +120,22 @@ function claimsImageDelivered(text: string): boolean {
 
 function hasUrl(text: string): boolean {
   return /https?:\/\/\S+/i.test(text);
+}
+
+function looksLikeNewsIntent(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return /(新闻|news|headline|快讯|资讯|要闻)/i.test(trimmed);
+}
+
+function looksLikeChartIntent(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return /(图表|走势图|k线|chart|graph|plot|绘图|绘制|画图|行情图)/i.test(trimmed);
 }
 
 function looksLikePlaceholderNewsResult(text: string): boolean {
@@ -249,6 +267,23 @@ function looksLikeFeishuDocArgError(text: string): boolean {
   return hasDocTerms && hasErrorTerms;
 }
 
+function looksLikeFeishuWikiActionError(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || hasUrl(trimmed)) {
+    return false;
+  }
+
+  const hasWikiTerms = /(Feishu Wiki|wiki)/i.test(trimmed);
+  const hasSearchUnavailable =
+    /(search[\"']?\s*action\s*(?:is\s*)?not\s*available|action\s*[\"']?search[\"']?\s*is\s*not\s*available)/i.test(
+      trimmed,
+    );
+  const hasWrongGuidance = /(nodes\s*action|get\s*action|node\s*token)/i.test(trimmed);
+  const hasErrorFrame = /(error message indicates|instead,?\s*you should use|to resolve)/i.test(trimmed);
+
+  return hasWikiTerms && hasSearchUnavailable && hasWrongGuidance && hasErrorFrame;
+}
+
 /**
  * Detect if text contains markdown elements that benefit from card rendering.
  * Used by auto render mode.
@@ -271,6 +306,8 @@ export type CreateFeishuReplyDispatcherParams = {
   runtime: RuntimeEnv;
   chatId: string;
   replyToMessageId?: string;
+  /** User inbound text for intent-aware fallback routing. */
+  sourceText?: string;
   /** Mention targets, will be auto-included in replies */
   mentionTargets?: MentionTarget[];
 };
@@ -342,6 +379,8 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
       deliver: async (payload: ReplyPayload) => {
         params.runtime.log?.(`feishu deliver called: text=${payload.text?.slice(0, 100)}`);
         const payloadText = payload.text ?? "";
+        const intentText = params.sourceText?.trim() ? params.sourceText : payloadText;
+        const hasSevenSistersHint = /(七姐妹|magnificent\s*7|mag\s*7)/i.test(intentText);
         const extracted = extractMarkdownMedia(payloadText);
         let text = extracted.text;
         const mediaListRaw = payload.mediaUrls?.length
@@ -358,10 +397,19 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           text = FEISHU_MISSING_IMAGE_FALLBACK_TEXT;
         }
         if (looksLikePlaceholderNewsResult(text)) {
-          params.runtime.log?.(
-            `feishu deliver: detected placeholder news result without real links, replacing with fallback text`,
-          );
-          text = FEISHU_MISSING_NEWS_FALLBACK_TEXT;
+          if (looksLikeNewsIntent(intentText)) {
+            params.runtime.log?.(
+              `feishu deliver: detected placeholder news result without real links, replacing with news fallback text`,
+            );
+            text = FEISHU_MISSING_NEWS_FALLBACK_TEXT;
+          } else if (looksLikeChartIntent(intentText) || hasSevenSistersHint) {
+            params.runtime.log?.(
+              `feishu deliver: detected placeholder news output in chart flow, replacing with chart fallback text`,
+            );
+            text = hasSevenSistersHint
+              ? FEISHU_CHART_NEWS_MISROUTE_FALLBACK_TEXT
+              : FEISHU_CHART_REFUSAL_FALLBACK_TEXT;
+          }
         }
         if (looksLikeFeishuMetaEcho(text)) {
           params.runtime.log?.(
@@ -372,6 +420,12 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
         if (looksLikeFeishuDocArgError(text)) {
           params.runtime.log?.(
             `feishu deliver: detected feishu-doc argument error leakage, replacing with fallback text`,
+          );
+          text = FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT;
+        }
+        if (looksLikeFeishuWikiActionError(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected feishu wiki action error leakage, replacing with fallback text`,
           );
           text = FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT;
         }
@@ -391,7 +445,6 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           params.runtime.log?.(
             `feishu deliver: detected finance symbol parameter error reply, replacing with fallback text`,
           );
-          const hasSevenSistersHint = /(七姐妹|magnificent\s*7|mag\s*7)/i.test(payloadText);
           text = hasSevenSistersHint
             ? FEISHU_SYMBOL_REQUIRED_FALLBACK_TEXT
             : FEISHU_FINANCE_PARAM_ERROR_FALLBACK_TEXT;

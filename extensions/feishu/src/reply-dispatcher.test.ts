@@ -311,6 +311,35 @@ describe("feishu reply dispatcher", () => {
     expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
   });
 
+  it("uses chart fallback when placeholder news appears in seven-sisters chart flow", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+      sourceText: "使用浏览器抓取美股七姐妹是哪些股票，再搜索相关股票数据，最后绘制图表",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "搜索结果如下：\n[搜索结果]\n- 今日美股新闻",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "图表请求误入新闻检索流程，已自动纠正。我将按美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）抓取行情并绘制图表后发送。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
   it("keeps news response when real links exist", async () => {
     createFeishuReplyDispatcher({
       cfg,
@@ -699,6 +728,35 @@ describe("feishu reply dispatcher", () => {
     await deliver!({
       text:
         "_forum\n\nThe error message indicates that the request miss the space_id path argument when trying to access a Feishu document.",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "已忽略无关的 Feishu 文档参数报错（space_id 等）。我将直接使用浏览器与行情工具抓取美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）并绘制图表。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
+  it("replaces feishu wiki search-action leakage", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "The error message indicates that the \"search\" action is not available for the Feishu Wiki. Instead, you should use the following actions: Use the nodes action to search for content. Or use the get action to look up a node by its token.",
     });
 
     expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
