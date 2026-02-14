@@ -87,6 +87,12 @@ const FEISHU_MISSING_NEWS_FALLBACK_TEXT =
   "未获取到有效新闻结果（缺少真实链接或命中占位文本）。请稍后重试，或改为“搜索美团新闻，返回5条（标题/来源/时间/链接）”。";
 const FEISHU_INVALID_META_ECHO_FALLBACK_TEXT =
   "检测到无效系统元信息回复，未返回可用内容。请重试：例如“今天股市新闻，返回5条（标题/来源/时间/链接）”。";
+const FEISHU_INTERNAL_TRACE_FALLBACK_TEXT =
+  "检测到内部调试片段（/thinking 或 tool 原始块）泄漏，已拦截。请重试：例如“今天美股新闻，返回5条（标题/来源/时间/链接）”。";
+const FEISHU_SEARCH_KEY_ERROR_FALLBACK_TEXT =
+  "实时新闻检索服务当前不可用（搜索密钥未配置或不可用）。请稍后重试，或改为“今天美股新闻，返回5条（标题/来源/时间/链接）”。";
+const FEISHU_FINANCE_PARAM_ERROR_FALLBACK_TEXT =
+  "新闻检索参数不足（symbol 要求不适用于本次泛市场请求）。请重试：例如“今天美股新闻，返回5条（标题/来源/时间/链接）”；也可指定“美股新闻 AAPL”。";
 
 function claimsImageDelivered(text: string): boolean {
   if (!text.trim()) {
@@ -150,6 +156,53 @@ function looksLikeFeishuMetaEcho(text: string): boolean {
   const hasFiller = /(如有进一步问题|需要帮助|随时告诉我)/i.test(trimmed);
 
   return (hasMetaHeader && (hasSenderLine || hasFeishuId)) || (hasSenderLine && hasTopicLine && hasFiller);
+}
+
+function looksLikeInternalTraceLeak(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  return (
+    /(?:^|\n)\s*\/thinking\b/i.test(trimmed) ||
+    /\[web_search_result]/i.test(trimmed) ||
+    /\[message_id:[^\]]+]/i.test(trimmed) ||
+    /\[(?:tool|search|browser)_(?:result|output)]/i.test(trimmed)
+  );
+}
+
+function looksLikeSearchApiKeyError(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || hasUrl(trimmed)) {
+    return false;
+  }
+
+  const hasSearchKeyTerms =
+    /(Brave Search API key|brave api key|web_search|Tools\s*>\s*Web|search request|documentation here)/i.test(
+      trimmed,
+    );
+  const hasErrorFraming =
+    /(error indicates|required|configure|set your|ensure it'?s passed correctly|to resolve)/i.test(
+      trimmed,
+    );
+
+  const hasZhKeyTerms = /(搜索密钥|Brave.*密钥|web_search.*密钥|配置.*密钥)/i.test(trimmed);
+  return (hasSearchKeyTerms && hasErrorFraming) || hasZhKeyTerms;
+}
+
+function looksLikeFinanceSymbolParamError(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || hasUrl(trimmed)) {
+    return false;
+  }
+
+  const hasSymbolRequired = /(symbol required|requires a symbol parameter|provide the market symbol)/i.test(
+    trimmed,
+  );
+  const hasFinanceFunction = /(finance function|finance tool|function call)/i.test(trimmed);
+  const hasQuestionContext = /(today.*stock.*news|今天.*股市.*新闻|今天.*美股.*新闻)/i.test(trimmed);
+  return hasSymbolRequired && (hasFinanceFunction || hasQuestionContext);
 }
 
 /**
@@ -271,6 +324,24 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
             `feishu deliver: detected metadata-echo style reply, replacing with fallback text`,
           );
           text = FEISHU_INVALID_META_ECHO_FALLBACK_TEXT;
+        }
+        if (looksLikeInternalTraceLeak(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected internal trace leak in response, replacing with fallback text`,
+          );
+          text = FEISHU_INTERNAL_TRACE_FALLBACK_TEXT;
+        }
+        if (looksLikeSearchApiKeyError(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected search api key error reply, replacing with fallback text`,
+          );
+          text = FEISHU_SEARCH_KEY_ERROR_FALLBACK_TEXT;
+        }
+        if (looksLikeFinanceSymbolParamError(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected finance symbol parameter error reply, replacing with fallback text`,
+          );
+          text = FEISHU_FINANCE_PARAM_ERROR_FALLBACK_TEXT;
         }
         const hasText = Boolean(text.trim());
         if (!hasText && !hasMedia) {
