@@ -62,6 +62,30 @@ const CHANNELS_TEXT = {
   },
 } as const;
 
+const CHANNEL_ORDER_BASELINE: ChannelKey[] = [
+  "telegram",
+  "whatsapp",
+  "discord",
+  "googlechat",
+  "slack",
+  "signal",
+  "imessage",
+  "bluebubbles",
+  "mattermost",
+  "feishu",
+  "nostr",
+  "msteams",
+  "nextcloud-talk",
+  "matrix",
+  "wecom",
+  "dingtalk",
+  "qqbot",
+  "line",
+  "zalo",
+  "zalouser",
+  "tlon",
+];
+
 export function renderChannels(props: ChannelsProps) {
   const language = props.language ?? "en";
   const text = CHANNELS_TEXT[language] ?? CHANNELS_TEXT.en;
@@ -103,7 +127,7 @@ export function renderChannels(props: ChannelsProps) {
           imessage,
           nostr,
           channelAccounts: props.snapshot?.channelAccounts ?? null,
-        }),
+        }, text),
       )}
     </section>
 
@@ -128,28 +152,30 @@ ${props.snapshot ? JSON.stringify(props.snapshot, null, 2) : text.noSnapshot}
 }
 
 function resolveChannelOrder(snapshot: ChannelsStatusSnapshot | null): ChannelKey[] {
-  if (snapshot?.channelMeta?.length) {
-    return snapshot.channelMeta.map((entry) => entry.id) as ChannelKey[];
-  }
-  if (snapshot?.channelOrder?.length) {
-    return snapshot.channelOrder;
-  }
-  return [
-    "whatsapp",
-    "telegram",
-    "discord",
-    "googlechat",
-    "slack",
-    "signal",
-    "imessage",
-    "nostr",
-  ];
+  const ordered: ChannelKey[] = [];
+  const seen = new Set<string>();
+  const add = (ids?: string[] | null) => {
+    if (!ids?.length) return;
+    for (const raw of ids) {
+      const id = raw?.trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      ordered.push(id);
+    }
+  };
+
+  add(snapshot?.channelMeta?.map((entry) => entry.id) ?? null);
+  add(snapshot?.channelOrder ?? null);
+  add(snapshot ? Object.keys(snapshot.channels ?? {}) : null);
+  add(CHANNEL_ORDER_BASELINE);
+  return ordered;
 }
 
 function renderChannel(
   key: ChannelKey,
   props: ChannelsProps,
   data: ChannelsChannelData,
+  text: (typeof CHANNELS_TEXT)["en"],
 ) {
   const accountCountLabel = renderChannelAccountCount(
     key,

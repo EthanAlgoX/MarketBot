@@ -179,6 +179,7 @@ describe("gateway server channels", () => {
     vi.stubEnv("TELEGRAM_BOT_TOKEN", undefined);
     setRegistry(defaultRegistry);
     const res = await rpcReq<{
+      channelOrder?: string[];
       channels?: Record<
         string,
         | {
@@ -201,6 +202,7 @@ describe("gateway server channels", () => {
     expect(signal?.configured).toBe(false);
     expect(signal?.probe).toBeUndefined();
     expect(signal?.lastProbeAt).toBeNull();
+    expect(res.payload?.channelOrder).toContain("feishu");
   });
 
   test("channels.logout reports no session when missing", async () => {

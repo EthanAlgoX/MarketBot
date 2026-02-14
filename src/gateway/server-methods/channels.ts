@@ -24,9 +24,17 @@ import {
   listChannelPlugins,
   normalizeChannelId,
 } from "../../channels/plugins/index.js";
-import { buildChannelUiCatalog } from "../../channels/plugins/catalog.js";
+import {
+  buildChannelUiCatalog,
+  listChannelPluginCatalogEntries,
+} from "../../channels/plugins/catalog.js";
 import { buildChannelAccountSnapshot } from "../../channels/plugins/status.js";
-import type { ChannelAccountSnapshot, ChannelPlugin } from "../../channels/plugins/types.js";
+import type {
+  ChannelAccountSnapshot,
+  ChannelMeta,
+  ChannelPlugin,
+} from "../../channels/plugins/types.js";
+import { listChatChannels } from "../../channels/registry.js";
 import type { MarketBotConfig } from "../../config/config.js";
 import { loadConfig, readConfigFileSnapshot } from "../../config/config.js";
 import { getChannelActivity } from "../../infra/channel-activity.js";
@@ -48,6 +56,45 @@ type ChannelLogoutPayload = {
   cleared: boolean;
   [key: string]: unknown;
 };
+
+function buildStatusUiEntries(plugins: ChannelPlugin[]): Array<{ id: string; meta: ChannelMeta }> {
+  const orderedIds: string[] = [];
+  const seenOrder = new Set<string>();
+  const byId = new Map<string, { id: string; meta: ChannelMeta }>();
+
+  const addOrder = (id: string) => {
+    const trimmed = id.trim();
+    if (!trimmed || seenOrder.has(trimmed)) {
+      return;
+    }
+    seenOrder.add(trimmed);
+    orderedIds.push(trimmed);
+  };
+
+  // Core channels first so desktop always shows built-in entries (e.g. Feishu).
+  for (const meta of listChatChannels()) {
+    addOrder(meta.id);
+    byId.set(meta.id, { id: meta.id, meta });
+  }
+
+  // Add extension catalog channels so plugin channels remain visible pre-install.
+  for (const entry of listChannelPluginCatalogEntries()) {
+    addOrder(entry.id);
+    if (!byId.has(entry.id)) {
+      byId.set(entry.id, { id: entry.id, meta: entry.meta });
+    }
+  }
+
+  // Runtime-loaded plugins win metadata in case they provide richer labels/icons.
+  for (const plugin of plugins) {
+    addOrder(plugin.id);
+    byId.set(plugin.id, { id: plugin.id, meta: plugin.meta });
+  }
+
+  return orderedIds
+    .map((id) => byId.get(id))
+    .filter((entry): entry is { id: string; meta: ChannelMeta } => Boolean(entry));
+}
 
 export async function logoutChannelAccount(params: {
   channelId: ChannelId;
@@ -212,7 +259,7 @@ export const channelsHandlers: GatewayRequestHandlers = {
       return { accounts, defaultAccountId, defaultAccount, resolvedAccounts };
     };
 
-    const uiCatalog = buildChannelUiCatalog(plugins);
+    const uiCatalog = buildChannelUiCatalog(buildStatusUiEntries(plugins));
     const payload: Record<string, unknown> = {
       ts: Date.now(),
       channelOrder: uiCatalog.order,
@@ -249,6 +296,17 @@ export const channelsHandlers: GatewayRequestHandlers = {
       channelsMap[plugin.id] = summary;
       accountsMap[plugin.id] = accounts;
       defaultAccountIdMap[plugin.id] = defaultAccountId;
+    }
+    for (const channelId of uiCatalog.order) {
+      if (channelsMap[channelId] === undefined) {
+        channelsMap[channelId] = { configured: false };
+      }
+      if (accountsMap[channelId] === undefined) {
+        accountsMap[channelId] = [];
+      }
+      if (defaultAccountIdMap[channelId] === undefined) {
+        defaultAccountIdMap[channelId] = DEFAULT_ACCOUNT_ID;
+      }
     }
 
     respond(true, payload, undefined);

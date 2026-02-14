@@ -153,4 +153,33 @@ describe("channels view", () => {
     expect(titles[0]).toBe("Discord");
     expect(titles[1]).toBe("Slack");
   });
+
+  it("keeps baseline plugin channels visible when snapshot is sparse", () => {
+    const container = document.createElement("div");
+    render(
+      renderChannels(
+        createProps({
+          snapshot: createSnapshot({
+            channelOrder: ["discord"],
+            channelLabels: { discord: "Discord" },
+            channels: {
+              discord: {
+                configured: true,
+                running: true,
+              },
+            },
+            channelAccounts: { discord: [] },
+          }),
+        }),
+      ),
+      container,
+    );
+
+    const titles = Array.from(
+      container.querySelectorAll(".channels-grid .card-title"),
+    ).map((el) => el.textContent?.trim());
+
+    expect(titles).toContain("feishu");
+    expect(titles).toContain("dingtalk");
+  });
 });
