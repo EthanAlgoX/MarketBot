@@ -105,6 +105,10 @@ const FEISHU_PLACEHOLDER_URL_CHART_FALLBACK_TEXT =
   "检测到占位链接（example.com）导致抓取失败，已自动纠正。接下来我将基于美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）抓取真实行情并绘制图表。";
 const FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT =
   "已忽略无关的 Feishu 文档参数报错（space_id 等）。我将直接使用浏览器与行情工具抓取美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）并绘制图表。";
+const FEISHU_PROCESS_TEMPLATE_FALLBACK_TEXT =
+  "当前回复仅包含操作步骤，未返回实际结果。请重试同一请求，我会直接给出结果，不再输出过程说明。";
+const FEISHU_PROCESS_TEMPLATE_CHART_FALLBACK_TEXT =
+  "当前回复仅包含操作步骤，未返回实际结果。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。";
 
 function claimsImageDelivered(text: string): boolean {
   if (!text.trim()) {
@@ -306,6 +310,34 @@ function looksLikePlaceholderUrlFetchError(text: string): boolean {
   return hasFetchError && hasPlaceholderUrl && hasUrlFixGuidance;
 }
 
+function looksLikeExecutionIntent(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return /(抓取|搜索|查询|获取|绘制|画图|图表|行情|股票|新闻|news|chart|graph|fetch|quote|market data)/i.test(
+    trimmed,
+  );
+}
+
+function looksLikeProcessTemplateOutput(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const hasStepFraming =
+    /(要完成以下任务|按照以下步骤|请按以下步骤|步骤如下|操作示例|工具可用|请根据需求逐步执行)/i.test(
+      trimmed,
+    );
+  const hasToolPseudoCode =
+    /(?:^|\n)\s*(?:query|url|extractMode)\s*\{\s*["'{]/mi.test(trimmed) ||
+    /```[\s\S]*?(?:query|search_term|extractMode|example\.com)[\s\S]*?```/i.test(trimmed);
+  const hasEnumeratedSteps = /(?:^|\n)\s*(?:\d+[).、]|[-*])\s+\*\*?.+/m.test(trimmed);
+
+  return hasStepFraming && (hasToolPseudoCode || hasEnumeratedSteps);
+}
+
 /**
  * Detect if text contains markdown elements that benefit from card rendering.
  * Used by auto render mode.
@@ -402,7 +434,18 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
         params.runtime.log?.(`feishu deliver called: text=${payload.text?.slice(0, 100)}`);
         const payloadText = payload.text ?? "";
         const intentText = params.sourceText?.trim() ? params.sourceText : payloadText;
-        const hasSevenSistersHint = /(七姐妹|magnificent\s*7|mag\s*7)/i.test(intentText);
+        const combinedIntentText = `${intentText}\n${payloadText}`;
+        const hasSevenSistersHint = /(七姐妹|magnificent\s*7|mag\s*7)/i.test(combinedIntentText);
+        const looksLikeChartFlow =
+          hasSevenSistersHint ||
+          looksLikeChartIntent(intentText) ||
+          looksLikeChartIntent(payloadText);
+        const looksLikeNewsFlow =
+          looksLikeNewsIntent(intentText) ||
+          looksLikeNewsIntent(payloadText);
+        const looksLikeExecutionFlow =
+          looksLikeExecutionIntent(intentText) ||
+          looksLikeExecutionIntent(payloadText);
         const extracted = extractMarkdownMedia(payloadText);
         let text = extracted.text;
         const mediaListRaw = payload.mediaUrls?.length
@@ -419,18 +462,20 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           text = FEISHU_MISSING_IMAGE_FALLBACK_TEXT;
         }
         if (looksLikePlaceholderNewsResult(text)) {
-          if (looksLikeNewsIntent(intentText)) {
-            params.runtime.log?.(
-              `feishu deliver: detected placeholder news result without real links, replacing with news fallback text`,
-            );
-            text = FEISHU_MISSING_NEWS_FALLBACK_TEXT;
-          } else if (looksLikeChartIntent(intentText) || hasSevenSistersHint) {
+          // Chart intent wins over news intent when both keywords appear in the
+          // source text (e.g. forwarded replies containing prior "新闻" fallback text).
+          if (looksLikeChartFlow) {
             params.runtime.log?.(
               `feishu deliver: detected placeholder news output in chart flow, replacing with chart fallback text`,
             );
             text = hasSevenSistersHint
               ? FEISHU_CHART_NEWS_MISROUTE_FALLBACK_TEXT
               : FEISHU_CHART_REFUSAL_FALLBACK_TEXT;
+          } else if (looksLikeNewsFlow) {
+            params.runtime.log?.(
+              `feishu deliver: detected placeholder news result without real links, replacing with news fallback text`,
+            );
+            text = FEISHU_MISSING_NEWS_FALLBACK_TEXT;
           }
         }
         if (looksLikeFeishuMetaEcho(text)) {
@@ -456,9 +501,17 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
             `feishu deliver: detected placeholder-url fetch error leakage, replacing with fallback text`,
           );
           text =
-            looksLikeChartIntent(intentText) || hasSevenSistersHint
+            looksLikeChartFlow
               ? FEISHU_PLACEHOLDER_URL_CHART_FALLBACK_TEXT
               : FEISHU_PLACEHOLDER_URL_FALLBACK_TEXT;
+        }
+        if (looksLikeExecutionFlow && looksLikeProcessTemplateOutput(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected process-template output without final result, replacing with result-oriented fallback text`,
+          );
+          text = looksLikeChartFlow
+            ? FEISHU_PROCESS_TEMPLATE_CHART_FALLBACK_TEXT
+            : FEISHU_PROCESS_TEMPLATE_FALLBACK_TEXT;
         }
         if (looksLikeInternalTraceLeak(text)) {
           params.runtime.log?.(

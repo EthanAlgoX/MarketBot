@@ -340,6 +340,36 @@ describe("feishu reply dispatcher", () => {
     expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
   });
 
+  it("prefers chart fallback when source text contains both chart and news keywords", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+      sourceText:
+        "回复 Ethan:\n使用浏览器抓取美股七姐妹是哪些股票，再搜索相关股票数据，最后绘制图表。\n未获取到有效新闻结果（缺少真实链接或命中占位文本）。",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "搜索结果如下：\n[搜索结果]\n- 今日美股新闻",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "图表请求误入新闻检索流程，已自动纠正。我将按美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）抓取行情并绘制图表后发送。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
   it("keeps news response when real links exist", async () => {
     createFeishuReplyDispatcher({
       cfg,
@@ -794,6 +824,36 @@ describe("feishu reply dispatcher", () => {
       cfg,
       to: "ou_user_1",
       text: "检测到占位链接（example.com）导致抓取失败，已自动纠正。接下来我将基于美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）抓取真实行情并绘制图表。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
+  it("replaces process-only step template output in seven-sisters chart flow", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+      sourceText: "使用浏览器抓取美股七姐妹是哪些股票，再搜索相关股票数据，最后绘制图表",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "要完成以下任务，请按照以下步骤进行操作：\n\n1. **使用浏览器抓取美股七姐妹股票数据**\n**工具可用**：web_search\n```\\nquery { \"search_term\": \"美股七姐妹股票\" }\\n```\n\n2. **搜索相关股票数据**\n**工具可用**：web_search\n```\\nquery { \"search_term\": \"美股七姐妹股票数据\" }\\n```\n\n3. **绘制股票数据图表**\n**工具可用**：web_fetch\n```\\nurl { \"url\": \"https://example.com/stock-data\" }\\nextractMode { \"markdown\" }\\n```\n\n请根据需求逐步执行这三个步骤。",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "当前回复仅包含操作步骤，未返回实际结果。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。",
       replyToMessageId: "om_reply",
       mentions: undefined,
     });

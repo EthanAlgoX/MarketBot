@@ -62,6 +62,8 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
       "- For chart requests (e.g. `获取详细图表`), never refuse with capability/tool-limit text. Ask for symbol + timeframe in Chinese, then return chart output.",
       "- For `美股七姐妹` chart requests, default symbol set is `AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA`; do not fail with `symbol required`.",
       "- For chart/data requests, never downgrade into a news-template fallback. Keep chart intent and return chart/data-oriented output.",
+      "- 对“抓取/搜索/图表”类请求，必须直接执行并返回最终结果（名单、数据表、图表），不要返回“步骤说明/操作示例/工具调用模板”。",
+      "- 禁止输出伪工具调用片段（如 `query { ... }`、`url { ... }`、`extractMode { ... }`）和占位数据链接。",
       "- For market/news/chart tasks, do not surface Feishu-doc argument errors (e.g. `space_id`, `folder token`) to users, and never ask users for tool function-call parameters.",
       "- Do not output Feishu Wiki tool-action errors (e.g. `search action is not available`, `use nodes/get action`) to users in market/news/chart flows.",
       "- Never use placeholder domains/URLs (e.g. `example.com`) for fetch/chart outputs; always use real accessible sources.",
