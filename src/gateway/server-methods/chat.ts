@@ -33,6 +33,7 @@ import {
   type ResponsePrefixContext,
 } from "../../auto-reply/reply/response-prefix-template.js";
 import type { MsgContext } from "../../auto-reply/templating.js";
+import { updateSessionStore } from "../../config/sessions.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { INTERNAL_MESSAGE_CHANNEL } from "../../utils/message-channel.js";
 import {
@@ -61,6 +62,121 @@ import {
 import { stripEnvelopeFromMessages } from "../chat-sanitize.js";
 import { formatForLog } from "../ws-log.js";
 import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
+import { MarketDataClient } from "../../finance/client.js";
+
+const MAG7_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"] as const;
+
+function isMag7ChartRequest(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized) {
+    return false;
+  }
+  const hasMag7 = /(美股七姐妹|七姐妹|magnificent\s*7|mag\s*7)/i.test(normalized);
+  const hasChartOrData = /(图表|绘制|画图|chart|graph|股票数据|行情|走势)/i.test(normalized);
+  return hasMag7 && hasChartOrData;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatPrice(value: number | null): string {
+  if (value === null) {
+    return "-";
+  }
+  return value.toFixed(2);
+}
+
+function formatPercent(value: number | null): string {
+  if (value === null) {
+    return "-";
+  }
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
+}
+
+function normalizeChangePercent(value: number | null): number | null {
+  if (value === null) {
+    return null;
+  }
+  // Some providers return fractional values (-0.0233), others return percent values (-2.33).
+  return Math.abs(value) <= 1 ? value * 100 : value;
+}
+
+async function buildMag7SummaryReply(
+  config: ReturnType<typeof loadSessionEntry>["cfg"],
+): Promise<string> {
+  const client = new MarketDataClient({
+    profile: "marketbot",
+    config,
+  });
+  const quotes = await client.getQuotes([...MAG7_SYMBOLS]);
+  const bySymbol = new Map(quotes.map((quote) => [quote.symbol.toUpperCase(), quote]));
+  const rows = MAG7_SYMBOLS.map((symbol) => {
+    const quote = bySymbol.get(symbol);
+    return {
+      symbol,
+      price: toFiniteNumber(quote?.regularMarketPrice),
+      changePct: normalizeChangePercent(toFiniteNumber(quote?.regularMarketChangePercent)),
+      ts: toFiniteNumber(quote?.regularMarketTime),
+    };
+  });
+
+  const knownPrices = rows.filter((row) => row.price !== null);
+  if (knownPrices.length === 0) {
+    throw new Error("market data unavailable for magnificent seven");
+  }
+
+  const latestEpochSec = rows.reduce<number>((max, row) => {
+    if (row.ts === null) {
+      return max;
+    }
+    return row.ts > max ? row.ts : max;
+  }, 0);
+  const latestTimeText =
+    latestEpochSec > 0
+      ? new Date(latestEpochSec > 1_000_000_000_000 ? latestEpochSec : latestEpochSec * 1000)
+          .toISOString()
+          .replace("T", " ")
+          .replace("Z", " UTC")
+      : "unknown";
+
+  const priceBars = rows
+    .map((row) => Number(formatPrice(row.price)))
+    .map((value) => (Number.isFinite(value) ? value : 0));
+  const changeBars = rows.map((row) => Number((row.changePct ?? 0).toFixed(2)));
+
+  const tableLines = rows.map(
+    (row) => `| ${row.symbol} | ${formatPrice(row.price)} | ${formatPercent(row.changePct)} |`,
+  );
+
+  return [
+    "美股七姐妹（Magnificent Seven）：AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。",
+    `行情快照时间：${latestTimeText}。`,
+    "",
+    "| 股票 | 现价(USD) | 涨跌幅 |",
+    "|---|---:|---:|",
+    ...tableLines,
+    "",
+    "```mermaid",
+    "xychart-beta",
+    '  title "美股七姐妹：最新价格(USD)"',
+    '  x-axis ["AAPL","MSFT","NVDA","AMZN","GOOGL","META","TSLA"]',
+    '  y-axis "USD" 0 --> 800',
+    `  bar [${priceBars.join(",")}]`,
+    "```",
+    "",
+    "```mermaid",
+    "xychart-beta",
+    '  title "美股七姐妹：涨跌幅(%)"',
+    '  x-axis ["AAPL","MSFT","NVDA","AMZN","GOOGL","META","TSLA"]',
+    '  y-axis "%" -10 --> 10',
+    `  bar [${changeBars.join(",")}]`,
+    "```",
+    "",
+    "数据来源：finance 工具（marketbot profile / Yahoo）。",
+  ].join("\n");
+}
 
 type TranscriptAppendResult = {
   ok: boolean;
@@ -161,6 +277,48 @@ function appendAssistantTranscriptMessage(params: {
   }
 
   return { ok: true, messageId, message: transcriptEntry.message };
+}
+
+async function ensureSessionEntryForReply(params: {
+  storePath: string | undefined;
+  canonicalKey: string;
+  entry: ReturnType<typeof loadSessionEntry>["entry"];
+  fallbackSessionId: string;
+  onWarn: (message: string) => void;
+}): Promise<{ sessionId: string; sessionFile?: string; storePath: string | undefined }> {
+  let sessionId = params.entry?.sessionId ?? params.fallbackSessionId;
+  let sessionFile = params.entry?.sessionFile;
+  if (!params.storePath) {
+    return {
+      sessionId,
+      sessionFile,
+      storePath: params.storePath,
+    };
+  }
+
+  const now = Date.now();
+  try {
+    await updateSessionStore(params.storePath, (store) => {
+      const current = store[params.canonicalKey] ?? params.entry;
+      sessionId = current?.sessionId ?? sessionId;
+      const next = {
+        ...current,
+        sessionId,
+        updatedAt: Math.max(current?.updatedAt ?? 0, now),
+      };
+      store[params.canonicalKey] = next;
+      sessionFile = next.sessionFile;
+    });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    params.onWarn(`webchat session store update failed: ${reason}`);
+  }
+
+  return {
+    sessionId,
+    sessionFile,
+    storePath: params.storePath,
+  };
 }
 
 function nextChatSeq(context: { agentRunSeq: Map<string, number> }, runId: string) {
@@ -387,7 +545,7 @@ export const chatHandlers: GatewayRequestHandlers = {
         return;
       }
     }
-    const { cfg, entry } = loadSessionEntry(p.sessionKey);
+    const { cfg, entry, storePath, canonicalKey } = loadSessionEntry(p.sessionKey);
     const timeoutMs = resolveAgentTimeoutMs({
       cfg,
       overrideMs: p.timeoutMs,
@@ -467,6 +625,74 @@ export const chatHandlers: GatewayRequestHandlers = {
         p.thinking && trimmedMessage && !trimmedMessage.startsWith("/"),
       );
       const commandBody = injectThinking ? `/think ${p.thinking} ${parsedMessage}` : parsedMessage;
+      if (isMag7ChartRequest(trimmedMessage)) {
+        void (async () => {
+          try {
+            const replyText = await buildMag7SummaryReply(cfg);
+            const {
+              storePath: latestStorePath,
+              entry: latestEntry,
+              canonicalKey: latestKey,
+            } = loadSessionEntry(p.sessionKey);
+            const ensured = await ensureSessionEntryForReply({
+              storePath: latestStorePath ?? storePath,
+              canonicalKey: latestKey || canonicalKey,
+              entry: latestEntry ?? entry,
+              fallbackSessionId: clientRunId,
+              onWarn: (message) => context.logGateway.warn(message),
+            });
+            const appended = appendAssistantTranscriptMessage({
+              message: replyText,
+              sessionId: ensured.sessionId,
+              storePath: ensured.storePath,
+              sessionFile: ensured.sessionFile,
+              createIfMissing: true,
+            });
+            const nowMs = Date.now();
+            const message = appended.ok
+              ? appended.message
+              : {
+                  role: "assistant",
+                  content: [{ type: "text", text: replyText }],
+                  timestamp: nowMs,
+                  stopReason: "injected",
+                  usage: { input: 0, output: 0, totalTokens: 0 },
+                };
+            broadcastChatFinal({
+              context,
+              runId: clientRunId,
+              sessionKey: p.sessionKey,
+              message,
+            });
+            context.dedupe.set(`chat:${clientRunId}`, {
+              ts: Date.now(),
+              ok: true,
+              payload: { runId: clientRunId, status: "ok" as const },
+            });
+          } catch (err) {
+            const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
+            context.dedupe.set(`chat:${clientRunId}`, {
+              ts: Date.now(),
+              ok: false,
+              payload: {
+                runId: clientRunId,
+                status: "error" as const,
+                summary: String(err),
+              },
+              error,
+            });
+            broadcastChatError({
+              context,
+              runId: clientRunId,
+              sessionKey: p.sessionKey,
+              errorMessage: String(err),
+            });
+          } finally {
+            context.chatAbortControllers.delete(clientRunId);
+          }
+        })();
+        return;
+      }
       const clientInfo = client?.connect?.client;
       const ctx: MsgContext = {
         Body: parsedMessage,
@@ -533,7 +759,7 @@ export const chatHandlers: GatewayRequestHandlers = {
           },
         },
       })
-        .then(() => {
+        .then(async () => {
           if (!agentRunStarted) {
             const combinedReply = finalReplyParts
               .map((part) => part.trim())
@@ -542,15 +768,23 @@ export const chatHandlers: GatewayRequestHandlers = {
               .trim();
             let message: Record<string, unknown> | undefined;
             if (combinedReply) {
-              const { storePath: latestStorePath, entry: latestEntry } = loadSessionEntry(
-                p.sessionKey,
-              );
-              const sessionId = latestEntry?.sessionId ?? entry?.sessionId ?? clientRunId;
+              const {
+                storePath: latestStorePath,
+                entry: latestEntry,
+                canonicalKey: latestKey,
+              } = loadSessionEntry(p.sessionKey);
+              const ensured = await ensureSessionEntryForReply({
+                storePath: latestStorePath ?? storePath,
+                canonicalKey: latestKey || canonicalKey,
+                entry: latestEntry ?? entry,
+                fallbackSessionId: clientRunId,
+                onWarn: (warnMessage) => context.logGateway.warn(warnMessage),
+              });
               const appended = appendAssistantTranscriptMessage({
                 message: combinedReply,
-                sessionId,
-                storePath: latestStorePath,
-                sessionFile: latestEntry?.sessionFile,
+                sessionId: ensured.sessionId,
+                storePath: ensured.storePath,
+                sessionFile: ensured.sessionFile,
                 createIfMissing: true,
               });
               if (appended.ok) {

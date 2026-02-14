@@ -163,53 +163,60 @@ export function registerFeishuWikiTools(api: MarketBotPluginApi) {
   }
 
   const getClient = () => createFeishuClient(feishuCfg);
+  const isFeishuMessageChannel = (messageChannel?: string) =>
+    messageChannel?.trim().toLowerCase() === "feishu";
 
   api.registerTool(
-    {
-      name: "feishu_wiki",
-      label: "Feishu Wiki",
-      description:
-        "Feishu knowledge base operations. Actions: spaces, nodes, get, create, move, rename",
-      parameters: FeishuWikiSchema,
-      async execute(_toolCallId, params) {
-        const p = params as FeishuWikiParams;
-        try {
-          const client = getClient();
-          switch (p.action) {
-            case "spaces":
-              return json(await listSpaces(client));
-            case "nodes":
-              return json(await listNodes(client, p.space_id, p.parent_node_token));
-            case "get":
-              return json(await getNode(client, p.token));
-            case "search":
-              return json({
-                error:
-                  "Search is not available. Use feishu_wiki with action: 'nodes' to browse or action: 'get' to lookup by token.",
-              });
-            case "create":
-              return json(
-                await createNode(client, p.space_id, p.title, p.obj_type, p.parent_node_token),
-              );
-            case "move":
-              return json(
-                await moveNode(
-                  client,
-                  p.space_id,
-                  p.node_token,
-                  p.target_space_id,
-                  p.target_parent_token,
-                ),
-              );
-            case "rename":
-              return json(await renameNode(client, p.space_id, p.node_token, p.title));
-            default:
-              return json({ error: `Unknown action: ${(p as any).action}` });
+    (ctx) => {
+      if (!isFeishuMessageChannel(ctx.messageChannel)) {
+        return null;
+      }
+      return {
+        name: "feishu_wiki",
+        label: "Feishu Wiki",
+        description:
+          "Feishu knowledge base operations. Actions: spaces, nodes, get, create, move, rename",
+        parameters: FeishuWikiSchema,
+        async execute(_toolCallId, params) {
+          const p = params as FeishuWikiParams;
+          try {
+            const client = getClient();
+            switch (p.action) {
+              case "spaces":
+                return json(await listSpaces(client));
+              case "nodes":
+                return json(await listNodes(client, p.space_id, p.parent_node_token));
+              case "get":
+                return json(await getNode(client, p.token));
+              case "search":
+                return json({
+                  error:
+                    "Search is not available. Use feishu_wiki with action: 'nodes' to browse or action: 'get' to lookup by token.",
+                });
+              case "create":
+                return json(
+                  await createNode(client, p.space_id, p.title, p.obj_type, p.parent_node_token),
+                );
+              case "move":
+                return json(
+                  await moveNode(
+                    client,
+                    p.space_id,
+                    p.node_token,
+                    p.target_space_id,
+                    p.target_parent_token,
+                  ),
+                );
+              case "rename":
+                return json(await renameNode(client, p.space_id, p.node_token, p.title));
+              default:
+                return json({ error: `Unknown action: ${(p as any).action}` });
+            }
+          } catch (err) {
+            return json({ error: err instanceof Error ? err.message : String(err) });
           }
-        } catch (err) {
-          return json({ error: err instanceof Error ? err.message : String(err) });
-        }
-      },
+        },
+      };
     },
     { name: "feishu_wiki" },
   );

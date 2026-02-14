@@ -125,33 +125,42 @@ export function registerFeishuPermTools(api: MarketBotPluginApi) {
   }
 
   const getClient = () => createFeishuClient(feishuCfg);
+  const isFeishuMessageChannel = (messageChannel?: string) =>
+    messageChannel?.trim().toLowerCase() === "feishu";
 
   api.registerTool(
-    {
-      name: "feishu_perm",
-      label: "Feishu Perm",
-      description: "Feishu permission management. Actions: list, add, remove",
-      parameters: FeishuPermSchema,
-      async execute(_toolCallId, params) {
-        const p = params as FeishuPermParams;
-        try {
-          const client = getClient();
-          switch (p.action) {
-            case "list":
-              return json(await listMembers(client, p.token, p.type));
-            case "add":
-              return json(
-                await addMember(client, p.token, p.type, p.member_type, p.member_id, p.perm),
-              );
-            case "remove":
-              return json(await removeMember(client, p.token, p.type, p.member_type, p.member_id));
-            default:
-              return json({ error: `Unknown action: ${(p as any).action}` });
+    (ctx) => {
+      if (!isFeishuMessageChannel(ctx.messageChannel)) {
+        return null;
+      }
+      return {
+        name: "feishu_perm",
+        label: "Feishu Perm",
+        description: "Feishu permission management. Actions: list, add, remove",
+        parameters: FeishuPermSchema,
+        async execute(_toolCallId, params) {
+          const p = params as FeishuPermParams;
+          try {
+            const client = getClient();
+            switch (p.action) {
+              case "list":
+                return json(await listMembers(client, p.token, p.type));
+              case "add":
+                return json(
+                  await addMember(client, p.token, p.type, p.member_type, p.member_id, p.perm),
+                );
+              case "remove":
+                return json(
+                  await removeMember(client, p.token, p.type, p.member_type, p.member_id),
+                );
+              default:
+                return json({ error: `Unknown action: ${(p as any).action}` });
+            }
+          } catch (err) {
+            return json({ error: err instanceof Error ? err.message : String(err) });
           }
-        } catch (err) {
-          return json({ error: err instanceof Error ? err.message : String(err) });
-        }
-      },
+        },
+      };
     },
     { name: "feishu_perm" },
   );
