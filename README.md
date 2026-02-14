@@ -90,6 +90,7 @@ MarketBot Desktop is a standalone Electron application. Install it, launch it, a
 - Gateway startup states are surfaced with richer status (`checking`, `starting`, `retrying`, `error`) so "Connecting..." is debuggable from the UI.
 - The `Config` page uses a stabilized responsive layout (clear section grouping + adaptive action rows) to avoid overlap and cramped controls on smaller desktop windows.
 - The `Sessions` page filter controls now use a structured responsive row layout to prevent label/input overlap and misalignment.
+- The `Channels` page renders the union of gateway snapshot + channel catalog baseline, so extension channels (for example `feishu`, `dingtalk`, `matrix`, `msteams`) remain visible even before they are fully configured.
 
 Quick runtime check:
 
@@ -263,6 +264,8 @@ Use the Web Control UI Ops pages first:
 - Sessions: `/sessions`
 - Cron: `/cron`
 - Logs: `/logs`
+
+Note: `/channels` intentionally shows both active and available channels. Plugin/extension channels may appear as "not configured" until credentials are set and the plugin is enabled.
 
 Available channels (built-in + extensions):
 
