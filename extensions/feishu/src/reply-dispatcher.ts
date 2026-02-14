@@ -112,17 +112,25 @@ function looksLikePlaceholderNewsResult(text: string): boolean {
     return false;
   }
   const mentionsNewsSearch = /(搜索|新闻|news|headline)/i.test(trimmed);
-  if (!mentionsNewsSearch) {
+  if (!mentionsNewsSearch || hasUrl(trimmed)) {
     return false;
   }
 
   const placeholderPattern =
     /\[(?:搜索结果|搜索结果如下|具体文章链接|文章链接|新闻链接|链接)\]|(?:可点击查看详细内容|如需进一步操作，可随时告诉我)/i;
-  if (!placeholderPattern.test(trimmed)) {
-    return false;
+  if (placeholderPattern.test(trimmed)) {
+    return true;
   }
 
-  return !hasUrl(trimmed);
+  const searchIntent = /(搜索|检索|news|headline|最新新闻|新闻搜索)/i.test(trimmed);
+  if (!searchIntent) {
+    return false;
+  }
+  const resultCue = /(搜索结果|结果如下|为你找到|找到以下|新闻如下|以下是(?:[^。\n]{0,12})新闻)/i.test(
+    trimmed,
+  );
+  const listLike = /(?:^|\n)\s*(?:[-*]|\d+[).、])\s*/m.test(trimmed);
+  return resultCue || listLike;
 }
 
 /**
@@ -294,6 +302,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
             if (!mediaUrl?.trim()) {
               continue;
             }
+            params.runtime.log?.(`feishu deliver: sending media ${mediaUrl.slice(0, 120)}`);
             await sendMediaFeishu({
               cfg,
               to: chatId,
