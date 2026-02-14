@@ -24,7 +24,7 @@ export function renderDiscordCard(params: {
       </div>
       ${accountCountLabel}
 
-      <div class="status-list" style="margin-top: 16px;">
+      <div class="status-list channel-status-list">
         <div>
           <span class="label">${text.configured}</span>
           <span>${discord?.configured ? text.yes : text.no}</span>
@@ -44,13 +44,13 @@ export function renderDiscordCard(params: {
       </div>
 
       ${discord?.lastError
-        ? html`<div class="callout danger" style="margin-top: 12px;">
+        ? html`<div class="callout danger channel-callout">
             ${discord.lastError}
           </div>`
         : nothing}
 
       ${discord?.probe
-        ? html`<div class="callout" style="margin-top: 12px;">
+        ? html`<div class="callout channel-callout">
             ${text.probe} ${discord.probe.ok ? text.probeOk : text.probeFailed} ·
             ${discord.probe.status ?? ""} ${discord.probe.error ?? ""}
           </div>`
@@ -58,7 +58,7 @@ export function renderDiscordCard(params: {
 
       ${renderChannelConfigSection({ channelId: "discord", props })}
 
-      <div class="row" style="margin-top: 12px;">
+      <div class="row channel-actions">
         <button class="btn" @click=${() => props.onRefresh(true)}>
           ${text.probeButton}
         </button>

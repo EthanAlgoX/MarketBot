@@ -856,6 +856,226 @@
   max-width: 100%;
 }
 
+/* Cron */
+.cron-top-grid {
+  align-items: start;
+}
+
+.cron-card {
+  padding: 20px;
+}
+
+.cron-stat-grid {
+  margin-top: 16px;
+}
+
+.cron-stat-grid .stat {
+  padding: 10px 12px;
+}
+
+.cron-form-grid {
+  margin-top: 16px;
+}
+
+.cron-schedule-field,
+.cron-schedule-grid,
+.cron-payload-field,
+.cron-deliver-grid {
+  margin-top: 12px;
+}
+
+.cron-actions {
+  margin-top: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.cron-actions--roomy {
+  margin-top: 14px;
+}
+
+.cron-inline-error {
+  margin-top: 0;
+  margin-left: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: min(100%, 680px);
+}
+
+.cron-section {
+  margin-top: 18px;
+}
+
+.cron-list {
+  margin-top: 12px;
+}
+
+.cron-empty {
+  margin-top: 12px;
+}
+
+.cron-chip-row {
+  margin-top: 6px;
+}
+
+.cron-job-actions {
+  margin-top: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.cron-job-actions .btn {
+  min-width: 70px;
+}
+
+/* Connection (Overview) */
+.connection-card,
+.connection-share {
+  padding: 20px;
+}
+
+.connection-head {
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.connection-form-grid,
+.connection-share__grid {
+  margin-top: 16px;
+}
+
+.connection-actions {
+  margin-top: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.connection-actions--roomy {
+  margin-top: 14px;
+}
+
+.connection-callout {
+  margin-top: 12px;
+}
+
+.connection-callout--roomy {
+  margin-top: 14px;
+}
+
+.connection-hint {
+  margin-top: 8px;
+}
+
+.connection-hint-links,
+.connection-hint-row {
+  margin-top: 6px;
+}
+
+/* Channels */
+.channels-grid {
+  align-items: start;
+}
+
+.channels-grid .card-sub,
+.channels-health .card-sub,
+.channels-grid .label {
+  color: var(--muted-strong);
+}
+
+.channels-health {
+  margin-top: 18px;
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.channels-health__head {
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.channels-health__snapshot {
+  margin-top: 0;
+  max-height: min(52vh, 620px);
+}
+
+.channel-status-list {
+  margin-top: 16px;
+}
+
+.channels-grid .channel-status-list > div > span:last-child,
+.channels-grid .account-card-status > div > span:last-child {
+  color: var(--text-strong);
+}
+
+.channel-callout {
+  margin-top: 12px;
+}
+
+.channel-actions {
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.channel-actions--roomy {
+  margin-top: 14px;
+}
+
+.channel-config {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.channel-profile {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(10, 16, 30, 0.45);
+}
+
+.channel-profile__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.channel-profile__title {
+  font-weight: 600;
+}
+
+.channel-profile__avatar-wrap {
+  margin-bottom: 8px;
+}
+
+.channel-profile__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+}
+
+.channel-profile__about {
+  display: inline-block;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-profile__empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* Runs */
 .runs-layout {
   padding: 20px;
@@ -984,6 +1204,86 @@
   padding: 12px;
 }
 
+/* Logs */
+.logs-layout {
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.logs-header {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.logs-header__actions {
+  gap: 8px;
+}
+
+.logs-summary-grid .stat {
+  padding: 10px 12px;
+}
+
+.logs-filters {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  align-items: end;
+}
+
+.logs-search-field {
+  min-width: 0;
+}
+
+.logs-follow-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.logs-follow-toggle input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.logs-level-row {
+  margin-top: 2px;
+}
+
+.logs-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.logs-file__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.logs-callout {
+  margin-top: 0;
+}
+
+.logs-stream {
+  margin-top: 2px;
+}
+
+.logs-empty {
+  padding: 12px;
+}
+
 .log-level--tool {
   color: #70d4ff;
   border-color: rgba(112, 212, 255, 0.3);
@@ -1019,36 +1319,39 @@
 .sessions-filters {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: rgba(10, 16, 30, 0.45);
 }
 
-.sessions-filters__inputs {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(2, minmax(170px, 1fr));
+.sessions-filter-field {
+  min-width: 0;
 }
 
-.sessions-filters__toggles {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 14px;
+.sessions-filter-field input {
+  width: 100%;
 }
 
 .sessions-check {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
+  min-height: 42px;
   margin: 0;
-  padding: 0 2px;
-  color: var(--muted);
+  padding: 0 12px;
+  color: var(--muted-strong);
   font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+}
+
+.sessions-check--tile {
+  justify-content: flex-start;
 }
 
 .sessions-check input[type="checkbox"] {
@@ -1212,14 +1515,29 @@
 }
 
 :root[data-theme="light"] .report-pane,
-:root[data-theme="light"] .runs-layout {
+:root[data-theme="light"] .runs-layout,
+:root[data-theme="light"] .logs-layout,
+:root[data-theme="light"] .channels-health,
+:root[data-theme="light"] .cron-card {
+  border-color: rgba(60, 90, 140, 0.26);
+}
+
+:root[data-theme="light"] .connection-card,
+:root[data-theme="light"] .connection-share {
   border-color: rgba(60, 90, 140, 0.26);
 }
 
 :root[data-theme="light"] .report-pane__body,
-:root[data-theme="light"] .runs-list-box {
+:root[data-theme="light"] .runs-list-box,
+:root[data-theme="light"] .logs-stream,
+:root[data-theme="light"] .channels-health__snapshot {
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(60, 90, 140, 0.24);
+}
+
+:root[data-theme="light"] .channel-profile {
+  border-color: rgba(60, 90, 140, 0.24);
+  background: rgba(250, 253, 255, 0.8);
 }
 
 :root[data-theme="light"] .toggle__track {
@@ -1238,6 +1556,10 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 250, 255, 0.95)),
     var(--card);
   border-color: rgba(60, 90, 140, 0.24);
+}
+
+:root[data-theme="light"] .sessions-check {
+  background: color-mix(in srgb, #ffffff 90%, #eef4ff 10%);
 }
 
 :root[data-theme="light"] .runs-row {
@@ -1385,17 +1707,42 @@
     grid-template-columns: 1fr;
   }
 
-  .sessions-filters {
+  .logs-filters {
     grid-template-columns: 1fr;
   }
 
-  .sessions-filters__inputs {
+  .cron-job-actions {
+    justify-content: flex-start;
+  }
+
+  .cron-inline-error {
+    max-width: 100%;
+  }
+
+  .connection-head {
+    align-items: flex-start;
+  }
+
+  .channels-health__snapshot {
+    max-height: 460px;
+  }
+
+  .channel-profile__about {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .logs-follow-toggle {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .sessions-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sessions-filters__toggles {
-    align-items: center;
-    flex-wrap: wrap;
+  .sessions-check {
+    min-height: 38px;
   }
 
   .sessions-controls__row {
@@ -1459,6 +1806,13 @@
   }
 
   .list-item {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .sessions-filters,
+  .sessions-controls__row {
     grid-template-columns: 1fr;
   }
 }

@@ -161,12 +161,22 @@ export function renderConfig(props: ConfigProps) {
   const applyLabel = props.applying ? text.applying : text.apply;
   const updateLabel = props.updating ? text.updating : text.update;
   const hasSections = sections.length > 0;
-  const activeSection = props.activeSection;
-  const activeSubsection = props.activeSubsection;
+  const availableSectionKeys = new Set(sections.map((entry) => entry.key));
+  const activeSection =
+    props.activeSection && availableSectionKeys.has(props.activeSection)
+      ? props.activeSection
+      : null;
   const subsectionOptions =
     activeSection && schemaReady
       ? resolveSubsections(schema, activeSection, props.uiHints)
       : [];
+  const availableSubsectionKeys = new Set(
+    subsectionOptions.map((entry) => entry.key),
+  );
+  const activeSubsection =
+    props.activeSubsection && availableSubsectionKeys.has(props.activeSubsection)
+      ? props.activeSubsection
+      : null;
 
   const statusLabel = (() => {
     if (!props.connected) return text.disconnected;
@@ -354,8 +364,8 @@ export function renderConfig(props: ConfigProps) {
                   value: props.formValue,
                   disabled: props.saving || props.applying,
                   searchQuery: props.searchQuery,
-                  activeSection: props.activeSection,
-                  activeSubsection: props.activeSubsection,
+                  activeSection,
+                  activeSubsection,
                   onPatch: props.onFormPatch,
                 })}
         </div>

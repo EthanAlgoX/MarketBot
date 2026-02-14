@@ -8,10 +8,10 @@ import type { ChannelsProps } from "./channels.types";
 
 export function renderGoogleChatCard(params: {
   props: ChannelsProps;
-  googleChat?: GoogleChatStatus | null;
+  googlechat?: GoogleChatStatus | null;
   accountCountLabel: unknown;
 }) {
-  const { props, googleChat, accountCountLabel } = params;
+  const { props, googlechat, accountCountLabel } = params;
   const text = resolveChannelsText(props);
 
   return html`
@@ -24,53 +24,53 @@ export function renderGoogleChatCard(params: {
       </div>
       ${accountCountLabel}
 
-      <div class="status-list" style="margin-top: 16px;">
+      <div class="status-list channel-status-list">
         <div>
           <span class="label">${text.configured}</span>
-          <span>${googleChat ? (googleChat.configured ? text.yes : text.no) : text.notAvailable}</span>
+          <span>${googlechat ? (googlechat.configured ? text.yes : text.no) : text.notAvailable}</span>
         </div>
         <div>
           <span class="label">${text.running}</span>
-          <span>${googleChat ? (googleChat.running ? text.yes : text.no) : text.notAvailable}</span>
+          <span>${googlechat ? (googlechat.running ? text.yes : text.no) : text.notAvailable}</span>
         </div>
         <div>
           <span class="label">${text.credential}</span>
-          <span>${googleChat?.credentialSource ?? text.notAvailable}</span>
+          <span>${googlechat?.credentialSource ?? text.notAvailable}</span>
         </div>
         <div>
           <span class="label">${text.audience}</span>
           <span>
-            ${googleChat?.audienceType
-              ? `${googleChat.audienceType}${googleChat.audience ? ` · ${googleChat.audience}` : ""}`
+            ${googlechat?.audienceType
+              ? `${googlechat.audienceType}${googlechat.audience ? ` · ${googlechat.audience}` : ""}`
               : text.notAvailable}
           </span>
         </div>
         <div>
           <span class="label">${text.lastStart}</span>
-          <span>${googleChat?.lastStartAt ? formatAgo(googleChat.lastStartAt) : text.notAvailable}</span>
+          <span>${googlechat?.lastStartAt ? formatAgo(googlechat.lastStartAt) : text.notAvailable}</span>
         </div>
         <div>
           <span class="label">${text.lastProbe}</span>
-          <span>${googleChat?.lastProbeAt ? formatAgo(googleChat.lastProbeAt) : text.notAvailable}</span>
+          <span>${googlechat?.lastProbeAt ? formatAgo(googlechat.lastProbeAt) : text.notAvailable}</span>
         </div>
       </div>
 
-      ${googleChat?.lastError
-        ? html`<div class="callout danger" style="margin-top: 12px;">
-            ${googleChat.lastError}
+      ${googlechat?.lastError
+        ? html`<div class="callout danger channel-callout">
+            ${googlechat.lastError}
           </div>`
         : nothing}
 
-      ${googleChat?.probe
-        ? html`<div class="callout" style="margin-top: 12px;">
-            ${text.probe} ${googleChat.probe.ok ? text.probeOk : text.probeFailed} ·
-            ${googleChat.probe.status ?? ""} ${googleChat.probe.error ?? ""}
+      ${googlechat?.probe
+        ? html`<div class="callout channel-callout">
+            ${text.probe} ${googlechat.probe.ok ? text.probeOk : text.probeFailed} ·
+            ${googlechat.probe.status ?? ""} ${googlechat.probe.error ?? ""}
           </div>`
         : nothing}
 
       ${renderChannelConfigSection({ channelId: "googlechat", props })}
 
-      <div class="row" style="margin-top: 12px;">
+      <div class="row channel-actions">
         <button class="btn" @click=${() => props.onRefresh(true)}>
           ${text.probeButton}
         </button>

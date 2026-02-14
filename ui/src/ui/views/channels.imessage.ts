@@ -24,7 +24,7 @@ export function renderIMessageCard(params: {
       </div>
       ${accountCountLabel}
 
-      <div class="status-list" style="margin-top: 16px;">
+      <div class="status-list channel-status-list">
         <div>
           <span class="label">${text.configured}</span>
           <span>${imessage?.configured ? text.yes : text.no}</span>
@@ -44,13 +44,13 @@ export function renderIMessageCard(params: {
       </div>
 
       ${imessage?.lastError
-        ? html`<div class="callout danger" style="margin-top: 12px;">
+        ? html`<div class="callout danger channel-callout">
             ${imessage.lastError}
           </div>`
         : nothing}
 
       ${imessage?.probe
-        ? html`<div class="callout" style="margin-top: 12px;">
+        ? html`<div class="callout channel-callout">
             ${text.probe} ${imessage.probe.ok ? text.probeOk : text.probeFailed} ·
             ${imessage.probe.error ?? ""}
           </div>`
@@ -58,7 +58,7 @@ export function renderIMessageCard(params: {
 
       ${renderChannelConfigSection({ channelId: "imessage", props })}
 
-      <div class="row" style="margin-top: 12px;">
+      <div class="row channel-actions">
         <button class="btn" @click=${() => props.onRefresh(true)}>
           ${text.probeButton}
         </button>

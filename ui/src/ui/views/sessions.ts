@@ -172,52 +172,48 @@ export function renderSessions(props: SessionsProps) {
       </div>
 
       <div class="sessions-filters">
-        <div class="sessions-filters__inputs">
-          <label class="field">
-            <span>${text.activeWithin}</span>
-            <input
-              .value=${props.activeMinutes}
-              @input=${(e: Event) =>
-                nextFilters({
-                  activeMinutes: (e.target as HTMLInputElement).value,
-                })}
-            />
-          </label>
-          <label class="field">
-            <span>${text.limit}</span>
-            <input
-              .value=${props.limit}
-              @input=${(e: Event) =>
-                nextFilters({
-                  limit: (e.target as HTMLInputElement).value,
-                })}
-            />
-          </label>
-        </div>
-        <div class="sessions-filters__toggles">
-          <label class="sessions-check">
-            <input
-              type="checkbox"
-              .checked=${props.includeGlobal}
-              @change=${(e: Event) =>
-                nextFilters({
-                  includeGlobal: (e.target as HTMLInputElement).checked,
-                })}
-            />
-            <span>${text.includeGlobal}</span>
-          </label>
-          <label class="sessions-check">
-            <input
-              type="checkbox"
-              .checked=${props.includeUnknown}
-              @change=${(e: Event) =>
-                nextFilters({
-                  includeUnknown: (e.target as HTMLInputElement).checked,
-                })}
-            />
-            <span>${text.includeUnknown}</span>
-          </label>
-        </div>
+        <label class="field sessions-filter-field">
+          <span>${text.activeWithin}</span>
+          <input
+            .value=${props.activeMinutes}
+            @input=${(e: Event) =>
+              nextFilters({
+                activeMinutes: (e.target as HTMLInputElement).value,
+              })}
+          />
+        </label>
+        <label class="field sessions-filter-field">
+          <span>${text.limit}</span>
+          <input
+            .value=${props.limit}
+            @input=${(e: Event) =>
+              nextFilters({
+                limit: (e.target as HTMLInputElement).value,
+              })}
+          />
+        </label>
+        <label class="sessions-check sessions-check--tile">
+          <input
+            type="checkbox"
+            .checked=${props.includeGlobal}
+            @change=${(e: Event) =>
+              nextFilters({
+                includeGlobal: (e.target as HTMLInputElement).checked,
+              })}
+          />
+          <span>${text.includeGlobal}</span>
+        </label>
+        <label class="sessions-check sessions-check--tile">
+          <input
+            type="checkbox"
+            .checked=${props.includeUnknown}
+            @change=${(e: Event) =>
+              nextFilters({
+                includeUnknown: (e.target as HTMLInputElement).checked,
+              })}
+          />
+          <span>${text.includeUnknown}</span>
+        </label>
       </div>
 
       ${props.error

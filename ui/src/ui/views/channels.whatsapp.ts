@@ -24,7 +24,7 @@ export function renderWhatsAppCard(params: {
       </div>
       ${accountCountLabel}
 
-      <div class="status-list" style="margin-top: 16px;">
+      <div class="status-list channel-status-list">
         <div>
           <span class="label">${text.configured}</span>
           <span>${whatsapp?.configured ? text.yes : text.no}</span>
@@ -66,13 +66,13 @@ export function renderWhatsAppCard(params: {
       </div>
 
       ${whatsapp?.lastError
-        ? html`<div class="callout danger" style="margin-top: 12px;">
+        ? html`<div class="callout danger channel-callout">
             ${whatsapp.lastError}
           </div>`
         : nothing}
 
       ${props.whatsappMessage
-        ? html`<div class="callout" style="margin-top: 12px;">
+        ? html`<div class="callout channel-callout">
             ${props.whatsappMessage}
           </div>`
         : nothing}
@@ -83,7 +83,7 @@ export function renderWhatsAppCard(params: {
           </div>`
         : nothing}
 
-      <div class="row" style="margin-top: 14px; flex-wrap: wrap;">
+      <div class="row channel-actions channel-actions--roomy">
         <button
           class="btn primary"
           ?disabled=${props.whatsappBusy}

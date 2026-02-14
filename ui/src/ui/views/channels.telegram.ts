@@ -70,7 +70,7 @@ export function renderTelegramCard(params: {
             </div>
           `
         : html`
-            <div class="status-list" style="margin-top: 16px;">
+            <div class="status-list channel-status-list">
               <div>
                 <span class="label">${text.configured}</span>
                 <span>${telegram?.configured ? text.yes : text.no}</span>
@@ -95,13 +95,13 @@ export function renderTelegramCard(params: {
           `}
 
       ${telegram?.lastError
-        ? html`<div class="callout danger" style="margin-top: 12px;">
+        ? html`<div class="callout danger channel-callout">
             ${telegram.lastError}
           </div>`
         : nothing}
 
       ${telegram?.probe
-        ? html`<div class="callout" style="margin-top: 12px;">
+        ? html`<div class="callout channel-callout">
             ${text.probe} ${telegram.probe.ok ? text.probeOk : text.probeFailed} ·
             ${telegram.probe.status ?? ""} ${telegram.probe.error ?? ""}
           </div>`
@@ -109,7 +109,7 @@ export function renderTelegramCard(params: {
 
       ${renderChannelConfigSection({ channelId: "telegram", props })}
 
-      <div class="row" style="margin-top: 12px;">
+      <div class="row channel-actions">
         <button class="btn" @click=${() => props.onRefresh(true)}>
           ${text.probeButton}
         </button>

@@ -106,7 +106,7 @@ export function renderChannelConfigSection(params: {
   const text = resolveChannelsText(props);
   const disabled = props.configSaving || props.configSchemaLoading;
   return html`
-    <div style="margin-top: 16px;">
+    <div class="channel-config">
       ${props.configSchemaLoading
         ? html`<div class="muted">${text.loadingConfigSchema}</div>`
         : renderChannelConfigForm({
@@ -118,7 +118,7 @@ export function renderChannelConfigSection(params: {
             disabled,
             onPatch: props.onConfigPatch,
           })}
-      <div class="row" style="margin-top: 12px;">
+      <div class="row channel-actions">
         <button
           class="btn primary"
           ?disabled=${disabled || !props.configFormDirty}

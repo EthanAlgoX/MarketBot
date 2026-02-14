@@ -136,15 +136,14 @@ export function renderNostrCard(params: {
     const hasAnyProfileData = name || displayName || about || picture || nip05;
 
     return html`
-      <div style="margin-top: 16px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <div style="font-weight: 500;">${text.profile}</div>
+      <div class="channel-profile">
+        <div class="channel-profile__head">
+          <div class="channel-profile__title">${text.profile}</div>
           ${summaryConfigured
             ? html`
                 <button
-                  class="btn btn-sm"
+                  class="btn btn--sm channel-profile__edit"
                   @click=${onEditProfile}
-                  style="font-size: 12px; padding: 4px 8px;"
                 >
                   ${text.editProfile}
                 </button>
@@ -156,11 +155,11 @@ export function renderNostrCard(params: {
               <div class="status-list">
                 ${picture
                   ? html`
-                      <div style="margin-bottom: 8px;">
+                      <div class="channel-profile__avatar-wrap">
                         <img
                           src=${picture}
                           alt=${props.language === "zh" ? "资料头像" : "Profile picture"}
-                          style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-color);"
+                          class="channel-profile__avatar"
                           @error=${(e: Event) => {
                             (e.target as HTMLImageElement).style.display = "none";
                           }}
@@ -173,12 +172,12 @@ export function renderNostrCard(params: {
                   ? html`<div><span class="label">${text.displayName}</span><span>${displayName}</span></div>`
                   : nothing}
                 ${about
-                  ? html`<div><span class="label">${text.about}</span><span style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${about}</span></div>`
+                  ? html`<div><span class="label">${text.about}</span><span class="channel-profile__about">${about}</span></div>`
                   : nothing}
                 ${nip05 ? html`<div><span class="label">NIP-05</span><span>${nip05}</span></div>` : nothing}
               </div>
             `
-          : html`<div style="color: var(--text-muted); font-size: 13px;">${text.noProfile}</div>`}
+          : html`<div class="channel-profile__empty">${text.noProfile}</div>`}
       </div>
     `;
   };
@@ -192,7 +191,7 @@ export function renderNostrCard(params: {
       ${hasMultipleAccounts
         ? html`<div class="account-card-list">${nostrAccounts.map((account) => renderAccountCard(account))}</div>`
         : html`
-            <div class="status-list" style="margin-top: 16px;">
+            <div class="status-list channel-status-list">
               <div>
                 <span class="label">${baseText.configured}</span>
                 <span>${summaryConfigured ? baseText.yes : baseText.no}</span>
@@ -215,14 +214,14 @@ export function renderNostrCard(params: {
           `}
 
       ${summaryLastError
-        ? html`<div class="callout danger" style="margin-top: 12px;">${summaryLastError}</div>`
+        ? html`<div class="callout danger channel-callout">${summaryLastError}</div>`
         : nothing}
 
       ${renderProfileSection()}
 
       ${renderChannelConfigSection({ channelId: "nostr", props })}
 
-      <div class="row" style="margin-top: 12px;">
+      <div class="row channel-actions">
         <button class="btn" @click=${() => props.onRefresh(false)}>${baseText.refresh}</button>
       </div>
     </div>

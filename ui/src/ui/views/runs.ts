@@ -65,6 +65,9 @@ const RUNS_TEXT = {
     replayCoverage: "Coverage",
     selectedNone: "None",
     recentRuns: "Recent Runs",
+    notAvailable: "n/a",
+    noRunsHint: "Use Desk or Stocks to trigger a run, then replay it here.",
+    noSelectionHint: "Select a run from Recent Runs to inspect events, streams, and tool outcomes.",
   },
   zh: {
     tool: "工具",
@@ -104,6 +107,9 @@ const RUNS_TEXT = {
     replayCoverage: "回放覆盖",
     selectedNone: "未选择",
     recentRuns: "最近运行",
+    notAvailable: "暂无",
+    noRunsHint: "先在总览或股票页面触发一次运行，再回到这里回放。",
+    noSelectionHint: "请先从左侧“最近运行”中选择一条记录以查看事件与工具结果。",
   },
 } as const;
 
@@ -259,7 +265,15 @@ export function renderRuns(props: RunsProps) {
           </div>
           <div class="runs-list-box">
             ${props.runs.length === 0
-              ? html`<div class="muted runs-empty">${text.noRuns}</div>`
+              ? html`
+                  <div class="runs-empty-state">
+                    <div class="runs-empty-title">${text.noRuns}</div>
+                    <div class="muted runs-empty-desc">${text.noRunsHint}</div>
+                    <button class="btn btn--sm" ?disabled=${props.loading} @click=${props.onRefreshRuns}>
+                      ${props.loading ? text.loading : text.refresh}
+                    </button>
+                  </div>
+                `
               : props.runs.map((run) =>
                   renderRunRow(
                     run,
@@ -348,7 +362,11 @@ export function renderRuns(props: RunsProps) {
 
                 <div class="log-stream runs-log-stream">
                   ${filtered.length === 0
-                    ? html`<div class="muted runs-empty">${text.noEvents}</div>`
+                    ? html`
+                        <div class="runs-empty-state runs-empty-state--compact">
+                          <div class="runs-empty-title">${text.noEvents}</div>
+                        </div>
+                      `
                     : filtered.map((evt) => {
                         const label = deriveEventLabel(evt, text);
                         const summary = summarizeEvent(evt, text);
@@ -366,7 +384,12 @@ export function renderRuns(props: RunsProps) {
                       })}
                 </div>
               `
-            : html`<div class="callout runs-callout">${text.selectRun}</div>`}
+            : html`
+                <div class="runs-empty-state runs-empty-state--detail">
+                  <div class="runs-empty-title">${text.selectRun}</div>
+                  <div class="muted runs-empty-desc">${text.noSelectionHint}</div>
+                </div>
+              `}
         </div>
       </div>
     </section>

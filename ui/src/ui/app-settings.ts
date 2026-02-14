@@ -36,6 +36,8 @@ type SettingsHost = {
   themeMedia: MediaQueryList | null;
   themeMediaHandler: ((event: MediaQueryListEvent) => void) | null;
   pendingGatewayUrl?: string | null;
+  configActiveSection?: string | null;
+  configActiveSubsection?: string | null;
 };
 
 export function applySettings(host: SettingsHost, next: UiSettings) {
@@ -69,6 +71,8 @@ export function applySettingsFromUrl(host: SettingsHost) {
   const sessionRaw = params.get("session");
   const gatewayUrlRaw = params.get("gatewayUrl");
   const langRaw = params.get("lang");
+  const sectionRaw = params.get("section");
+  const subsectionRaw = params.get("subsection");
   let shouldCleanUrl = false;
 
   if (tokenRaw != null) {
@@ -117,6 +121,20 @@ export function applySettingsFromUrl(host: SettingsHost) {
     }
     params.delete("lang");
     shouldCleanUrl = true;
+  }
+
+  if (sectionRaw != null) {
+    const nextSection = sectionRaw.trim();
+    host.configActiveSection = nextSection || null;
+    if (subsectionRaw == null) {
+      host.configActiveSubsection = null;
+    }
+  }
+
+  if (subsectionRaw != null) {
+    const nextSubsection = subsectionRaw.trim();
+    host.configActiveSubsection =
+      host.configActiveSection && nextSubsection ? nextSubsection : null;
   }
 
   if (!shouldCleanUrl) return;

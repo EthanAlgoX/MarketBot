@@ -154,18 +154,18 @@ export function renderOverview(props: OverviewProps) {
       hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
 
     return html`
-      <section class="card">
+      <section class="card connection-share">
         <div class="card-title">${text.mobileTitle}</div>
         <div class="card-sub">${text.mobileSub}</div>
 
-        <div class="form-grid" style="margin-top: 16px;">
-          <label class="field" style="grid-column: 1 / -1;">
+        <div class="form-grid connection-share__grid">
+          <label class="field full">
             <span>${text.shareLink}</span>
             <input class="mono" readonly .value=${shareUrl.toString()} />
           </label>
         </div>
 
-        <div class="row" style="margin-top: 14px;">
+        <div class="row connection-actions connection-actions--roomy">
           <button
             class="btn"
             @click=${async () => copyToClipboard(shareUrl.toString())}
@@ -181,9 +181,9 @@ export function renderOverview(props: OverviewProps) {
         </div>
 
         ${isLoopback
-          ? html`<div class="callout warn" style="margin-top: 14px;">
+          ? html`<div class="callout warn connection-callout connection-callout--roomy">
               ${text.loopbackPrefix} <span class="mono">${hostname}</span>, ${text.loopbackBody}
-              <div style="margin-top: 6px;">
+              <div class="connection-hint-links">
                 <a
                   class="session-link"
                   href="https://docs.marketbot.ai/gateway/tailscale"
@@ -208,9 +208,9 @@ export function renderOverview(props: OverviewProps) {
     const hasPassword = Boolean(props.password.trim());
     if (!hasToken && !hasPassword) {
       return html`
-        <div class="muted" style="margin-top: 8px;">
+        <div class="muted connection-hint">
           ${text.authRequired}
-          <div style="margin-top: 6px;">
+          <div class="connection-hint-links">
             <a
               class="session-link"
               href="https://docs.marketbot.ai/web/control-ui"
@@ -224,9 +224,9 @@ export function renderOverview(props: OverviewProps) {
       `;
     }
     return html`
-      <div class="muted" style="margin-top: 8px;">
+      <div class="muted connection-hint">
         ${text.authFailed}
-        <div style="margin-top: 6px;">
+        <div class="connection-hint-links">
           <a
             class="session-link"
             href="https://docs.marketbot.ai/web/control-ui"
@@ -249,15 +249,15 @@ export function renderOverview(props: OverviewProps) {
       return null;
     }
     return html`
-      <div class="muted" style="margin-top: 8px;">
+      <div class="muted connection-hint">
         ${text.insecurePrefix}
         <span class="mono">http://127.0.0.1:18789</span> ${text.insecureSuffix}
-        <div style="margin-top: 6px;">
+        <div class="connection-hint-row">
           ${text.insecureAllow}
           <span class="mono">gateway.controlUi.allowInsecureAuth: true</span>
           ${text.insecureAllowSuffix}
         </div>
-        <div style="margin-top: 6px;">
+        <div class="connection-hint-links">
           <a
             class="session-link"
             href="https://docs.marketbot.ai/gateway/tailscale"
@@ -281,8 +281,8 @@ export function renderOverview(props: OverviewProps) {
   })();
 
   return html`
-    <section class="card">
-      <div class="row" style="justify-content: space-between; align-items: baseline;">
+    <section class="card connection-card">
+      <div class="row connection-head">
         <div>
           <div class="card-title">${text.gatewayTitle}</div>
           <div class="card-sub">${text.gatewaySub}</div>
@@ -293,7 +293,7 @@ export function renderOverview(props: OverviewProps) {
         </div>
       </div>
 
-      <div class="form-grid" style="margin-top: 16px;">
+      <div class="form-grid connection-form-grid">
         <label class="field">
           <span>${text.wsUrl}</span>
           <input
@@ -341,19 +341,19 @@ export function renderOverview(props: OverviewProps) {
         </label>
       </div>
 
-      <div class="row" style="margin-top: 14px;">
+      <div class="row connection-actions connection-actions--roomy">
         <button class="btn primary" @click=${() => props.onConnect()}>${text.connect}</button>
         <button class="btn" @click=${() => props.onRefresh()}>${text.refresh}</button>
         <span class="muted">${text.connectHint}</span>
       </div>
 
       ${props.lastError
-        ? html`<div class="callout danger" style="margin-top: 14px;">
+        ? html`<div class="callout danger connection-callout connection-callout--roomy">
             <div>${props.lastError}</div>
             ${authHint ?? ""}
             ${insecureContextHint ?? ""}
           </div>`
-        : html`<div class="callout" style="margin-top: 14px;">
+        : html`<div class="callout connection-callout connection-callout--roomy">
             ${text.emptyHint}
           </div>`}
     </section>

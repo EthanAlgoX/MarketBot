@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Tab } from "./navigation";
-import { setTabFromRoute } from "./app-settings";
+import { applySettingsFromUrl, setTabFromRoute } from "./app-settings";
 
 type SettingsHost = Parameters<typeof setTabFromRoute>[0] & {
   logsPollInterval: number | null;
+  configActiveSection: string | null;
+  configActiveSubsection: string | null;
 };
 
 const createHost = (tab: Tab): SettingsHost => ({
@@ -34,6 +36,8 @@ const createHost = (tab: Tab): SettingsHost => ({
   themeMedia: null,
   themeMediaHandler: null,
   logsPollInterval: null,
+  configActiveSection: null,
+  configActiveSubsection: null,
 });
 
 describe("setTabFromRoute", () => {
@@ -53,5 +57,40 @@ describe("setTabFromRoute", () => {
 
     setTabFromRoute(host, "chat");
     expect(host.logsPollInterval).toBeNull();
+  });
+});
+
+describe("applySettingsFromUrl", () => {
+  afterEach(() => {
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("reads config section and subsection from URL query", () => {
+    const host = createHost("config");
+    window.history.replaceState(
+      {},
+      "",
+      "/config?section=gateway&subsection=mode",
+    );
+
+    applySettingsFromUrl(host);
+
+    expect(host.configActiveSection).toBe("gateway");
+    expect(host.configActiveSubsection).toBe("mode");
+  });
+
+  it("clears subsection when section is empty", () => {
+    const host = createHost("config");
+    host.configActiveSubsection = "legacy";
+    window.history.replaceState(
+      {},
+      "",
+      "/config?section=&subsection=mode",
+    );
+
+    applySettingsFromUrl(host);
+
+    expect(host.configActiveSection).toBeNull();
+    expect(host.configActiveSubsection).toBeNull();
   });
 });

@@ -8,8 +8,8 @@
   --accent-dim: rgba(43, 228, 255, 0.08);
   --accent-glow: rgba(43, 228, 255, 0.15);
   --text: #e6f0ff;
-  --text-muted: #8ca6d8;
-  --text-dim: #6b82a8;
+  --text-muted: #9fb7df;
+  --text-dim: #7f97bf;
   --sidebar-width: 210px;
   --sidebar-collapsed-width: 54px;
   background: var(--bg);
@@ -134,31 +134,6 @@ body {
   color: var(--accent);
 }
 
-.header-lang-toggle {
-  all: unset;
-  cursor: pointer;
-  min-width: 30px;
-  height: 22px;
-  padding: 0 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  border: 1px solid rgba(85, 115, 170, 0.4);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-}
-
-.header-lang-toggle:hover {
-  color: var(--text);
-  border-color: rgba(85, 115, 170, 0.65);
-  background: var(--accent-dim);
-}
-
 /* ── Status pill ── */
 
 .status {
@@ -193,7 +168,8 @@ body {
 .status-model {
   font-size: 10px;
   font-weight: 500;
-  opacity: 0.7;
+  opacity: 0.9;
+  color: var(--text-muted);
 }
 
 .status-model.status-detail {
@@ -307,6 +283,40 @@ button.ghost .nav-icon {
   min-height: 8px;
 }
 
+.sidebar-tools {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar-lang-toggle {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-tool-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-lang-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(85, 115, 170, 0.45);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 /* ── Navigation ── */
 
 .nav {
@@ -331,7 +341,7 @@ button.ghost .nav-icon {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-dim);
+  color: var(--text-muted);
   padding: 2px 8px 3px;
 }
 
@@ -446,6 +456,19 @@ button.ghost .nav-icon {
 .sidebar-collapsed .restart-btn {
   justify-content: center;
   padding: 6px 4px;
+}
+
+.sidebar-collapsed .sidebar-lang-toggle {
+  justify-content: center;
+  padding: 6px 4px;
+}
+
+.sidebar-collapsed .sidebar-tool-label {
+  display: none;
+}
+
+.sidebar-collapsed .sidebar-lang-badge {
+  display: none;
 }
 
 /* ── Content ── */
@@ -826,7 +849,12 @@ button.ghost .nav-icon {
   height: 100%;
   overflow-y: auto;
   padding: 32px 40px 48px;
-  background: var(--bg);
+  background:
+    radial-gradient(140% 130% at 0% 0%, rgba(43, 228, 255, 0.07), transparent 52%),
+    radial-gradient(120% 120% at 100% 100%, rgba(75, 123, 255, 0.08), transparent 56%),
+    var(--bg);
+  max-width: 1280px;
+  margin: 0 auto;
 }
 
 .ms-panel::-webkit-scrollbar {
@@ -846,7 +874,7 @@ button.ghost .nav-icon {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 18px;
 }
 
 .ms-title {
@@ -879,17 +907,60 @@ button.ghost .nav-icon {
   border: 1px solid rgba(248, 113, 113, 0.2);
   border-radius: 8px;
   padding: 10px 14px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 /* ── Sections ── */
 
+.ms-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.ms-summary-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(61, 94, 138, 0.28);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ms-summary-label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.ms-summary-value {
+  margin-top: 6px;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  color: var(--text);
+}
+
 .ms-section {
-  margin-bottom: 32px;
+  margin-bottom: 14px;
+}
+
+.ms-section-card {
+  border: 1px solid rgba(61, 94, 138, 0.24);
+  border-radius: 12px;
+  padding: 18px 18px 16px;
+  background:
+    linear-gradient(175deg, rgba(15, 22, 36, 0.88), rgba(12, 18, 30, 0.86)),
+    rgba(255, 255, 255, 0.01);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.ms-section-card:hover {
+  border-color: rgba(61, 94, 138, 0.4);
 }
 
 .ms-section-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text);
   margin: 0 0 4px;
@@ -897,7 +968,7 @@ button.ghost .nav-icon {
 
 .ms-section-desc {
   font-size: 12px;
-  color: var(--text-dim);
+  color: var(--text-muted);
   margin: 0 0 14px;
   line-height: 1.5;
 }
@@ -915,8 +986,8 @@ button.ghost .nav-icon {
   width: 100%;
   padding: 9px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(61, 94, 138, 0.35);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(61, 94, 138, 0.44);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
   font-family: inherit;
   font-size: 13px;
@@ -1002,8 +1073,8 @@ button.ghost .nav-icon {
   gap: 10px;
   padding: 7px 12px;
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(61, 94, 138, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(61, 94, 138, 0.28);
 }
 
 .ms-fallback-rank {
@@ -1055,17 +1126,16 @@ button.ghost .nav-icon {
 /* ── Provider Grid (Settings) ── */
 
 .ms-provider-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 520px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .ms-provider-card {
-  border: 1px solid rgba(61, 94, 138, 0.2);
+  border: 1px solid rgba(61, 94, 138, 0.28);
   border-radius: 10px;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
   transition: border-color 0.15s;
 }
 
@@ -1108,7 +1178,7 @@ button.ghost .nav-icon {
 
 .ms-provider-status {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-muted);
   margin-top: 1px;
 }
 
@@ -1194,7 +1264,7 @@ button.ghost .nav-icon {
 .ms-local-warning p {
   margin: 0;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
@@ -1229,8 +1299,8 @@ button.ghost .nav-icon {
   flex-direction: column;
   padding: 16px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(61, 94, 138, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(61, 94, 138, 0.24);
   transition: border-color 0.2s, background 0.2s;
 }
 
@@ -1259,27 +1329,27 @@ button.ghost .nav-icon {
 .ms-local-card-name {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text);
 }
 
 .ms-local-card-size {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   padding: 2px 8px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .ms-local-card-desc {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   margin-bottom: 8px;
   line-height: 1.4;
 }
 
 .ms-local-card-meta {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-dim);
   margin-bottom: 14px;
 }
 
@@ -1384,6 +1454,35 @@ button.ghost .nav-icon {
 
 .ms-local-progress-text {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   text-align: center;
+}
+
+@media (max-width: 1160px) {
+  .ms-panel {
+    padding: 24px 22px 36px;
+  }
+
+  .ms-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ms-provider-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .ms-panel {
+    padding: 18px 14px 26px;
+  }
+
+  .ms-summary-grid,
+  .ms-local-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ms-section-card {
+    padding: 14px 14px 12px;
+  }
 }

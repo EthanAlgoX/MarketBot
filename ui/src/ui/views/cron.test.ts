@@ -43,6 +43,25 @@ function createProps(overrides: Partial<CronProps> = {}): CronProps {
 }
 
 describe("cron view", () => {
+  it("renders cron structural classes and inline error callout", () => {
+    const container = document.createElement("div");
+    render(
+      renderCron(
+        createProps({
+          error: "scheduler unavailable",
+        }),
+      ),
+      container,
+    );
+
+    expect(container.querySelector(".cron-top-grid")).not.toBeNull();
+    expect(container.querySelector(".cron-actions")).not.toBeNull();
+    expect(container.querySelector(".cron-inline-error")?.textContent).toContain(
+      "scheduler unavailable",
+    );
+    expect(container.querySelector(".cron-section")).not.toBeNull();
+  });
+
   it("prompts to select a job before showing run history", () => {
     const container = document.createElement("div");
     render(renderCron(createProps()), container);

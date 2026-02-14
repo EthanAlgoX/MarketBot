@@ -196,11 +196,11 @@ export function renderCron(props: CronProps) {
   const text = CRON_TEXT[language] ?? CRON_TEXT.en;
   const channelOptions = buildChannelOptions(props);
   return html`
-    <section class="grid grid-cols-2">
-      <div class="card">
+    <section class="grid grid-cols-2 cron-top-grid">
+      <div class="card cron-card">
         <div class="card-title">${text.scheduler}</div>
         <div class="card-sub">${text.schedulerSub}</div>
-        <div class="stat-grid" style="margin-top: 16px;">
+        <div class="stat-grid cron-stat-grid">
           <div class="stat">
             <div class="stat-label">${text.enabled}</div>
             <div class="stat-value">
@@ -220,18 +220,18 @@ export function renderCron(props: CronProps) {
             <div class="stat-value">${formatNextRun(props.status?.nextWakeAtMs ?? null)}</div>
           </div>
         </div>
-        <div class="row" style="margin-top: 12px;">
+        <div class="row cron-actions">
           <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
             ${props.loading ? text.refreshing : text.refresh}
           </button>
-          ${props.error ? html`<span class="muted">${props.error}</span>` : nothing}
+          ${props.error ? html`<span class="callout danger cron-inline-error">${props.error}</span>` : nothing}
         </div>
       </div>
 
-      <div class="card">
+      <div class="card cron-card">
         <div class="card-title">${text.newJob}</div>
         <div class="card-sub">${text.newJobSub}</div>
-        <div class="form-grid" style="margin-top: 16px;">
+        <div class="form-grid cron-form-grid">
           <label class="field">
             <span>${text.name}</span>
             <input
@@ -282,7 +282,7 @@ export function renderCron(props: CronProps) {
           </label>
         </div>
         ${renderScheduleFields(props, text)}
-        <div class="form-grid" style="margin-top: 12px;">
+        <div class="form-grid cron-schedule-grid">
           <label class="field">
             <span>${text.session}</span>
             <select
@@ -323,7 +323,7 @@ export function renderCron(props: CronProps) {
             </select>
           </label>
         </div>
-        <label class="field" style="margin-top: 12px;">
+        <label class="field cron-payload-field">
           <span>${props.form.payloadKind === "systemEvent" ? text.systemText : text.agentMessage}</span>
           <textarea
             .value=${props.form.payloadText}
@@ -334,9 +334,9 @@ export function renderCron(props: CronProps) {
             rows="4"
           ></textarea>
         </label>
-	          ${props.form.payloadKind === "agentTurn"
-	          ? html`
-	              <div class="form-grid" style="margin-top: 12px;">
+        ${props.form.payloadKind === "agentTurn"
+          ? html`
+              <div class="form-grid cron-deliver-grid">
                 <label class="field checkbox">
                   <span>${text.deliver}</span>
                   <input
@@ -347,17 +347,17 @@ export function renderCron(props: CronProps) {
                         deliver: (e.target as HTMLInputElement).checked,
                       })}
                   />
-	                </label>
-	                <label class="field">
-	                  <span>${text.channel}</span>
-	                  <select
-	                    .value=${props.form.channel || "last"}
-	                    @change=${(e: Event) =>
-	                      props.onFormChange({
-	                        channel: (e.target as HTMLSelectElement).value as CronFormState["channel"],
-	                      })}
-	                  >
-	                    ${channelOptions.map(
+                </label>
+                <label class="field">
+                  <span>${text.channel}</span>
+                  <select
+                    .value=${props.form.channel || "last"}
+                    @change=${(e: Event) =>
+                      props.onFormChange({
+                        channel: (e.target as HTMLSelectElement).value as CronFormState["channel"],
+                      })}
+                  >
+                    ${channelOptions.map(
                         (channel) =>
                           html`<option value=${channel}>
                             ${resolveChannelLabel(props, channel, text)}
@@ -401,7 +401,7 @@ export function renderCron(props: CronProps) {
               </div>
             `
           : nothing}
-        <div class="row" style="margin-top: 14px;">
+        <div class="row cron-actions cron-actions--roomy">
           <button class="btn primary" ?disabled=${props.busy} @click=${props.onAdd}>
             ${props.busy ? text.saving : text.addJob}
           </button>
@@ -409,31 +409,31 @@ export function renderCron(props: CronProps) {
       </div>
     </section>
 
-    <section class="card" style="margin-top: 18px;">
+    <section class="card cron-card cron-section">
       <div class="card-title">${text.jobsTitle}</div>
       <div class="card-sub">${text.jobsSub}</div>
       ${props.jobs.length === 0
-        ? html`<div class="muted" style="margin-top: 12px;">${text.noJobs}</div>`
+        ? html`<div class="muted cron-empty">${text.noJobs}</div>`
         : html`
-            <div class="list" style="margin-top: 12px;">
+            <div class="list cron-list">
               ${props.jobs.map((job) => renderJob(job, props, text))}
             </div>
           `}
     </section>
 
-    <section class="card" style="margin-top: 18px;">
+    <section class="card cron-card cron-section">
       <div class="card-title">${text.runHistory}</div>
       <div class="card-sub">${text.runHistorySubPrefix} ${props.runsJobId ?? text.runHistorySelect}.</div>
       ${props.runsJobId == null
         ? html`
-            <div class="muted" style="margin-top: 12px;">
+            <div class="muted cron-empty">
               ${text.selectJobHint}
             </div>
           `
         : props.runs.length === 0
-          ? html`<div class="muted" style="margin-top: 12px;">${text.noRuns}</div>`
+          ? html`<div class="muted cron-empty">${text.noRuns}</div>`
           : html`
-              <div class="list" style="margin-top: 12px;">
+              <div class="list cron-list">
                 ${props.runs.map((entry) => renderRun(entry))}
               </div>
             `}
@@ -445,7 +445,7 @@ function renderScheduleFields(props: CronProps, text: (typeof CRON_TEXT)["en"]) 
   const form = props.form;
   if (form.scheduleKind === "at") {
     return html`
-      <label class="field" style="margin-top: 12px;">
+      <label class="field cron-schedule-field">
         <span>${text.runAt}</span>
         <input
           type="datetime-local"
@@ -460,7 +460,7 @@ function renderScheduleFields(props: CronProps, text: (typeof CRON_TEXT)["en"]) 
   }
   if (form.scheduleKind === "every") {
     return html`
-      <div class="form-grid" style="margin-top: 12px;">
+      <div class="form-grid cron-schedule-grid">
         <label class="field">
           <span>${text.every}</span>
           <input
@@ -489,7 +489,7 @@ function renderScheduleFields(props: CronProps, text: (typeof CRON_TEXT)["en"]) 
     `;
   }
   return html`
-    <div class="form-grid" style="margin-top: 12px;">
+    <div class="form-grid cron-schedule-grid">
       <label class="field">
         <span>${text.expression}</span>
         <input
@@ -520,7 +520,7 @@ function renderJob(job: CronJob, props: CronProps, text: (typeof CRON_TEXT)["en"
         <div class="list-sub">${formatCronSchedule(job)}</div>
         <div class="muted">${formatCronPayload(job)}</div>
         ${job.agentId ? html`<div class="muted">${text.agentPrefix} ${job.agentId}</div>` : nothing}
-        <div class="chip-row" style="margin-top: 6px;">
+        <div class="chip-row cron-chip-row">
           <span class="chip">${job.enabled ? text.enabledChip : text.disabledChip}</span>
           <span class="chip">${job.sessionTarget}</span>
           <span class="chip">${job.wakeMode}</span>
@@ -528,7 +528,7 @@ function renderJob(job: CronJob, props: CronProps, text: (typeof CRON_TEXT)["en"
       </div>
       <div class="list-meta">
         <div>${formatCronState(job)}</div>
-        <div class="row" style="justify-content: flex-end; margin-top: 8px;">
+        <div class="row cron-job-actions">
           <button
             class="btn"
             ?disabled=${props.busy}

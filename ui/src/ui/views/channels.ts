@@ -91,7 +91,7 @@ export function renderChannels(props: ChannelsProps) {
     });
 
   return html`
-    <section class="grid grid-cols-2">
+    <section class="grid grid-cols-2 channels-grid">
       ${orderedChannels.map((channel) =>
         renderChannel(channel.key, props, {
           whatsapp,
@@ -107,8 +107,8 @@ export function renderChannels(props: ChannelsProps) {
       )}
     </section>
 
-    <section class="card" style="margin-top: 18px;">
-      <div class="row" style="justify-content: space-between;">
+    <section class="card channels-health">
+      <div class="row channels-health__head">
         <div>
           <div class="card-title">${text.healthTitle}</div>
           <div class="card-sub">${text.healthSub}</div>
@@ -116,11 +116,11 @@ export function renderChannels(props: ChannelsProps) {
         <div class="muted">${props.lastSuccessAt ? formatAgo(props.lastSuccessAt) : text.notAvailable}</div>
       </div>
       ${props.lastError
-        ? html`<div class="callout danger" style="margin-top: 12px;">
+        ? html`<div class="callout danger channel-callout">
             ${props.lastError}
           </div>`
         : nothing}
-      <pre class="code-block" style="margin-top: 12px;">
+      <pre class="code-block channels-health__snapshot">
 ${props.snapshot ? JSON.stringify(props.snapshot, null, 2) : text.noSnapshot}
       </pre>
     </section>
@@ -265,7 +265,7 @@ function renderGenericChannelCard(
             </div>
           `
         : html`
-            <div class="status-list" style="margin-top: 16px;">
+            <div class="status-list channel-status-list">
               <div>
                 <span class="label">${text.configured}</span>
                 <span>${configured == null ? text.notAvailable : configured ? text.yes : text.no}</span>
@@ -282,7 +282,7 @@ function renderGenericChannelCard(
           `}
 
       ${lastError
-        ? html`<div class="callout danger" style="margin-top: 12px;">
+        ? html`<div class="callout danger channel-callout">
             ${lastError}
           </div>`
         : nothing}

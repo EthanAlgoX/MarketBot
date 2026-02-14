@@ -131,7 +131,7 @@ const TABS: Record<TabId, NavTab> = {
   },
   config: {
     id: 'config',
-    label: 'Config',
+    label: 'Advanced',
     path: '/config',
     icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3M4.22 4.22l2.12 2.12M13.66 13.66l2.12 2.12M4.22 15.78l2.12-2.12M13.66 6.34l2.12-2.12"/></svg>',
   },
@@ -243,8 +243,12 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     fallbackEmpty: 'No fallback models configured.',
     remove: 'Remove',
     addFallback: 'Add fallback...',
-    apiKeys: 'API 密钥',
+    apiKeys: 'API Keys',
     apiKeysDesc: 'Manage credentials for each AI provider. Keys are stored locally.',
+    modelsSummaryTotal: 'Available Models',
+    modelsSummaryProviders: 'Model Providers',
+    modelsSummaryLocal: 'Local Installed',
+    modelsSummaryFallbacks: 'Fallback Count',
     configured: 'Configured',
     notConfigured: 'Not configured',
     cancel: 'Cancel',
@@ -267,7 +271,7 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     navStocks: 'Stocks',
     navRuns: 'Runs',
     navConnection: 'Connection',
-    navConfig: 'Config',
+    navConfig: 'Advanced',
     navChannels: 'Channels',
     navSessions: 'Sessions',
     navCron: 'Cron Jobs',
@@ -336,8 +340,12 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     fallbackEmpty: '尚未配置备用模型。',
     remove: '移除',
     addFallback: '添加备用模型...',
-    apiKeys: 'API Keys',
+    apiKeys: 'API 密钥',
     apiKeysDesc: '管理各个 AI 提供商的凭据，密钥仅保存在本机。',
+    modelsSummaryTotal: '可用模型',
+    modelsSummaryProviders: '模型提供商',
+    modelsSummaryLocal: '本地已安装',
+    modelsSummaryFallbacks: '备用模型数',
     configured: '已配置',
     notConfigured: '未配置',
     cancel: '取消',
@@ -360,7 +368,7 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     navStocks: '股票',
     navRuns: '运行',
     navConnection: '连接',
-    navConfig: '配置',
+    navConfig: '高级配置',
     navChannels: '通道',
     navSessions: '会话',
     navCron: '定时任务',
@@ -452,13 +460,26 @@ function normalizeBase(url: string) {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
-function buildTabUrl(base: string, path: string, token: string, language: Language) {
+function buildTabUrl(
+  base: string,
+  path: string,
+  token: string,
+  language: Language,
+  extraParams?: Record<string, string | null | undefined>,
+) {
   const normalized = normalizeBase(base);
   const url = `${normalized}${path}`;
   const params = new URLSearchParams();
   if (token.trim()) params.set('token', token.trim());
   params.set('embed', '1');
   params.set('lang', language);
+  if (extraParams) {
+    Object.entries(extraParams).forEach(([key, value]) => {
+      const next = typeof value === 'string' ? value.trim() : '';
+      if (!next) return;
+      params.set(key, next);
+    });
+  }
   return `${url}?${params.toString()}`;
 }
 
@@ -1094,6 +1115,17 @@ function ModelSettings({
     return groups;
   }, [models, installedModels]);
 
+  const localInstalledCount = useMemo(() => {
+    return LOCAL_MODELS.filter((lm) =>
+      installedModels.some(
+        (modelId) =>
+          modelId === lm.id ||
+          modelId === `${lm.id}:latest` ||
+          modelId.startsWith(`${lm.id}:`),
+      ),
+    ).length;
+  }, [installedModels]);
+
   // Change primary model via config.patch
   const handlePrimaryChange = useCallback(
     async (newModel: string) => {
@@ -1276,8 +1308,27 @@ function ModelSettings({
 
       {error && <div className="ms-error">{error}</div>}
 
+      <section className="ms-summary-grid" aria-label={t('modelsTitle')}>
+        <div className="ms-summary-card">
+          <div className="ms-summary-label">{t('modelsSummaryTotal')}</div>
+          <div className="ms-summary-value">{models.length}</div>
+        </div>
+        <div className="ms-summary-card">
+          <div className="ms-summary-label">{t('modelsSummaryProviders')}</div>
+          <div className="ms-summary-value">{Object.keys(groupedModels).length}</div>
+        </div>
+        <div className="ms-summary-card">
+          <div className="ms-summary-label">{t('modelsSummaryLocal')}</div>
+          <div className="ms-summary-value">{localInstalledCount}</div>
+        </div>
+        <div className="ms-summary-card">
+          <div className="ms-summary-label">{t('modelsSummaryFallbacks')}</div>
+          <div className="ms-summary-value">{fallbacks.length}</div>
+        </div>
+      </section>
+
       {/* ── Local Models ── */}
-      <section className="ms-section">
+      <section className="ms-section ms-section-card">
         <h2 className="ms-section-title">{t('localModels')}</h2>
         <p className="ms-section-desc">
           {t('localModelsDesc')}
@@ -1376,7 +1427,7 @@ function ModelSettings({
       </section>
 
       {/* ── Primary Model ── */}
-      <section className="ms-section">
+      <section className="ms-section ms-section-card">
         <h2 className="ms-section-title">{t('primaryModel')}</h2>
         <p className="ms-section-desc">
           {t('primaryModelDesc')}
@@ -1413,7 +1464,7 @@ function ModelSettings({
       </section>
 
       {/* ── Fallback Models ── */}
-      <section className="ms-section">
+      <section className="ms-section ms-section-card">
         <h2 className="ms-section-title">{t('fallbackModels')}</h2>
         <p className="ms-section-desc">
           {t('fallbackModelsDesc')}
@@ -1468,7 +1519,7 @@ function ModelSettings({
       </section>
 
       {/* ── API Keys / Providers ── */}
-      <section className="ms-section">
+      <section className="ms-section ms-section-card">
         <h2 className="ms-section-title">{t('apiKeys')}</h2>
         <p className="ms-section-desc">
           {t('apiKeysDesc')}
@@ -1898,7 +1949,11 @@ export default function App() {
 
   const tabUrl = useMemo(() => {
     if (!gatewayUrl || activeTab === 'models') return '';
-    return buildTabUrl(gatewayUrl, TABS[activeTab].path, gatewayToken, language);
+    const extraParams =
+      activeTab === 'config'
+        ? { section: 'gateway' }
+        : undefined;
+    return buildTabUrl(gatewayUrl, TABS[activeTab].path, gatewayToken, language, extraParams);
   }, [gatewayUrl, gatewayToken, activeTab, language]);
 
   // Keep the last non-empty URL so we can preserve webview state while the
@@ -1957,6 +2012,7 @@ export default function App() {
   const handleToggleLanguage = useCallback(() => {
     setLanguage((prev) => (prev === 'zh' ? 'en' : 'zh'));
   }, []);
+  const languageToggleLabel = language === 'zh' ? t('english') : t('chinese');
 
   const connectionLabel = useMemo(() => {
     if (running) return t('connected');
@@ -2025,13 +2081,6 @@ export default function App() {
             )}
           </div>
           <div className="sidebar-header-actions">
-            <button
-              className="header-lang-toggle"
-              onClick={handleToggleLanguage}
-              title={t('languageSwitch')}
-            >
-              {language === 'zh' ? t('english') : t('chinese')}
-            </button>
             <button
               className="collapse-toggle"
               onClick={() => setSidebarCollapsed((v) => !v)}
@@ -2102,16 +2151,34 @@ export default function App() {
 
         <div className="sidebar-spacer" />
 
-        <button className="ghost sidebar-btn restart-btn" onClick={handleRestart} title={t('restartGateway')}>
-          <span
-            className="nav-icon"
-            dangerouslySetInnerHTML={{
-              __html:
-                '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a7 7 0 0113.36-2.83M17 10a7 7 0 01-13.36 2.83"/><path d="M16.5 3v4.5H12M3.5 17v-4.5H8"/></svg>',
-            }}
-          />
-          {!sidebarCollapsed && <span>{t('restartGateway')}</span>}
-        </button>
+        <div className="sidebar-tools">
+          <button
+            className="ghost sidebar-btn sidebar-lang-toggle"
+            onClick={handleToggleLanguage}
+            title={t('languageSwitch')}
+          >
+            <span
+              className="nav-icon"
+              dangerouslySetInnerHTML={{
+                __html:
+                  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2 2 3 4.9 3 7.5s-1 5.5-3 7.5M10 2.5c-2 2-3 4.9-3 7.5s1 5.5 3 7.5"/></svg>',
+              }}
+            />
+            {!sidebarCollapsed && <span className="sidebar-tool-label">{t('languageSwitch')}</span>}
+            <span className="sidebar-lang-badge">{languageToggleLabel}</span>
+          </button>
+
+          <button className="ghost sidebar-btn restart-btn" onClick={handleRestart} title={t('restartGateway')}>
+            <span
+              className="nav-icon"
+              dangerouslySetInnerHTML={{
+                __html:
+                  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a7 7 0 0113.36-2.83M17 10a7 7 0 01-13.36 2.83"/><path d="M16.5 3v4.5H12M3.5 17v-4.5H8"/></svg>',
+              }}
+            />
+            {!sidebarCollapsed && <span>{t('restartGateway')}</span>}
+          </button>
+        </div>
       </aside>
 
       <main className="content">
