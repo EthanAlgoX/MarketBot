@@ -113,6 +113,14 @@ const FEISHU_TOOLCALL_400_FALLBACK_TEXT =
   "检测到工具调用参数错误模板（400），未返回实际结果。请重试同一请求，我会直接执行并返回结果。";
 const FEISHU_TOOLCALL_400_CHART_FALLBACK_TEXT =
   "检测到工具调用参数错误模板（400），未返回实际结果。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。";
+const FEISHU_TOOL_UNAVAILABLE_FALLBACK_TEXT =
+  "检测到“工具不可用”模板回复，未返回实际结果。请重试同一请求，我会直接执行并返回结果。";
+const FEISHU_TOOL_UNAVAILABLE_CHART_FALLBACK_TEXT =
+  "检测到“工具不可用”模板回复，未返回实际结果。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。";
+const FEISHU_FAKE_COMPLETION_FALLBACK_TEXT =
+  "检测到“已完成”模板回复，未返回实际结果。请重试同一请求，我会直接返回可用结果。";
+const FEISHU_FAKE_COMPLETION_CHART_FALLBACK_TEXT =
+  "检测到“已完成”模板回复，但未返回图表或行情数据。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。";
 
 function claimsImageDelivered(text: string): boolean {
   if (!text.trim()) {
@@ -367,6 +375,53 @@ function looksLikeToolCall400Template(text: string): boolean {
   return (hasJsonGuidance && hasParamExamples) || (hasJsonGuidance && hasTemplateTone);
 }
 
+function looksLikeToolUnavailableRefusalTemplate(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || hasUrl(trimmed)) {
+    return false;
+  }
+
+  const hasUnavailableRefusal =
+    /(无法直接使用(?:内置)?浏览器|无法直接(?:执行|使用).{0,20}(?:操作|请求)|工具列表中未包含|工具(?:列表)?(?:里)?未包含|工具(?:当前)?不可用|tool(?:s)?(?:\s+list)?(?:\s+does\s+not\s+include|\s+not\s+available)|browser(?:\s+tool)?\s+not\s+available)/i.test(
+      trimmed,
+    );
+  if (!hasUnavailableRefusal) {
+    return false;
+  }
+
+  const hasTemplateGuidance =
+    /(建议调整步骤|检查工具需求|请提供更明确的步骤|provide more specific steps|check tool requirements|to get support)/i.test(
+      trimmed,
+    );
+  return hasTemplateGuidance || hasUnavailableRefusal;
+}
+
+function looksLikeCompletionTemplateWithoutResults(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || hasUrl(trimmed)) {
+    return false;
+  }
+
+  const hasCompletionCue =
+    /(操作已完成|任务已完成|处理完成|已为您完成|已完成(?:：|:)?|done|completed)/i.test(trimmed);
+  if (!hasCompletionCue) {
+    return false;
+  }
+
+  const hasPoliteClosure = /(如需进一步(?:操作|帮助)|请随时告知|随时告诉我|let me know)/i.test(trimmed);
+  const hasChecklistStyle = /(?:^|\n)\s*(?:使用|通过|最后|然后|并且)/m.test(trimmed);
+
+  const hasResultEvidence =
+    /(?:AAPL|MSFT|NVDA|AMZN|GOOGL|META|TSLA)\b/i.test(trimmed) ||
+    /(?:\$|￥|¥)\s*\d+(?:\.\d+)?/.test(trimmed) ||
+    /\d+(?:\.\d+)?\s*%/.test(trimmed) ||
+    /(?:^|\n)\s*\|.+\|\s*$/m.test(trimmed) ||
+    /```mermaid/i.test(trimmed) ||
+    /\bMEDIA:\s*\S+/i.test(trimmed);
+
+  return (hasPoliteClosure || hasChecklistStyle) && !hasResultEvidence;
+}
+
 /**
  * Detect if text contains markdown elements that benefit from card rendering.
  * Used by auto render mode.
@@ -549,6 +604,22 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           text = looksLikeChartFlow
             ? FEISHU_TOOLCALL_400_CHART_FALLBACK_TEXT
             : FEISHU_TOOLCALL_400_FALLBACK_TEXT;
+        }
+        if (looksLikeExecutionFlow && looksLikeToolUnavailableRefusalTemplate(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected tool-unavailable refusal template without final result, replacing with result-oriented fallback text`,
+          );
+          text = looksLikeChartFlow
+            ? FEISHU_TOOL_UNAVAILABLE_CHART_FALLBACK_TEXT
+            : FEISHU_TOOL_UNAVAILABLE_FALLBACK_TEXT;
+        }
+        if (looksLikeExecutionFlow && !hasMedia && looksLikeCompletionTemplateWithoutResults(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected completion-template reply without deliverables, replacing with result-oriented fallback text`,
+          );
+          text = looksLikeChartFlow
+            ? FEISHU_FAKE_COMPLETION_CHART_FALLBACK_TEXT
+            : FEISHU_FAKE_COMPLETION_FALLBACK_TEXT;
         }
         if (looksLikeInternalTraceLeak(text)) {
           params.runtime.log?.(

@@ -889,4 +889,64 @@ describe("feishu reply dispatcher", () => {
     });
     expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
   });
+
+  it("replaces tool-unavailable refusal template output in seven-sisters chart flow", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+      sourceText: "使用内置浏览器抓取美股七姐妹是哪些股票，再搜索相关股票数据，最后绘制图表",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "无法直接使用内置浏览器执行该操作。由于工具列表中未包含直接浏览器功能，建议调整步骤或检查工具需求以获取支持。若需执行此操作，请提供更明确的步骤要求。",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "检测到“工具不可用”模板回复，未返回实际结果。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
+  it("replaces fake completion template without chart deliverables", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+      sourceText: "使用内置浏览器抓取美股七姐妹是哪些股票，再搜索相关股票数据，最后绘制图表",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "您的操作已完成：\n\n使用内置浏览器抓取美股七姐妹股票信息\n通过Feishu进行相关股票数据搜索\n最后绘制图表\n如需进一步操作，请随时告知！",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "检测到“已完成”模板回复，但未返回图表或行情数据。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
 });
