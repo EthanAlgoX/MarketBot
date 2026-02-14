@@ -246,8 +246,7 @@ function looksLikeFeishuDocArgError(text: string): boolean {
     /(error|requires?|missing|not included|correct function call|please provide|参数|缺失|报错)/i.test(
       trimmed,
     );
-  const hasWrongAskContext = /(图表|股票|美股|七姐妹|行情|数据|news|chart)/i.test(trimmed);
-  return hasDocTerms && hasErrorTerms && hasWrongAskContext;
+  return hasDocTerms && hasErrorTerms;
 }
 
 /**
@@ -370,6 +369,12 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           );
           text = FEISHU_INVALID_META_ECHO_FALLBACK_TEXT;
         }
+        if (looksLikeFeishuDocArgError(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected feishu-doc argument error leakage, replacing with fallback text`,
+          );
+          text = FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT;
+        }
         if (looksLikeInternalTraceLeak(text)) {
           params.runtime.log?.(
             `feishu deliver: detected internal trace leak in response, replacing with fallback text`,
@@ -396,12 +401,6 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
             `feishu deliver: detected chart capability refusal reply, replacing with fallback text`,
           );
           text = FEISHU_CHART_REFUSAL_FALLBACK_TEXT;
-        }
-        if (looksLikeFeishuDocArgError(text)) {
-          params.runtime.log?.(
-            `feishu deliver: detected feishu-doc argument error leakage, replacing with fallback text`,
-          );
-          text = FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT;
         }
         const hasText = Boolean(text.trim());
         if (!hasText && !hasMedia) {

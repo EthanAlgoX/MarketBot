@@ -625,4 +625,90 @@ describe("feishu reply dispatcher", () => {
     });
     expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
   });
+
+  it("replaces feishu-doc space_id argument error leakage", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "The error message indicates that the request miss the space_id path argument when trying to access a Feishu document. Let me check the function call to see the correct way to include this parameter. Could you please provide the correct function call with the space_id parameter?",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "已忽略无关的 Feishu 文档参数报错（space_id 等）。我将直接使用浏览器与行情工具抓取美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）并绘制图表。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
+  it("replaces _forum internal trace prefix", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "_forum\n今天美股新闻",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "检测到内部调试片段（/thinking 或 tool 原始块）泄漏，已拦截。请重试：例如“今天美股新闻，返回5条（标题/来源/时间/链接）”。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
+  it("prefers feishu-doc fallback when _forum and space_id error appear together", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "_forum\n\nThe error message indicates that the request miss the space_id path argument when trying to access a Feishu document.",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "已忽略无关的 Feishu 文档参数报错（space_id 等）。我将直接使用浏览器与行情工具抓取美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）并绘制图表。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
 });
