@@ -859,4 +859,34 @@ describe("feishu reply dispatcher", () => {
     });
     expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
   });
+
+  it("replaces toolcall-400 parameter-template output in seven-sisters chart flow", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+      sourceText: "使用内置浏览器抓取美股七姐妹是哪些股票，再搜索相关股票数据，最后绘制图表",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "The error message \"Request failed with status code 400\" indicates a potential issue with the request. It's likely that the JSON structure was malformed or missing required parameters. Let me double-check the tool call to ensure it's correctly structured and that all required fields are included:\n\nVerify JSON Format: Ensure the arguments are correctly formatted in JSON and follow standard syntax.\nCheck Function Name: Confirm the function used is valid and matches your system's expected endpoint.\nParameter Validation: Double-check all parameters like sessionKey, query, and file_token to ensure they are correctly specified.\nIf the issue persists, please provide more details about the specific function or parameters you're trying to use, and I'll assist further.",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "检测到工具调用参数错误模板（400），未返回实际结果。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
 });

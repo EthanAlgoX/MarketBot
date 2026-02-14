@@ -109,6 +109,10 @@ const FEISHU_PROCESS_TEMPLATE_FALLBACK_TEXT =
   "当前回复仅包含操作步骤，未返回实际结果。请重试同一请求，我会直接给出结果，不再输出过程说明。";
 const FEISHU_PROCESS_TEMPLATE_CHART_FALLBACK_TEXT =
   "当前回复仅包含操作步骤，未返回实际结果。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。";
+const FEISHU_TOOLCALL_400_FALLBACK_TEXT =
+  "检测到工具调用参数错误模板（400），未返回实际结果。请重试同一请求，我会直接执行并返回结果。";
+const FEISHU_TOOLCALL_400_CHART_FALLBACK_TEXT =
+  "检测到工具调用参数错误模板（400），未返回实际结果。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回最新行情表与图表。";
 
 function claimsImageDelivered(text: string): boolean {
   if (!text.trim()) {
@@ -338,6 +342,31 @@ function looksLikeProcessTemplateOutput(text: string): boolean {
   return hasStepFraming && (hasToolPseudoCode || hasEnumeratedSteps);
 }
 
+function looksLikeToolCall400Template(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || hasUrl(trimmed)) {
+    return false;
+  }
+
+  const has400 = /(Request failed with status code 400|status code 400|请求失败.*400|400.*请求失败)/i.test(
+    trimmed,
+  );
+  if (!has400) {
+    return false;
+  }
+
+  const hasJsonGuidance =
+    /(JSON structure|malformed|missing required parameters|Verify JSON Format|Check Function Name|Parameter Validation)/i.test(
+      trimmed,
+    );
+  const hasParamExamples = /(sessionKey|query|file_token|function or parameters)/i.test(trimmed);
+  const hasTemplateTone = /(If the issue persists|please provide more details|Let me double-check)/i.test(
+    trimmed,
+  );
+
+  return (hasJsonGuidance && hasParamExamples) || (hasJsonGuidance && hasTemplateTone);
+}
+
 /**
  * Detect if text contains markdown elements that benefit from card rendering.
  * Used by auto render mode.
@@ -512,6 +541,14 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           text = looksLikeChartFlow
             ? FEISHU_PROCESS_TEMPLATE_CHART_FALLBACK_TEXT
             : FEISHU_PROCESS_TEMPLATE_FALLBACK_TEXT;
+        }
+        if (looksLikeExecutionFlow && looksLikeToolCall400Template(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected toolcall-400 template output without final result, replacing with result-oriented fallback text`,
+          );
+          text = looksLikeChartFlow
+            ? FEISHU_TOOLCALL_400_CHART_FALLBACK_TEXT
+            : FEISHU_TOOLCALL_400_FALLBACK_TEXT;
         }
         if (looksLikeInternalTraceLeak(text)) {
           params.runtime.log?.(
