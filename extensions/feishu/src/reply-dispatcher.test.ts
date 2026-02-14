@@ -3,7 +3,7 @@ import type { MarketBotConfig } from "marketbot/plugin-sdk";
 
 import { createFeishuReplyDispatcher } from "./reply-dispatcher.js";
 import { sendMediaFeishu } from "./media.js";
-import { sendMessageFeishu } from "./send.js";
+import { sendMessageFeishu, sendMarkdownCardFeishu } from "./send.js";
 
 const {
   mockCreateReplyDispatcherWithTyping,
@@ -948,5 +948,85 @@ describe("feishu reply dispatcher", () => {
       mentions: undefined,
     });
     expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
+  it("uses text mode for mermaid content in auto render mode", async () => {
+    const autoCfg = {
+      channels: {
+        feishu: {
+          appId: "app-id",
+          appSecret: "app-secret",
+          renderMode: "auto",
+        },
+      },
+    } as unknown as MarketBotConfig;
+
+    createFeishuReplyDispatcher({
+      cfg: autoCfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "```mermaid\nxychart-beta\n  title \"Demo\"\n  x-axis [\"A\",\"B\"]\n  y-axis \"v\" 0 --> 10\n  bar [1,2]\n```",
+    });
+
+    expect(vi.mocked(sendMarkdownCardFeishu)).not.toHaveBeenCalled();
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg: autoCfg,
+      to: "ou_user_1",
+      text:
+        "```mermaid\nxychart-beta\n  title \"Demo\"\n  x-axis [\"A\",\"B\"]\n  y-axis \"v\" 0 --> 10\n  bar [1,2]\n```",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+  });
+
+  it("falls back to text when card send fails", async () => {
+    const cardCfg = {
+      channels: {
+        feishu: {
+          appId: "app-id",
+          appSecret: "app-secret",
+          renderMode: "card",
+        },
+      },
+    } as unknown as MarketBotConfig;
+
+    mockSendMarkdownCardFeishu.mockRejectedValueOnce(new Error("card send failed"));
+
+    createFeishuReplyDispatcher({
+      cfg: cardCfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "含表格内容\n|a|b|\n|---|---|\n|1|2|",
+    });
+
+    expect(vi.mocked(sendMarkdownCardFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg: cardCfg,
+      to: "ou_user_1",
+      text: "含表格内容\n|a|b|\n|---|---|\n|1|2|",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
   });
 });

@@ -295,7 +295,7 @@ function looksLikeFeishuWikiActionError(text: string): boolean {
 
   const hasWikiTerms = /(Feishu Wiki|wiki)/i.test(trimmed);
   const hasSearchUnavailable =
-    /(search[\"']?\s*action\s*(?:is\s*)?not\s*available|action\s*[\"']?search[\"']?\s*is\s*not\s*available)/i.test(
+    /(search["']?\s*action\s*(?:is\s*)?not\s*available|action\s*["']?search["']?\s*is\s*not\s*available)/i.test(
       trimmed,
     );
   const hasWrongGuidance = /(nodes\s*action|get\s*action|node\s*token)/i.test(trimmed);
@@ -436,6 +436,10 @@ function shouldUseCard(text: string): boolean {
     return true;
   }
   return false;
+}
+
+function hasMermaidCodeBlock(text: string): boolean {
+  return /```mermaid\b/i.test(text);
 }
 
 export type CreateFeishuReplyDispatcherParams = {
@@ -657,10 +661,12 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           // Check render mode: auto (default), raw, or card
           const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
           const renderMode = feishuCfg?.renderMode ?? "auto";
+          const mermaidInText = hasMermaidCodeBlock(text);
 
           // Determine if we should use card for this message
           const useCard =
-            renderMode === "card" || (renderMode === "auto" && shouldUseCard(text));
+            renderMode === "card" ||
+            (renderMode === "auto" && shouldUseCard(text) && !mermaidInText);
 
           // Only include @mentions in the first chunk (avoid duplicate @s)
           let isFirstChunk = true;
@@ -669,14 +675,34 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
             // Card mode: send as interactive card with markdown rendering
             const chunks = core.channel.text.chunkTextWithMode(text, textChunkLimit, chunkMode);
             params.runtime.log?.(`feishu deliver: sending ${chunks.length} card chunks to ${chatId}`);
+            let cardFallbackToText = false;
             for (const chunk of chunks) {
-              await sendMarkdownCardFeishu({
-                cfg,
-                to: chatId,
-                text: chunk,
-                replyToMessageId,
-                mentions: isFirstChunk ? mentionTargets : undefined,
-              });
+              if (!cardFallbackToText) {
+                try {
+                  await sendMarkdownCardFeishu({
+                    cfg,
+                    to: chatId,
+                    text: chunk,
+                    replyToMessageId,
+                    mentions: isFirstChunk ? mentionTargets : undefined,
+                  });
+                } catch (err) {
+                  cardFallbackToText = true;
+                  params.runtime.error?.(
+                    `feishu deliver: card send failed, falling back to text mode: ${String(err)}`,
+                  );
+                }
+              }
+              if (cardFallbackToText) {
+                const convertedChunk = core.channel.text.convertMarkdownTables(chunk, tableMode);
+                await sendMessageFeishu({
+                  cfg,
+                  to: chatId,
+                  text: convertedChunk,
+                  replyToMessageId,
+                  mentions: isFirstChunk ? mentionTargets : undefined,
+                });
+              }
               isFirstChunk = false;
             }
           } else {
