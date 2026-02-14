@@ -185,4 +185,157 @@ describe("feishu reply dispatcher", () => {
       replyToMessageId: "om_reply",
     });
   });
+
+  it("extracts plain image-link directives from text and sends as media", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "抓取数据分析，发我图片\n图片链接：https://example.com/chart.png",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "抓取数据分析，发我图片",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMediaFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      mediaUrl: "https://example.com/chart.png",
+      replyToMessageId: "om_reply",
+    });
+  });
+
+  it("replaces fake image-sent claims when no media exists", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "已收到您的请求并附上相关图片。请查看。",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "未检测到可发送的图片内容。请稍后重试，或提供可访问的图片链接后我再发送。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
+  it("does not replace image text when media is present", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "已为您附上相关图片，请查看。",
+      mediaUrl: "https://example.com/real-chart.png",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "已为您附上相关图片，请查看。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMediaFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      mediaUrl: "https://example.com/real-chart.png",
+      replyToMessageId: "om_reply",
+    });
+  });
+
+  it("replaces placeholder news results without real links", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "搜索美团新闻\n搜索结果如下：\n[搜索结果]\n- 美团新闻：[具体文章链接]（可点击查看详细内容）",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "未获取到有效新闻结果（缺少真实链接或命中占位文本）。请稍后重试，或改为“搜索美团新闻，返回5条（标题/来源/时间/链接）”。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
+  it("keeps news response when real links exist", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "搜索美团新闻\n1) 标题A | 来源A | 2026-02-14 | https://news.example.com/a",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "搜索美团新闻\n1) 标题A | 来源A | 2026-02-14 | https://news.example.com/a",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
 });

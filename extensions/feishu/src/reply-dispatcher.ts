@@ -39,22 +39,90 @@ function normalizeMarkdownImageTarget(raw: string): string | null {
   return isFeishuMediaSource(value) ? value : null;
 }
 
+function collectMediaUrl(raw: string, seen: Set<string>, mediaUrls: string[]): string | null {
+  const mediaUrl = normalizeMarkdownImageTarget(raw);
+  if (!mediaUrl || seen.has(mediaUrl)) {
+    return null;
+  }
+  seen.add(mediaUrl);
+  mediaUrls.push(mediaUrl);
+  return mediaUrl;
+}
+
 function extractMarkdownMedia(text: string): { text: string; mediaUrls: string[] } {
   const mediaUrls: string[] = [];
   const seen = new Set<string>();
-  const cleaned = text.replace(/!\[[^\]]*]\(([^)]+)\)/g, (_match, rawTarget: string) => {
-    const mediaUrl = normalizeMarkdownImageTarget(String(rawTarget));
-    if (mediaUrl && !seen.has(mediaUrl)) {
-      seen.add(mediaUrl);
-      mediaUrls.push(mediaUrl);
-      return "";
-    }
-    return _match;
-  });
+  let cleaned = text;
+
+  cleaned = cleaned.replace(/!\[[^\]]*]\(([^)]+)\)/g, (match, rawTarget: string) =>
+    collectMediaUrl(String(rawTarget), seen, mediaUrls) ? "" : match,
+  );
+
+  // Also support markdown links when the label implies image output.
+  cleaned = cleaned.replace(
+    /\[(?:图片链接|图链|image(?:\s*link)?|screenshot)[^\]]*]\(([^)]+)\)/gi,
+    (match, rawTarget: string) => (collectMediaUrl(String(rawTarget), seen, mediaUrls) ? "" : match),
+  );
+
+  // Support MEDIA directives even if upstream parser did not split them.
+  cleaned = cleaned.replace(/\bMEDIA:\s*([^\s\n]+)/gi, (match, rawTarget: string) =>
+    collectMediaUrl(String(rawTarget), seen, mediaUrls) ? "" : match,
+  );
+
+  // Support plain "图片链接: <url>" style output.
+  cleaned = cleaned.replace(
+    /(?:图片链接|图链|image\s*link)\s*[：:]\s*(https?:\/\/[^\s\])>]+)/gi,
+    (match, rawTarget: string) => (collectMediaUrl(String(rawTarget), seen, mediaUrls) ? "" : match),
+  );
+
   return {
     text: cleaned.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(),
     mediaUrls,
   };
+}
+
+const FEISHU_MISSING_IMAGE_FALLBACK_TEXT =
+  "未检测到可发送的图片内容。请稍后重试，或提供可访问的图片链接后我再发送。";
+const FEISHU_MISSING_NEWS_FALLBACK_TEXT =
+  "未获取到有效新闻结果（缺少真实链接或命中占位文本）。请稍后重试，或改为“搜索美团新闻，返回5条（标题/来源/时间/链接）”。";
+
+function claimsImageDelivered(text: string): boolean {
+  if (!text.trim()) {
+    return false;
+  }
+
+  const zhPattern =
+    /(?:已|已经|现已|我已|已为您|已帮您|已将|已把).{0,16}(?:发送|附上|附带|上传|推送).{0,8}(?:图片|截图|图表|图像|图)|(?:图片|截图|图表|图像|图).{0,12}(?:已|已经).{0,8}(?:发送|附上|附带|上传)|(?:见下图|如下图|已附图|附图如下|已附上相关图片|已发送图片)/i;
+  if (zhPattern.test(text)) {
+    return true;
+  }
+
+  const enPattern =
+    /(?:i\s*(?:have|'ve)\s*(?:sent|attached|included).{0,24}(?:image|chart|screenshot))|(?:attached\s+(?:the\s+)?(?:image|chart|screenshot))|(?:see\s+(?:the\s+)?(?:image|chart|screenshot))/i;
+  return enPattern.test(text);
+}
+
+function hasUrl(text: string): boolean {
+  return /https?:\/\/\S+/i.test(text);
+}
+
+function looksLikePlaceholderNewsResult(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  const mentionsNewsSearch = /(搜索|新闻|news|headline)/i.test(trimmed);
+  if (!mentionsNewsSearch) {
+    return false;
+  }
+
+  const placeholderPattern =
+    /\[(?:搜索结果|搜索结果如下|具体文章链接|文章链接|新闻链接|链接)\]|(?:可点击查看详细内容|如需进一步操作，可随时告诉我)/i;
+  if (!placeholderPattern.test(trimmed)) {
+    return false;
+  }
+
+  return !hasUrl(trimmed);
 }
 
 /**
@@ -151,15 +219,27 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
         params.runtime.log?.(`feishu deliver called: text=${payload.text?.slice(0, 100)}`);
         const payloadText = payload.text ?? "";
         const extracted = extractMarkdownMedia(payloadText);
-        const text = extracted.text;
+        let text = extracted.text;
         const mediaListRaw = payload.mediaUrls?.length
           ? payload.mediaUrls
           : payload.mediaUrl
             ? [payload.mediaUrl]
             : [];
         const mediaList = [...mediaListRaw, ...extracted.mediaUrls];
-        const hasText = Boolean(text.trim());
         const hasMedia = mediaList.length > 0;
+        if (!hasMedia && claimsImageDelivered(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected image-sent claim without media, replacing with fallback text`,
+          );
+          text = FEISHU_MISSING_IMAGE_FALLBACK_TEXT;
+        }
+        if (looksLikePlaceholderNewsResult(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected placeholder news result without real links, replacing with fallback text`,
+          );
+          text = FEISHU_MISSING_NEWS_FALLBACK_TEXT;
+        }
+        const hasText = Boolean(text.trim());
         if (!hasText && !hasMedia) {
           params.runtime.log?.(`feishu deliver: empty payload, skipping`);
           return;
