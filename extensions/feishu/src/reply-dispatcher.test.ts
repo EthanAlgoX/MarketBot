@@ -769,4 +769,34 @@ describe("feishu reply dispatcher", () => {
     });
     expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
   });
+
+  it("replaces example-domain fetch error leakage in seven-sisters chart flow", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+      sourceText: "使用浏览器抓取美股七姐妹是哪些股票，再搜索相关股票数据，最后绘制图表",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text:
+        "The web fetch attempt failed with a 404 error: \"Example Domain\" (URL: https://example.com/chart). Reason: The domain \"Example Domain\" is specified for documentation-only use and cannot be used in operations. Avoid using this domain in usage-critical contexts. Please verify the URL or domain you wish to fetch and ensure it’s valid and accessible.",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "检测到占位链接（example.com）导致抓取失败，已自动纠正。接下来我将基于美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）抓取真实行情并绘制图表。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
 });

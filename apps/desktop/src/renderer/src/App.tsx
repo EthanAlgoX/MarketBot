@@ -590,6 +590,13 @@ const PROVIDERS: ProviderDef[] = [
   },
 ];
 
+const CREDENTIAL_GATED_PROVIDER_IDS = new Set<string>([
+  ...PROVIDERS.map((provider) => provider.id),
+  // Catalog entries typically use "openai" while desktop onboarding uses
+  // "openai-codex" profile IDs.
+  'openai',
+]);
+
 // ── Local Model Definitions ──
 
 interface LocalModelDef {
@@ -1115,6 +1122,49 @@ function ModelSettings({
     return groups;
   }, [models, installedModels]);
 
+  const isInstalledOllamaModel = useCallback(
+    (modelId: string) => {
+      if (!modelId.startsWith('ollama/')) return false;
+      const modelName = modelId.slice('ollama/'.length);
+      return installedModels.some(
+        (installedId) =>
+          installedId === modelName ||
+          installedId === `${modelName}:latest` ||
+          installedId.startsWith(`${modelName}:`),
+      );
+    },
+    [installedModels],
+  );
+
+  const primarySelectableGroupedModels = useMemo(() => {
+    const groups: Record<string, ModelInfo[]> = {};
+    for (const [provider, providerModels] of Object.entries(groupedModels)) {
+      const availableModels = providerModels.filter((model) => {
+        if (model.provider === 'ollama') {
+          return isInstalledOllamaModel(model.id);
+        }
+        if (!CREDENTIAL_GATED_PROVIDER_IDS.has(model.provider)) {
+          return true;
+        }
+        if (configuredProviders.has(model.provider)) {
+          return true;
+        }
+        // Support OpenAI provider alias between model catalog and credential profile.
+        if (model.provider === 'openai') {
+          return configuredProviders.has('openai-codex');
+        }
+        if (model.provider === 'openai-codex') {
+          return configuredProviders.has('openai');
+        }
+        return false;
+      });
+      if (availableModels.length > 0) {
+        groups[provider] = availableModels;
+      }
+    }
+    return groups;
+  }, [configuredProviders, groupedModels, isInstalledOllamaModel]);
+
   const localInstalledCount = useMemo(() => {
     return LOCAL_MODELS.filter((lm) =>
       installedModels.some(
@@ -1440,7 +1490,7 @@ function ModelSettings({
             disabled={saving}
           >
             {!primaryModel && <option value="">{t('selectModel')}</option>}
-            {Object.entries(groupedModels).map(([provider, providerModels]) => (
+            {Object.entries(primarySelectableGroupedModels).map(([provider, providerModels]) => (
               <optgroup key={provider} label={provider}>
                 {providerModels.map((m) => (
                   <option key={m.id} value={m.id}>

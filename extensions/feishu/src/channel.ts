@@ -64,6 +64,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
       "- For chart/data requests, never downgrade into a news-template fallback. Keep chart intent and return chart/data-oriented output.",
       "- For market/news/chart tasks, do not surface Feishu-doc argument errors (e.g. `space_id`, `folder token`) to users, and never ask users for tool function-call parameters.",
       "- Do not output Feishu Wiki tool-action errors (e.g. `search action is not available`, `use nodes/get action`) to users in market/news/chart flows.",
+      "- Never use placeholder domains/URLs (e.g. `example.com`) for fetch/chart outputs; always use real accessible sources.",
       "- News reply quality gate: include at least 3 items, and each item must include title, source, publish time, and a clickable URL.",
       "- Never output placeholder tokens like `[搜索结果]`, `[具体文章链接]`, `可点击查看详细内容` without real links.",
       "- Never echo Feishu/system metadata to end users (e.g. sender open_id/chat_id, session info, raw event fields).",

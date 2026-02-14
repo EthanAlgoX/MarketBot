@@ -99,6 +99,10 @@ const FEISHU_CHART_REFUSAL_FALLBACK_TEXT =
   "图表请求已收到。请补充标的与周期（例如：AAPL，近3个月/日线）；我将抓取数据并发送图表图片。";
 const FEISHU_CHART_NEWS_MISROUTE_FALLBACK_TEXT =
   "图表请求误入新闻检索流程，已自动纠正。我将按美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）抓取行情并绘制图表后发送。";
+const FEISHU_PLACEHOLDER_URL_FALLBACK_TEXT =
+  "检测到占位链接（example.com）导致抓取失败。请提供真实可访问的数据链接，或直接说明标的与周期后我继续处理。";
+const FEISHU_PLACEHOLDER_URL_CHART_FALLBACK_TEXT =
+  "检测到占位链接（example.com）导致抓取失败，已自动纠正。接下来我将基于美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）抓取真实行情并绘制图表。";
 const FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT =
   "已忽略无关的 Feishu 文档参数报错（space_id 等）。我将直接使用浏览器与行情工具抓取美股七姐妹（AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA）并绘制图表。";
 
@@ -284,6 +288,24 @@ function looksLikeFeishuWikiActionError(text: string): boolean {
   return hasWikiTerms && hasSearchUnavailable && hasWrongGuidance && hasErrorFrame;
 }
 
+function looksLikePlaceholderUrlFetchError(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const hasFetchError =
+    /(web fetch attempt failed|fetch attempt failed|抓取失败|请求失败|404|not found)/i.test(trimmed);
+  const hasPlaceholderUrl =
+    /(Example Domain|example\.com(?:\/[^\s)]*)?|documentation-only use|cannot be used in operations)/i.test(
+      trimmed,
+    );
+  const hasUrlFixGuidance = /(verify the url|ensure it'?s valid|domain you wish to fetch)/i.test(
+    trimmed,
+  );
+  return hasFetchError && hasPlaceholderUrl && hasUrlFixGuidance;
+}
+
 /**
  * Detect if text contains markdown elements that benefit from card rendering.
  * Used by auto render mode.
@@ -428,6 +450,15 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
             `feishu deliver: detected feishu wiki action error leakage, replacing with fallback text`,
           );
           text = FEISHU_DOC_ARG_ERROR_FALLBACK_TEXT;
+        }
+        if (looksLikePlaceholderUrlFetchError(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected placeholder-url fetch error leakage, replacing with fallback text`,
+          );
+          text =
+            looksLikeChartIntent(intentText) || hasSevenSistersHint
+              ? FEISHU_PLACEHOLDER_URL_CHART_FALLBACK_TEXT
+              : FEISHU_PLACEHOLDER_URL_FALLBACK_TEXT;
         }
         if (looksLikeInternalTraceLeak(text)) {
           params.runtime.log?.(
