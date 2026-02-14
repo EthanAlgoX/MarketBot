@@ -8,6 +8,7 @@ import {
 } from "marketbot/plugin-sdk";
 import { getFeishuRuntime } from "./runtime.js";
 import { sendMessageFeishu, sendMarkdownCardFeishu } from "./send.js";
+import { sendMediaFeishu } from "./media.js";
 import type { FeishuConfig } from "./types.js";
 import type { MentionTarget } from "./mention.js";
 import {
@@ -16,15 +17,59 @@ import {
   type TypingIndicatorState,
 } from "./typing.js";
 
+function isFeishuMediaSource(value: string): boolean {
+  if (!value) {
+    return false;
+  }
+  return /^https?:\/\//i.test(value) || value.startsWith("/") || value.startsWith("./");
+}
+
+function normalizeMarkdownImageTarget(raw: string): string | null {
+  let value = raw.trim();
+  if (!value) {
+    return null;
+  }
+  if (value.startsWith("<") && value.endsWith(">")) {
+    value = value.slice(1, -1).trim();
+  }
+  const titleSep = value.match(/\s+['"]/);
+  if (titleSep?.index && titleSep.index > 0) {
+    value = value.slice(0, titleSep.index).trim();
+  }
+  return isFeishuMediaSource(value) ? value : null;
+}
+
+function extractMarkdownMedia(text: string): { text: string; mediaUrls: string[] } {
+  const mediaUrls: string[] = [];
+  const seen = new Set<string>();
+  const cleaned = text.replace(/!\[[^\]]*]\(([^)]+)\)/g, (_match, rawTarget: string) => {
+    const mediaUrl = normalizeMarkdownImageTarget(String(rawTarget));
+    if (mediaUrl && !seen.has(mediaUrl)) {
+      seen.add(mediaUrl);
+      mediaUrls.push(mediaUrl);
+      return "";
+    }
+    return _match;
+  });
+  return {
+    text: cleaned.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(),
+    mediaUrls,
+  };
+}
+
 /**
  * Detect if text contains markdown elements that benefit from card rendering.
  * Used by auto render mode.
  */
 function shouldUseCard(text: string): boolean {
   // Code blocks (fenced)
-  if (/```[\s\S]*?```/.test(text)) return true;
+  if (/```[\s\S]*?```/.test(text)) {
+    return true;
+  }
   // Tables (at least header + separator row with |)
-  if (/\|.+\|[\r\n]+\|[-:| ]+\|/.test(text)) return true;
+  if (/\|.+\|[\r\n]+\|[-:| ]+\|/.test(text)) {
+    return true;
+  }
   return false;
 }
 
@@ -53,12 +98,16 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
 
   const typingCallbacks = createTypingCallbacks({
     start: async () => {
-      if (!replyToMessageId) return;
+      if (!replyToMessageId) {
+        return;
+      }
       typingState = await addTypingIndicator({ cfg, messageId: replyToMessageId });
       params.runtime.log?.(`feishu: added typing indicator reaction`);
     },
     stop: async () => {
-      if (!typingState) return;
+      if (!typingState) {
+        return;
+      }
       await removeTypingIndicator({ cfg, state: typingState });
       typingState = null;
       params.runtime.log?.(`feishu: removed typing indicator reaction`);
@@ -100,51 +149,77 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
       onReplyStart: typingCallbacks.onReplyStart,
       deliver: async (payload: ReplyPayload) => {
         params.runtime.log?.(`feishu deliver called: text=${payload.text?.slice(0, 100)}`);
-        const text = payload.text ?? "";
-        if (!text.trim()) {
-          params.runtime.log?.(`feishu deliver: empty text, skipping`);
+        const payloadText = payload.text ?? "";
+        const extracted = extractMarkdownMedia(payloadText);
+        const text = extracted.text;
+        const mediaListRaw = payload.mediaUrls?.length
+          ? payload.mediaUrls
+          : payload.mediaUrl
+            ? [payload.mediaUrl]
+            : [];
+        const mediaList = [...mediaListRaw, ...extracted.mediaUrls];
+        const hasText = Boolean(text.trim());
+        const hasMedia = mediaList.length > 0;
+        if (!hasText && !hasMedia) {
+          params.runtime.log?.(`feishu deliver: empty payload, skipping`);
           return;
         }
 
-        // Check render mode: auto (default), raw, or card
-        const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
-        const renderMode = feishuCfg?.renderMode ?? "auto";
+        if (hasText) {
+          // Check render mode: auto (default), raw, or card
+          const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
+          const renderMode = feishuCfg?.renderMode ?? "auto";
 
-        // Determine if we should use card for this message
-        const useCard =
-          renderMode === "card" || (renderMode === "auto" && shouldUseCard(text));
+          // Determine if we should use card for this message
+          const useCard =
+            renderMode === "card" || (renderMode === "auto" && shouldUseCard(text));
 
-        // Only include @mentions in the first chunk (avoid duplicate @s)
-        let isFirstChunk = true;
+          // Only include @mentions in the first chunk (avoid duplicate @s)
+          let isFirstChunk = true;
 
-        if (useCard) {
-          // Card mode: send as interactive card with markdown rendering
-          const chunks = core.channel.text.chunkTextWithMode(text, textChunkLimit, chunkMode);
-          params.runtime.log?.(`feishu deliver: sending ${chunks.length} card chunks to ${chatId}`);
-          for (const chunk of chunks) {
-            await sendMarkdownCardFeishu({
-              cfg,
-              to: chatId,
-              text: chunk,
-              replyToMessageId,
-              mentions: isFirstChunk ? mentionTargets : undefined,
-            });
-            isFirstChunk = false;
+          if (useCard) {
+            // Card mode: send as interactive card with markdown rendering
+            const chunks = core.channel.text.chunkTextWithMode(text, textChunkLimit, chunkMode);
+            params.runtime.log?.(`feishu deliver: sending ${chunks.length} card chunks to ${chatId}`);
+            for (const chunk of chunks) {
+              await sendMarkdownCardFeishu({
+                cfg,
+                to: chatId,
+                text: chunk,
+                replyToMessageId,
+                mentions: isFirstChunk ? mentionTargets : undefined,
+              });
+              isFirstChunk = false;
+            }
+          } else {
+            // Raw mode: send as plain text with table conversion
+            const converted = core.channel.text.convertMarkdownTables(text, tableMode);
+            const chunks = core.channel.text.chunkTextWithMode(converted, textChunkLimit, chunkMode);
+            params.runtime.log?.(`feishu deliver: sending ${chunks.length} text chunks to ${chatId}`);
+            for (const chunk of chunks) {
+              await sendMessageFeishu({
+                cfg,
+                to: chatId,
+                text: chunk,
+                replyToMessageId,
+                mentions: isFirstChunk ? mentionTargets : undefined,
+              });
+              isFirstChunk = false;
+            }
           }
-        } else {
-          // Raw mode: send as plain text with table conversion
-          const converted = core.channel.text.convertMarkdownTables(text, tableMode);
-          const chunks = core.channel.text.chunkTextWithMode(converted, textChunkLimit, chunkMode);
-          params.runtime.log?.(`feishu deliver: sending ${chunks.length} text chunks to ${chatId}`);
-          for (const chunk of chunks) {
-            await sendMessageFeishu({
+        }
+
+        if (hasMedia) {
+          for (const mediaUrl of mediaList) {
+            if (!mediaUrl?.trim()) {
+              continue;
+            }
+            await sendMediaFeishu({
               cfg,
               to: chatId,
-              text: chunk,
+              mediaUrl,
               replyToMessageId,
-              mentions: isFirstChunk ? mentionTargets : undefined,
             });
-            isFirstChunk = false;
           }
         }
       },

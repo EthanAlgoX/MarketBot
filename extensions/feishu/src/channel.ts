@@ -5,7 +5,7 @@ import { resolveFeishuAccount, resolveFeishuCredentials } from "./accounts.js";
 import { feishuOutbound } from "./outbound.js";
 import { probeFeishu } from "./probe.js";
 import { resolveFeishuGroupToolPolicy } from "./policy.js";
-import { normalizeFeishuTarget, looksLikeFeishuId, formatFeishuTarget } from "./targets.js";
+import { normalizeFeishuTarget, looksLikeFeishuId } from "./targets.js";
 import { sendMessageFeishu } from "./send.js";
 import {
   listFeishuDirectoryPeers,
@@ -55,6 +55,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
     messageToolHints: () => [
       "- Feishu targeting: omit `target` to reply to the current conversation (auto-inferred). Explicit targets: `user:open_id` or `chat:chat_id`.",
       "- Feishu supports interactive cards for rich messages.",
+      "- If the user asks for an image/chart, you MUST include one or more `MEDIA:<url-or-path>` lines in your reply. Never claim an image was sent unless `MEDIA:` is present.",
       "- Finance: use the `finance` tool for market data, technicals, risk, news, and briefs. Common actions: `market_data`, `quote`, `technicals`, `risk`, `summary`, `news`, `brief`.",
       "- Gold (黄金) defaults: use symbol `XAUUSD=X` (spot) or `GC=F` (COMEX futures) if the user does not specify an exchange.",
       "- Output: write in Chinese, concise research-note style (price action, trend, key levels, catalysts, risks). Always state timeframe and data source.",
@@ -137,7 +138,9 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
       const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
       const defaultGroupPolicy = (cfg.channels as Record<string, { groupPolicy?: string }> | undefined)?.defaults?.groupPolicy;
       const groupPolicy = feishuCfg?.groupPolicy ?? defaultGroupPolicy ?? "allowlist";
-      if (groupPolicy !== "open") return [];
+      if (groupPolicy !== "open") {
+        return [];
+      }
       return [
         `- Feishu groups: groupPolicy="open" allows any member to trigger (mention-gated). Set channels.feishu.groupPolicy="allowlist" + channels.feishu.groupAllowFrom to restrict senders.`,
       ];

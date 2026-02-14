@@ -6,6 +6,40 @@ import { createFeishuClient } from "./client.js";
 import { resolveReceiveIdType, normalizeFeishuTarget } from "./targets.js";
 import { getFeishuRuntime } from "./runtime.js";
 
+type FeishuApiResponse = {
+  code?: number;
+  msg?: string;
+  message_id?: string;
+  data?: {
+    message_id?: string;
+    items?: Array<{
+      message_id?: string;
+      chat_id?: string;
+      msg_type?: string;
+      body?: { content?: string };
+      sender?: {
+        id?: string;
+        id_type?: string;
+        sender_type?: string;
+      };
+      create_time?: string;
+    }>;
+  };
+};
+
+function ensureFeishuApiSuccess(response: unknown, operation: string): FeishuApiResponse {
+  const result = (response ?? {}) as FeishuApiResponse;
+  // SDK may omit `code` on success; only fail on explicit non-zero code.
+  if (typeof result.code === "number" && result.code !== 0) {
+    throw new Error(`Feishu ${operation} failed: ${result.msg || `code ${result.code}`}`);
+  }
+  return result;
+}
+
+function extractMessageId(response: FeishuApiResponse): string {
+  return response.data?.message_id ?? response.message_id ?? "unknown";
+}
+
 export type FeishuMessageInfo = {
   messageId: string;
   chatId: string;
@@ -35,26 +69,9 @@ export async function getMessageFeishu(params: {
   try {
     const response = (await client.im.message.get({
       path: { message_id: messageId },
-    })) as {
-      code?: number;
-      msg?: string;
-      data?: {
-        items?: Array<{
-          message_id?: string;
-          chat_id?: string;
-          msg_type?: string;
-          body?: { content?: string };
-          sender?: {
-            id?: string;
-            id_type?: string;
-            sender_type?: string;
-          };
-          create_time?: string;
-        }>;
-      };
-    };
+    })) as FeishuApiResponse;
 
-    if (response.code !== 0) {
+    if (typeof response.code === "number" && response.code !== 0) {
       return null;
     }
 
@@ -97,7 +114,9 @@ export type SendFeishuMessageParams = {
   mentions?: MentionTarget[];
 };
 
-export async function sendMessageFeishu(params: SendFeishuMessageParams): Promise<FeishuSendResult> {
+export async function sendMessageFeishu(
+  params: SendFeishuMessageParams,
+): Promise<FeishuSendResult> {
   const { cfg, to, text, replyToMessageId, mentions } = params;
   const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
   if (!feishuCfg) {
@@ -126,39 +145,37 @@ export async function sendMessageFeishu(params: SendFeishuMessageParams): Promis
   const content = JSON.stringify({ text: messageText });
 
   if (replyToMessageId) {
-    const response = await client.im.message.reply({
-      path: { message_id: replyToMessageId },
-      data: {
-        content,
-        msg_type: "text",
-      },
-    });
-
-    if (response.code !== 0) {
-      throw new Error(`Feishu reply failed: ${response.msg || `code ${response.code}`}`);
-    }
+    const response = ensureFeishuApiSuccess(
+      await client.im.message.reply({
+        path: { message_id: replyToMessageId },
+        data: {
+          content,
+          msg_type: "text",
+        },
+      }),
+      "reply",
+    );
 
     return {
-      messageId: response.data?.message_id ?? "unknown",
+      messageId: extractMessageId(response),
       chatId: receiveId,
     };
   }
 
-  const response = await client.im.message.create({
-    params: { receive_id_type: receiveIdType },
-    data: {
-      receive_id: receiveId,
-      content,
-      msg_type: "text",
-    },
-  });
-
-  if (response.code !== 0) {
-    throw new Error(`Feishu send failed: ${response.msg || `code ${response.code}`}`);
-  }
+  const response = ensureFeishuApiSuccess(
+    await client.im.message.create({
+      params: { receive_id_type: receiveIdType },
+      data: {
+        receive_id: receiveId,
+        content,
+        msg_type: "text",
+      },
+    }),
+    "send",
+  );
 
   return {
-    messageId: response.data?.message_id ?? "unknown",
+    messageId: extractMessageId(response),
     chatId: receiveId,
   };
 }
@@ -187,39 +204,37 @@ export async function sendCardFeishu(params: SendFeishuCardParams): Promise<Feis
   const content = JSON.stringify(card);
 
   if (replyToMessageId) {
-    const response = await client.im.message.reply({
-      path: { message_id: replyToMessageId },
-      data: {
-        content,
-        msg_type: "interactive",
-      },
-    });
-
-    if (response.code !== 0) {
-      throw new Error(`Feishu card reply failed: ${response.msg || `code ${response.code}`}`);
-    }
+    const response = ensureFeishuApiSuccess(
+      await client.im.message.reply({
+        path: { message_id: replyToMessageId },
+        data: {
+          content,
+          msg_type: "interactive",
+        },
+      }),
+      "card reply",
+    );
 
     return {
-      messageId: response.data?.message_id ?? "unknown",
+      messageId: extractMessageId(response),
       chatId: receiveId,
     };
   }
 
-  const response = await client.im.message.create({
-    params: { receive_id_type: receiveIdType },
-    data: {
-      receive_id: receiveId,
-      content,
-      msg_type: "interactive",
-    },
-  });
-
-  if (response.code !== 0) {
-    throw new Error(`Feishu card send failed: ${response.msg || `code ${response.code}`}`);
-  }
+  const response = ensureFeishuApiSuccess(
+    await client.im.message.create({
+      params: { receive_id_type: receiveIdType },
+      data: {
+        receive_id: receiveId,
+        content,
+        msg_type: "interactive",
+      },
+    }),
+    "card send",
+  );
 
   return {
-    messageId: response.data?.message_id ?? "unknown",
+    messageId: extractMessageId(response),
     chatId: receiveId,
   };
 }
@@ -238,14 +253,14 @@ export async function updateCardFeishu(params: {
   const client = createFeishuClient(feishuCfg);
   const content = JSON.stringify(card);
 
-  const response = await client.im.message.patch({
-    path: { message_id: messageId },
-    data: { content },
-  });
-
-  if (response.code !== 0) {
-    throw new Error(`Feishu card update failed: ${response.msg || `code ${response.code}`}`);
-  }
+  const response = ensureFeishuApiSuccess(
+    await client.im.message.patch({
+      path: { message_id: messageId },
+      data: { content },
+    }),
+    "card update",
+  );
+  void response;
 }
 
 /**
@@ -311,15 +326,15 @@ export async function editMessageFeishu(params: {
   const messageText = getFeishuRuntime().channel.text.convertMarkdownTables(text ?? "", tableMode);
   const content = JSON.stringify({ text: messageText });
 
-  const response = await client.im.message.update({
-    path: { message_id: messageId },
-    data: {
-      msg_type: "text",
-      content,
-    },
-  });
-
-  if (response.code !== 0) {
-    throw new Error(`Feishu message edit failed: ${response.msg || `code ${response.code}`}`);
-  }
+  const response = ensureFeishuApiSuccess(
+    await client.im.message.update({
+      path: { message_id: messageId },
+      data: {
+        msg_type: "text",
+        content,
+      },
+    }),
+    "message edit",
+  );
+  void response;
 }

@@ -7,6 +7,125 @@ import path from "path";
 import os from "os";
 import { Readable } from "stream";
 
+type FeishuApiResponse = {
+  code?: number;
+  msg?: string;
+  message_id?: string;
+  data?: {
+    message_id?: string;
+    image_key?: string;
+    file_key?: string;
+  };
+};
+
+const IMAGE_EXTENSIONS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".bmp",
+  ".ico",
+  ".tiff",
+  ".tif",
+]);
+
+function ensureFeishuApiSuccess(response: unknown, operation: string): FeishuApiResponse {
+  const result = (response ?? {}) as FeishuApiResponse;
+  // SDK may omit `code` on success; only fail on explicit non-zero code.
+  if (typeof result.code === "number" && result.code !== 0) {
+    throw new Error(`Feishu ${operation} failed: ${result.msg || `code ${result.code}`}`);
+  }
+  return result;
+}
+
+function extractMessageId(response: FeishuApiResponse): string {
+  return response.data?.message_id ?? response.message_id ?? "unknown";
+}
+
+function normalizeContentType(contentType?: string | null): string | undefined {
+  const base = contentType?.split(";")[0]?.trim().toLowerCase();
+  return base || undefined;
+}
+
+function hasImageExtension(fileName?: string): boolean {
+  if (!fileName) {
+    return false;
+  }
+  return IMAGE_EXTENSIONS.has(path.extname(fileName).toLowerCase());
+}
+
+function looksLikeImageBuffer(buffer: Buffer): boolean {
+  if (buffer.length < 4) {
+    return false;
+  }
+
+  // PNG: 89 50 4E 47
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return true;
+  }
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return true;
+  }
+
+  // GIF: "GIF8"
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) {
+    return true;
+  }
+
+  // WEBP: "RIFF....WEBP"
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return true;
+  }
+
+  // BMP: "BM"
+  if (buffer[0] === 0x42 && buffer[1] === 0x4d) {
+    return true;
+  }
+
+  // ICO: 00 00 01 00
+  if (buffer[0] === 0x00 && buffer[1] === 0x00 && buffer[2] === 0x01 && buffer[3] === 0x00) {
+    return true;
+  }
+
+  // TIFF: "II*\0" or "MM\0*"
+  if (
+    (buffer[0] === 0x49 && buffer[1] === 0x49 && buffer[2] === 0x2a && buffer[3] === 0x00) ||
+    (buffer[0] === 0x4d && buffer[1] === 0x4d && buffer[2] === 0x00 && buffer[3] === 0x2a)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function isImageMediaFeishu(params: {
+  fileName?: string;
+  contentType?: string;
+  buffer: Buffer;
+}): boolean {
+  if (hasImageExtension(params.fileName)) {
+    return true;
+  }
+  const normalizedType = normalizeContentType(params.contentType);
+  if (normalizedType?.startsWith("image/")) {
+    return true;
+  }
+  return looksLikeImageBuffer(params.buffer);
+}
+
 export type DownloadImageResult = {
   buffer: Buffer;
   contentType?: string;
@@ -40,7 +159,9 @@ export async function downloadImageFeishu(params: {
 
   const responseAny = response as any;
   if (responseAny.code !== undefined && responseAny.code !== 0) {
-    throw new Error(`Feishu image download failed: ${responseAny.msg || `code ${responseAny.code}`}`);
+    throw new Error(
+      `Feishu image download failed: ${responseAny.msg || `code ${responseAny.code}`}`,
+    );
   }
 
   // Handle various response formats from Feishu SDK
@@ -85,10 +206,8 @@ export async function downloadImageFeishu(params: {
   } else {
     // Debug: log what we actually received
     const keys = Object.keys(responseAny);
-    const types = keys.map(k => `${k}: ${typeof responseAny[k]}`).join(", ");
-    throw new Error(
-      `Feishu image download failed: unexpected response format. Keys: [${types}]`,
-    );
+    const types = keys.map((k) => `${k}: ${typeof responseAny[k]}`).join(", ");
+    throw new Error(`Feishu image download failed: unexpected response format. Keys: [${types}]`);
   }
 
   return { buffer };
@@ -166,7 +285,7 @@ export async function downloadMessageResourceFeishu(params: {
   } else {
     // Debug: log what we actually received
     const keys = Object.keys(responseAny);
-    const types = keys.map(k => `${k}: ${typeof responseAny[k]}`).join(", ");
+    const types = keys.map((k) => `${k}: ${typeof responseAny[k]}`).join(", ");
     throw new Error(
       `Feishu message resource download failed: unexpected response format. Keys: [${types}]`,
     );
@@ -207,8 +326,7 @@ export async function uploadImageFeishu(params: {
 
   // SDK expects a Readable stream, not a Buffer
   // Use type assertion since SDK actually accepts any Readable at runtime
-  const imageStream =
-    typeof image === "string" ? fs.createReadStream(image) : Readable.from(image);
+  const imageStream = typeof image === "string" ? fs.createReadStream(image) : Readable.from(image);
 
   const response = await client.im.image.create({
     data: {
@@ -217,12 +335,7 @@ export async function uploadImageFeishu(params: {
     },
   });
 
-  // SDK v1.30+ returns data directly without code wrapper on success
-  // On error, it throws or returns { code, msg }
-  const responseAny = response as any;
-  if (responseAny.code !== undefined && responseAny.code !== 0) {
-    throw new Error(`Feishu image upload failed: ${responseAny.msg || `code ${responseAny.code}`}`);
-  }
+  const responseAny = ensureFeishuApiSuccess(response, "image upload");
 
   const imageKey = responseAny.image_key ?? responseAny.data?.image_key;
   if (!imageKey) {
@@ -253,8 +366,7 @@ export async function uploadFileFeishu(params: {
 
   // SDK expects a Readable stream, not a Buffer
   // Use type assertion since SDK actually accepts any Readable at runtime
-  const fileStream =
-    typeof file === "string" ? fs.createReadStream(file) : Readable.from(file);
+  const fileStream = typeof file === "string" ? fs.createReadStream(file) : Readable.from(file);
 
   const response = await client.im.file.create({
     data: {
@@ -265,11 +377,7 @@ export async function uploadFileFeishu(params: {
     },
   });
 
-  // SDK v1.30+ returns data directly without code wrapper on success
-  const responseAny = response as any;
-  if (responseAny.code !== undefined && responseAny.code !== 0) {
-    throw new Error(`Feishu file upload failed: ${responseAny.msg || `code ${responseAny.code}`}`);
-  }
+  const responseAny = ensureFeishuApiSuccess(response, "file upload");
 
   const fileKey = responseAny.file_key ?? responseAny.data?.file_key;
   if (!fileKey) {
@@ -304,39 +412,37 @@ export async function sendImageFeishu(params: {
   const content = JSON.stringify({ image_key: imageKey });
 
   if (replyToMessageId) {
-    const response = await client.im.message.reply({
-      path: { message_id: replyToMessageId },
-      data: {
-        content,
-        msg_type: "image",
-      },
-    });
-
-    if (response.code !== 0) {
-      throw new Error(`Feishu image reply failed: ${response.msg || `code ${response.code}`}`);
-    }
+    const response = ensureFeishuApiSuccess(
+      await client.im.message.reply({
+        path: { message_id: replyToMessageId },
+        data: {
+          content,
+          msg_type: "image",
+        },
+      }),
+      "image reply",
+    );
 
     return {
-      messageId: response.data?.message_id ?? "unknown",
+      messageId: extractMessageId(response),
       chatId: receiveId,
     };
   }
 
-  const response = await client.im.message.create({
-    params: { receive_id_type: receiveIdType },
-    data: {
-      receive_id: receiveId,
-      content,
-      msg_type: "image",
-    },
-  });
-
-  if (response.code !== 0) {
-    throw new Error(`Feishu image send failed: ${response.msg || `code ${response.code}`}`);
-  }
+  const response = ensureFeishuApiSuccess(
+    await client.im.message.create({
+      params: { receive_id_type: receiveIdType },
+      data: {
+        receive_id: receiveId,
+        content,
+        msg_type: "image",
+      },
+    }),
+    "image send",
+  );
 
   return {
-    messageId: response.data?.message_id ?? "unknown",
+    messageId: extractMessageId(response),
     chatId: receiveId,
   };
 }
@@ -366,39 +472,37 @@ export async function sendFileFeishu(params: {
   const content = JSON.stringify({ file_key: fileKey });
 
   if (replyToMessageId) {
-    const response = await client.im.message.reply({
-      path: { message_id: replyToMessageId },
-      data: {
-        content,
-        msg_type: "file",
-      },
-    });
-
-    if (response.code !== 0) {
-      throw new Error(`Feishu file reply failed: ${response.msg || `code ${response.code}`}`);
-    }
+    const response = ensureFeishuApiSuccess(
+      await client.im.message.reply({
+        path: { message_id: replyToMessageId },
+        data: {
+          content,
+          msg_type: "file",
+        },
+      }),
+      "file reply",
+    );
 
     return {
-      messageId: response.data?.message_id ?? "unknown",
+      messageId: extractMessageId(response),
       chatId: receiveId,
     };
   }
 
-  const response = await client.im.message.create({
-    params: { receive_id_type: receiveIdType },
-    data: {
-      receive_id: receiveId,
-      content,
-      msg_type: "file",
-    },
-  });
-
-  if (response.code !== 0) {
-    throw new Error(`Feishu file send failed: ${response.msg || `code ${response.code}`}`);
-  }
+  const response = ensureFeishuApiSuccess(
+    await client.im.message.create({
+      params: { receive_id_type: receiveIdType },
+      data: {
+        receive_id: receiveId,
+        content,
+        msg_type: "file",
+      },
+    }),
+    "file send",
+  );
 
   return {
-    messageId: response.data?.message_id ?? "unknown",
+    messageId: extractMessageId(response),
     chatId: receiveId,
   };
 }
@@ -466,6 +570,7 @@ export async function sendMediaFeishu(params: {
 
   let buffer: Buffer;
   let name: string;
+  let contentType: string | undefined;
 
   if (mediaBuffer) {
     buffer = mediaBuffer;
@@ -488,6 +593,7 @@ export async function sendMediaFeishu(params: {
       if (!response.ok) {
         throw new Error(`Failed to fetch media from URL: ${response.status}`);
       }
+      contentType = normalizeContentType(response.headers.get("content-type"));
       buffer = Buffer.from(await response.arrayBuffer());
       name = fileName ?? (path.basename(new URL(mediaUrl).pathname) || "file");
     }
@@ -495,9 +601,11 @@ export async function sendMediaFeishu(params: {
     throw new Error("Either mediaUrl or mediaBuffer must be provided");
   }
 
-  // Determine if it's an image based on extension
-  const ext = path.extname(name).toLowerCase();
-  const isImage = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".ico", ".tiff"].includes(ext);
+  const isImage = isImageMediaFeishu({
+    fileName: name,
+    contentType,
+    buffer,
+  });
 
   if (isImage) {
     const { imageKey } = await uploadImageFeishu({ cfg, image: buffer });
