@@ -60,6 +60,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
       "- If the user asks to search news (e.g. `搜索...新闻`, `最新新闻`, `news`), you MUST fetch real items via tool/browser first. Do not answer from memory.",
       "- News reply quality gate: include at least 3 items, and each item must include title, source, publish time, and a clickable URL.",
       "- Never output placeholder tokens like `[搜索结果]`, `[具体文章链接]`, `可点击查看详细内容` without real links.",
+      "- Never echo Feishu/system metadata to end users (e.g. sender open_id/chat_id, session info, raw event fields).",
       "- Gold (黄金) defaults: use symbol `XAUUSD=X` (spot) or `GC=F` (COMEX futures) if the user does not specify an exchange.",
       "- Output: write in Chinese, concise research-note style (price action, trend, key levels, catalysts, risks). Always state timeframe and data source.",
     ],

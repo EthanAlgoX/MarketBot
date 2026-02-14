@@ -85,6 +85,8 @@ const FEISHU_MISSING_IMAGE_FALLBACK_TEXT =
   "未检测到可发送的图片内容。请稍后重试，或提供可访问的图片链接后我再发送。";
 const FEISHU_MISSING_NEWS_FALLBACK_TEXT =
   "未获取到有效新闻结果（缺少真实链接或命中占位文本）。请稍后重试，或改为“搜索美团新闻，返回5条（标题/来源/时间/链接）”。";
+const FEISHU_INVALID_META_ECHO_FALLBACK_TEXT =
+  "检测到无效系统元信息回复，未返回可用内容。请重试：例如“今天股市新闻，返回5条（标题/来源/时间/链接）”。";
 
 function claimsImageDelivered(text: string): boolean {
   if (!text.trim()) {
@@ -131,6 +133,23 @@ function looksLikePlaceholderNewsResult(text: string): boolean {
   );
   const listLike = /(?:^|\n)\s*(?:[-*]|\d+[).、])\s*/m.test(trimmed);
   return resultCue || listLike;
+}
+
+function looksLikeFeishuMetaEcho(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || hasUrl(trimmed)) {
+    return false;
+  }
+
+  const hasMetaHeader = /(Feishu\s*DM消息相关信息如下|消息相关信息如下|系统消息相关信息)/i.test(
+    trimmed,
+  );
+  const hasSenderLine = /(发起人账号|sender|open_id|chat_id|session(?:\s*id)?)/i.test(trimmed);
+  const hasTopicLine = /(内容主题|主题|topic)/i.test(trimmed);
+  const hasFeishuId = /\b(?:ou|oc)_[a-z0-9]{8,}\b/i.test(trimmed);
+  const hasFiller = /(如有进一步问题|需要帮助|随时告诉我)/i.test(trimmed);
+
+  return (hasMetaHeader && (hasSenderLine || hasFeishuId)) || (hasSenderLine && hasTopicLine && hasFiller);
 }
 
 /**
@@ -246,6 +265,12 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
             `feishu deliver: detected placeholder news result without real links, replacing with fallback text`,
           );
           text = FEISHU_MISSING_NEWS_FALLBACK_TEXT;
+        }
+        if (looksLikeFeishuMetaEcho(text)) {
+          params.runtime.log?.(
+            `feishu deliver: detected metadata-echo style reply, replacing with fallback text`,
+          );
+          text = FEISHU_INVALID_META_ECHO_FALLBACK_TEXT;
         }
         const hasText = Boolean(text.trim());
         if (!hasText && !hasMedia) {

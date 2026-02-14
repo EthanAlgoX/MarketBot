@@ -117,6 +117,26 @@ pnpm --dir apps/desktop start
 This starts the Desktop app and auto-starts the gateway as a subprocess, same
 as the packaged app.
 
+### Restarting Packaged Desktop (macOS arm64)
+
+Use this as the only Desktop restart path:
+
+```bash
+pnpm desktop:restart
+```
+
+Equivalent one-liner:
+
+```bash
+APP="/Users/yunxuanhan/Documents/workspace/ai/MarketBot/apps/desktop/release/mac-arm64/MarketBot Desktop.app"; \
+PATTERN="MarketBot Desktop.app/Contents/MacOS/MarketBot Desktop"; \
+pkill -f "$PATTERN" || true; sleep 1; \
+pgrep -f "$PATTERN" >/dev/null && pkill -9 -f "$PATTERN" || true; \
+open "$APP"
+```
+
+Do not use `scripts/restart-mac.sh` for Desktop restart; that script is for the native macOS app build flow under `apps/macos`.
+
 If the UI shows `unauthorized`, paste the value of `gateway.auth.token` from
 `~/.marketbot/marketbot.json` into the Control UI "Gateway Token" field and
 connect.
