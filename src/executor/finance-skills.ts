@@ -18,7 +18,8 @@ import type { MarketSeries, PortfolioPosition, Quote } from "../finance/types.js
 
 const FetchSchema = Type.Object({
   action: Type.Optional(Type.String()),
-  symbol: Type.String(),
+  symbol: Type.Optional(Type.String()),
+  symbols: Type.Optional(Type.Array(Type.String())),
   timeframe: Type.Optional(Type.String()),
   limit: Type.Optional(Type.Number()),
 });
@@ -108,6 +109,34 @@ function normalizeSymbol(input: string) {
   return input.trim().toUpperCase();
 }
 
+function splitSymbolTokens(value: string): string[] {
+  return value
+    .split(/[\s,，;；|]+/g)
+    .map((entry) => normalizeSymbol(entry))
+    .filter(Boolean);
+}
+
+function readSymbolsFromInput(input: Record<string, unknown>): string[] {
+  const symbols = new Set<string>();
+  const rawSymbols = input.symbols;
+  if (Array.isArray(rawSymbols)) {
+    for (const entry of rawSymbols) {
+      if (typeof entry !== "string") {
+        continue;
+      }
+      for (const token of splitSymbolTokens(entry)) {
+        symbols.add(token);
+      }
+    }
+  }
+  if (typeof input.symbol === "string") {
+    for (const token of splitSymbolTokens(input.symbol)) {
+      symbols.add(token);
+    }
+  }
+  return [...symbols];
+}
+
 function normalizeWeights(weights: Map<string, number>): Map<string, number> {
   const out = new Map<string, number>();
   let sum = 0;
@@ -192,13 +221,19 @@ export function createFinanceSkills(options?: {
       if (action !== "market_data") {
         throw new Error(`fetch.${action} not supported`);
       }
-      const symbol = typeof input.symbol === "string" ? input.symbol.trim() : "";
-      if (!symbol) {
+      const symbols = readSymbolsFromInput(input);
+      if (symbols.length === 0) {
         throw new Error("symbol required");
       }
       const timeframe = typeof input.timeframe === "string" ? input.timeframe : undefined;
       const limit = typeof input.limit === "number" ? Math.trunc(input.limit) : undefined;
-      return await client.getMarketData({ symbol, timeframe, limit });
+      if (symbols.length === 1) {
+        return await client.getMarketData({ symbol: symbols[0], timeframe, limit });
+      }
+      const series = await Promise.all(
+        symbols.map((symbol) => client.getMarketData({ symbol, timeframe, limit })),
+      );
+      return { symbols, series };
     },
   };
 

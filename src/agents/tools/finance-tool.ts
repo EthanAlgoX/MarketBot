@@ -22,6 +22,35 @@ import { buildFinanceBrief } from "../../finance/brief.js";
 import { buildPortfolioRisk } from "../../finance/portfolio-risk.js";
 import { buildPortfolioOptimization } from "../../finance/optimize.js";
 
+function splitSymbolTokens(value: string): string[] {
+  return value
+    .split(/[\s,，;；|]+/g)
+    .map((entry) => entry.trim().toUpperCase())
+    .filter(Boolean);
+}
+
+function readSymbolList(params: Record<string, unknown>): string[] {
+  const symbols = new Set<string>();
+
+  const direct = readStringArrayParam(params, "symbols");
+  if (Array.isArray(direct)) {
+    for (const entry of direct) {
+      for (const token of splitSymbolTokens(entry)) {
+        symbols.add(token);
+      }
+    }
+  }
+
+  const single = readStringParam(params, "symbol");
+  if (single) {
+    for (const token of splitSymbolTokens(single)) {
+      symbols.add(token);
+    }
+  }
+
+  return [...symbols];
+}
+
 function coerceMarketSeries(input: unknown): MarketSeries | null {
   if (!input || typeof input !== "object") {
     return null;
@@ -66,17 +95,24 @@ export function createFinanceTool(options?: { config?: MarketBotConfig }): AnyAg
 
       switch (action) {
         case "market_data": {
-          const symbol = readStringParam(params, "symbol", { required: true });
+          const symbols = readSymbolList(params);
+          if (symbols.length === 0) {
+            throw new Error("symbol required");
+          }
           const timeframe = readStringParam(params, "timeframe");
           const limit = readNumberParam(params, "limit", { integer: true });
-          const series = await client.getMarketData({ symbol, timeframe, limit });
-          return jsonResult(series);
+          if (symbols.length === 1) {
+            const series = await client.getMarketData({ symbol: symbols[0], timeframe, limit });
+            return jsonResult(series);
+          }
+          const series = await Promise.all(
+            symbols.map((symbol) => client.getMarketData({ symbol, timeframe, limit })),
+          );
+          return jsonResult({ symbols, series });
         }
         case "quote": {
-          const symbols =
-            readStringArrayParam(params, "symbols") ??
-            (readStringParam(params, "symbol") ? [readStringParam(params, "symbol")!] : undefined);
-          if (!symbols || symbols.length === 0) {
+          const symbols = readSymbolList(params);
+          if (symbols.length === 0) {
             throw new Error("symbols required");
           }
           const quotes = await client.getQuotes(symbols);
@@ -221,10 +257,8 @@ export function createFinanceTool(options?: { config?: MarketBotConfig }): AnyAg
           return jsonResult({ overview, risk });
         }
         case "optimize": {
-          const symbols =
-            readStringArrayParam(params, "symbols") ??
-            (readStringParam(params, "symbol") ? [readStringParam(params, "symbol")!] : undefined);
-          if (!symbols || symbols.length < 2) {
+          const symbols = readSymbolList(params);
+          if (symbols.length < 2) {
             throw new Error("optimize requires at least 2 symbols");
           }
           const timeframe = readStringParam(params, "timeframe");
@@ -258,10 +292,8 @@ export function createFinanceTool(options?: { config?: MarketBotConfig }): AnyAg
           return jsonResult({ query, items });
         }
         case "compare": {
-          const symbols =
-            readStringArrayParam(params, "symbols") ??
-            (readStringParam(params, "symbol") ? [readStringParam(params, "symbol")!] : undefined);
-          if (!symbols || symbols.length < 2) {
+          const symbols = readSymbolList(params);
+          if (symbols.length < 2) {
             throw new Error("compare requires at least 2 symbols");
           }
           const timeframe = readStringParam(params, "timeframe");

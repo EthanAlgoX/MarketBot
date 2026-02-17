@@ -93,6 +93,13 @@ if [[ -d "$ROOT_DIR/skills" ]]; then
   cp -R "$ROOT_DIR/skills" "$BUNDLE_DIR/skills"
 fi
 
+# Copy workspace bootstrap templates used by the embedded gateway fallback.
+if [[ -d "$ROOT_DIR/docs/reference/templates" ]]; then
+  echo "  Copying docs/reference/templates/..."
+  mkdir -p "$BUNDLE_DIR/docs/reference"
+  cp -R "$ROOT_DIR/docs/reference/templates" "$BUNDLE_DIR/docs/reference/templates"
+fi
+
 # Report bundle size.
 BUNDLE_SIZE=$(du -sh "$BUNDLE_DIR" | awk '{print $1}')
 echo "  Gateway bundle size: $BUNDLE_SIZE"
