@@ -76,6 +76,154 @@ function logNestedOutput(runtime: RuntimeEnv, opts: AgentCommandOpts, output: st
   }
 }
 
+function isExecutionFailureText(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  if (normalized.startsWith("⚠️") && normalized.includes("exec:")) {
+    return true;
+  }
+  if (normalized.startsWith("exec:")) {
+    return true;
+  }
+  return normalized.includes(" failed:");
+}
+
+function isProgressLikeText(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized) {
+    return false;
+  }
+  const lower = normalized.toLowerCase();
+  if (
+    lower.startsWith("let me ") ||
+    lower.startsWith("now let me ") ||
+    lower.startsWith("i'll ") ||
+    lower.startsWith("i will ")
+  ) {
+    return true;
+  }
+  if (
+    normalized.startsWith("让我") ||
+    normalized.startsWith("现在让我") ||
+    normalized.startsWith("我来") ||
+    normalized.startsWith("我先") ||
+    normalized.startsWith("接下来让我") ||
+    normalized.startsWith("然后让我")
+  ) {
+    return true;
+  }
+  if (/^(很好|太好了|完美)[！!]/.test(normalized)) {
+    return true;
+  }
+  if (/[:：]\s*$/.test(normalized)) {
+    return true;
+  }
+  return false;
+}
+
+function scoreResultLikelihood(payload: NormalizedOutboundPayload, index: number): number {
+  const text = payload.text.trim();
+  if (!text && payload.mediaUrls.length > 0) {
+    return 50 + index;
+  }
+  if (!text) {
+    return -100;
+  }
+  let score = index;
+  if (payload.mediaUrls.length > 0) {
+    score += 40;
+  }
+  if (isExecutionFailureText(text)) {
+    score -= 80;
+  }
+  if (isProgressLikeText(text)) {
+    score -= 25;
+  }
+  const tickers = new Set(
+    (text.match(/\b[A-Z]{2,5}\b/g) ?? []).map((entry) => entry.toUpperCase()),
+  );
+  if (tickers.size >= 3) {
+    score += 35;
+  }
+  if ((text.match(/^\s*\d+\.\s+/gm) ?? []).length >= 2) {
+    score += 20;
+  }
+  if (/\|.+\|/.test(text)) {
+    score += 15;
+  }
+  if (!isProgressLikeText(text) && !isExecutionFailureText(text)) {
+    score += 10;
+  }
+  score += Math.min(15, Math.floor(text.length / 120));
+  return score;
+}
+
+function pickBestPayload(payloads: NormalizedOutboundPayload[]): NormalizedOutboundPayload | null {
+  if (payloads.length === 0) {
+    return null;
+  }
+  let best: NormalizedOutboundPayload | null = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < payloads.length; i += 1) {
+    const candidate = payloads[i];
+    const score = scoreResultLikelihood(candidate, i);
+    if (!best || score > bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function appendTimeoutSuffixIfNeeded(
+  payload: NormalizedOutboundPayload,
+): NormalizedOutboundPayload {
+  const text = payload.text.trim();
+  if (!text || payload.mediaUrls.length > 0) {
+    return payload;
+  }
+  if (/超时|timeout/i.test(text)) {
+    return payload;
+  }
+  return {
+    ...payload,
+    text: `${text}\n\n（任务执行超时，以上是当前可用结果。如需我继续完成图表，请回复“继续完成图表”。）`,
+  };
+}
+
+function selectExternalDeliveryPayloads(params: {
+  payloads: NormalizedOutboundPayload[];
+  aborted: boolean;
+}): NormalizedOutboundPayload[] {
+  const { payloads, aborted } = params;
+  if (payloads.length <= 1) {
+    return payloads;
+  }
+  const hasMedia = payloads.some((payload) => payload.mediaUrls.length > 0);
+  if (hasMedia) {
+    const best = pickBestPayload(payloads);
+    const mediaPayloads = payloads.filter((payload) => payload.mediaUrls.length > 0);
+    if (!best || mediaPayloads.includes(best)) {
+      return mediaPayloads;
+    }
+    return [best, ...mediaPayloads];
+  }
+
+  const nonProgress = payloads.filter(
+    (payload) => !isProgressLikeText(payload.text) && !isExecutionFailureText(payload.text),
+  );
+  const best = pickBestPayload(nonProgress.length > 0 ? nonProgress : payloads);
+  if (!best) {
+    return payloads.slice(-1);
+  }
+  if (!aborted) {
+    return [best];
+  }
+  return [appendTimeoutSuffixIfNeeded(best)];
+}
+
 export async function deliverAgentCommandResult(params: {
   cfg: MarketBotConfig;
   deps: CliDeps;
@@ -175,7 +323,14 @@ export async function deliverAgentCommandResult(params: {
     return { payloads: [], meta: result.meta };
   }
 
-  const deliveryPayloads = normalizeOutboundPayloads(payloads);
+  const normalizedDeliveryPayloads = normalizeOutboundPayloads(payloads);
+  const deliveryPayloads =
+    deliver && deliveryChannel && !isInternalMessageChannel(deliveryChannel)
+      ? selectExternalDeliveryPayloads({
+          payloads: normalizedDeliveryPayloads,
+          aborted: Boolean(result.meta?.aborted),
+        })
+      : normalizedDeliveryPayloads;
   const logPayload = (payload: NormalizedOutboundPayload) => {
     if (opts.json) {
       return;

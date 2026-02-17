@@ -279,6 +279,88 @@ describe("deliverAgentCommandResult", () => {
     );
   });
 
+  it("condenses external delivery payloads to a result-focused reply", async () => {
+    const cfg = {} as MarketBotConfig;
+    const deps = {} as CliDeps;
+    const runtime = {
+      log: vi.fn(),
+      error: vi.fn(),
+    } as unknown as RuntimeEnv;
+    const result = {
+      payloads: [
+        { text: "我来帮您完成这个任务。让我先搜索：" },
+        {
+          text: "很好！美股七姐妹包括：1. Alphabet (GOOGL) 2. 亚马逊 (AMZN) 3. 苹果 (AAPL) 4. Meta (META) 5. 微软 (MSFT) 6. NVIDIA (NVDA) 7. Tesla (TSLA)",
+        },
+        { text: "⚠️ 🛠️ Exec: python3 mag7.py failed: missing scipy" },
+      ],
+      meta: { aborted: true },
+    };
+
+    const { deliverAgentCommandResult } = await import("./agent/delivery.js");
+    await deliverAgentCommandResult({
+      cfg,
+      deps,
+      runtime,
+      opts: {
+        message: "hello",
+        deliver: true,
+        channel: "feishu",
+        to: "ou_test",
+      },
+      sessionEntry: undefined,
+      result,
+      payloads: result.payloads,
+    });
+
+    expect(mocks.deliverOutboundPayloads).toHaveBeenCalledTimes(1);
+    const call = mocks.deliverOutboundPayloads.mock.calls[0]?.[0] as {
+      payloads: Array<{ text: string; mediaUrls?: string[] }>;
+    };
+    expect(call.payloads).toHaveLength(1);
+    expect(call.payloads[0]?.text ?? "").toContain("GOOGL");
+    expect(call.payloads[0]?.text ?? "").toContain("任务执行超时");
+  });
+
+  it("keeps media payloads and drops progress chatter for external delivery", async () => {
+    const cfg = {} as MarketBotConfig;
+    const deps = {} as CliDeps;
+    const runtime = {
+      log: vi.fn(),
+      error: vi.fn(),
+    } as unknown as RuntimeEnv;
+    const result = {
+      payloads: [
+        { text: "让我先整理数据：" },
+        { text: "图表已生成。", mediaUrl: "https://example.com/mag7.png" },
+      ],
+      meta: { aborted: false },
+    };
+
+    const { deliverAgentCommandResult } = await import("./agent/delivery.js");
+    await deliverAgentCommandResult({
+      cfg,
+      deps,
+      runtime,
+      opts: {
+        message: "hello",
+        deliver: true,
+        channel: "feishu",
+        to: "ou_test",
+      },
+      sessionEntry: undefined,
+      result,
+      payloads: result.payloads,
+    });
+
+    expect(mocks.deliverOutboundPayloads).toHaveBeenCalledTimes(1);
+    const call = mocks.deliverOutboundPayloads.mock.calls[0]?.[0] as {
+      payloads: Array<{ text: string; mediaUrls?: string[] }>;
+    };
+    expect(call.payloads).toHaveLength(1);
+    expect(call.payloads[0]?.mediaUrls ?? []).toEqual(["https://example.com/mag7.png"]);
+  });
+
   it("prefixes nested agent outputs with context", async () => {
     const cfg = {} as MarketBotConfig;
     const deps = {} as CliDeps;
