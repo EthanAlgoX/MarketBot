@@ -6,22 +6,44 @@ import {
   type RuntimeEnv,
   type ReplyPayload,
 } from "marketbot/plugin-sdk";
+import fs from "fs";
+import path from "path";
+import { resolveFeishuCredentials } from "./accounts.js";
+import { createFeishuClient } from "./client.js";
 import { getFeishuRuntime } from "./runtime.js";
 import { sendMessageFeishu, sendMarkdownCardFeishu } from "./send.js";
 import { sendMediaFeishu } from "./media.js";
 import type { FeishuConfig } from "./types.js";
-import type { MentionTarget } from "./mention.js";
+import { buildMentionedCardContent, type MentionTarget } from "./mention.js";
+import { FeishuStreamingSession } from "./streaming-card.js";
+import { resolveReceiveIdType } from "./targets.js";
 import {
   addTypingIndicator,
   removeTypingIndicator,
   type TypingIndicatorState,
 } from "./typing.js";
 
+const FEISHU_LOCAL_MEDIA_EXT_RE =
+  /\.(?:png|jpe?g|webp|gif|svg|bmp|tiff?|ico|csv|pdf)(?:[?#].*)?$/i;
+
 function isFeishuMediaSource(value: string): boolean {
   if (!value) {
     return false;
   }
-  return /^https?:\/\//i.test(value) || value.startsWith("/") || value.startsWith("./");
+  if (/^https?:\/\//i.test(value)) {
+    return true;
+  }
+  if (
+    value.startsWith("/") ||
+    value.startsWith("./") ||
+    value.startsWith("../") ||
+    value.startsWith("~") ||
+    value.startsWith("file://") ||
+    /^[a-zA-Z]:[\\/]/.test(value)
+  ) {
+    return true;
+  }
+  return FEISHU_LOCAL_MEDIA_EXT_RE.test(value);
 }
 
 function normalizeMarkdownImageTarget(raw: string): string | null {
@@ -47,6 +69,77 @@ function collectMediaUrl(raw: string, seen: Set<string>, mediaUrls: string[]): s
   seen.add(mediaUrl);
   mediaUrls.push(mediaUrl);
   return mediaUrl;
+}
+
+function resolveAgentWorkspaceDir(cfg: MarketBotConfig, agentId: string): string | undefined {
+  const list = cfg.agents?.list;
+  if (Array.isArray(list)) {
+    const agentEntry = list.find((entry) => entry?.id === agentId);
+    if (typeof agentEntry?.workspace === "string" && agentEntry.workspace.trim()) {
+      return agentEntry.workspace;
+    }
+  }
+  const defaultsWorkspace = cfg.agents?.defaults?.workspace;
+  if (typeof defaultsWorkspace === "string" && defaultsWorkspace.trim()) {
+    return defaultsWorkspace;
+  }
+  return undefined;
+}
+
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function isExplicitLocalPath(value: string): boolean {
+  return (
+    value.startsWith("/") ||
+    value.startsWith("./") ||
+    value.startsWith("../") ||
+    value.startsWith("~") ||
+    value.startsWith("file://") ||
+    /^[a-zA-Z]:[\\/]/.test(value)
+  );
+}
+
+function isSafeChildPath(parent: string, candidate: string): boolean {
+  const rel = path.relative(path.resolve(parent), path.resolve(candidate));
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+function resolveFeishuMediaSource(params: {
+  mediaUrl: string;
+  cfg: MarketBotConfig;
+  agentId: string;
+}): string {
+  const raw = params.mediaUrl.trim();
+  if (!raw || isHttpUrl(raw) || raw.startsWith("file://")) {
+    return raw;
+  }
+  if (raw.startsWith("~") || path.isAbsolute(raw) || /^[a-zA-Z]:[\\/]/.test(raw)) {
+    return raw;
+  }
+
+  const workspaceDir = resolveAgentWorkspaceDir(params.cfg, params.agentId);
+  const workspaceCandidate =
+    workspaceDir && isSafeChildPath(workspaceDir, path.resolve(workspaceDir, raw))
+      ? path.resolve(workspaceDir, raw)
+      : undefined;
+  if (workspaceCandidate && fs.existsSync(workspaceCandidate)) {
+    return workspaceCandidate;
+  }
+
+  const cwdCandidate = path.resolve(process.cwd(), raw);
+  if (fs.existsSync(cwdCandidate)) {
+    return cwdCandidate;
+  }
+
+  // Bare relative file names from model outputs are usually generated under
+  // the agent workspace. Prefer that root when available to avoid cwd drift.
+  if (workspaceCandidate && !isExplicitLocalPath(raw) && FEISHU_LOCAL_MEDIA_EXT_RE.test(raw)) {
+    return workspaceCandidate;
+  }
+
+  return raw;
 }
 
 function extractMarkdownMedia(text: string): { text: string; mediaUrls: string[] } {
@@ -83,6 +176,8 @@ function extractMarkdownMedia(text: string): { text: string; mediaUrls: string[]
 
 const FEISHU_MISSING_IMAGE_FALLBACK_TEXT =
   "未检测到可发送的图片内容。请稍后重试，或提供可访问的图片链接后我再发送。";
+const FEISHU_MEDIA_SEND_FAILED_FALLBACK_TEXT =
+  "图表图片发送失败（可能为本地路径不可访问或链接不可达）。请回复“仅文本表格”，我将直接发送文本结果。";
 const FEISHU_MISSING_NEWS_FALLBACK_TEXT =
   "未获取到有效新闻结果（缺少真实链接或命中占位文本）。请稍后重试，或改为“搜索美团新闻，返回5条（标题/来源/时间/链接）”。";
 const FEISHU_INVALID_META_ECHO_FALLBACK_TEXT =
@@ -140,6 +235,22 @@ function claimsImageDelivered(text: string): boolean {
 
 function hasUrl(text: string): boolean {
   return /https?:\/\/\S+/i.test(text);
+}
+
+function hasResultEvidence(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return (
+    /(?:AAPL|MSFT|NVDA|AMZN|GOOGL|META|TSLA)\b/i.test(trimmed) ||
+    /(?:\$|￥|¥)\s*\d+(?:\.\d+)?/.test(trimmed) ||
+    /\d+(?:\.\d+)?\s*%/.test(trimmed) ||
+    /(?:^|\n)\s*\|.+\|\s*$/m.test(trimmed) ||
+    /```mermaid/i.test(trimmed) ||
+    /\bMEDIA:\s*\S+/i.test(trimmed) ||
+    /\b\w+\.(?:png|jpg|jpeg|webp|gif|svg|csv|pdf)\b/i.test(trimmed)
+  );
 }
 
 function looksLikeNewsIntent(text: string): boolean {
@@ -411,15 +522,34 @@ function looksLikeCompletionTemplateWithoutResults(text: string): boolean {
   const hasPoliteClosure = /(如需进一步(?:操作|帮助)|请随时告知|随时告诉我|let me know)/i.test(trimmed);
   const hasChecklistStyle = /(?:^|\n)\s*(?:使用|通过|最后|然后|并且)/m.test(trimmed);
 
-  const hasResultEvidence =
-    /(?:AAPL|MSFT|NVDA|AMZN|GOOGL|META|TSLA)\b/i.test(trimmed) ||
-    /(?:\$|￥|¥)\s*\d+(?:\.\d+)?/.test(trimmed) ||
-    /\d+(?:\.\d+)?\s*%/.test(trimmed) ||
-    /(?:^|\n)\s*\|.+\|\s*$/m.test(trimmed) ||
-    /```mermaid/i.test(trimmed) ||
-    /\bMEDIA:\s*\S+/i.test(trimmed);
+  return (hasPoliteClosure || hasChecklistStyle) && !hasResultEvidence(trimmed);
+}
 
-  return (hasPoliteClosure || hasChecklistStyle) && !hasResultEvidence;
+function looksLikeInterimExecutionProgress(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (hasUrl(trimmed) || hasResultEvidence(trimmed)) {
+    return false;
+  }
+  const hasErrorOrRefusalFrame =
+    /(无法|不能|失败|报错|error|not available|missing|required|请提供|请补充|message\s*id|工具)/i.test(
+      trimmed,
+    );
+  if (hasErrorOrRefusalFrame) {
+    return false;
+  }
+
+  const hasProgressFrame =
+    /(我来帮您|让我|现在让我|接下来|我将|先来|首先|正在|马上|let me|i(?:'|’)ll|i will|next,? i(?:'|’)ll)/i.test(
+      trimmed,
+    );
+  const hasActionCue =
+    /(抓取|搜索|查询|获取|绘制|绘图|图表|运行|脚本|行情|股票|news|search|fetch|quote|chart|run)/i.test(
+      trimmed,
+    );
+  return hasProgressFrame && hasActionCue;
 }
 
 /**
@@ -511,14 +641,77 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
     cfg,
     channel: "feishu",
   });
+  const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
+  const renderMode = feishuCfg?.renderMode ?? "auto";
+  const streamingEnabled = feishuCfg?.streaming !== false && renderMode !== "raw";
+
+  let streaming: FeishuStreamingSession | null = null;
+  let streamText = "";
+  let lastPartial = "";
+  let partialUpdateQueue: Promise<void> = Promise.resolve();
+  let streamingStartPromise: Promise<void> | null = null;
+
+  const startStreaming = () => {
+    if (!streamingEnabled || streamingStartPromise || streaming || !feishuCfg) {
+      return;
+    }
+    streamingStartPromise = (async () => {
+      const creds = resolveFeishuCredentials(feishuCfg);
+      if (!creds) {
+        return;
+      }
+      streaming = new FeishuStreamingSession(
+        createFeishuClient(feishuCfg),
+        {
+          appId: creds.appId,
+          appSecret: creds.appSecret,
+          domain: creds.domain,
+        },
+        (message) => params.runtime.log?.(message),
+      );
+      try {
+        await streaming.start(chatId, resolveReceiveIdType(chatId));
+      } catch (error) {
+        params.runtime.error?.(`feishu streaming start failed: ${String(error)}`);
+        streaming = null;
+      }
+    })();
+  };
+
+  const closeStreaming = async (finalText?: string) => {
+    if (streamingStartPromise) {
+      await streamingStartPromise;
+    }
+    await partialUpdateQueue;
+    if (streaming?.isActive()) {
+      let closeText = finalText ?? streamText;
+      if (mentionTargets?.length && closeText.trim()) {
+        closeText = buildMentionedCardContent(mentionTargets, closeText);
+      }
+      try {
+        await streaming.close(closeText);
+      } catch (error) {
+        params.runtime.error?.(`feishu streaming close failed: ${String(error)}`);
+      }
+    }
+    streaming = null;
+    streamingStartPromise = null;
+    streamText = "";
+    lastPartial = "";
+  };
 
   const { dispatcher, replyOptions, markDispatchIdle } =
     core.channel.reply.createReplyDispatcherWithTyping({
       responsePrefix: prefixContext.responsePrefix,
       responsePrefixContextProvider: prefixContext.responsePrefixContextProvider,
       humanDelay: core.channel.reply.resolveHumanDelayConfig(cfg, agentId),
-      onReplyStart: typingCallbacks.onReplyStart,
-      deliver: async (payload: ReplyPayload) => {
+      onReplyStart: async () => {
+        if (streamingEnabled && renderMode === "card") {
+          startStreaming();
+        }
+        await typingCallbacks.onReplyStart?.();
+      },
+      deliver: async (payload: ReplyPayload, info) => {
         params.runtime.log?.(`feishu deliver called: text=${payload.text?.slice(0, 100)}`);
         const payloadText = payload.text ?? "";
         const intentText = params.sourceText?.trim() ? params.sourceText : payloadText;
@@ -541,8 +734,20 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           : payload.mediaUrl
             ? [payload.mediaUrl]
             : [];
-        const mediaList = [...mediaListRaw, ...extracted.mediaUrls];
+        const mediaList = [...mediaListRaw, ...extracted.mediaUrls].map((mediaUrl) =>
+          resolveFeishuMediaSource({
+            mediaUrl,
+            cfg,
+            agentId,
+          }),
+        );
         const hasMedia = mediaList.length > 0;
+        if (looksLikeExecutionFlow && !hasMedia && looksLikeInterimExecutionProgress(text)) {
+          params.runtime.log?.(
+            `feishu deliver: skipping interim execution progress payload to avoid process-only noise`,
+          );
+          return;
+        }
         if (!hasMedia && claimsImageDelivered(text)) {
           params.runtime.log?.(
             `feishu deliver: detected image-sent claim without media, replacing with fallback text`,
@@ -657,16 +862,34 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
           return;
         }
 
+        let hasDeliveredText = false;
         if (hasText) {
-          // Check render mode: auto (default), raw, or card
-          const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
-          const renderMode = feishuCfg?.renderMode ?? "auto";
           const mermaidInText = hasMermaidCodeBlock(text);
 
           // Determine if we should use card for this message
           const useCard =
             renderMode === "card" ||
             (renderMode === "auto" && shouldUseCard(text) && !mermaidInText);
+
+          if (
+            !hasMedia &&
+            streamingEnabled &&
+            useCard &&
+            info &&
+            (info.kind === "block" || info.kind === "final")
+          ) {
+            startStreaming();
+            if (streamingStartPromise) {
+              await streamingStartPromise;
+            }
+            if (streaming?.isActive()) {
+              streamText = text;
+              if (info.kind === "final") {
+                await closeStreaming(text);
+              }
+              return;
+            }
+          }
 
           // Only include @mentions in the first chunk (avoid duplicate @s)
           let isFirstChunk = true;
@@ -721,34 +944,83 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
               isFirstChunk = false;
             }
           }
+          hasDeliveredText = true;
         }
 
         if (hasMedia) {
+          await closeStreaming(text);
+          let mediaFailureNotified = false;
           for (const mediaUrl of mediaList) {
             if (!mediaUrl?.trim()) {
               continue;
             }
             params.runtime.log?.(`feishu deliver: sending media ${mediaUrl.slice(0, 120)}`);
-            await sendMediaFeishu({
-              cfg,
-              to: chatId,
-              mediaUrl,
-              replyToMessageId,
-            });
+            try {
+              await sendMediaFeishu({
+                cfg,
+                to: chatId,
+                mediaUrl,
+                replyToMessageId,
+              });
+            } catch (err) {
+              params.runtime.error?.(`feishu deliver: media send failed for ${mediaUrl}: ${String(err)}`);
+              if (!hasDeliveredText && !mediaFailureNotified) {
+                try {
+                  await sendMessageFeishu({
+                    cfg,
+                    to: chatId,
+                    text: FEISHU_MEDIA_SEND_FAILED_FALLBACK_TEXT,
+                    replyToMessageId,
+                    mentions: mentionTargets,
+                  });
+                  mediaFailureNotified = true;
+                  hasDeliveredText = true;
+                } catch (textErr) {
+                  params.runtime.error?.(
+                    `feishu deliver: fallback text after media failure also failed: ${String(textErr)}`,
+                  );
+                }
+              }
+            }
           }
         }
       },
-      onError: (err, info) => {
+      onError: async (err, info) => {
         params.runtime.error?.(`feishu ${info.kind} reply failed: ${String(err)}`);
+        await closeStreaming();
         typingCallbacks.onIdle?.();
       },
-      onIdle: typingCallbacks.onIdle,
+      onIdle: async () => {
+        await closeStreaming();
+        typingCallbacks.onIdle?.();
+      },
     });
 
   return {
     dispatcher,
     replyOptions: {
       ...replyOptions,
+      onPartialReply: streamingEnabled
+        ? (payload: ReplyPayload) => {
+            if (!payload.text || payload.text === lastPartial) {
+              return;
+            }
+            lastPartial = payload.text;
+            streamText = payload.text;
+            partialUpdateQueue = partialUpdateQueue
+              .then(async () => {
+                if (streamingStartPromise) {
+                  await streamingStartPromise;
+                }
+                if (streaming?.isActive()) {
+                  await streaming.update(streamText);
+                }
+              })
+              .catch((error) => {
+                params.runtime.error?.(`feishu streaming partial update failed: ${String(error)}`);
+              });
+          }
+        : undefined,
       onModelSelected: prefixContext.onModelSelected,
     },
     markDispatchIdle,

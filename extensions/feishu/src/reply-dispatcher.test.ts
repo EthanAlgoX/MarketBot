@@ -111,6 +111,36 @@ describe("feishu reply dispatcher", () => {
     expect(vi.mocked(sendMessageFeishu)).not.toHaveBeenCalled();
   });
 
+  it("falls back to text when media-only payload fails to send", async () => {
+    mockSendMediaFeishu.mockRejectedValueOnce(new Error("Local file not found: /tmp/chart.png"));
+
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      mediaUrl: "/tmp/chart.png",
+    });
+
+    expect(vi.mocked(sendMediaFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "图表图片发送失败（可能为本地路径不可访问或链接不可达）。请回复“仅文本表格”，我将直接发送文本结果。",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+  });
+
   it("sends text and all media entries", async () => {
     createFeishuReplyDispatcher({
       cfg,
@@ -152,6 +182,59 @@ describe("feishu reply dispatcher", () => {
     });
   });
 
+  it("does not emit fallback text when media fails but text already sent", async () => {
+    mockSendMediaFeishu.mockRejectedValueOnce(new Error("Failed to fetch media from URL: 404"));
+
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "这里是七姐妹行情摘要（文本先返回）",
+      mediaUrl: "https://example.com/missing.png",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg,
+      to: "ou_user_1",
+      text: "这里是七姐妹行情摘要（文本先返回）",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips interim execution progress payloads in execution flows", async () => {
+    createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+      sourceText: "使用内置浏览器抓取美股七姐妹是哪些股票，再搜索相关股票数据，最后绘制图表",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "现在让我运行这个脚本来获取数据并生成图表：",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).not.toHaveBeenCalled();
+    expect(vi.mocked(sendMediaFeishu)).not.toHaveBeenCalled();
+  });
+
   it("extracts markdown image links from text and sends as media", async () => {
     createFeishuReplyDispatcher({
       cfg,
@@ -182,6 +265,49 @@ describe("feishu reply dispatcher", () => {
       cfg,
       to: "ou_user_1",
       mediaUrl: "https://example.com/meituan.png",
+      replyToMessageId: "om_reply",
+    });
+  });
+
+  it("resolves bare markdown image path via agent workspace before sending", async () => {
+    const cfgWithWorkspace = {
+      ...cfg,
+      agents: {
+        defaults: {
+          workspace: "/tmp/marketbot-workspace",
+        },
+      },
+    } as unknown as MarketBotConfig;
+
+    createFeishuReplyDispatcher({
+      cfg: cfgWithWorkspace,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(deliver).toBeTypeOf("function");
+    await deliver!({
+      text: "图表如下：\n![mag7](mag7_analysis.png)",
+    });
+
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMessageFeishu)).toHaveBeenCalledWith({
+      cfg: cfgWithWorkspace,
+      to: "ou_user_1",
+      text: "图表如下：",
+      replyToMessageId: "om_reply",
+      mentions: undefined,
+    });
+    expect(vi.mocked(sendMediaFeishu)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendMediaFeishu)).toHaveBeenCalledWith({
+      cfg: cfgWithWorkspace,
+      to: "ou_user_1",
+      mediaUrl: "/tmp/marketbot-workspace/mag7_analysis.png",
       replyToMessageId: "om_reply",
     });
   });
@@ -1028,5 +1154,45 @@ describe("feishu reply dispatcher", () => {
       replyToMessageId: "om_reply",
       mentions: undefined,
     });
+  });
+
+  it("enables onPartialReply for card-mode streaming", async () => {
+    const cardCfg = {
+      channels: {
+        feishu: {
+          appId: "app-id",
+          appSecret: "app-secret",
+          renderMode: "card",
+        },
+      },
+    } as unknown as MarketBotConfig;
+
+    const result = createFeishuReplyDispatcher({
+      cfg: cardCfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(typeof result.replyOptions.onPartialReply).toBe("function");
+  });
+
+  it("does not enable onPartialReply in raw mode", async () => {
+    const result = createFeishuReplyDispatcher({
+      cfg,
+      agentId: "main",
+      runtime: {
+        log: vi.fn(),
+        error: vi.fn(),
+      } as any,
+      chatId: "ou_user_1",
+      replyToMessageId: "om_reply",
+    });
+
+    expect(result.replyOptions.onPartialReply).toBeUndefined();
   });
 });

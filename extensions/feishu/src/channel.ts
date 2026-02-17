@@ -50,6 +50,10 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
     reactions: true,
     edit: true,
     reply: true,
+    blockStreaming: true,
+  },
+  streaming: {
+    blockStreamingCoalesceDefaults: { minChars: 1500, idleMs: 1000 },
   },
   agentPrompt: {
     messageToolHints: () => [
@@ -103,6 +107,8 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
         dmHistoryLimit: { type: "integer", minimum: 0 },
         textChunkLimit: { type: "integer", minimum: 1 },
         chunkMode: { type: "string", enum: ["length", "newline"] },
+        streaming: { type: "boolean" },
+        blockStreaming: { type: "boolean" },
         mediaMaxMb: { type: "number", minimum: 0 },
         renderMode: { type: "string", enum: ["auto", "raw", "card"] },
       },

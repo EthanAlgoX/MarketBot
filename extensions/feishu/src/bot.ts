@@ -504,6 +504,8 @@ export async function handleFeishuMessage(params: {
   const feishuCfg = cfg.channels?.feishu as FeishuConfig | undefined;
   const log = runtime?.log ?? console.log;
   const error = runtime?.error ?? console.error;
+  const disableBlockStreaming =
+    typeof feishuCfg?.blockStreaming === "boolean" ? !feishuCfg.blockStreaming : false;
 
   let ctx = parseFeishuMessageEvent(event, botOpenId);
   const isGroup = ctx.chatType === "group";
@@ -725,7 +727,10 @@ export async function handleFeishuMessage(params: {
         ctx: permissionCtx,
         cfg,
         dispatcher: permDispatcher,
-        replyOptions: permReplyOptions,
+        replyOptions: {
+          ...permReplyOptions,
+          disableBlockStreaming,
+        },
       });
 
       markPermIdle();
@@ -799,7 +804,10 @@ export async function handleFeishuMessage(params: {
       ctx: ctxPayload,
       cfg,
       dispatcher,
-      replyOptions,
+      replyOptions: {
+        ...replyOptions,
+        disableBlockStreaming,
+      },
     });
 
     markDispatchIdle();
