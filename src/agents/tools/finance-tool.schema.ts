@@ -20,6 +20,7 @@ const FINANCE_ACTIONS = [
   "news",
   "compare",
   "brief",
+  "chart",
 ] as const;
 
 export const FinanceToolSchema = Type.Object({

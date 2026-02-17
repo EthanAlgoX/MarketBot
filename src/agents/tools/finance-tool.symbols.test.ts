@@ -16,10 +16,20 @@ vi.mock("../../finance/client.js", () => {
 
     async getMarketData(params: { symbol: string }) {
       marketDataCalls.push(params.symbol);
+      const baseBySymbol: Record<string, number> = {
+        AAPL: 100,
+        MSFT: 200,
+        NVDA: 150,
+      };
+      const base = baseBySymbol[params.symbol] ?? 100;
       return {
         symbol: params.symbol,
         source: "yahoo",
-        series: [],
+        series: [
+          { iso: "2026-02-01T00:00:00.000Z", close: base },
+          { iso: "2026-02-02T00:00:00.000Z", close: base * 1.02 },
+          { iso: "2026-02-03T00:00:00.000Z", close: base * 0.99 },
+        ],
       };
     }
   }
@@ -57,5 +67,23 @@ describe("finance tool symbol parsing", () => {
       symbols: ["AAPL", "MSFT", "NVDA"],
       series: [{ symbol: "AAPL" }, { symbol: "MSFT" }, { symbol: "NVDA" }],
     });
+  });
+
+  it("returns a mermaid chart for chart action", async () => {
+    const tool = createFinanceTool();
+    const result = await tool.execute("call", {
+      action: "chart",
+      symbol: "AAPL,MSFT,NVDA",
+      timeframe: "1mo",
+      limit: 10,
+    });
+
+    expect(result.details).toMatchObject({
+      symbols: ["AAPL", "MSFT", "NVDA"],
+      timeframe: "1mo",
+      chartType: "mermaid-xychart",
+    });
+    expect(String(result.details?.mermaid ?? "")).toContain("xychart-beta");
+    expect(String(result.details?.mermaid ?? "")).toContain('line "AAPL"');
   });
 });

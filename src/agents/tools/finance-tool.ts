@@ -73,6 +73,132 @@ function coerceMarketSeries(input: unknown): MarketSeries | null {
   };
 }
 
+function parseClosePoint(point: unknown): { label: string; close: number } | null {
+  if (!point || typeof point !== "object") {
+    return null;
+  }
+  const record = point as Record<string, unknown>;
+  const closeRaw = record.close;
+  const close =
+    typeof closeRaw === "number"
+      ? closeRaw
+      : typeof closeRaw === "string"
+        ? Number.parseFloat(closeRaw)
+        : Number.NaN;
+  if (!Number.isFinite(close) || close <= 0) {
+    return null;
+  }
+  const isoRaw = typeof record.iso === "string" ? record.iso : undefined;
+  const tsRaw = typeof record.ts === "number" ? record.ts : undefined;
+  const label = isoRaw
+    ? isoRaw.slice(0, 10)
+    : tsRaw
+      ? new Date(tsRaw).toISOString().slice(0, 10)
+      : "";
+  if (!label) {
+    return null;
+  }
+  return { label, close };
+}
+
+function buildIndexedMermaidChart(params: {
+  symbols: string[];
+  seriesList: Array<{ symbol: string; series: unknown[] }>;
+}) {
+  const normalizedPerSymbol = new Map<string, Array<{ label: string; value: number }>>();
+  for (const symbol of params.symbols) {
+    const series = params.seriesList.find((entry) => entry.symbol.toUpperCase() === symbol)?.series;
+    if (!Array.isArray(series)) {
+      continue;
+    }
+    const parsed = series
+      .map(parseClosePoint)
+      .filter((entry): entry is { label: string; close: number } => Boolean(entry));
+    if (parsed.length < 2) {
+      continue;
+    }
+    const anchor = parsed[0]?.close;
+    if (!anchor || !Number.isFinite(anchor) || anchor <= 0) {
+      continue;
+    }
+    normalizedPerSymbol.set(
+      symbol,
+      parsed.map((entry) => ({
+        label: entry.label,
+        value: Number(((entry.close / anchor) * 100).toFixed(2)),
+      })),
+    );
+  }
+
+  const availableSymbols = params.symbols.filter((symbol) => normalizedPerSymbol.has(symbol));
+  if (availableSymbols.length === 0) {
+    return {
+      mermaid: "",
+      points: [] as Array<{ date: string; values: Record<string, number> }>,
+      symbols: [] as string[],
+      yMin: 0,
+      yMax: 0,
+    };
+  }
+
+  const minLen = Math.min(
+    ...availableSymbols.map((symbol) => normalizedPerSymbol.get(symbol)?.length ?? 0),
+  );
+  if (!Number.isFinite(minLen) || minLen < 2) {
+    return {
+      mermaid: "",
+      points: [] as Array<{ date: string; values: Record<string, number> }>,
+      symbols: [] as string[],
+      yMin: 0,
+      yMax: 0,
+    };
+  }
+
+  const alignedSymbols = availableSymbols;
+  const aligned = alignedSymbols.map((symbol) => {
+    const rows = normalizedPerSymbol.get(symbol) ?? [];
+    return {
+      symbol,
+      rows: rows.slice(rows.length - minLen),
+    };
+  });
+  const labels = aligned[0]?.rows.map((row) => row.label) ?? [];
+  const points: Array<{ date: string; values: Record<string, number> }> = labels.map(
+    (label, idx) => ({
+      date: label,
+      values: Object.fromEntries(
+        aligned.map((entry) => [entry.symbol, Number(entry.rows[idx]?.value ?? 0)]),
+      ),
+    }),
+  );
+
+  const values = aligned.flatMap((entry) => entry.rows.map((row) => row.value));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const yMin = Math.max(0, Math.floor(min - 5));
+  const yMax = Math.ceil(max + 5);
+
+  const xAxis = `[${labels.map((label) => `"${label.slice(5)}"`).join(", ")}]`;
+  const lines = aligned.map(
+    (entry) => `  line "${entry.symbol}" [${entry.rows.map((row) => row.value).join(", ")}]`,
+  );
+  const mermaid = [
+    "xychart-beta",
+    '  title "Indexed Performance (Start = 100)"',
+    `  x-axis ${xAxis}`,
+    `  y-axis "Index" ${yMin} --> ${yMax}`,
+    ...lines,
+  ].join("\n");
+
+  return {
+    mermaid,
+    points,
+    symbols: alignedSymbols,
+    yMin,
+    yMax,
+  };
+}
+
 export function createFinanceTool(options?: { config?: MarketBotConfig }): AnyAgentTool {
   return {
     label: "Finance",
@@ -337,6 +463,35 @@ export function createFinanceTool(options?: { config?: MarketBotConfig }): AnyAg
               risk,
             }),
           );
+        }
+        case "chart": {
+          const symbols = readSymbolList(params);
+          if (symbols.length === 0) {
+            throw new Error("chart requires symbol(s)");
+          }
+          const timeframe = readStringParam(params, "timeframe") ?? "1mo";
+          const limit = readNumberParam(params, "limit", { integer: true }) ?? 30;
+          const series = await Promise.all(
+            symbols.map((symbol) => client.getMarketData({ symbol, timeframe, limit })),
+          );
+          const chart = buildIndexedMermaidChart({
+            symbols,
+            seriesList: series.map((entry) => ({
+              symbol: entry.symbol.toUpperCase(),
+              series: entry.series,
+            })),
+          });
+          if (!chart.mermaid) {
+            throw new Error("insufficient market data to build chart");
+          }
+          return jsonResult({
+            symbols: chart.symbols,
+            timeframe,
+            chartType: "mermaid-xychart",
+            mermaid: chart.mermaid,
+            yAxis: { min: chart.yMin, max: chart.yMax },
+            points: chart.points,
+          });
         }
         default:
           throw new Error(`Unknown finance action: ${action}`);
