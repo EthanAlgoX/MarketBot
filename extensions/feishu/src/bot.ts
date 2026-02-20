@@ -16,7 +16,7 @@ import {
   isFeishuGroupAllowed,
 } from "./policy.js";
 import { createFeishuReplyDispatcher } from "./reply-dispatcher.js";
-import { getMessageFeishu } from "./send.js";
+import { getMessageFeishu, sendMessageFeishu } from "./send.js";
 import { downloadImageFeishu, downloadMessageResourceFeishu } from "./media.js";
 import {
   extractMentionTargets,
@@ -31,6 +31,25 @@ type PermissionError = {
   message: string;
   grantUrl?: string;
 };
+
+const FEISHU_NO_FINAL_REPLY_FALLBACK_TEXT =
+  "这次处理未产出可发送结果（可能被中间过程过滤）。请重试原问题；我会直接返回最终结果，不再只给过程说明。";
+const FEISHU_NO_FINAL_CHART_REPLY_FALLBACK_TEXT =
+  "这次处理未产出可发送结果。已自动纠偏：美股七姐妹为 AAPL、MSFT、NVDA、AMZN、GOOGL、META、TSLA。请重试同一请求，我会直接返回行情表与图表。";
+
+function looksLikeExecutionIntentForFallback(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return /(抓取|搜索|查询|获取|绘制|绘图|画图|图表|行情|股票|新闻|news|chart|graph|fetch|quote|market data)/i.test(
+    trimmed,
+  );
+}
+
+function looksLikeMag7Intent(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return /(七姐妹|magnificent\s*7|mag\s*7)/i.test(trimmed);
+}
 
 function extractPermissionError(err: unknown): PermissionError | null {
   if (!err || typeof err !== "object") return null;
@@ -818,6 +837,32 @@ export async function handleFeishuMessage(params: {
         historyKey,
         limit: historyLimit,
       });
+    }
+
+    if (!queuedFinal && counts.final === 0) {
+      const trimmedSource = ctx.content.trim();
+      const looksLikeSlashCommand = /^\/\w+/.test(trimmedSource);
+      const shouldForceFallback =
+        Boolean(trimmedSource) &&
+        !looksLikeSlashCommand &&
+        looksLikeExecutionIntentForFallback(trimmedSource);
+      if (shouldForceFallback) {
+        const fallbackText = looksLikeMag7Intent(trimmedSource)
+          ? FEISHU_NO_FINAL_CHART_REPLY_FALLBACK_TEXT
+          : FEISHU_NO_FINAL_REPLY_FALLBACK_TEXT;
+        try {
+          await sendMessageFeishu({
+            cfg,
+            to: ctx.chatId,
+            text: fallbackText,
+            replyToMessageId: ctx.messageId,
+            mentions: ctx.mentionTargets,
+          });
+          log("feishu: no final reply produced, sent fallback text");
+        } catch (fallbackErr) {
+          error(`feishu: failed to send no-final fallback text: ${String(fallbackErr)}`);
+        }
+      }
     }
 
     log(`feishu: dispatch complete (queuedFinal=${queuedFinal}, replies=${counts.final})`);
