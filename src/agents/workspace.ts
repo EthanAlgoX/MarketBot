@@ -170,37 +170,41 @@ export async function ensureAgentWorkspace(params?: {
   const heartbeatPath = path.join(dir, DEFAULT_HEARTBEAT_FILENAME);
   const bootstrapPath = path.join(dir, DEFAULT_BOOTSTRAP_FILENAME);
 
-  const isBrandNewWorkspace = await (async () => {
-    const paths = [agentsPath, soulPath, toolsPath, identityPath, userPath, heartbeatPath];
-    const existing = await Promise.all(
-      paths.map(async (p) => {
-        try {
-          await fs.access(p);
-          return true;
-        } catch {
-          return false;
-        }
-      }),
-    );
-    return existing.every((v) => !v);
-  })();
+  const bootstrapTargets = [agentsPath, soulPath, toolsPath, identityPath, userPath, heartbeatPath];
+  const existingBootstrapTargets = await Promise.all(
+    bootstrapTargets.map(async (targetPath) => {
+      try {
+        await fs.access(targetPath);
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  );
+  const [hasAgents, hasSoul, hasTools, hasIdentity, hasUser, hasHeartbeat] =
+    existingBootstrapTargets;
+  const isBrandNewWorkspace = existingBootstrapTargets.every((exists) => !exists);
 
-  const agentsTemplate = await loadTemplate(DEFAULT_AGENTS_FILENAME);
-  const soulTemplate = await loadTemplate(DEFAULT_SOUL_FILENAME);
-  const toolsTemplate = await loadTemplate(DEFAULT_TOOLS_FILENAME);
-  const identityTemplate = await loadTemplate(DEFAULT_IDENTITY_FILENAME);
-  const userTemplate = await loadTemplate(DEFAULT_USER_FILENAME);
-  const heartbeatTemplate = await loadTemplate(DEFAULT_HEARTBEAT_FILENAME);
-  const bootstrapTemplate = await loadTemplate(DEFAULT_BOOTSTRAP_FILENAME);
-
-  await writeFileIfMissing(agentsPath, agentsTemplate);
-  await writeFileIfMissing(soulPath, soulTemplate);
-  await writeFileIfMissing(toolsPath, toolsTemplate);
-  await writeFileIfMissing(identityPath, identityTemplate);
-  await writeFileIfMissing(userPath, userTemplate);
-  await writeFileIfMissing(heartbeatPath, heartbeatTemplate);
+  if (!hasAgents) {
+    await writeFileIfMissing(agentsPath, await loadTemplate(DEFAULT_AGENTS_FILENAME));
+  }
+  if (!hasSoul) {
+    await writeFileIfMissing(soulPath, await loadTemplate(DEFAULT_SOUL_FILENAME));
+  }
+  if (!hasTools) {
+    await writeFileIfMissing(toolsPath, await loadTemplate(DEFAULT_TOOLS_FILENAME));
+  }
+  if (!hasIdentity) {
+    await writeFileIfMissing(identityPath, await loadTemplate(DEFAULT_IDENTITY_FILENAME));
+  }
+  if (!hasUser) {
+    await writeFileIfMissing(userPath, await loadTemplate(DEFAULT_USER_FILENAME));
+  }
+  if (!hasHeartbeat) {
+    await writeFileIfMissing(heartbeatPath, await loadTemplate(DEFAULT_HEARTBEAT_FILENAME));
+  }
   if (isBrandNewWorkspace) {
-    await writeFileIfMissing(bootstrapPath, bootstrapTemplate);
+    await writeFileIfMissing(bootstrapPath, await loadTemplate(DEFAULT_BOOTSTRAP_FILENAME));
   }
   await ensureGitRepo(dir, isBrandNewWorkspace);
 
