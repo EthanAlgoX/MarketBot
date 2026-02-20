@@ -440,11 +440,31 @@ function hasToolActivity(message: unknown): boolean {
   });
 }
 
+function hasToolResultBlock(message: unknown): boolean {
+  const m = message as Record<string, unknown>;
+  const role = typeof m.role === "string" ? m.role.toLowerCase() : "";
+  if (role === "toolresult" || role === "tool_result" || role === "tool-result") {
+    return true;
+  }
+  const content = m.content;
+  if (!Array.isArray(content)) return false;
+  return content.some((item) => {
+    if (!item || typeof item !== "object") return false;
+    const entry = item as Record<string, unknown>;
+    const kind = String(entry.type ?? "").toLowerCase();
+    return kind === "toolresult" || kind === "tool_result" || kind === "tool-result";
+  });
+}
+
 function shouldHideIntermediateMessage(message: unknown): boolean {
   const normalized = normalizeMessage(message);
   const groupedRole = normalizeRoleForGrouping(normalized.role);
-  if (groupedRole === "tool") return true;
-  if (groupedRole === "assistant" && hasToolActivity(message)) return true;
+  if (groupedRole === "tool") {
+    return !hasToolResultBlock(message);
+  }
+  if (groupedRole === "assistant" && hasToolActivity(message)) {
+    return !hasToolResultBlock(message);
+  }
   return false;
 }
 

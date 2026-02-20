@@ -31,6 +31,8 @@ describe("chat markdown rendering", () => {
   it("renders markdown inside tool output sidebar", async () => {
     const app = mountApp("/chat");
     await app.updateComplete;
+    app.connected = true;
+    await app.updateComplete;
 
     const timestamp = Date.now();
     app.chatMessages = [
@@ -50,7 +52,8 @@ describe("chat markdown rendering", () => {
       app.querySelectorAll<HTMLElement>(".tool-step"),
     );
     const toolStep = toolSteps.find((el) =>
-      el.classList.contains("tool-step--clickable") || el.classList.contains("tool-step--done"),
+      el.classList.contains("tool-step--clickable") &&
+      el.querySelector(".tool-step__view"),
     );
     expect(toolStep).not.toBeUndefined();
     toolStep?.click();
