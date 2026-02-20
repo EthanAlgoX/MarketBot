@@ -69,14 +69,15 @@ describe("market-data controller", () => {
 
     await runMarketDataSnapshot(state);
 
-    expect(request).toHaveBeenCalledWith(
-      "finance.market.snapshot",
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls[0]?.[0]).toBe("finance.market.snapshot");
+    expect(request.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
-        symbols: expect.arrayContaining(["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"]),
-        activeSymbol: "AAPL",
+        symbols: ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"],
+        activeSymbol: "NVDA",
       }),
     );
-    expect(request).toHaveBeenCalledWith("finance.market.status", {});
+    expect(request.mock.calls[1]).toEqual(["finance.market.status", {}]);
     expect(state.marketDataSnapshot?.activeSymbol).toBe("AAPL");
     expect(state.marketDataStatus?.engine?.name).toBe("market-data");
     expect(state.marketDataLoading).toBe(false);
