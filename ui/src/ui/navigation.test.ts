@@ -31,6 +31,7 @@ describe("iconForTab", () => {
   it("returns stable icons for known tabs", () => {
     expect(iconForTab("chat")).toBe("messageSquare");
     expect(iconForTab("desk")).toBe("barChart");
+    expect(iconForTab("marketData")).toBe("barChart");
     expect(iconForTab("stocks")).toBe("barChart");
     expect(iconForTab("runs")).toBe("activity");
     expect(iconForTab("overview")).toBe("settings");
@@ -58,12 +59,14 @@ describe("titleForTab", () => {
 
   it("returns expected titles", () => {
     expect(titleForTab("chat")).toBe("Chat");
+    expect(titleForTab("marketData")).toBe("Market Data");
     expect(titleForTab("overview")).toBe("Connection");
     expect(titleForTab("cron")).toBe("Cron Jobs");
   });
 
   it("returns localized titles", () => {
     expect(titleForTabWithLanguage("chat", "zh")).toBe("对话");
+    expect(titleForTabWithLanguage("marketData", "zh")).toBe("金融数据");
     expect(titleForTabWithLanguage("logs", "zh")).toBe("日志");
   });
 });
@@ -126,6 +129,7 @@ describe("normalizePath", () => {
 describe("pathForTab", () => {
   it("returns correct path without base", () => {
     expect(pathForTab("chat")).toBe("/chat");
+    expect(pathForTab("marketData")).toBe("/market-data");
     expect(pathForTab("overview")).toBe("/overview");
   });
 
@@ -138,6 +142,7 @@ describe("pathForTab", () => {
 describe("tabFromPath", () => {
   it("returns tab for valid path", () => {
     expect(tabFromPath("/chat")).toBe("chat");
+    expect(tabFromPath("/market-data")).toBe("marketData");
     expect(tabFromPath("/overview")).toBe("overview");
     expect(tabFromPath("/sessions")).toBe("sessions");
   });
@@ -168,6 +173,7 @@ describe("inferBasePathFromPathname", () => {
 
   it("returns empty string for direct tab path", () => {
     expect(inferBasePathFromPathname("/chat")).toBe("");
+    expect(inferBasePathFromPathname("/market-data")).toBe("");
     expect(inferBasePathFromPathname("/overview")).toBe("");
   });
 

@@ -27,7 +27,7 @@ import type {
 import type { ExecApprovalRequest } from "./controllers/exec-approval";
 import type { NostrProfileFormState } from "./views/channels.nostr-profile-form";
 
-import type { DailyStockRunResult } from "./types";
+import type { DailyStockRunResult, MarketDataSnapshot, MarketDataStatus } from "./types";
 
 export type AppViewState = {
   settings: UiSettings;
@@ -161,6 +161,14 @@ export type AppViewState = {
   stocksNewsLimit: string;
   stocksLocale: string;
   stocksLast: DailyStockRunResult | null;
+  marketDataLoading: boolean;
+  marketDataError: string | null;
+  marketDataSymbolsText: string;
+  marketDataTimeframe: string;
+  marketDataNewsLimit: string;
+  marketDataActiveSymbol: string;
+  marketDataStatus: MarketDataStatus | null;
+  marketDataSnapshot: MarketDataSnapshot | null;
   connect: () => void;
   setTab: (tab: Tab) => void;
   setTheme: (theme: ThemeMode, context?: ThemeTransitionContext) => void;
@@ -196,6 +204,8 @@ export type AppViewState = {
   loadStocks: () => Promise<void>;
   saveStocksWatchlist: () => Promise<void>;
   runStocks: () => Promise<void>;
+  loadMarketDataStatus: () => Promise<void>;
+  runMarketDataSnapshot: () => Promise<void>;
 
   resetToolStream: () => void;
   resetChatScroll: () => void;

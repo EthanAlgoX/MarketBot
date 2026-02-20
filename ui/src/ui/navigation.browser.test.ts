@@ -191,7 +191,7 @@ describe("control UI routing", () => {
     expect(window.location.search).toBe("");
   });
 
-  it("switches language for desk, stocks, and runs views", async () => {
+  it("switches language for desk, market data, stocks, and runs views", async () => {
     const app = mountApp("/desk");
     await app.updateComplete;
 
@@ -205,6 +205,17 @@ describe("control UI routing", () => {
     await app.updateComplete;
 
     expect(app.textContent).toContain("财经工作台");
+
+    const marketDataLink = app.querySelector<HTMLAnchorElement>(
+      'a.nav-item[href="/market-data"]',
+    );
+    expect(marketDataLink).not.toBeNull();
+    marketDataLink?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+    );
+    await app.updateComplete;
+    expect(app.textContent).toContain("金融数据");
+    expect(app.textContent).toContain("行情快照");
 
     const stocksLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/stocks"]');
     expect(stocksLink).not.toBeNull();

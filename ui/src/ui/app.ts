@@ -26,6 +26,8 @@ import type {
   TraceRunMeta,
   TraceRunEvent,
   DailyStockRunResult,
+  MarketDataSnapshot,
+  MarketDataStatus,
 } from "./types";
 import { type ChatAttachment, type ChatQueueItem, type CronFormState } from "./ui-types";
 import type { EventLogEntry } from "./app-events";
@@ -86,6 +88,10 @@ import {
   runStocks as runStocksInternal,
   saveStocksWatchlist as saveStocksWatchlistInternal,
 } from "./controllers/stocks";
+import {
+  loadMarketDataStatus as loadMarketDataStatusInternal,
+  runMarketDataSnapshot as runMarketDataSnapshotInternal,
+} from "./controllers/market-data";
 
 import { loadAssistantIdentity as loadAssistantIdentityInternal } from "./controllers/assistant-identity";
 
@@ -266,6 +272,14 @@ export class MarketBotApp extends LitElement {
   @state() stocksNewsLimit = this.settings.stocksPreferences?.newsLimit ?? "2";
   @state() stocksLocale = this.settings.stocksPreferences?.locale ?? "US";
   @state() stocksLast: DailyStockRunResult | null = null;
+  @state() marketDataLoading = false;
+  @state() marketDataError: string | null = null;
+  @state() marketDataSymbolsText = "AAPL\nMSFT\nNVDA\nAMZN\nGOOGL\nMETA\nTSLA";
+  @state() marketDataTimeframe = "6mo";
+  @state() marketDataNewsLimit = "5";
+  @state() marketDataActiveSymbol = "AAPL";
+  @state() marketDataStatus: MarketDataStatus | null = null;
+  @state() marketDataSnapshot: MarketDataSnapshot | null = null;
 
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;
@@ -402,6 +416,18 @@ export class MarketBotApp extends LitElement {
   async runStocks() {
     await runStocksInternal(
       this as unknown as Parameters<typeof runStocksInternal>[0],
+    );
+  }
+
+  async loadMarketDataStatus() {
+    await loadMarketDataStatusInternal(
+      this as unknown as Parameters<typeof loadMarketDataStatusInternal>[0],
+    );
+  }
+
+  async runMarketDataSnapshot() {
+    await runMarketDataSnapshotInternal(
+      this as unknown as Parameters<typeof runMarketDataSnapshotInternal>[0],
     );
   }
 

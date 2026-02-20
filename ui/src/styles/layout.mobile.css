@@ -157,6 +157,7 @@
 
   .desk-grid,
   .stocks-layout,
+  .market-data-layout,
   .runs-split {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -169,6 +170,19 @@
   .stocks-run-bar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .market-data-options-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .market-data-summary-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .market-data-chart {
+    height: 220px;
   }
 
   .runs-layout {

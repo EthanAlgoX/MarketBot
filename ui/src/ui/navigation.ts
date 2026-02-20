@@ -5,7 +5,7 @@ export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] },
   {
     label: "Finance",
-    tabs: ["desk", "stocks", "runs"],
+    tabs: ["desk", "marketData", "stocks", "runs"],
   },
   {
     label: "Control",
@@ -15,6 +15,7 @@ export const TAB_GROUPS = [
 
 export type Tab =
   | "desk"
+  | "marketData"
   | "overview"
   | "config"
   | "stocks"
@@ -27,6 +28,7 @@ export type Tab =
 
 const TAB_PATHS: Record<Tab, string> = {
   desk: "/desk",
+  marketData: "/market-data",
   overview: "/overview",
   config: "/config",
   stocks: "/stocks",
@@ -105,6 +107,8 @@ export function iconForTab(tab: Tab): IconName {
   switch (tab) {
     case "desk":
       return "barChart";
+    case "marketData":
+      return "barChart";
     case "chat":
       return "messageSquare";
     case "overview":
@@ -136,6 +140,7 @@ export function titleForTabWithLanguage(tab: Tab, language: UiLanguage) {
   const titles: Record<UiLanguage, Record<Tab, string>> = {
     en: {
       desk: "Desk",
+      marketData: "Market Data",
       overview: "Connection",
       config: "Config",
       stocks: "Stocks",
@@ -148,6 +153,7 @@ export function titleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     },
     zh: {
       desk: "工作台",
+      marketData: "金融数据",
       overview: "连接",
       config: "配置",
       stocks: "股票",
@@ -171,6 +177,7 @@ export function subtitleForTabWithLanguage(tab: Tab, language: UiLanguage) {
   const subtitles: Record<UiLanguage, Record<Tab, string>> = {
     en: {
       desk: "Daily stocks, research workflows, and delivery operations.",
+      marketData: "Unified market snapshot with trend chart, news, and fundamentals.",
       overview: "Gateway URL, token, and session defaults for this browser.",
       config: "AI models, tools, channels, and gateway configuration.",
       stocks: "Watchlists, decision dashboards, and daily research notes.",
@@ -183,6 +190,7 @@ export function subtitleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     },
     zh: {
       desk: "每日股票、研究流程与交付操作。",
+      marketData: "统一市场快照，含趋势图、新闻与基本面。",
       overview: "本浏览器的网关地址、令牌与默认会话。",
       config: "AI 模型、工具、渠道与网关配置。",
       stocks: "观察列表、决策面板与每日研究记录。",

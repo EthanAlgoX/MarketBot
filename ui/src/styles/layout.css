@@ -856,6 +856,165 @@
   max-width: 100%;
 }
 
+/* Market data */
+.market-data-layout {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+  grid-template-columns: minmax(320px, 0.88fr) minmax(460px, 1.32fr);
+}
+
+.market-data-left,
+.market-data-right {
+  display: grid;
+  gap: 14px;
+}
+
+.market-data-card {
+  padding: 20px;
+}
+
+.market-data-card--highlight {
+  border-color: rgba(62, 170, 245, 0.34);
+  background:
+    radial-gradient(120% 180% at 100% 0%, rgba(56, 197, 255, 0.13), transparent 60%),
+    linear-gradient(170deg, rgba(16, 26, 50, 0.9), rgba(12, 20, 38, 0.9));
+}
+
+.market-data-field {
+  margin-top: 12px;
+}
+
+.market-data-field textarea {
+  min-height: 190px;
+}
+
+.market-data-options-grid {
+  margin-top: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+}
+
+.market-data-options-grid .field {
+  min-width: 0;
+}
+
+.market-data-status-grid,
+.market-data-fund-grid {
+  margin-top: 12px;
+}
+
+.market-data-status-chips {
+  margin-top: 10px;
+}
+
+.market-data-summary-table {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.market-data-summary-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(11, 18, 34, 0.45);
+}
+
+.market-data-summary-row--head {
+  border-style: dashed;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+button.market-data-summary-row {
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+button.market-data-summary-row:hover {
+  border-color: rgba(56, 197, 255, 0.45);
+  background: rgba(20, 33, 59, 0.72);
+}
+
+button.market-data-summary-row.active {
+  border-color: rgba(56, 197, 255, 0.66);
+  box-shadow: inset 0 0 0 1px rgba(56, 197, 255, 0.32);
+}
+
+.market-data-up {
+  color: var(--success);
+}
+
+.market-data-down {
+  color: var(--danger);
+}
+
+.market-data-chart-meta {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.market-data-chart-wrap {
+  margin-top: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(8, 13, 26, 0.68);
+  padding: 12px;
+}
+
+.market-data-chart {
+  width: 100%;
+  height: 260px;
+  display: block;
+}
+
+.market-data-chart-legend {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.market-data-news-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.market-data-news-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(11, 18, 34, 0.4);
+  color: inherit;
+  text-decoration: none;
+}
+
+.market-data-news-item:hover {
+  border-color: rgba(56, 197, 255, 0.45);
+}
+
+.market-data-news-title {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.market-data-news-meta {
+  margin-top: 6px;
+}
+
 /* Cron */
 .cron-top-grid {
   align-items: start;
@@ -1507,7 +1666,8 @@
 }
 
 :root[data-theme="light"] .desk-card--highlight,
-:root[data-theme="light"] .stocks-workbench {
+:root[data-theme="light"] .stocks-workbench,
+:root[data-theme="light"] .market-data-card--highlight {
   border-color: rgba(58, 125, 255, 0.28);
   background:
     radial-gradient(120% 180% at 100% 0%, rgba(15, 199, 255, 0.08), transparent 64%),
@@ -1532,6 +1692,13 @@
 :root[data-theme="light"] .logs-stream,
 :root[data-theme="light"] .channels-health__snapshot {
   background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(60, 90, 140, 0.24);
+}
+
+:root[data-theme="light"] .market-data-summary-row,
+:root[data-theme="light"] .market-data-news-item,
+:root[data-theme="light"] .market-data-chart-wrap {
+  background: rgba(255, 255, 255, 0.92);
   border-color: rgba(60, 90, 140, 0.24);
 }
 

@@ -96,6 +96,8 @@ const READ_METHODS = new Set([
   "chat.history",
   "finance.watchlist.get",
   "finance.daily.last",
+  "finance.market.status",
+  "finance.market.snapshot",
   "trace.runs.list",
   "trace.run.get",
 ]);

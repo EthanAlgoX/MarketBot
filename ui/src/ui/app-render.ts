@@ -21,6 +21,7 @@ import { renderConfig } from "./views/config";
 import { renderExecApprovalPrompt } from "./views/exec-approval";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation";
 import { renderDesk } from "./views/desk";
+import { renderMarketData } from "./views/market-data";
 import { renderStocks } from "./views/stocks";
 import {
   renderChatControls,
@@ -47,6 +48,7 @@ import {
   toggleCronJob,
 } from "./controllers/cron";
 import { loadLogs } from "./controllers/logs";
+import { applyMag7Preset } from "./controllers/market-data";
 import { loadRun, loadRuns } from "./controllers/runs";
 import {
   DEFAULT_UI_STOCKS_PREFERENCES,
@@ -464,6 +466,28 @@ export function renderApp(state: AppViewState) {
         onRefresh: () => state.loadStocks(),
         onSaveWatchlist: () => state.saveStocksWatchlist(),
         onRun: () => state.runStocks(),
+      })
+      : nothing}
+
+        ${state.tab === "marketData"
+      ? renderMarketData({
+        language,
+        loading: state.marketDataLoading,
+        error: state.marketDataError,
+        symbolsText: state.marketDataSymbolsText,
+        timeframe: state.marketDataTimeframe,
+        newsLimit: state.marketDataNewsLimit,
+        activeSymbol: state.marketDataActiveSymbol,
+        status: state.marketDataStatus,
+        snapshot: state.marketDataSnapshot,
+        onSymbolsTextChange: (next) => (state.marketDataSymbolsText = next),
+        onTimeframeChange: (next) => (state.marketDataTimeframe = next),
+        onNewsLimitChange: (next) => (state.marketDataNewsLimit = next),
+        onActiveSymbolChange: (next) => (state.marketDataActiveSymbol = next),
+        onApplyMag7: () =>
+          applyMag7Preset(state as unknown as Parameters<typeof applyMag7Preset>[0]),
+        onRefreshStatus: () => state.loadMarketDataStatus(),
+        onRun: () => state.runMarketDataSnapshot(),
       })
       : nothing}
 

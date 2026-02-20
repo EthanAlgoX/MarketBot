@@ -132,6 +132,72 @@ export type DailyStockRunResult = {
   reportMarkdown: string;
 };
 
+export type MarketDataStatus = {
+  nowIso: string;
+  engine?: {
+    name?: string;
+    preferredProvider?: string;
+    openbb?: {
+      enabled?: boolean;
+      configured?: boolean;
+      connected?: boolean;
+      baseUrl?: string | null;
+      provider?: string | null;
+      error?: string | null;
+    };
+  };
+};
+
+export type MarketDataSnapshotPoint = {
+  ts: number;
+  iso: string;
+  close: number;
+};
+
+export type MarketDataSnapshotItem = {
+  symbol: string;
+  source: string;
+  currency?: string | null;
+  exchange?: string | null;
+  price?: number | null;
+  changePercent?: number | null;
+  marketTimeIso?: string | null;
+  points: MarketDataSnapshotPoint[];
+  error?: string | null;
+};
+
+export type MarketDataSnapshot = {
+  nowIso: string;
+  symbols: string[];
+  timeframe: string;
+  locale: string;
+  provider: string;
+  activeSymbol: string;
+  activeQuote?: {
+    symbol: string;
+    price?: number | null;
+    changePercent?: number | null;
+    marketTimeIso?: string | null;
+  };
+  items: MarketDataSnapshotItem[];
+  news?: Array<{
+    title: string;
+    link: string;
+    source?: string;
+    pubDate?: string;
+  }>;
+  fundamentals?: {
+    symbol: string;
+    marketCap?: number;
+    trailingPE?: number;
+    forwardPE?: number;
+    beta?: number;
+    targetMeanPrice?: number;
+    dividendYield?: number;
+  };
+  warnings?: string[];
+};
+
 export type DiscordProbe = {
   ok: boolean;
   status?: number | null;

@@ -183,6 +183,12 @@ export async function refreshActiveTab(host: SettingsHost) {
     ]);
   }
   if (host.tab === "stocks") await (host as unknown as import("./app").MarketBotApp).loadStocks();
+  if (host.tab === "marketData") {
+    await Promise.all([
+      (host as unknown as import("./app").MarketBotApp).loadMarketDataStatus(),
+      (host as unknown as import("./app").MarketBotApp).runMarketDataSnapshot(),
+    ]);
+  }
   if (host.tab === "channels") await loadChannelsTab(host);
   if (host.tab === "sessions") await loadSessions(host as unknown as MarketBotApp);
   if (host.tab === "cron") await loadCron(host);

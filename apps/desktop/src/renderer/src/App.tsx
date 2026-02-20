@@ -51,6 +51,7 @@ declare global {
 type TabId =
   | 'chat'
   | 'desk'
+  | 'marketData'
   | 'stocks'
   | 'runs'
   | 'overview'
@@ -111,6 +112,12 @@ const TABS: Record<TabId, NavTab> = {
     path: '/desk',
     icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="16" height="12" rx="2"/><path d="M7 18h6M10 15v3"/></svg>',
   },
+  marketData: {
+    id: 'marketData',
+    label: 'Market Data',
+    path: '/market-data',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 16h14"/><path d="M4 13l3-3 3 2 5-6 1 2"/></svg>',
+  },
   stocks: {
     id: 'stocks',
     label: 'Stocks',
@@ -169,7 +176,7 @@ const TABS: Record<TabId, NavTab> = {
 
 const NAV_GROUPS: NavGroup[] = [
   { id: 'chat', tabs: [TABS.chat] },
-  { id: 'workspace', tabs: [TABS.desk, TABS.stocks, TABS.runs] },
+  { id: 'workspace', tabs: [TABS.desk, TABS.marketData, TABS.stocks, TABS.runs] },
   {
     id: 'ops',
     tabs: [TABS.channels, TABS.sessions, TABS.cron, TABS.logs],
@@ -268,6 +275,7 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     errorPrefix: 'Error',
     navChat: 'Chat',
     navDesk: 'Desk',
+    navMarketData: 'Market Data',
     navStocks: 'Stocks',
     navRuns: 'Runs',
     navConnection: 'Connection',
@@ -365,6 +373,7 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     errorPrefix: '错误',
     navChat: '聊天',
     navDesk: '总览',
+    navMarketData: '金融数据',
     navStocks: '股票',
     navRuns: '运行',
     navConnection: '连接',
@@ -408,6 +417,7 @@ function getTabLabel(language: Language, tabId: TabId) {
   const keyById: Record<TabId, string> = {
     chat: 'navChat',
     desk: 'navDesk',
+    marketData: 'navMarketData',
     stocks: 'navStocks',
     runs: 'navRuns',
     overview: 'navConnection',
