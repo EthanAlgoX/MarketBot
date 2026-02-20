@@ -198,6 +198,94 @@ export type MarketDataSnapshot = {
   warnings?: string[];
 };
 
+export type FlowAssetClass = "usStocks" | "hkStocks" | "aStocks" | "metals" | "crypto";
+export type FlowDirection = "inflow" | "outflow" | "neutral";
+
+export type FlowOverviewMetric = {
+  key: string;
+  label: string;
+  symbol: string;
+  price: number | null;
+  changePercent: number | null;
+  direction: FlowDirection;
+};
+
+export type FlowAssetFlow = {
+  asset: "equities" | "metals" | "crypto";
+  label: string;
+  changePercent: number | null;
+  direction: FlowDirection;
+};
+
+export type FlowTopMover = {
+  symbol: string;
+  name: string | null;
+  price: number | null;
+  changePercent: number | null;
+  currency: string | null;
+  exchange: string | null;
+  marketTimeIso: string | null;
+  reason: string;
+  headline: string | null;
+};
+
+export type FlowBucket = {
+  assetClass: FlowAssetClass;
+  label: string;
+  items: FlowTopMover[];
+};
+
+export type FlowSnapshot = {
+  nowIso: string;
+  provider: string;
+  providerOrder?: string[];
+  locale: string;
+  topN: number;
+  overview: {
+    asOfIso: string;
+    liquidityRegime: "risk-on" | "risk-off" | "balanced";
+    summary: string;
+    fedSignal: string;
+    bojSignal: string;
+    metrics: FlowOverviewMetric[];
+    assetFlows: FlowAssetFlow[];
+  };
+  buckets: FlowBucket[];
+  dataQuality?: {
+    providerOrder: string[];
+    metricCoveragePercent: number | null;
+    moverCoveragePercent: number | null;
+    metricAvailable: number;
+    metricTotal: number;
+    moverRowsAvailable: number;
+    moverRowsRequested: number;
+  };
+  warnings?: string[];
+};
+
+export type FlowDetail = {
+  symbol: string;
+  assetClass: FlowAssetClass;
+  nowIso: string;
+  price: number | null;
+  changePercent: number | null;
+  marketTimeIso: string | null;
+  points: Array<{ ts: number; iso: string; close: number }>;
+  analysis: {
+    trend: "up" | "down" | "sideways";
+    changePercent7d: number | null;
+    volatilityPercent: number | null;
+    summary: string;
+  };
+  news: Array<{
+    title: string;
+    link: string;
+    source?: string;
+    pubDate?: string;
+  }>;
+  warnings?: string[];
+};
+
 export type DiscordProbe = {
   ok: boolean;
   status?: number | null;

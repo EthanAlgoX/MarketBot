@@ -104,6 +104,8 @@ const BASE_METHODS = [
   "finance.report.run",
   "finance.market.status",
   "finance.market.snapshot",
+  "finance.flow.snapshot",
+  "finance.flow.detail",
   "trace.runs.list",
   "trace.run.get",
   // WebChat WebSocket-native chat methods

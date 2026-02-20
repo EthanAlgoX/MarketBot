@@ -142,4 +142,112 @@ describe("finance market data handlers", () => {
     expect(result.warnings.join(" ")).not.toMatch(/\bopenbb\b/i);
     expect(result.warnings.join(" ")).toContain("connector");
   });
+
+  it("returns flow snapshot across multi-asset buckets", async () => {
+    mocks.getQuotes.mockImplementation(async (symbols: string[]) =>
+      symbols.map((symbol, index) => ({
+        symbol,
+        shortName: `Name-${symbol}`,
+        currency: "USD",
+        exchange: "TEST",
+        regularMarketPrice: 100 + index,
+        regularMarketChangePercent: (index + 1) / 100,
+        regularMarketTime: 1700000000 + index * 60,
+      })),
+    );
+    mocks.getNews.mockImplementation(async (params: { query: string }) => [
+      {
+        title: `${params.query} catalyst headline`,
+        link: "https://example.com/news",
+        source: "unit-test",
+        pubDate: "2026-02-20",
+      },
+    ]);
+
+    const response = await invokeHandler("finance.flow.snapshot", {
+      topN: 5,
+      locale: "US",
+      reasonNewsLimit: 2,
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.error).toBeNull();
+    const result = response.result as {
+      overview: {
+        liquidityRegime: string;
+        summary: string;
+        metrics: unknown[];
+        assetFlows: unknown[];
+      };
+      buckets: Array<{
+        assetClass: string;
+        label: string;
+        items: Array<{ symbol: string; reason: string }>;
+      }>;
+      warnings: string[];
+    };
+    expect(result.overview.liquidityRegime).toBeTruthy();
+    expect(result.overview.summary.length).toBeGreaterThan(0);
+    expect(result.overview.metrics.length).toBeGreaterThan(0);
+    expect(result.overview.assetFlows.length).toBe(3);
+    expect(result.buckets.length).toBeGreaterThanOrEqual(5);
+    expect(result.buckets.every((bucket) => bucket.items.length <= 5)).toBe(true);
+    expect(result.buckets[0]?.items[0]?.symbol).toBeTruthy();
+    expect(result.buckets[0]?.items[0]?.reason).toContain("新闻驱动");
+    expect(result.warnings).toBeDefined();
+  });
+
+  it("returns seven-point flow detail analysis for a selected symbol", async () => {
+    mocks.getQuotes.mockResolvedValue([
+      {
+        symbol: "AAPL",
+        regularMarketPrice: 188.12,
+        regularMarketChangePercent: 0.0123,
+        regularMarketTime: 1700005000,
+      },
+    ]);
+    mocks.getMarketData.mockResolvedValue({
+      symbol: "AAPL",
+      source: "yahoo",
+      series: Array.from({ length: 12 }).map((_, index) => ({
+        ts: 1700000000000 + index * 60_000,
+        iso: new Date(1700000000000 + index * 60_000).toISOString(),
+        close: 100 + index,
+      })),
+    });
+    mocks.getNews.mockResolvedValue([
+      {
+        title: "Apple rally extends after earnings momentum",
+        link: "https://example.com/apple",
+        source: "unit-test",
+        pubDate: "2026-02-20",
+      },
+    ]);
+
+    const response = await invokeHandler("finance.flow.detail", {
+      symbol: "AAPL",
+      assetClass: "usStocks",
+      locale: "US",
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.error).toBeNull();
+    const result = response.result as {
+      symbol: string;
+      points: Array<{ close: number }>;
+      analysis: { trend: string; summary: string; changePercent7d: number | null };
+      news: Array<{ title: string }>;
+      warnings: string[];
+    };
+    expect(result.symbol).toBe("AAPL");
+    expect(result.points).toHaveLength(7);
+    expect(result.analysis.trend).toBeTruthy();
+    expect(result.analysis.summary.length).toBeGreaterThan(0);
+    expect(
+      typeof result.analysis.changePercent7d === "number" ||
+        result.analysis.changePercent7d === null,
+    ).toBe(true);
+    expect(result.news[0]?.title).toContain("Apple");
+    expect(result.warnings).toBeDefined();
+  });
 });

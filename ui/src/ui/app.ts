@@ -26,6 +26,9 @@ import type {
   TraceRunMeta,
   TraceRunEvent,
   DailyStockRunResult,
+  FlowAssetClass,
+  FlowDetail,
+  FlowSnapshot,
   MarketDataSnapshot,
   MarketDataStatus,
 } from "./types";
@@ -92,6 +95,10 @@ import {
   loadMarketDataStatus as loadMarketDataStatusInternal,
   runMarketDataSnapshot as runMarketDataSnapshotInternal,
 } from "./controllers/market-data";
+import {
+  loadFlowRadarDetail as loadFlowRadarDetailInternal,
+  runFlowRadarSnapshot as runFlowRadarSnapshotInternal,
+} from "./controllers/flow-radar";
 
 import { loadAssistantIdentity as loadAssistantIdentityInternal } from "./controllers/assistant-identity";
 
@@ -280,6 +287,13 @@ export class MarketBotApp extends LitElement {
   @state() marketDataActiveSymbol = "AAPL";
   @state() marketDataStatus: MarketDataStatus | null = null;
   @state() marketDataSnapshot: MarketDataSnapshot | null = null;
+  @state() flowRadarLoading = false;
+  @state() flowRadarDetailLoading = false;
+  @state() flowRadarError: string | null = null;
+  @state() flowRadarSnapshot: FlowSnapshot | null = null;
+  @state() flowRadarActiveAssetClass: FlowAssetClass | null = null;
+  @state() flowRadarActiveSymbol: string | null = null;
+  @state() flowRadarDetail: FlowDetail | null = null;
 
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;
@@ -428,6 +442,19 @@ export class MarketBotApp extends LitElement {
   async runMarketDataSnapshot() {
     await runMarketDataSnapshotInternal(
       this as unknown as Parameters<typeof runMarketDataSnapshotInternal>[0],
+    );
+  }
+
+  async runFlowRadarSnapshot() {
+    await runFlowRadarSnapshotInternal(
+      this as unknown as Parameters<typeof runFlowRadarSnapshotInternal>[0],
+    );
+  }
+
+  async loadFlowRadarDetail(opts?: { assetClass?: FlowAssetClass; symbol?: string }) {
+    await loadFlowRadarDetailInternal(
+      this as unknown as Parameters<typeof loadFlowRadarDetailInternal>[0],
+      opts,
     );
   }
 

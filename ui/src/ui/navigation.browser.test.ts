@@ -217,6 +217,15 @@ describe("control UI routing", () => {
     expect(app.textContent).toContain("金融数据");
     expect(app.textContent).toContain("行情快照");
 
+    const flowRadarLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/flow-radar"]');
+    expect(flowRadarLink).not.toBeNull();
+    flowRadarLink?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+    );
+    await app.updateComplete;
+    expect(app.textContent).toContain("流向雷达");
+    expect(app.textContent).toContain("全球流动性脉冲");
+
     const stocksLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/stocks"]');
     expect(stocksLink).not.toBeNull();
     stocksLink?.dispatchEvent(

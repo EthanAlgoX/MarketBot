@@ -21,6 +21,7 @@ import { renderConfig } from "./views/config";
 import { renderExecApprovalPrompt } from "./views/exec-approval";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation";
 import { renderDesk } from "./views/desk";
+import { renderFlowRadar } from "./views/flow-radar";
 import { renderMarketData } from "./views/market-data";
 import { renderStocks } from "./views/stocks";
 import {
@@ -488,6 +489,25 @@ export function renderApp(state: AppViewState) {
           applyMag7Preset(state as unknown as Parameters<typeof applyMag7Preset>[0]),
         onRefreshStatus: () => state.loadMarketDataStatus(),
         onRun: () => state.runMarketDataSnapshot(),
+      })
+      : nothing}
+
+        ${state.tab === "flowRadar"
+      ? renderFlowRadar({
+        language,
+        loading: state.flowRadarLoading,
+        detailLoading: state.flowRadarDetailLoading,
+        error: state.flowRadarError,
+        snapshot: state.flowRadarSnapshot,
+        detail: state.flowRadarDetail,
+        activeAssetClass: state.flowRadarActiveAssetClass,
+        activeSymbol: state.flowRadarActiveSymbol,
+        onRefresh: () => state.runFlowRadarSnapshot(),
+        onSelect: (assetClass, symbol) =>
+          state.loadFlowRadarDetail({
+            assetClass,
+            symbol,
+          }),
       })
       : nothing}
 

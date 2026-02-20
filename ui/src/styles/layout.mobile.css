@@ -158,6 +158,7 @@
   .desk-grid,
   .stocks-layout,
   .market-data-layout,
+  .flow-radar-layout,
   .runs-split {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -181,7 +182,48 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .flow-radar-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .flow-radar-row--head {
+    display: none;
+  }
+
+  .flow-radar-row .flow-radar-reason {
+    grid-column: 1 / -1;
+  }
+
+  .flow-radar-overview-panels,
+  .flow-radar-buckets-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-radar-hero-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .flow-radar-hero-actions {
+    justify-content: flex-start;
+  }
+
+  .flow-radar-river-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .flow-radar-detail-shell {
+    position: static;
+    top: auto;
+  }
+
   .market-data-chart {
+    height: 220px;
+  }
+
+  .flow-radar-chart {
     height: 220px;
   }
 

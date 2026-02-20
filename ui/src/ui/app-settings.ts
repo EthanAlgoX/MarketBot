@@ -189,6 +189,9 @@ export async function refreshActiveTab(host: SettingsHost) {
       (host as unknown as import("./app").MarketBotApp).runMarketDataSnapshot(),
     ]);
   }
+  if (host.tab === "flowRadar") {
+    await (host as unknown as import("./app").MarketBotApp).runFlowRadarSnapshot();
+  }
   if (host.tab === "channels") await loadChannelsTab(host);
   if (host.tab === "sessions") await loadSessions(host as unknown as MarketBotApp);
   if (host.tab === "cron") await loadCron(host);

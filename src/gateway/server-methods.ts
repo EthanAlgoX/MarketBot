@@ -98,6 +98,8 @@ const READ_METHODS = new Set([
   "finance.daily.last",
   "finance.market.status",
   "finance.market.snapshot",
+  "finance.flow.snapshot",
+  "finance.flow.detail",
   "trace.runs.list",
   "trace.run.get",
 ]);

@@ -1015,6 +1015,316 @@ button.market-data-summary-row.active {
   margin-top: 6px;
 }
 
+/* Flow radar */
+.flow-radar-layout {
+  display: grid;
+  gap: 18px;
+  align-items: start;
+  grid-template-columns: minmax(620px, 1.28fr) minmax(360px, 0.72fr);
+}
+
+.flow-radar-left,
+.flow-radar-right {
+  display: grid;
+  gap: 16px;
+}
+
+.flow-radar-card {
+  padding: 20px;
+}
+
+.flow-radar-card--highlight {
+  border-color: rgba(62, 170, 245, 0.34);
+  background:
+    radial-gradient(120% 180% at 100% 0%, rgba(56, 197, 255, 0.14), transparent 60%),
+    linear-gradient(170deg, rgba(16, 26, 50, 0.9), rgba(12, 20, 38, 0.9));
+}
+
+.flow-radar-hero {
+  border-color: rgba(56, 197, 255, 0.38);
+}
+
+.flow-radar-hero-head {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.flow-radar-hero-title {
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: var(--text-strong);
+}
+
+.flow-radar-hero-sub {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.flow-radar-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-radar-board {
+  border-color: rgba(62, 170, 245, 0.26);
+  background:
+    radial-gradient(120% 180% at 100% 0%, rgba(56, 197, 255, 0.08), transparent 62%),
+    linear-gradient(168deg, rgba(16, 24, 44, 0.88), rgba(11, 18, 34, 0.88));
+}
+
+.flow-radar-quality {
+  border-color: rgba(83, 176, 248, 0.35);
+}
+
+.flow-radar-quality-grid {
+  margin-top: 12px;
+}
+
+.flow-radar-quality-value {
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.flow-radar-overview-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.flow-radar-overview-grid,
+.flow-radar-metric-grid,
+.flow-radar-flow-grid,
+.flow-radar-detail-grid {
+  margin-top: 12px;
+}
+
+.flow-radar-regime-row {
+  margin-top: 6px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.flow-radar-regime {
+  border-color: transparent;
+}
+
+.flow-radar-regime--up {
+  color: var(--success);
+  background: rgba(57, 194, 152, 0.16);
+}
+
+.flow-radar-regime--down {
+  color: var(--danger);
+  background: rgba(255, 89, 119, 0.16);
+}
+
+.flow-radar-regime--flat {
+  color: var(--muted);
+  background: rgba(132, 145, 171, 0.16);
+}
+
+.flow-radar-flow {
+  margin-top: 4px;
+}
+
+.flow-radar-flow--up {
+  color: var(--success);
+}
+
+.flow-radar-flow--down {
+  color: var(--danger);
+}
+
+.flow-radar-flow--flat {
+  color: var(--muted);
+}
+
+.flow-radar-river {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.flow-radar-river-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(10, 16, 30, 0.52);
+  padding: 10px 12px;
+}
+
+.flow-radar-river-meta {
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.flow-radar-river-track {
+  margin-top: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148, 159, 182, 0.2);
+  overflow: hidden;
+}
+
+.flow-radar-river-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.flow-radar-river-fill--up {
+  background: linear-gradient(90deg, rgba(50, 222, 153, 0.66), rgba(91, 232, 179, 0.92));
+}
+
+.flow-radar-river-fill--down {
+  background: linear-gradient(90deg, rgba(255, 95, 95, 0.72), rgba(255, 131, 131, 0.92));
+}
+
+.flow-radar-river-fill--flat {
+  background: linear-gradient(90deg, rgba(158, 170, 198, 0.58), rgba(180, 191, 214, 0.8));
+}
+
+.flow-radar-buckets {
+  display: grid;
+  gap: 12px;
+}
+
+.flow-radar-buckets-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.flow-radar-buckets-title {
+  padding-left: 2px;
+}
+
+.flow-radar-bucket-head {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flow-radar-bucket-hint {
+  margin-top: 8px;
+}
+
+.flow-radar-table {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.flow-radar-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 94px 94px minmax(180px, 1.4fr);
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 10px 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(11, 18, 34, 0.45);
+}
+
+.flow-radar-row--head {
+  border-style: dashed;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+button.flow-radar-row {
+  cursor: pointer;
+  color: inherit;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+button.flow-radar-row:hover {
+  border-color: rgba(56, 197, 255, 0.45);
+  background: rgba(20, 33, 59, 0.72);
+}
+
+button.flow-radar-row.active {
+  border-color: rgba(56, 197, 255, 0.66);
+  box-shadow: inset 0 0 0 1px rgba(56, 197, 255, 0.32);
+}
+
+.flow-radar-reason {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.35;
+}
+
+.flow-radar-symbol-cell {
+  display: grid;
+  min-width: 0;
+}
+
+.flow-radar-symbol-main {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.flow-radar-symbol-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-radar-up {
+  color: var(--success);
+}
+
+.flow-radar-down {
+  color: var(--danger);
+}
+
+.flow-radar-analysis {
+  margin-top: 12px;
+}
+
+.flow-radar-detail-shell {
+  position: sticky;
+  top: 84px;
+}
+
+.flow-radar-chart-wrap {
+  margin-top: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(8, 13, 26, 0.68);
+  padding: 12px;
+}
+
+.flow-radar-chart {
+  width: 100%;
+  height: 260px;
+  display: block;
+}
+
 /* Cron */
 .cron-top-grid {
   align-items: start;
@@ -1667,7 +1977,8 @@ button.market-data-summary-row.active {
 
 :root[data-theme="light"] .desk-card--highlight,
 :root[data-theme="light"] .stocks-workbench,
-:root[data-theme="light"] .market-data-card--highlight {
+:root[data-theme="light"] .market-data-card--highlight,
+:root[data-theme="light"] .flow-radar-card--highlight {
   border-color: rgba(58, 125, 255, 0.28);
   background:
     radial-gradient(120% 180% at 100% 0%, rgba(15, 199, 255, 0.08), transparent 64%),
@@ -1697,7 +2008,9 @@ button.market-data-summary-row.active {
 
 :root[data-theme="light"] .market-data-summary-row,
 :root[data-theme="light"] .market-data-news-item,
-:root[data-theme="light"] .market-data-chart-wrap {
+:root[data-theme="light"] .market-data-chart-wrap,
+:root[data-theme="light"] .flow-radar-row,
+:root[data-theme="light"] .flow-radar-chart-wrap {
   background: rgba(255, 255, 255, 0.92);
   border-color: rgba(60, 90, 140, 0.24);
 }

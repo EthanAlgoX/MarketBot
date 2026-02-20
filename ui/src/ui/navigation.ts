@@ -5,7 +5,7 @@ export const TAB_GROUPS = [
   { label: "Chat", tabs: ["chat"] },
   {
     label: "Finance",
-    tabs: ["desk", "marketData", "stocks", "runs"],
+    tabs: ["desk", "marketData", "flowRadar", "stocks", "runs"],
   },
   {
     label: "Control",
@@ -16,6 +16,7 @@ export const TAB_GROUPS = [
 export type Tab =
   | "desk"
   | "marketData"
+  | "flowRadar"
   | "overview"
   | "config"
   | "stocks"
@@ -29,6 +30,7 @@ export type Tab =
 const TAB_PATHS: Record<Tab, string> = {
   desk: "/desk",
   marketData: "/market-data",
+  flowRadar: "/flow-radar",
   overview: "/overview",
   config: "/config",
   stocks: "/stocks",
@@ -109,6 +111,8 @@ export function iconForTab(tab: Tab): IconName {
       return "barChart";
     case "marketData":
       return "barChart";
+    case "flowRadar":
+      return "barChart";
     case "chat":
       return "messageSquare";
     case "overview":
@@ -141,6 +145,7 @@ export function titleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     en: {
       desk: "Desk",
       marketData: "Market Data",
+      flowRadar: "Flow Radar",
       overview: "Connection",
       config: "Config",
       stocks: "Stocks",
@@ -154,6 +159,7 @@ export function titleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     zh: {
       desk: "工作台",
       marketData: "金融数据",
+      flowRadar: "流向雷达",
       overview: "连接",
       config: "配置",
       stocks: "股票",
@@ -178,6 +184,8 @@ export function subtitleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     en: {
       desk: "Daily stocks, research workflows, and delivery operations.",
       marketData: "Unified market snapshot with trend chart, news, and fundamentals.",
+      flowRadar:
+        "Global liquidity pulse, top gainers across equities/metals/crypto, and 7-day trend analysis.",
       overview: "Gateway URL, token, and session defaults for this browser.",
       config: "AI models, tools, channels, and gateway configuration.",
       stocks: "Watchlists, decision dashboards, and daily research notes.",
@@ -191,6 +199,7 @@ export function subtitleForTabWithLanguage(tab: Tab, language: UiLanguage) {
     zh: {
       desk: "每日股票、研究流程与交付操作。",
       marketData: "统一市场快照，含趋势图、新闻与基本面。",
+      flowRadar: "全球流动性脉冲，覆盖股票/金属/加密资产涨幅榜与7天走势分析。",
       overview: "本浏览器的网关地址、令牌与默认会话。",
       config: "AI 模型、工具、渠道与网关配置。",
       stocks: "观察列表、决策面板与每日研究记录。",

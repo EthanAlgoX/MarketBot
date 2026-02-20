@@ -52,6 +52,7 @@ type TabId =
   | 'chat'
   | 'desk'
   | 'marketData'
+  | 'flowRadar'
   | 'stocks'
   | 'runs'
   | 'overview'
@@ -118,6 +119,12 @@ const TABS: Record<TabId, NavTab> = {
     path: '/market-data',
     icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 16h14"/><path d="M4 13l3-3 3 2 5-6 1 2"/></svg>',
   },
+  flowRadar: {
+    id: 'flowRadar',
+    label: 'Flow Radar',
+    path: '/flow-radar',
+    icon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M10 3v7l4 2"/><path d="M3 10h2M15 10h2"/></svg>',
+  },
   stocks: {
     id: 'stocks',
     label: 'Stocks',
@@ -176,7 +183,7 @@ const TABS: Record<TabId, NavTab> = {
 
 const NAV_GROUPS: NavGroup[] = [
   { id: 'chat', tabs: [TABS.chat] },
-  { id: 'workspace', tabs: [TABS.desk, TABS.marketData, TABS.stocks, TABS.runs] },
+  { id: 'workspace', tabs: [TABS.desk, TABS.marketData, TABS.flowRadar, TABS.stocks, TABS.runs] },
   {
     id: 'ops',
     tabs: [TABS.channels, TABS.sessions, TABS.cron, TABS.logs],
@@ -276,6 +283,7 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     navChat: 'Chat',
     navDesk: 'Desk',
     navMarketData: 'Market Data',
+    navFlowRadar: 'Flow Radar',
     navStocks: 'Stocks',
     navRuns: 'Runs',
     navConnection: 'Connection',
@@ -374,6 +382,7 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     navChat: '聊天',
     navDesk: '总览',
     navMarketData: '金融数据',
+    navFlowRadar: '流向雷达',
     navStocks: '股票',
     navRuns: '运行',
     navConnection: '连接',
@@ -418,6 +427,7 @@ function getTabLabel(language: Language, tabId: TabId) {
     chat: 'navChat',
     desk: 'navDesk',
     marketData: 'navMarketData',
+    flowRadar: 'navFlowRadar',
     stocks: 'navStocks',
     runs: 'navRuns',
     overview: 'navConnection',

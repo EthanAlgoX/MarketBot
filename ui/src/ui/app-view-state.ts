@@ -27,7 +27,14 @@ import type {
 import type { ExecApprovalRequest } from "./controllers/exec-approval";
 import type { NostrProfileFormState } from "./views/channels.nostr-profile-form";
 
-import type { DailyStockRunResult, MarketDataSnapshot, MarketDataStatus } from "./types";
+import type {
+  DailyStockRunResult,
+  FlowAssetClass,
+  FlowDetail,
+  FlowSnapshot,
+  MarketDataSnapshot,
+  MarketDataStatus,
+} from "./types";
 
 export type AppViewState = {
   settings: UiSettings;
@@ -169,6 +176,13 @@ export type AppViewState = {
   marketDataActiveSymbol: string;
   marketDataStatus: MarketDataStatus | null;
   marketDataSnapshot: MarketDataSnapshot | null;
+  flowRadarLoading: boolean;
+  flowRadarDetailLoading: boolean;
+  flowRadarError: string | null;
+  flowRadarSnapshot: FlowSnapshot | null;
+  flowRadarActiveAssetClass: FlowAssetClass | null;
+  flowRadarActiveSymbol: string | null;
+  flowRadarDetail: FlowDetail | null;
   connect: () => void;
   setTab: (tab: Tab) => void;
   setTheme: (theme: ThemeMode, context?: ThemeTransitionContext) => void;
@@ -206,6 +220,8 @@ export type AppViewState = {
   runStocks: () => Promise<void>;
   loadMarketDataStatus: () => Promise<void>;
   runMarketDataSnapshot: () => Promise<void>;
+  runFlowRadarSnapshot: () => Promise<void>;
+  loadFlowRadarDetail: (opts?: { assetClass?: FlowAssetClass; symbol?: string }) => Promise<void>;
 
   resetToolStream: () => void;
   resetChatScroll: () => void;
