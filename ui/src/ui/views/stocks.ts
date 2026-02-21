@@ -763,20 +763,21 @@ export function renderStocks(props: StocksProps) {
 
           <div class="stocks-main-top-row stocks-image-top-row">
             <section class="card stocks-focus-card">
-              <div class="stocks-focus-head">
+              <div class="stocks-focus-head stocks-image-focus-head">
                 <div>
-                  <div class="stocks-focus-symbol">
-                    ${parsedPrimary?.symbol ?? watchlist[0] ?? "-"}
-                    <span class="stocks-focus-price">${parsedPrimary?.price ?? "-"}</span>
+                  <div class="stocks-image-focus-title">
+                    <span class="stocks-image-symbol-name">${parsedPrimary?.symbol ?? watchlist[0] ?? "-"}</span>
+                    <span class="stocks-image-price">${parsedPrimary?.price ?? "-"}</span>
                   </div>
-                  <div class="stocks-focus-meta mono">
-                    <span class="stocks-focus-ticker">${parsedPrimary?.symbol ?? "-"}</span> · ${parsedPrimary?.asOfIso ?? props.last?.dateIso ?? "-"}
+                  <div class="stocks-image-focus-meta mono">
+                    <span class="stocks-image-ticker">${parsedPrimary?.symbol ?? "-"}</span>
+                    <span class="stocks-image-date">${parsedPrimary?.asOfIso ?? props.last?.dateIso ?? "-"}</span>
                   </div>
                 </div>
               </div>
 
               <div class="stocks-focus-body">
-                <div class="stocks-focus-label">KEY INSIGHTS</div>
+                <div class="stocks-image-focus-label">KEY INSIGHTS</div>
                 <p>${insightText}</p>
                 ${checklistSlice.length > 0
       ? html`
@@ -787,14 +788,24 @@ export function renderStocks(props: StocksProps) {
       : nothing}
               </div>
 
-              <div class="stocks-focus-actions">
-                <div class="stocks-focus-action">
-                  <div class="stocks-focus-action-label">${text.operationAdvice}</div>
-                  <div class="stocks-focus-action-value">${parsedPrimary?.adviceRaw ?? text.adviceWatch}</div>
+              <div class="stocks-image-actions-grid">
+                <div class="stocks-image-action-box">
+                  <div class="stocks-image-action-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                  </div>
+                  <div class="stocks-image-action-content">
+                    <div class="stocks-image-action-label">${text.operationAdvice}</div>
+                    <div class="stocks-image-action-value">${parsedPrimary?.adviceRaw ?? text.adviceWatch}</div>
+                  </div>
                 </div>
-                <div class="stocks-focus-action">
-                  <div class="stocks-focus-action-label">${text.trendOutlook}</div>
-                  <div class="stocks-focus-action-value">${trendText}</div>
+                <div class="stocks-image-action-box stocks-image-action-box--gold">
+                  <div class="stocks-image-action-icon stocks-image-action-icon--gold">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                  </div>
+                  <div class="stocks-image-action-content">
+                    <div class="stocks-image-action-label">${text.trendOutlook}</div>
+                    <div class="stocks-image-action-value stocks-image-action-value--gold">${trendText}</div>
+                  </div>
                 </div>
               </div>
             </section>
