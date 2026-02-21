@@ -235,6 +235,15 @@ export type FlowBucket = {
   items: FlowTopMover[];
 };
 
+export type FlowCacheMeta = {
+  hit: boolean;
+  scope: string;
+  key: string;
+  ageMs: number;
+  ttlMs: number;
+  dir: string;
+};
+
 export type FlowSnapshot = {
   nowIso: string;
   provider: string;
@@ -261,6 +270,7 @@ export type FlowSnapshot = {
     moverRowsRequested: number;
   };
   warnings?: string[];
+  cache?: FlowCacheMeta;
 };
 
 export type FlowDetail = {
@@ -284,6 +294,7 @@ export type FlowDetail = {
     pubDate?: string;
   }>;
   warnings?: string[];
+  cache?: FlowCacheMeta;
 };
 
 export type DiscordProbe = {

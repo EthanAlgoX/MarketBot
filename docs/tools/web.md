@@ -219,6 +219,7 @@ Fetch a URL and extract readable content.
     web: {
       fetch: {
         enabled: true,
+        strategy: "waterfall", // "fast" | "waterfall" | "race"
         maxChars: 50000,
         timeoutSeconds: 30,
         cacheTtlMinutes: 15,
@@ -231,7 +232,9 @@ Fetch a URL and extract readable content.
           baseUrl: "https://api.firecrawl.dev",
           onlyMainContent: true,
           maxAgeMs: 86400000, // ms (1 day)
-          timeoutSeconds: 60
+          timeoutSeconds: 60,
+          proxy: "auto", // "auto" | "basic" | "stealth"
+          storeInCache: true
         }
       }
     }
@@ -246,8 +249,11 @@ Fetch a URL and extract readable content.
 - `maxChars` (truncate long pages)
 
 Notes:
-- `web_fetch` uses Readability (main-content extraction) first, then Firecrawl (if configured). If both fail, the tool returns an error.
-- Firecrawl requests use bot-circumvention mode and cache results by default.
+- `web_fetch` supports strategies:
+  - `waterfall` (default): native fetch → Firecrawl (if configured) → browser fallback.
+  - `fast`: native fetch only for HTTP/network failures; Firecrawl is used only when HTML readability extraction is unavailable.
+  - `race`: after native fetch fails, Firecrawl and browser fallback run in parallel and the first successful result wins.
+- Firecrawl requests default to `proxy: "auto"` and `storeInCache: true`.
 - `web_fetch` sends a Chrome-like User-Agent and `Accept-Language` by default; override `userAgent` if needed.
 - `web_fetch` blocks private/internal hostnames and re-checks redirects (limit with `maxRedirects`).
 - `web_fetch` is best-effort extraction; some sites will need the browser tool.

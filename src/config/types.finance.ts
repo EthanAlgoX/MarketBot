@@ -25,6 +25,7 @@ export type FinanceProviderConfig = {
   provider?: string;
   providerByAction?: Partial<Record<FinanceActionId, string>>;
   apiKey?: string;
+  secretKey?: string;
   timeoutMs?: number;
   headers?: Record<string, string>;
 };

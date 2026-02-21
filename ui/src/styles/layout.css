@@ -90,7 +90,7 @@
   padding-top: 0;
 }
 
-.shell--chat-focus .content > * + * {
+.shell--chat-focus .content>*+* {
   margin-top: 0;
 }
 
@@ -232,7 +232,8 @@
   background:
     linear-gradient(180deg, rgba(10, 14, 28, 0.92), rgba(10, 14, 28, 0.75)),
     var(--bg);
-  scrollbar-width: none; /* Firefox */
+  scrollbar-width: none;
+  /* Firefox */
   border-right: 1px solid var(--border);
   backdrop-filter: blur(14px);
   transition:
@@ -243,7 +244,8 @@
 }
 
 .nav::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  display: none;
+  /* Chrome/Safari */
 }
 
 .shell--chat-focus .nav {
@@ -461,7 +463,7 @@
   overflow-x: hidden;
 }
 
-.content > * + * {
+.content>*+* {
   margin-top: 24px;
 }
 
@@ -477,7 +479,7 @@
   padding-bottom: 0;
 }
 
-.content--chat > * + * {
+.content--chat>*+* {
   margin-top: 0;
 }
 
@@ -716,14 +718,56 @@
   display: grid;
   gap: 16px;
   align-items: start;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(430px, 1.35fr) minmax(300px, 0.95fr);
+  grid-template-columns: minmax(0, 1fr) 340px;
 }
 
-.stocks-rail,
-.stocks-stage,
-.stocks-pulse {
+@media (max-width: 1100px) {
+  .stocks-redesign-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stocks-main-content {
   display: grid;
-  gap: 14px;
+  gap: 16px;
+  min-width: 0;
+}
+
+.stocks-main-top-row,
+.stocks-main-mid-row {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1400px) {
+
+  .stocks-main-top-row,
+  .stocks-main-mid-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stocks-sidebar {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - var(--shell-topbar-height) - 48px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  min-width: 0;
+}
+
+@supports (height: 100dvh) {
+  .stocks-sidebar {
+    max-height: calc(100dvh - var(--shell-topbar-height) - 48px);
+  }
+}
+
+.stocks-sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .stocks-queue-card,
@@ -1166,11 +1210,9 @@
   display: grid;
   place-items: center;
   position: relative;
-  background: conic-gradient(
-    from 200deg,
-    var(--stocks-tone) calc(var(--stocks-score, 50) * 1%),
-    rgba(64, 78, 112, 0.32) 0
-  );
+  background: conic-gradient(from 200deg,
+      var(--stocks-tone) calc(var(--stocks-score, 50) * 1%),
+      rgba(64, 78, 112, 0.32) 0);
   animation: stocks-ring-enter 520ms var(--ease-out);
 }
 
@@ -1241,6 +1283,7 @@
     transform: scale(0.96);
     opacity: 0.6;
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
@@ -1269,7 +1312,7 @@
   min-height: 42px;
 }
 
-.stocks-options-grid .field--toggle > span {
+.stocks-options-grid .field--toggle>span {
   margin: 0;
 }
 
@@ -1320,16 +1363,16 @@
   transition: transform var(--duration-fast) var(--ease-out);
 }
 
-.toggle input:checked + .toggle__track {
+.toggle input:checked+.toggle__track {
   border-color: rgba(56, 197, 255, 0.6);
   background: linear-gradient(130deg, rgba(0, 186, 236, 0.42), rgba(56, 143, 255, 0.44));
 }
 
-.toggle input:checked + .toggle__track + .toggle__thumb {
+.toggle input:checked+.toggle__track+.toggle__thumb {
   transform: translateX(20px);
 }
 
-.toggle input:focus-visible + .toggle__track {
+.toggle input:focus-visible+.toggle__track {
   box-shadow: var(--focus-ring);
 }
 
@@ -1656,7 +1699,7 @@ button.market-data-summary-row.active {
   min-width: 184px;
 }
 
-.flow-radar-ttl-field > span {
+.flow-radar-ttl-field>span {
   font-size: 11px;
   line-height: 1.2;
   color: var(--muted);
@@ -2273,8 +2316,8 @@ button.flow-radar-row.active {
   margin-top: 16px;
 }
 
-.channels-grid .channel-status-list > div > span:last-child,
-.channels-grid .account-card-status > div > span:last-child {
+.channels-grid .channel-status-list>div>span:last-child,
+.channels-grid .account-card-status>div>span:last-child {
   color: var(--text-strong);
 }
 
@@ -2822,7 +2865,7 @@ button.flow-radar-row.active {
   border-color: rgba(60, 90, 140, 0.28);
 }
 
-:root[data-theme="light"] .toggle input:checked + .toggle__track {
+:root[data-theme="light"] .toggle input:checked+.toggle__track {
   border-color: rgba(56, 143, 255, 0.52);
   background: linear-gradient(130deg, rgba(0, 186, 236, 0.56), rgba(56, 143, 255, 0.62));
 }
@@ -2934,7 +2977,7 @@ button.flow-radar-row.active {
   gap: 16px;
 }
 
-.content--chat .content-header > div:first-child {
+.content--chat .content-header>div:first-child {
   text-align: left;
 }
 
@@ -3168,6 +3211,7 @@ button.flow-radar-row.active {
 }
 
 @media (max-width: 720px) {
+
   .sessions-filters,
   .sessions-controls__row {
     grid-template-columns: 1fr;

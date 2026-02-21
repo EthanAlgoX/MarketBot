@@ -378,6 +378,8 @@ export type ToolsConfig = {
     fetch?: {
       /** Enable web fetch tool (default: true). */
       enabled?: boolean;
+      /** Engine strategy ("fast", "waterfall", "race"; default: "waterfall"). */
+      strategy?: "fast" | "waterfall" | "race";
       /** Max characters to return from fetched content. */
       maxChars?: number;
       /** Timeout in seconds for fetch requests. */
@@ -403,6 +405,10 @@ export type ToolsConfig = {
         maxAgeMs?: number;
         /** Timeout in seconds for Firecrawl requests. */
         timeoutSeconds?: number;
+        /** Firecrawl proxy mode (default: "auto"). */
+        proxy?: "auto" | "basic" | "stealth";
+        /** Allow Firecrawl to reuse provider-side cache (default: true). */
+        storeInCache?: boolean;
       };
     };
   };

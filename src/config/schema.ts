@@ -213,11 +213,14 @@ const FIELD_LABELS: Record<string, string> = {
   "tools.web.search.timeoutSeconds": "Web Search Timeout (sec)",
   "tools.web.search.cacheTtlMinutes": "Web Search Cache TTL (min)",
   "tools.web.fetch.enabled": "Enable Web Fetch Tool",
+  "tools.web.fetch.strategy": "Web Fetch Strategy",
   "tools.web.fetch.maxChars": "Web Fetch Max Chars",
   "tools.web.fetch.timeoutSeconds": "Web Fetch Timeout (sec)",
   "tools.web.fetch.cacheTtlMinutes": "Web Fetch Cache TTL (min)",
   "tools.web.fetch.maxRedirects": "Web Fetch Max Redirects",
   "tools.web.fetch.userAgent": "Web Fetch User-Agent",
+  "tools.web.fetch.firecrawl.proxy": "Firecrawl Proxy Mode",
+  "tools.web.fetch.firecrawl.storeInCache": "Firecrawl Store in Cache",
   "gateway.controlUi.basePath": "Control UI Base Path",
   "gateway.controlUi.allowInsecureAuth": "Allow Insecure Control UI Auth",
   "gateway.controlUi.dangerouslyDisableDeviceAuth": "Dangerously Disable Control UI Device Auth",
@@ -466,13 +469,15 @@ const FIELD_HELP: Record<string, string> = {
   "tools.web.search.perplexity.model":
     'Perplexity model override (default: "perplexity/sonar-pro").',
   "tools.web.fetch.enabled": "Enable the web_fetch tool (lightweight HTTP fetch).",
+  "tools.web.fetch.strategy":
+    'Execution strategy for web_fetch ("fast", "waterfall", "race"; default: "waterfall").',
   "tools.web.fetch.maxChars": "Max characters returned by web_fetch (truncated).",
   "tools.web.fetch.timeoutSeconds": "Timeout in seconds for web_fetch requests.",
   "tools.web.fetch.cacheTtlMinutes": "Cache TTL in minutes for web_fetch results.",
   "tools.web.fetch.maxRedirects": "Maximum redirects allowed for web_fetch (default: 3).",
   "tools.web.fetch.userAgent": "Override User-Agent header for web_fetch requests.",
   "tools.web.fetch.readability":
-    "Use Readability to extract main content from HTML (fallbacks to basic HTML cleanup).",
+    "Use Readability to extract main content from HTML before configured fallbacks.",
   "tools.web.fetch.firecrawl.enabled": "Enable Firecrawl fallback for web_fetch (if configured).",
   "tools.web.fetch.firecrawl.apiKey": "Firecrawl API key (fallback: FIRECRAWL_API_KEY env var).",
   "tools.web.fetch.firecrawl.baseUrl":
@@ -482,6 +487,10 @@ const FIELD_HELP: Record<string, string> = {
   "tools.web.fetch.firecrawl.maxAgeMs":
     "Firecrawl maxAge (ms) for cached results when supported by the API.",
   "tools.web.fetch.firecrawl.timeoutSeconds": "Timeout in seconds for Firecrawl requests.",
+  "tools.web.fetch.firecrawl.proxy":
+    'Firecrawl proxy mode ("auto", "basic", "stealth"; default: "auto").',
+  "tools.web.fetch.firecrawl.storeInCache":
+    "Allow Firecrawl provider-side cache reuse when available (default: true).",
   "channels.slack.allowBots":
     "Allow bot-authored messages to trigger Slack replies (default: false).",
   "channels.slack.thread.historyScope":

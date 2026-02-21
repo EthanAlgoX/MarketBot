@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   getMarketData: vi.fn(),
   getNews: vi.fn(),
   getFundamentals: vi.fn(),
+  diskCache: new Map<string, { cachedAtMs: number; payload: Record<string, unknown> }>(),
 }));
 
 vi.mock("../../config/config.js", async () => {
@@ -50,6 +51,26 @@ vi.mock("../../finance/client.js", () => ({
     async getFundamentals(...args: Parameters<typeof mocks.getFundamentals>) {
       return await mocks.getFundamentals(...args);
     }
+  },
+}));
+
+vi.mock("../../finance/gateway-disk-cache.js", () => ({
+  buildGatewayFinanceCacheKey: (scope: string, params: unknown) =>
+    `${scope}:${JSON.stringify(params ?? {})}`,
+  getGatewayFinanceCacheDir: () => "/tmp/marketbot-finance-cache-test",
+  readGatewayFinanceCache: async (key: string, maxAgeMs: number) => {
+    const hit = mocks.diskCache.get(key);
+    if (!hit) {
+      return null;
+    }
+    const ageMs = Date.now() - hit.cachedAtMs;
+    if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > maxAgeMs) {
+      return null;
+    }
+    return { payload: hit.payload, cachedAtMs: hit.cachedAtMs, ageMs };
+  },
+  writeGatewayFinanceCache: async (key: string, payload: Record<string, unknown>) => {
+    mocks.diskCache.set(key, { cachedAtMs: Date.now(), payload });
   },
 }));
 
@@ -88,6 +109,7 @@ describe("finance market data handlers", () => {
     mocks.getMarketData.mockReset();
     mocks.getNews.mockReset();
     mocks.getFundamentals.mockReset();
+    mocks.diskCache.clear();
   });
 
   it("returns market status payload", async () => {
@@ -249,5 +271,72 @@ describe("finance market data handlers", () => {
     ).toBe(true);
     expect(result.news[0]?.title).toContain("Apple");
     expect(result.warnings).toBeDefined();
+  });
+
+  it("serves flow snapshot from disk cache on repeated requests", async () => {
+    mocks.getQuotes.mockImplementation(async (symbols: string[]) =>
+      symbols.map((symbol, index) => ({
+        symbol,
+        shortName: `Name-${symbol}`,
+        currency: "USD",
+        exchange: "TEST",
+        regularMarketPrice: 100 + index,
+        regularMarketChangePercent: 0.01,
+        regularMarketTime: 1700000000 + index,
+      })),
+    );
+    mocks.getNews.mockResolvedValue([
+      {
+        title: "cached-news",
+        link: "https://example.com/cached-news",
+      },
+    ]);
+
+    const first = await invokeHandler("finance.flow.snapshot", {
+      topN: 3,
+      locale: "US",
+    });
+    expect(first.ok).toBe(true);
+    const callsAfterFirst = mocks.getQuotes.mock.calls.length;
+    expect(callsAfterFirst).toBeGreaterThan(0);
+
+    const second = await invokeHandler("finance.flow.snapshot", {
+      topN: 3,
+      locale: "US",
+    });
+    expect(second.ok).toBe(true);
+    expect(mocks.getQuotes.mock.calls.length).toBe(callsAfterFirst);
+    const secondResult = second.result as { cache?: { hit?: boolean } };
+    expect(secondResult.cache?.hit).toBe(true);
+  });
+
+  it("honors cacheTtlMs override for flow snapshot responses", async () => {
+    mocks.getQuotes.mockImplementation(async (symbols: string[]) =>
+      symbols.map((symbol, index) => ({
+        symbol,
+        shortName: `Name-${symbol}`,
+        currency: "USD",
+        exchange: "TEST",
+        regularMarketPrice: 100 + index,
+        regularMarketChangePercent: 0.01,
+        regularMarketTime: 1700000000 + index,
+      })),
+    );
+    mocks.getNews.mockResolvedValue([
+      {
+        title: "ttl-test",
+        link: "https://example.com/ttl-test",
+      },
+    ]);
+
+    const response = await invokeHandler("finance.flow.snapshot", {
+      topN: 3,
+      locale: "US",
+      cacheTtlMs: 45000,
+    });
+
+    expect(response.ok).toBe(true);
+    const result = response.result as { cache?: { ttlMs?: number } };
+    expect(result.cache?.ttlMs).toBe(45000);
   });
 });

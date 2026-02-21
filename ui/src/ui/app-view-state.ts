@@ -183,6 +183,7 @@ export type AppViewState = {
   flowRadarActiveAssetClass: FlowAssetClass | null;
   flowRadarActiveSymbol: string | null;
   flowRadarDetail: FlowDetail | null;
+  flowRadarCacheTtlMsText: string;
   connect: () => void;
   setTab: (tab: Tab) => void;
   setTheme: (theme: ThemeMode, context?: ThemeTransitionContext) => void;
@@ -220,8 +221,13 @@ export type AppViewState = {
   runStocks: () => Promise<void>;
   loadMarketDataStatus: () => Promise<void>;
   runMarketDataSnapshot: () => Promise<void>;
-  runFlowRadarSnapshot: () => Promise<void>;
-  loadFlowRadarDetail: (opts?: { assetClass?: FlowAssetClass; symbol?: string }) => Promise<void>;
+  runFlowRadarSnapshot: (opts?: { refresh?: boolean; cacheTtlMs?: number }) => Promise<void>;
+  loadFlowRadarDetail: (opts?: {
+    assetClass?: FlowAssetClass;
+    symbol?: string;
+    refresh?: boolean;
+    cacheTtlMs?: number;
+  }) => Promise<void>;
 
   resetToolStream: () => void;
   resetChatScroll: () => void;

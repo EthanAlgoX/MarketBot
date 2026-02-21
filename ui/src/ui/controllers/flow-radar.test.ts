@@ -93,7 +93,7 @@ describe("flow-radar controller", () => {
     expect(request).toHaveBeenCalledTimes(2);
     expect(request.mock.calls[0]?.[0]).toBe("finance.flow.snapshot");
     expect(request.mock.calls[0]?.[1]).toMatchObject({
-      providerOrder: ["openbb", "yahoo", "stooq", "google-news"],
+      providerOrder: ["openbb", "alpaca", "yahoo", "stooq", "google-news"],
     });
     expect(request.mock.calls[1]?.[0]).toBe("finance.flow.detail");
     expect(state.flowRadarActiveAssetClass).toBe("usStocks");
@@ -137,9 +137,80 @@ describe("flow-radar controller", () => {
       assetClass: "metals",
       locale: "US",
       provider: "openbb",
-      providerOrder: ["openbb", "yahoo", "stooq", "google-news"],
+      providerOrder: ["openbb", "alpaca", "yahoo", "stooq", "google-news"],
     });
     expect(state.flowRadarDetail?.assetClass).toBe("metals");
     expect(state.flowRadarError).toBeNull();
+  });
+
+  it("passes refresh flag to snapshot and detail requests", async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "finance.flow.snapshot") {
+        return {
+          nowIso: "2026-02-20T00:00:00.000Z",
+          provider: "openbb",
+          locale: "US",
+          topN: 10,
+          overview: {
+            asOfIso: "2026-02-20T00:00:00.000Z",
+            liquidityRegime: "balanced",
+            summary: "balanced",
+            fedSignal: "fed",
+            bojSignal: "boj",
+            metrics: [],
+            assetFlows: [],
+          },
+          buckets: [
+            {
+              assetClass: "usStocks",
+              label: "US",
+              items: [
+                {
+                  symbol: "AAPL",
+                  name: "Apple",
+                  price: 100,
+                  changePercent: 1,
+                  currency: "USD",
+                  exchange: "NASDAQ",
+                  marketTimeIso: "2026-02-20T00:00:00.000Z",
+                  reason: "momentum",
+                  headline: null,
+                },
+              ],
+            },
+          ],
+          warnings: [],
+        };
+      }
+      return {
+        symbol: "AAPL",
+        assetClass: "usStocks",
+        nowIso: "2026-02-20T00:01:00.000Z",
+        price: 100,
+        changePercent: 1,
+        marketTimeIso: "2026-02-20T00:00:00.000Z",
+        points: [],
+        analysis: {
+          trend: "up",
+          changePercent7d: 2,
+          volatilityPercent: 1,
+          summary: "uptrend",
+        },
+        news: [],
+        warnings: [],
+      };
+    });
+    const state = createState({ client: { request } as any });
+
+    await runFlowRadarSnapshot(state, { refresh: true, cacheTtlMs: 120000 });
+
+    expect(request.mock.calls[0]?.[1]).toMatchObject({
+      refresh: true,
+      cacheTtlMs: 120000,
+    });
+    expect(request.mock.calls[1]?.[1]).toMatchObject({
+      refresh: true,
+      cacheTtlMs: 120000,
+    });
   });
 });

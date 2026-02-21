@@ -257,6 +257,7 @@ export const MarketBotSchema = z
                   .strict()
                   .optional(),
                 apiKey: z.string().optional(),
+                secretKey: z.string().optional(),
                 timeoutMs: z.number().int().positive().optional(),
                 headers: z.record(z.string(), z.string()).optional(),
               })

@@ -131,6 +131,18 @@ function persistStocksPreferences(
   });
 }
 
+function parseFlowRadarCacheTtlMs(input: string): number | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return Math.floor(parsed);
+}
+
 
 
 function resolveAssistantAvatarUrl(state: AppViewState): string | undefined {
@@ -502,11 +514,22 @@ export function renderApp(state: AppViewState) {
         detail: state.flowRadarDetail,
         activeAssetClass: state.flowRadarActiveAssetClass,
         activeSymbol: state.flowRadarActiveSymbol,
-        onRefresh: () => state.runFlowRadarSnapshot(),
+        cacheTtlMsText: state.flowRadarCacheTtlMsText,
+        onCacheTtlMsTextChange: (next) => (state.flowRadarCacheTtlMsText = next),
+        onRefresh: () =>
+          state.runFlowRadarSnapshot({
+            cacheTtlMs: parseFlowRadarCacheTtlMs(state.flowRadarCacheTtlMsText),
+          }),
+        onForceRefresh: () =>
+          state.runFlowRadarSnapshot({
+            refresh: true,
+            cacheTtlMs: parseFlowRadarCacheTtlMs(state.flowRadarCacheTtlMsText),
+          }),
         onSelect: (assetClass, symbol) =>
           state.loadFlowRadarDetail({
             assetClass,
             symbol,
+            cacheTtlMs: parseFlowRadarCacheTtlMs(state.flowRadarCacheTtlMsText),
           }),
       })
       : nothing}

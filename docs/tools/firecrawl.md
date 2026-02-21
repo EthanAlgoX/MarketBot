@@ -24,12 +24,15 @@ with JS-heavy sites or pages that block plain HTTP fetches.
   tools: {
     web: {
       fetch: {
+        strategy: "waterfall", // optional: "fast" | "waterfall" | "race"
         firecrawl: {
           apiKey: "FIRECRAWL_API_KEY_HERE",
           baseUrl: "https://api.firecrawl.dev",
           onlyMainContent: true,
           maxAgeMs: 172800000,
-          timeoutSeconds: 60
+          timeoutSeconds: 60,
+          proxy: "auto", // optional: "auto" | "basic" | "stealth"
+          storeInCache: true // optional
         }
       }
     }
@@ -41,18 +44,17 @@ Notes:
 - `firecrawl.enabled` defaults to true when an API key is present.
 - `maxAgeMs` controls how old cached results can be (ms). Default is 2 days.
 
-## Stealth / bot circumvention
+## Stealth and cache behavior
 
 Firecrawl exposes a **proxy mode** parameter for bot circumvention (`basic`, `stealth`, or `auto`).
-MarketBot always uses `proxy: "auto"` plus `storeInCache: true` for Firecrawl requests.
-If proxy is omitted, Firecrawl defaults to `auto`. `auto` retries with stealth proxies if a basic attempt fails, which may use more credits
-than basic-only scraping.
+MarketBot defaults to `proxy: "auto"` and `storeInCache: true`, and both can be overridden in config.
+If proxy is omitted, Firecrawl defaults to `auto`. `auto` may escalate to stealth fetches, which can use more credits than basic-only scraping.
 
 ## How `web_fetch` uses Firecrawl
 
 `web_fetch` extraction order:
-1) Readability (local)
-2) Firecrawl (if configured)
-3) Basic HTML cleanup (last fallback)
+1) `strategy: "waterfall"` (default): native fetch/readability, then Firecrawl, then browser fallback.
+2) `strategy: "fast"`: native fetch only for transport/HTTP failures; Firecrawl is only used when readability extraction fails.
+3) `strategy: "race"`: after native fetch fails, Firecrawl and browser fallback run in parallel; first success wins.
 
 See [Web tools](/tools/web) for the full web tool setup.

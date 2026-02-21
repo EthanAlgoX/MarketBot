@@ -297,6 +297,341 @@ function createGoogleNewsProvider(): FinanceProvider {
   };
 }
 
+type AlpacaRuntimeConfig = {
+  baseUrl: string;
+  timeoutMs: number;
+  apiKey: string;
+  secretKey: string;
+  feed: string;
+  headers?: Record<string, string>;
+};
+
+function resolveAlpacaRuntimeConfig(config?: MarketBotConfig): AlpacaRuntimeConfig | null {
+  const raw = config?.finance?.providers?.["alpaca"];
+  if (raw?.enabled === false) {
+    return null;
+  }
+  const envBaseUrl = process.env.ALPACA_BASE_URL?.trim();
+  const baseUrl = raw?.baseUrl?.trim() || envBaseUrl || "https://data.alpaca.markets/v2";
+  const apiKey = raw?.apiKey?.trim() || process.env.ALPACA_API_KEY?.trim() || "";
+  const secretKey = raw?.secretKey?.trim() || process.env.ALPACA_SECRET_KEY?.trim() || "";
+  const enabled =
+    raw?.enabled === true ||
+    Boolean(raw?.baseUrl?.trim()) ||
+    Boolean(envBaseUrl) ||
+    Boolean(apiKey && secretKey);
+  if (!enabled || !apiKey || !secretKey) {
+    return null;
+  }
+  const timeoutMs =
+    typeof raw?.timeoutMs === "number" && Number.isFinite(raw.timeoutMs) && raw.timeoutMs > 0
+      ? raw.timeoutMs
+      : 10000;
+  const feed = raw?.provider?.trim() || process.env.ALPACA_FEED?.trim() || "iex";
+  return {
+    baseUrl: baseUrl.replace(/\/+$/, ""),
+    timeoutMs,
+    apiKey,
+    secretKey,
+    feed,
+    ...(raw?.headers ? { headers: raw.headers } : {}),
+  };
+}
+
+function normalizeAlpacaSymbol(symbol: string): string | null {
+  const normalized = normalizeYahooSymbol(symbol).toUpperCase();
+  if (!normalized) {
+    return null;
+  }
+  if (
+    normalized.endsWith(".HK") ||
+    normalized.endsWith(".SS") ||
+    normalized.endsWith(".SZ") ||
+    normalized.includes("=") ||
+    normalized.includes("-") ||
+    normalized.startsWith("^")
+  ) {
+    return null;
+  }
+  if (!/^[A-Z][A-Z0-9.]{0,9}$/.test(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
+function estimateAlpacaLimit(timeframe?: string, limit?: number): number {
+  if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
+    return Math.min(Math.trunc(limit), 1000);
+  }
+  const range = resolveYahooRange(timeframe).range;
+  const inferred =
+    range === "1d"
+      ? 2
+      : range === "5d"
+        ? 5
+        : range === "1mo"
+          ? 30
+          : range === "3mo"
+            ? 90
+            : range === "6mo"
+              ? 180
+              : range === "1y"
+                ? 365
+                : range === "2y"
+                  ? 730
+                  : range === "5y"
+                    ? 1000
+                    : 250;
+  return Math.min(Math.max(inferred, 2), 1000);
+}
+
+function estimateAlpacaLookbackDays(timeframe?: string, limit?: number): number {
+  const range = resolveYahooRange(timeframe).range;
+  const inferredDays =
+    range === "1d"
+      ? 7
+      : range === "5d"
+        ? 14
+        : range === "1mo"
+          ? 45
+          : range === "3mo"
+            ? 120
+            : range === "6mo"
+              ? 240
+              : range === "1y"
+                ? 420
+                : range === "2y"
+                  ? 840
+                  : range === "5y"
+                    ? 2100
+                    : 3650;
+  const inferredFromLimit =
+    typeof limit === "number" && Number.isFinite(limit) && limit > 0
+      ? Math.max(Math.trunc(limit) * 3, 14)
+      : 0;
+  return Math.min(Math.max(inferredDays, inferredFromLimit, 7), 3650);
+}
+
+function buildAlpacaBarWindow(timeframe?: string, limit?: number): { start: string; end: string } {
+  const now = Date.now();
+  const lookbackDays = estimateAlpacaLookbackDays(timeframe, limit);
+  const startMs = now - lookbackDays * 24 * 60 * 60 * 1000;
+  // Include one extra day to avoid session boundary misses around market close.
+  const endMs = now + 24 * 60 * 60 * 1000;
+  return {
+    start: new Date(startMs).toISOString(),
+    end: new Date(endMs).toISOString(),
+  };
+}
+
+function extractAlpacaSnapshotMap(payload: unknown): Record<string, Record<string, unknown>> {
+  const root = asRecord(payload);
+  if (!root) {
+    return {};
+  }
+  const snapshots = asRecord(root.snapshots);
+  if (snapshots) {
+    const out: Record<string, Record<string, unknown>> = {};
+    for (const [key, value] of Object.entries(snapshots)) {
+      const row = asRecord(value);
+      if (row) {
+        out[key] = row;
+      }
+    }
+    return out;
+  }
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [key, value] of Object.entries(root)) {
+    const row = asRecord(value);
+    if (row) {
+      out[key] = row;
+    }
+  }
+  return out;
+}
+
+function parseAlpacaQuote(symbol: string, snapshot: Record<string, unknown>): Quote | null {
+  const latestTrade = asRecord(snapshot.latestTrade);
+  const dailyBar = asRecord(snapshot.dailyBar);
+  const prevDailyBar = asRecord(snapshot.prevDailyBar);
+  const regularMarketPrice =
+    pickFirstNumber(latestTrade ?? {}, ["p", "price"]) ??
+    pickFirstNumber(dailyBar ?? {}, ["c", "close"]);
+  if (regularMarketPrice === undefined) {
+    return null;
+  }
+  const prevClose = pickFirstNumber(prevDailyBar ?? {}, ["c", "close"]);
+  const regularMarketChange = prevClose !== undefined ? regularMarketPrice - prevClose : undefined;
+  const regularMarketChangePercent =
+    prevClose !== undefined && prevClose !== 0 ? regularMarketChange! / prevClose : undefined;
+  const regularMarketTime = parseTimestampMs(
+    latestTrade?.t ?? dailyBar?.t ?? snapshot.timestamp ?? snapshot.updated,
+  );
+  return {
+    symbol,
+    currency: "USD",
+    regularMarketPrice,
+    ...(regularMarketChange !== undefined ? { regularMarketChange } : {}),
+    ...(regularMarketChangePercent !== undefined ? { regularMarketChangePercent } : {}),
+    ...(regularMarketTime ? { regularMarketTime } : {}),
+    marketState: "REGULAR",
+  };
+}
+
+async function alpacaGetJson(params: {
+  runtime: AlpacaRuntimeConfig;
+  path: string;
+  query?: Record<string, string | number | undefined>;
+}): Promise<unknown> {
+  const fetchImpl = resolveFetch();
+  if (!fetchImpl) {
+    throw new Error("fetch is not available in this runtime");
+  }
+  const url = new URL(params.path.replace(/^\/+/, ""), `${params.runtime.baseUrl}/`);
+  for (const [key, value] of Object.entries(params.query ?? {})) {
+    if (value === undefined) {
+      continue;
+    }
+    url.searchParams.set(key, String(value));
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), params.runtime.timeoutMs);
+  try {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "APCA-API-KEY-ID": params.runtime.apiKey,
+      "APCA-API-SECRET-KEY": params.runtime.secretKey,
+      ...params.runtime.headers,
+    };
+    const response = await fetchImpl(url, {
+      method: "GET",
+      headers,
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const body = (await response.text()).slice(0, 300);
+      throw new Error(`alpaca request failed (${response.status}): ${body}`);
+    }
+    const text = await response.text();
+    if (!text.trim()) {
+      throw new Error("alpaca response was empty");
+    }
+    return JSON.parse(text);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function createAlpacaProvider(runtime: AlpacaRuntimeConfig): FinanceProvider {
+  return {
+    id: "alpaca",
+    label: "Alpaca",
+    capabilities: {
+      marketData: true,
+      quotes: true,
+    },
+    getMarketData: async (params) => {
+      const symbol = normalizeAlpacaSymbol(params.symbol);
+      if (!symbol) {
+        throw new Error(`alpaca supports US equities only: "${params.symbol}"`);
+      }
+      const limit = estimateAlpacaLimit(params.timeframe, params.limit);
+      const window = buildAlpacaBarWindow(params.timeframe, params.limit);
+      const payload = await alpacaGetJson({
+        runtime,
+        path: `/stocks/${encodeURIComponent(symbol)}/bars`,
+        query: {
+          timeframe: "1Day",
+          limit,
+          start: window.start,
+          end: window.end,
+          adjustment: "raw",
+          feed: runtime.feed,
+          sort: "desc",
+        },
+      });
+      const root = asRecord(payload);
+      const bars = Array.isArray(root?.bars) ? root?.bars : [];
+      const points: MarketDataPoint[] = [];
+      for (const row of bars) {
+        const record = asRecord(row);
+        if (!record) {
+          continue;
+        }
+        const ts = parseTimestampMs(record.t);
+        if (!ts) {
+          continue;
+        }
+        points.push({
+          ts,
+          iso: new Date(ts).toISOString(),
+          open: pickFirstNumber(record, ["o", "open"]),
+          high: pickFirstNumber(record, ["h", "high"]),
+          low: pickFirstNumber(record, ["l", "low"]),
+          close: pickFirstNumber(record, ["c", "close"]),
+          volume: pickFirstNumber(record, ["v", "volume"]),
+        });
+      }
+      points.sort((a, b) => a.ts - b.ts);
+      if (points.length === 0) {
+        throw new Error(`alpaca bars response had no parseable rows for "${symbol}"`);
+      }
+      const last = points.at(-1);
+      return {
+        symbol,
+        source: "alpaca",
+        currency: "USD",
+        ...(last?.close !== undefined ? { regularMarketPrice: last.close } : {}),
+        ...(last?.ts ? { regularMarketTime: last.ts } : {}),
+        series: params.limit ? points.slice(-params.limit) : points,
+      };
+    },
+    getQuotes: async (symbols) => {
+      const normalized = Array.from(
+        new Set(
+          symbols
+            .map((symbol) => normalizeAlpacaSymbol(symbol))
+            .filter((symbol): symbol is string => Boolean(symbol)),
+        ),
+      );
+      if (normalized.length === 0) {
+        throw new Error("alpaca supports US equities only");
+      }
+      const bySymbol = new Map<string, Quote>();
+      for (let i = 0; i < normalized.length; i += 50) {
+        const batch = normalized.slice(i, i + 50);
+        const payload = await alpacaGetJson({
+          runtime,
+          path: "/stocks/snapshots",
+          query: {
+            symbols: batch.join(","),
+            feed: runtime.feed,
+          },
+        });
+        const snapshots = extractAlpacaSnapshotMap(payload);
+        for (const symbol of batch) {
+          const snapshot = asRecord(snapshots[symbol]);
+          if (!snapshot) {
+            continue;
+          }
+          const quote = parseAlpacaQuote(symbol, snapshot);
+          if (quote) {
+            bySymbol.set(symbol, quote);
+          }
+        }
+      }
+      const quotes = normalized
+        .map((symbol) => bySymbol.get(symbol))
+        .filter((q): q is Quote => !!q);
+      if (quotes.length === 0) {
+        throw new Error("alpaca quote response had no parseable rows");
+      }
+      return quotes;
+    },
+  };
+}
+
 type OpenBbRuntimeConfig = {
   baseUrl: string;
   provider: string;
@@ -810,6 +1145,10 @@ export function createFinanceProviderRegistry(
     createStooqProvider(),
     createGoogleNewsProvider(),
   ];
+  const alpaca = resolveAlpacaRuntimeConfig(config);
+  if (alpaca) {
+    providers.push(createAlpacaProvider(alpaca));
+  }
   const openbb = resolveOpenBbRuntimeConfig(config);
   if (openbb) {
     providers.push(createOpenBbProvider(openbb));

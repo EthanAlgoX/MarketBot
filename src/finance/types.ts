@@ -16,7 +16,7 @@ export type MarketDataPoint = {
 
 export type MarketSeries = {
   symbol: string;
-  source: "yahoo" | "openbb" | "unknown";
+  source: "yahoo" | "openbb" | "alpaca" | "unknown";
   currency?: string;
   exchange?: string;
   timezone?: string;

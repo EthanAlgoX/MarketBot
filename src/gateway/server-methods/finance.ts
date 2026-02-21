@@ -27,6 +27,12 @@ import { loadDailyStockLast, saveDailyStockLast } from "../../finance/daily-stoc
 import { runDailyStock, runStockReport } from "../../finance/daily-stock.js";
 import { normalizeYahooSymbol } from "../../finance/yahoo.js";
 import type { Quote } from "../../finance/types.js";
+import {
+  buildGatewayFinanceCacheKey,
+  getGatewayFinanceCacheDir,
+  readGatewayFinanceCache,
+  writeGatewayFinanceCache,
+} from "../../finance/gateway-disk-cache.js";
 
 const MAG7_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"] as const;
 const DEFAULT_TIMEFRAME = "6mo";
@@ -34,7 +40,35 @@ const DEFAULT_NEWS_LIMIT = 5;
 const DEFAULT_SERIES_LIMIT = 90;
 const DEFAULT_TOP_MOVERS_LIMIT = 10;
 const DEFAULT_REASON_NEWS_LIMIT = 4;
-const FLOW_DEFAULT_PROVIDER_ORDER = ["openbb", "yahoo", "stooq", "google-news"] as const;
+const FLOW_REQUEST_TIMEOUT_MS = 12_000;
+const FLOW_BUCKET_TIMEOUT_MS = 12_000;
+const FLOW_DETAIL_TIMEOUT_MS = 6_500;
+const FLOW_NEWS_TIMEOUT_MS = 3_000;
+const FLOW_SERIES_FALLBACK_TIMEOUT_MS = 5_000;
+const FLOW_REASON_NEWS_CONCURRENCY = 2;
+const FLOW_SERIES_FALLBACK_CONCURRENCY = 4;
+const FLOW_TOP_MOVERS_QUOTE_TIMEOUT_MS = 5_000;
+const FLOW_TOP_MOVERS_FALLBACK_TIMEOUT_MS = 2_500;
+const FLOW_OVERVIEW_QUOTE_TIMEOUT_MS = 5_000;
+const FLOW_OVERVIEW_FALLBACK_TIMEOUT_MS = 2_500;
+const FLOW_DETAIL_QUOTE_TIMEOUT_MS = 4_000;
+const FLOW_DETAIL_SERIES_TIMEOUT_MS = 4_500;
+const FLOW_DETAIL_NEWS_TIMEOUT_MS = 2_000;
+const FLOW_DEFAULT_PROVIDER_ORDER = ["openbb", "alpaca", "yahoo", "stooq", "google-news"] as const;
+const FLOW_PROVIDER_ORDER_NO_OPENBB = ["alpaca", "yahoo", "stooq", "google-news"] as const;
+const FLOW_CLIENT_CACHE_TTL_MS = 70_000;
+const DEFAULT_MARKET_SNAPSHOT_DISK_CACHE_TTL_MS = 3 * 60_000;
+const DEFAULT_FLOW_SNAPSHOT_DISK_CACHE_TTL_MS = 3 * 60_000;
+const DEFAULT_FLOW_DETAIL_DISK_CACHE_TTL_MS = 3 * 60_000;
+const MIN_DISK_CACHE_TTL_MS = 1_000;
+const MAX_DISK_CACHE_TTL_MS = 24 * 60 * 60 * 1_000;
+
+type FlowClientCacheEntry = {
+  client: MarketDataClient;
+  expiresAtMs: number;
+};
+
+const flowClientCache = new Map<string, FlowClientCacheEntry>();
 
 type FlowAssetClass = "usStocks" | "hkStocks" | "aStocks" | "metals" | "crypto";
 
@@ -147,6 +181,18 @@ const FLOW_UNIVERSES: Record<FlowAssetClass, readonly string[]> = {
     "UNI",
   ],
 };
+const FLOW_HK_PROXY_UNIVERSE = [
+  "TCEHY",
+  "BABA",
+  "JD",
+  "BIDU",
+  "NTES",
+  "LI",
+  "XPEV",
+  "NIO",
+  "KWEB",
+  "EWH",
+] as const;
 
 const FLOW_OVERVIEW_SYMBOLS = [
   "QQQ",
@@ -257,6 +303,41 @@ function asPositiveInteger(value: unknown, fallback: number, max: number): numbe
   return Math.min(max, rounded);
 }
 
+function parseEnvPositiveInt(name: string): number | undefined {
+  const raw = process.env[name]?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return Math.floor(parsed);
+}
+
+function resolveDiskCacheTtlMs(params: {
+  requestTtlMs: unknown;
+  defaultTtlMs: number;
+  envKey: string;
+}): number {
+  const requestValue =
+    typeof params.requestTtlMs === "number" && Number.isFinite(params.requestTtlMs)
+      ? Math.floor(params.requestTtlMs)
+      : undefined;
+  if (requestValue && requestValue >= MIN_DISK_CACHE_TTL_MS) {
+    return Math.min(requestValue, MAX_DISK_CACHE_TTL_MS);
+  }
+  const envScoped = parseEnvPositiveInt(params.envKey);
+  if (envScoped && envScoped >= MIN_DISK_CACHE_TTL_MS) {
+    return Math.min(envScoped, MAX_DISK_CACHE_TTL_MS);
+  }
+  const envGlobal = parseEnvPositiveInt("MARKETBOT_FINANCE_CACHE_TTL_MS");
+  if (envGlobal && envGlobal >= MIN_DISK_CACHE_TTL_MS) {
+    return Math.min(envGlobal, MAX_DISK_CACHE_TTL_MS);
+  }
+  return params.defaultTtlMs;
+}
+
 function asFlowAssetClasses(value: unknown): FlowAssetClass[] | null {
   const raw = asStringArray(value);
   if (!raw || raw.length === 0) {
@@ -289,6 +370,95 @@ function resolveFlowProviderOrder(value: unknown): string[] {
     return parsed;
   }
   return Array.from(FLOW_DEFAULT_PROVIDER_ORDER);
+}
+
+function normalizeProviderId(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function resolveFlowProviderSetup(params: {
+  config: ReturnType<typeof loadConfig>;
+  provider: string;
+  providerOrder: string[];
+}): { provider: string; providerOrder: string[]; warnings: string[] } {
+  const warnings: string[] = [];
+  const openbbRuntime = resolveOpenBbRuntime(params.config);
+  const alpacaRuntime = resolveAlpacaRuntime(params.config);
+  const hasOpenBb = openbbRuntime.enabled && Boolean(openbbRuntime.baseUrl);
+  const hasAlpaca = alpacaRuntime.enabled;
+  let filteredOrder = params.providerOrder.filter(
+    (entry) =>
+      (hasOpenBb || normalizeProviderId(entry) !== "openbb") &&
+      (hasAlpaca || normalizeProviderId(entry) !== "alpaca"),
+  );
+  if (hasAlpaca && !filteredOrder.some((entry) => normalizeProviderId(entry) === "alpaca")) {
+    const openbbIndex = filteredOrder.findIndex((entry) => normalizeProviderId(entry) === "openbb");
+    if (openbbIndex >= 0) {
+      filteredOrder = [
+        ...filteredOrder.slice(0, openbbIndex + 1),
+        "alpaca",
+        ...filteredOrder.slice(openbbIndex + 1),
+      ];
+    } else {
+      filteredOrder = ["alpaca", ...filteredOrder];
+    }
+  }
+  const providerOrder =
+    filteredOrder.length > 0
+      ? filteredOrder
+      : hasOpenBb
+        ? Array.from(FLOW_DEFAULT_PROVIDER_ORDER)
+        : Array.from(FLOW_PROVIDER_ORDER_NO_OPENBB);
+  const requestedProvider = params.provider.trim();
+  const provider =
+    (!hasOpenBb && normalizeProviderId(requestedProvider) === "openbb") ||
+    (!hasAlpaca && normalizeProviderId(requestedProvider) === "alpaca")
+      ? (providerOrder[0] ?? "yahoo")
+      : requestedProvider;
+  if (!hasOpenBb) {
+    warnings.push(`openbb unavailable: auto fallback to ${providerOrder.join(" -> ")}`);
+  }
+  if (!hasAlpaca && normalizeProviderId(params.provider) === "alpaca") {
+    warnings.push("alpaca unavailable: missing ALPACA_API_KEY/ALPACA_SECRET_KEY");
+  }
+  return { provider, providerOrder, warnings };
+}
+
+function getFlowMarketDataClient(params: {
+  config: ReturnType<typeof loadConfig>;
+  provider: string;
+  providerOrder: string[];
+}): MarketDataClient {
+  const now = Date.now();
+  for (const [key, entry] of flowClientCache.entries()) {
+    if (entry.expiresAtMs <= now) {
+      flowClientCache.delete(key);
+    }
+  }
+  let configKey = "unknown";
+  try {
+    configKey = JSON.stringify(params.config.finance ?? {});
+  } catch {
+    configKey = "unknown";
+  }
+  const providerKey = params.providerOrder.join(",");
+  const key = `${params.provider}|${providerKey}|${configKey}`;
+  const cached = flowClientCache.get(key);
+  if (cached && cached.expiresAtMs > now) {
+    cached.expiresAtMs = now + FLOW_CLIENT_CACHE_TTL_MS;
+    return cached.client;
+  }
+  const client = new MarketDataClient({
+    profile: "marketbot",
+    config: params.config,
+    provider: params.provider,
+    providerOrder: params.providerOrder,
+  });
+  flowClientCache.set(key, {
+    client,
+    expiresAtMs: now + FLOW_CLIENT_CACHE_TTL_MS,
+  });
+  return client;
 }
 
 function normalizeSymbols(value: unknown, fallback: readonly string[]): string[] {
@@ -390,6 +560,70 @@ function formatTopMoverReason(
   return fallbackReason(assetClass, changePercent);
 }
 
+function buildTopMoverNewsQuery(params: {
+  assetClass: FlowAssetClass;
+  symbol: string;
+  name: string | null;
+}): string {
+  const symbol = params.symbol.toUpperCase();
+  if (params.assetClass === "metals") {
+    if (symbol === "GC=F" || symbol === "GLD" || symbol === "GDX") return "gold price";
+    if (symbol === "SI=F" || symbol === "SLV") return "silver price";
+    if (symbol === "HG=F" || symbol === "CPER") return "copper price";
+    if (symbol === "PL=F" || symbol === "PPLT") return "platinum price";
+    if (symbol === "PA=F") return "palladium price";
+    return "metals market";
+  }
+  if (params.assetClass === "crypto") {
+    const base = symbol.replace(/-USD$/, "");
+    return `${base} crypto`;
+  }
+  if (params.name) {
+    return `${symbol} ${params.name}`;
+  }
+  return symbol;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+async function runWithConcurrency<T>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) {
+    return;
+  }
+  const queue = [...items];
+  const workers = Array.from({ length: Math.min(Math.max(concurrency, 1), queue.length) }, () =>
+    (async () => {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (item === undefined) {
+          return;
+        }
+        await worker(item);
+      }
+    })(),
+  );
+  await Promise.all(workers);
+}
+
 function numeric(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -482,13 +716,20 @@ async function fetchQuotesWithApiFallback(params: {
   fallbackTimeframe: string;
   fallbackLimit: number;
   warningPrefix: string;
+  primaryTimeoutMs?: number;
+  maxFallbackSymbols?: number;
+  fallbackPerSymbolTimeoutMs?: number;
 }): Promise<{ bySymbol: Map<string, Quote>; warnings: string[] }> {
   const warnings: string[] = [];
   const normalizedSymbols = normalizeSymbols(params.symbols, params.symbols);
   const bySymbol = new Map<string, Quote>();
 
   try {
-    const quotes = await params.client.getQuotes(normalizedSymbols);
+    const quotes = await withTimeout(
+      params.client.getQuotes(normalizedSymbols),
+      params.primaryTimeoutMs ?? FLOW_REQUEST_TIMEOUT_MS,
+      `${params.warningPrefix} primary`,
+    );
     for (const quote of quotes) {
       const symbol = normalizeYahooSymbol(quote.symbol).toUpperCase();
       if (!symbol) continue;
@@ -502,28 +743,127 @@ async function fetchQuotesWithApiFallback(params: {
   if (missing.length === 0) {
     return { bySymbol, warnings };
   }
+  const fallbackTargets =
+    typeof params.maxFallbackSymbols === "number" && params.maxFallbackSymbols > 0
+      ? missing.slice(0, params.maxFallbackSymbols)
+      : missing;
+  if (fallbackTargets.length < missing.length) {
+    warnings.push(
+      sanitizeMarketDataMessage(
+        `${params.warningPrefix}: skipping ${missing.length - fallbackTargets.length} slow fallback symbols`,
+      ),
+    );
+  }
 
-  await Promise.all(
-    missing.map(async (symbol) => {
-      try {
-        const series = await params.client.getMarketData({
+  const fallbackFailures: string[] = [];
+  await runWithConcurrency(fallbackTargets, FLOW_SERIES_FALLBACK_CONCURRENCY, async (symbol) => {
+    try {
+      const series = await withTimeout(
+        params.client.getMarketData({
           symbol,
           timeframe: params.fallbackTimeframe,
           limit: params.fallbackLimit,
-        });
-        const quote = quoteFromSeriesFallback(series, symbol);
-        bySymbol.set(symbol, quote);
-      } catch (err) {
-        warnings.push(
-          sanitizeMarketDataMessage(
-            `${params.warningPrefix} (${symbol}) fallback failed: ${String(err)}`,
-          ),
-        );
-      }
-    }),
-  );
+        }),
+        params.fallbackPerSymbolTimeoutMs ?? FLOW_SERIES_FALLBACK_TIMEOUT_MS,
+        `${params.warningPrefix} (${symbol}) fallback`,
+      );
+      const quote = quoteFromSeriesFallback(series, symbol);
+      bySymbol.set(symbol, quote);
+    } catch (err) {
+      fallbackFailures.push(`${symbol}: ${String(err)}`);
+    }
+  });
+  if (fallbackFailures.length > 0) {
+    const sample = fallbackFailures.slice(0, 2).join(" | ");
+    warnings.push(
+      sanitizeMarketDataMessage(
+        `${params.warningPrefix}: fallback failed for ${fallbackFailures.length} symbols (${sample})`,
+      ),
+    );
+  }
 
   return { bySymbol, warnings };
+}
+
+function createFallbackFlowOverview(): {
+  asOfIso: string;
+  liquidityRegime: "risk-on" | "risk-off" | "balanced";
+  summary: string;
+  fedSignal: string;
+  bojSignal: string;
+  metrics: FlowOverviewMetric[];
+  assetFlows: FlowAssetFlow[];
+  warnings: string[];
+} {
+  return {
+    asOfIso: new Date().toISOString(),
+    liquidityRegime: "balanced",
+    summary: "流动性快照暂未完整返回，已展示可用数据。",
+    fedSignal: "暂未获取到足够数据判断美联储路径。",
+    bojSignal: "暂未获取到足够数据判断日本政策路径。",
+    metrics: [],
+    assetFlows: [
+      {
+        asset: "equities",
+        label: "Equities",
+        changePercent: null,
+        direction: "neutral",
+      },
+      {
+        asset: "metals",
+        label: "Metals",
+        changePercent: null,
+        direction: "neutral",
+      },
+      {
+        asset: "crypto",
+        label: "Crypto",
+        changePercent: null,
+        direction: "neutral",
+      },
+    ],
+    warnings: [],
+  };
+}
+
+function createFallbackFlowDetail(params: {
+  symbol: string;
+  assetClass: FlowAssetClass;
+  warning: string;
+}): {
+  symbol: string;
+  assetClass: FlowAssetClass;
+  nowIso: string;
+  price: number | null;
+  changePercent: number | null;
+  marketTimeIso: string | null;
+  points: Array<{ ts: number; iso: string; close: number }>;
+  analysis: {
+    trend: "up" | "down" | "sideways";
+    changePercent7d: number | null;
+    volatilityPercent: number | null;
+    summary: string;
+  };
+  news: Array<{ title: string; link: string; source?: string; pubDate?: string }>;
+  warnings: string[];
+} {
+  return {
+    symbol: params.symbol,
+    assetClass: params.assetClass,
+    nowIso: new Date().toISOString(),
+    price: null,
+    changePercent: null,
+    marketTimeIso: null,
+    points: [],
+    analysis: {
+      trend: "sideways",
+      changePercent7d: null,
+      volatilityPercent: null,
+      summary: "暂未获取到近7天走势，建议稍后重试。",
+    },
+    news: [],
+    warnings: [params.warning],
+  };
 }
 
 async function buildFlowOverview(params: { client: MarketDataClient }): Promise<{
@@ -542,6 +882,9 @@ async function buildFlowOverview(params: { client: MarketDataClient }): Promise<
     fallbackTimeframe: "6mo",
     fallbackLimit: 5,
     warningPrefix: "overview quotes unavailable",
+    primaryTimeoutMs: FLOW_OVERVIEW_QUOTE_TIMEOUT_MS,
+    maxFallbackSymbols: 6,
+    fallbackPerSymbolTimeoutMs: FLOW_OVERVIEW_FALLBACK_TIMEOUT_MS,
   });
   const warnings: string[] = [...quoteResult.warnings];
   const bySymbol = new Map<string, Quote>();
@@ -668,20 +1011,46 @@ async function buildTopMoversForClass(params: {
   items: FlowTopMover[];
   warnings: string[];
 }> {
+  const universe =
+    params.assetClass === "hkStocks" ? FLOW_HK_PROXY_UNIVERSE : FLOW_UNIVERSES[params.assetClass];
+  const warnings: string[] = [];
+  const usingHkProxy = params.assetClass === "hkStocks";
+  if (usingHkProxy) {
+    warnings.push("hkStocks: using proxy ADR/ETF basket for better feed stability");
+  }
+  const symbolCap =
+    params.assetClass === "usStocks"
+      ? Math.max(params.topN + 4, 14)
+      : params.assetClass === "hkStocks"
+        ? Math.max(params.topN + 2, 10)
+        : params.assetClass === "aStocks"
+          ? Math.max(params.topN + 6, 16)
+          : params.assetClass === "crypto"
+            ? Math.max(params.topN + 3, 10)
+            : universe.length;
   const symbols = normalizeSymbols(
-    FLOW_UNIVERSES[params.assetClass],
-    FLOW_UNIVERSES[params.assetClass],
+    universe.slice(0, Math.min(symbolCap, universe.length)),
+    universe,
   );
+  const maxFallbackSymbols =
+    params.assetClass === "hkStocks"
+      ? Math.min(4, symbols.length)
+      : Math.min(Math.max(Math.floor(params.topN * 0.6), 6), symbols.length);
+  const fallbackPerSymbolTimeoutMs =
+    params.assetClass === "hkStocks" ? 4_000 : FLOW_TOP_MOVERS_FALLBACK_TIMEOUT_MS;
   const quoteResult = await fetchQuotesWithApiFallback({
     client: params.client,
     symbols,
     fallbackTimeframe: "1mo",
     fallbackLimit: 6,
     warningPrefix: `${params.assetClass} quotes unavailable`,
+    primaryTimeoutMs: FLOW_TOP_MOVERS_QUOTE_TIMEOUT_MS,
+    maxFallbackSymbols,
+    fallbackPerSymbolTimeoutMs,
   });
-  const warnings: string[] = [...quoteResult.warnings];
+  warnings.push(...quoteResult.warnings);
 
-  const rows = Array.from(quoteResult.bySymbol.values())
+  let rows = Array.from(quoteResult.bySymbol.values())
     .map((quote) => {
       const normalizedSymbol = normalizeYahooSymbol(quote.symbol).toUpperCase();
       return {
@@ -708,24 +1077,31 @@ async function buildTopMoversForClass(params: {
     .slice(0, params.topN);
 
   const headlineBySymbol = new Map<string, string>();
-  const reasonSymbols = rows.slice(0, params.reasonNewsLimit).map((row) => row.symbol);
-  await Promise.all(
-    reasonSymbols.map(async (symbol) => {
-      try {
-        const news = await params.client.getNews({
-          query: symbol,
+  const reasonRows = rows.slice(0, params.reasonNewsLimit);
+  await runWithConcurrency(reasonRows, FLOW_REASON_NEWS_CONCURRENCY, async (row) => {
+    try {
+      const query = buildTopMoverNewsQuery({
+        assetClass: params.assetClass,
+        symbol: row.symbol,
+        name: row.name,
+      });
+      const news = await withTimeout(
+        params.client.getNews({
+          query,
           limit: 1,
           locale: params.locale,
-        });
-        const headline = sanitizeHeadline(news[0]?.title);
-        if (headline) {
-          headlineBySymbol.set(symbol, headline);
-        }
-      } catch {
-        // Reason fallback is deterministic and avoids failing the whole panel.
+        }),
+        FLOW_NEWS_TIMEOUT_MS,
+        `news lookup ${row.symbol}`,
+      );
+      const headline = sanitizeHeadline(news[0]?.title);
+      if (headline) {
+        headlineBySymbol.set(row.symbol, headline);
       }
-    }),
-  );
+    } catch {
+      // Reason fallback is deterministic and avoids failing the whole panel.
+    }
+  });
 
   return {
     assetClass: params.assetClass,
@@ -767,16 +1143,30 @@ async function buildFlowDetail(params: {
   const warnings: string[] = [];
   const normalizedSymbol = normalizeYahooSymbol(params.symbol).toUpperCase();
   const [quotes, series] = await Promise.all([
-    params.client.getQuotes([normalizedSymbol]).catch((err) => {
+    withTimeout(
+      params.client.getQuotes([normalizedSymbol]).catch((err) => {
+        warnings.push(sanitizeMarketDataMessage(`detail quote unavailable: ${String(err)}`));
+        return [] as Quote[];
+      }),
+      FLOW_DETAIL_QUOTE_TIMEOUT_MS,
+      "detail quotes",
+    ).catch((err) => {
       warnings.push(sanitizeMarketDataMessage(`detail quote unavailable: ${String(err)}`));
       return [] as Quote[];
     }),
-    params.client
-      .getMarketData({ symbol: normalizedSymbol, timeframe: "1mo", limit: 30 })
-      .catch((err) => {
-        warnings.push(sanitizeMarketDataMessage(`detail series unavailable: ${String(err)}`));
-        return { symbol: normalizedSymbol, source: "unknown" as const, series: [] };
-      }),
+    withTimeout(
+      params.client
+        .getMarketData({ symbol: normalizedSymbol, timeframe: "1mo", limit: 30 })
+        .catch((err) => {
+          warnings.push(sanitizeMarketDataMessage(`detail series unavailable: ${String(err)}`));
+          return { symbol: normalizedSymbol, source: "unknown" as const, series: [] };
+        }),
+      FLOW_DETAIL_SERIES_TIMEOUT_MS,
+      "detail series",
+    ).catch((err) => {
+      warnings.push(sanitizeMarketDataMessage(`detail series unavailable: ${String(err)}`));
+      return { symbol: normalizedSymbol, source: "unknown" as const, series: [] };
+    }),
   ]);
 
   const detailPoints = series.series
@@ -797,11 +1187,15 @@ async function buildFlowDetail(params: {
 
   let news: Array<{ title: string; link: string; source?: string; pubDate?: string }> = [];
   try {
-    news = await params.client.getNews({
-      query: normalizedSymbol,
-      limit: 3,
-      locale: params.locale,
-    });
+    news = await withTimeout(
+      params.client.getNews({
+        query: normalizedSymbol,
+        limit: 3,
+        locale: params.locale,
+      }),
+      FLOW_DETAIL_NEWS_TIMEOUT_MS,
+      "detail news",
+    );
   } catch (err) {
     warnings.push(sanitizeMarketDataMessage(`detail news unavailable: ${String(err)}`));
   }
@@ -857,6 +1251,17 @@ async function buildFlowDetail(params: {
     },
     news,
     warnings,
+  };
+}
+
+function resolveAlpacaRuntime(config: ReturnType<typeof loadConfig>) {
+  const raw = config.finance?.providers?.["alpaca"];
+  const apiKey = raw?.apiKey?.trim() || process.env.ALPACA_API_KEY?.trim() || "";
+  const secretKey = raw?.secretKey?.trim() || process.env.ALPACA_SECRET_KEY?.trim() || "";
+  const enabled = raw?.enabled === true || Boolean(apiKey && secretKey);
+  return {
+    enabled,
+    configured: Boolean(apiKey && secretKey),
   };
 }
 
@@ -1064,6 +1469,12 @@ export const financeHandlers: GatewayRequestHandlers = {
 
   "finance.market.snapshot": async ({ params, respond }) => {
     const raw = params as any;
+    const refresh = asBoolean(raw?.refresh) === true;
+    const cacheTtlMs = resolveDiskCacheTtlMs({
+      requestTtlMs: raw?.cacheTtlMs,
+      defaultTtlMs: DEFAULT_MARKET_SNAPSHOT_DISK_CACHE_TTL_MS,
+      envKey: "MARKETBOT_FINANCE_MARKET_SNAPSHOT_CACHE_TTL_MS",
+    });
     const symbols = normalizeSymbols(raw?.symbols, MAG7_SYMBOLS);
     const timeframe = asString(raw?.timeframe).trim() || DEFAULT_TIMEFRAME;
     const locale = asString(raw?.locale).trim().toUpperCase() || "US";
@@ -1078,6 +1489,37 @@ export const financeHandlers: GatewayRequestHandlers = {
     const activeSymbol = symbols.includes(activeSymbolNormalized)
       ? activeSymbolNormalized
       : symbols[0];
+    const cacheKey = buildGatewayFinanceCacheKey("market-snapshot", {
+      symbols,
+      timeframe,
+      locale,
+      newsLimit,
+      seriesLimit,
+      includeFundamentals,
+      provider,
+      activeSymbol,
+    });
+    if (!refresh) {
+      const cached = await readGatewayFinanceCache<Record<string, unknown>>(cacheKey, cacheTtlMs);
+      if (cached?.payload && typeof cached.payload === "object") {
+        respond(
+          true,
+          {
+            ...cached.payload,
+            cache: {
+              hit: true,
+              scope: "finance.market.snapshot",
+              key: cacheKey,
+              ageMs: Math.round(cached.ageMs),
+              ttlMs: cacheTtlMs,
+              dir: getGatewayFinanceCacheDir(),
+            },
+          },
+          undefined,
+        );
+        return;
+      }
+    }
 
     const config = loadConfig();
     const client = new MarketDataClient({
@@ -1178,28 +1620,40 @@ export const financeHandlers: GatewayRequestHandlers = {
       }
     }
 
+    const result = {
+      nowIso: new Date().toISOString(),
+      symbols,
+      timeframe,
+      locale,
+      provider,
+      activeSymbol,
+      activeQuote: {
+        symbol: activeSymbol,
+        price:
+          typeof activeQuote?.regularMarketPrice === "number"
+            ? activeQuote.regularMarketPrice
+            : null,
+        changePercent: normalizePercent(activeQuote?.regularMarketChangePercent),
+        marketTimeIso: formatIsoFromEpochMs(activeQuote?.regularMarketTime),
+      },
+      items,
+      news,
+      fundamentals,
+      warnings,
+    };
+    await writeGatewayFinanceCache(cacheKey, result);
     respond(
       true,
       {
-        nowIso: new Date().toISOString(),
-        symbols,
-        timeframe,
-        locale,
-        provider,
-        activeSymbol,
-        activeQuote: {
-          symbol: activeSymbol,
-          price:
-            typeof activeQuote?.regularMarketPrice === "number"
-              ? activeQuote.regularMarketPrice
-              : null,
-          changePercent: normalizePercent(activeQuote?.regularMarketChangePercent),
-          marketTimeIso: formatIsoFromEpochMs(activeQuote?.regularMarketTime),
+        ...result,
+        cache: {
+          hit: false,
+          scope: "finance.market.snapshot",
+          key: cacheKey,
+          ageMs: 0,
+          ttlMs: cacheTtlMs,
+          dir: getGatewayFinanceCacheDir(),
         },
-        items,
-        news,
-        fundamentals,
-        warnings,
       },
       undefined,
     );
@@ -1207,34 +1661,108 @@ export const financeHandlers: GatewayRequestHandlers = {
 
   "finance.flow.snapshot": async ({ params, respond }) => {
     const raw = params as any;
+    const refresh = asBoolean(raw?.refresh) === true;
+    const cacheTtlMs = resolveDiskCacheTtlMs({
+      requestTtlMs: raw?.cacheTtlMs,
+      defaultTtlMs: DEFAULT_FLOW_SNAPSHOT_DISK_CACHE_TTL_MS,
+      envKey: "MARKETBOT_FINANCE_FLOW_SNAPSHOT_CACHE_TTL_MS",
+    });
     const topN = asPositiveInteger(raw?.topN, DEFAULT_TOP_MOVERS_LIMIT, 20);
     const locale = asString(raw?.locale).trim().toUpperCase() || "US";
-    const provider = asString(raw?.provider).trim() || "openbb";
-    const providerOrder = resolveFlowProviderOrder(raw?.providerOrder);
+    const requestedProvider = asString(raw?.provider).trim() || "openbb";
+    const requestedProviderOrder = resolveFlowProviderOrder(raw?.providerOrder);
     const reasonNewsLimit = asPositiveInteger(raw?.reasonNewsLimit, DEFAULT_REASON_NEWS_LIMIT, 10);
     const assetClasses = asFlowAssetClasses(raw?.assetClasses) ?? FLOW_DEFAULT_ASSET_CLASSES;
+    const cacheKey = buildGatewayFinanceCacheKey("flow-snapshot", {
+      topN,
+      locale,
+      requestedProvider,
+      requestedProviderOrder,
+      reasonNewsLimit,
+      assetClasses,
+    });
+    if (!refresh) {
+      const cached = await readGatewayFinanceCache<Record<string, unknown>>(cacheKey, cacheTtlMs);
+      if (cached?.payload && typeof cached.payload === "object") {
+        respond(
+          true,
+          {
+            ...cached.payload,
+            cache: {
+              hit: true,
+              scope: "finance.flow.snapshot",
+              key: cacheKey,
+              ageMs: Math.round(cached.ageMs),
+              ttlMs: cacheTtlMs,
+              dir: getGatewayFinanceCacheDir(),
+            },
+          },
+          undefined,
+        );
+        return;
+      }
+    }
 
     const config = loadConfig();
-    const client = new MarketDataClient({
-      profile: "marketbot",
+    const providerSetup = resolveFlowProviderSetup({
+      config,
+      provider: requestedProvider,
+      providerOrder: requestedProviderOrder,
+    });
+    const provider = providerSetup.provider;
+    const providerOrder = providerSetup.providerOrder;
+    const client = getFlowMarketDataClient({
       config,
       provider,
       providerOrder,
     });
 
-    const overview = await buildFlowOverview({ client });
-    const buckets = await Promise.all(
-      assetClasses.map((assetClass) =>
-        buildTopMoversForClass({
-          client,
-          assetClass,
-          topN,
-          locale,
-          reasonNewsLimit,
-        }),
-      ),
+    const overviewWarnings: string[] = [];
+    const overviewTask = withTimeout(
+      buildFlowOverview({ client }),
+      FLOW_REQUEST_TIMEOUT_MS,
+      "flow overview",
+    )
+      .then((result) => result)
+      .catch((err) => {
+        overviewWarnings.push(sanitizeMarketDataMessage(`overview unavailable: ${String(err)}`));
+        return createFallbackFlowOverview();
+      });
+
+    const bucketsTask = Promise.all(
+      assetClasses.map(async (assetClass) => {
+        try {
+          return await withTimeout(
+            buildTopMoversForClass({
+              client,
+              assetClass,
+              topN,
+              locale,
+              reasonNewsLimit,
+            }),
+            FLOW_BUCKET_TIMEOUT_MS,
+            `${assetClass} movers`,
+          );
+        } catch (err) {
+          return {
+            assetClass,
+            label: FLOW_CLASS_LABELS[assetClass],
+            items: [],
+            warnings: [
+              sanitizeMarketDataMessage(`${assetClass} movers unavailable: ${String(err)}`),
+            ],
+          };
+        }
+      }),
     );
-    const warnings = [...overview.warnings, ...buckets.flatMap((bucket) => bucket.warnings)];
+
+    const [overview, buckets] = await Promise.all([overviewTask, bucketsTask]);
+    const warnings = [
+      ...providerSetup.warnings,
+      ...overviewWarnings,
+      ...overview.warnings,
+      ...buckets.flatMap((bucket) => bucket.warnings),
+    ];
     const metricTotal = overview.metrics.length;
     const metricAvailable = overview.metrics.filter(
       (metric) => typeof metric.changePercent === "number" && Number.isFinite(metric.changePercent),
@@ -1255,30 +1783,42 @@ export const financeHandlers: GatewayRequestHandlers = {
       moverRowsRequested,
     };
 
+    const result = {
+      nowIso: new Date().toISOString(),
+      provider,
+      providerOrder,
+      locale,
+      topN,
+      overview: {
+        asOfIso: overview.asOfIso,
+        liquidityRegime: overview.liquidityRegime,
+        summary: overview.summary,
+        fedSignal: overview.fedSignal,
+        bojSignal: overview.bojSignal,
+        metrics: overview.metrics,
+        assetFlows: overview.assetFlows,
+      },
+      buckets: buckets.map((bucket) => ({
+        assetClass: bucket.assetClass,
+        label: bucket.label,
+        items: bucket.items,
+      })),
+      dataQuality,
+      warnings,
+    };
+    await writeGatewayFinanceCache(cacheKey, result);
     respond(
       true,
       {
-        nowIso: new Date().toISOString(),
-        provider,
-        providerOrder,
-        locale,
-        topN,
-        overview: {
-          asOfIso: overview.asOfIso,
-          liquidityRegime: overview.liquidityRegime,
-          summary: overview.summary,
-          fedSignal: overview.fedSignal,
-          bojSignal: overview.bojSignal,
-          metrics: overview.metrics,
-          assetFlows: overview.assetFlows,
+        ...result,
+        cache: {
+          hit: false,
+          scope: "finance.flow.snapshot",
+          key: cacheKey,
+          ageMs: 0,
+          ttlMs: cacheTtlMs,
+          dir: getGatewayFinanceCacheDir(),
         },
-        buckets: buckets.map((bucket) => ({
-          assetClass: bucket.assetClass,
-          label: bucket.label,
-          items: bucket.items,
-        })),
-        dataQuality,
-        warnings,
       },
       undefined,
     );
@@ -1286,14 +1826,20 @@ export const financeHandlers: GatewayRequestHandlers = {
 
   "finance.flow.detail": async ({ params, respond }) => {
     const raw = params as any;
+    const refresh = asBoolean(raw?.refresh) === true;
+    const cacheTtlMs = resolveDiskCacheTtlMs({
+      requestTtlMs: raw?.cacheTtlMs,
+      defaultTtlMs: DEFAULT_FLOW_DETAIL_DISK_CACHE_TTL_MS,
+      envKey: "MARKETBOT_FINANCE_FLOW_DETAIL_CACHE_TTL_MS",
+    });
     const symbolInput = asString(raw?.symbol).trim();
     if (!symbolInput) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "symbol required"));
       return;
     }
     const locale = asString(raw?.locale).trim().toUpperCase() || "US";
-    const provider = asString(raw?.provider).trim() || "openbb";
-    const providerOrder = resolveFlowProviderOrder(raw?.providerOrder);
+    const requestedProvider = asString(raw?.provider).trim() || "openbb";
+    const requestedProviderOrder = resolveFlowProviderOrder(raw?.providerOrder);
     const requestedAssetClass = asString(raw?.assetClass).trim();
     const normalizedSymbol = normalizeYahooSymbol(symbolInput).toUpperCase();
     const assetClass: FlowAssetClass =
@@ -1304,20 +1850,83 @@ export const financeHandlers: GatewayRequestHandlers = {
       requestedAssetClass === "crypto"
         ? requestedAssetClass
         : inferAssetClassFromSymbol(normalizedSymbol);
-
-    const config = loadConfig();
-    const client = new MarketDataClient({
-      profile: "marketbot",
-      config,
-      provider,
-      providerOrder,
-    });
-    const detail = await buildFlowDetail({
-      client,
+    const cacheKey = buildGatewayFinanceCacheKey("flow-detail", {
       symbol: normalizedSymbol,
       locale,
+      requestedProvider,
+      requestedProviderOrder,
       assetClass,
     });
-    respond(true, detail, undefined);
+    if (!refresh) {
+      const cached = await readGatewayFinanceCache<Record<string, unknown>>(cacheKey, cacheTtlMs);
+      if (cached?.payload && typeof cached.payload === "object") {
+        respond(
+          true,
+          {
+            ...cached.payload,
+            cache: {
+              hit: true,
+              scope: "finance.flow.detail",
+              key: cacheKey,
+              ageMs: Math.round(cached.ageMs),
+              ttlMs: cacheTtlMs,
+              dir: getGatewayFinanceCacheDir(),
+            },
+          },
+          undefined,
+        );
+        return;
+      }
+    }
+
+    const config = loadConfig();
+    const providerSetup = resolveFlowProviderSetup({
+      config,
+      provider: requestedProvider,
+      providerOrder: requestedProviderOrder,
+    });
+    const client = getFlowMarketDataClient({
+      config,
+      provider: providerSetup.provider,
+      providerOrder: providerSetup.providerOrder,
+    });
+    let detail;
+    try {
+      detail = await withTimeout(
+        buildFlowDetail({
+          client,
+          symbol: normalizedSymbol,
+          locale,
+          assetClass,
+        }),
+        FLOW_DETAIL_TIMEOUT_MS,
+        "flow detail",
+      );
+    } catch (err) {
+      detail = createFallbackFlowDetail({
+        symbol: normalizedSymbol,
+        assetClass,
+        warning: sanitizeMarketDataMessage(`detail unavailable: ${String(err)}`),
+      });
+    }
+    if (providerSetup.warnings.length > 0) {
+      detail.warnings = [...providerSetup.warnings, ...(detail.warnings ?? [])];
+    }
+    await writeGatewayFinanceCache(cacheKey, detail);
+    respond(
+      true,
+      {
+        ...detail,
+        cache: {
+          hit: false,
+          scope: "finance.flow.detail",
+          key: cacheKey,
+          ageMs: 0,
+          ttlMs: cacheTtlMs,
+          dir: getGatewayFinanceCacheDir(),
+        },
+      },
+      undefined,
+    );
   },
 };

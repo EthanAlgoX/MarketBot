@@ -294,4 +294,120 @@ describe("web_fetch extraction fallbacks", () => {
       /Web fetch failed \(500\):.*Oops/,
     );
   });
+
+  it("uses fast strategy without HTTP-level firecrawl fallback", async () => {
+    const mockFetch = vi.fn((input: RequestInfo) => {
+      const url = requestUrl(input);
+      if (url.includes("api.firecrawl.dev")) {
+        return Promise.resolve(firecrawlResponse("should-not-be-used", url)) as Promise<Response>;
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 403,
+        headers: makeHeaders({ "content-type": "text/html" }),
+        text: async () => "blocked",
+      } as Response);
+    });
+    // @ts-expect-error mock fetch
+    global.fetch = mockFetch;
+
+    const tool = createWebFetchTool({
+      config: {
+        tools: {
+          web: {
+            fetch: {
+              strategy: "fast",
+              cacheTtlMinutes: 0,
+              firecrawl: { apiKey: "firecrawl-test" },
+            },
+          },
+        },
+      },
+      sandboxed: false,
+    });
+
+    await expect(tool?.execute?.("call", { url: "https://example.com/forbidden" })).rejects.toThrow(
+      /Web fetch failed \(403\)/,
+    );
+
+    const calledUrls = mockFetch.mock.calls.map(([input]) => requestUrl(input));
+    expect(calledUrls.some((url) => url.includes("api.firecrawl.dev"))).toBe(false);
+  });
+
+  it("uses firecrawl in fast strategy for readability extraction failures", async () => {
+    const mockFetch = vi.fn((input: RequestInfo) => {
+      const url = requestUrl(input);
+      if (url.includes("api.firecrawl.dev")) {
+        return Promise.resolve(
+          firecrawlResponse("firecrawl-fast-content", url),
+        ) as Promise<Response>;
+      }
+      return Promise.resolve(
+        htmlResponse("<!doctype html><html><head></head><body></body></html>", url),
+      ) as Promise<Response>;
+    });
+    // @ts-expect-error mock fetch
+    global.fetch = mockFetch;
+
+    const tool = createWebFetchTool({
+      config: {
+        tools: {
+          web: {
+            fetch: {
+              strategy: "fast",
+              cacheTtlMinutes: 0,
+              firecrawl: { apiKey: "firecrawl-test" },
+            },
+          },
+        },
+      },
+      sandboxed: false,
+    });
+
+    const result = await tool?.execute?.("call", { url: "https://example.com/empty-fast" });
+    const details = result?.details as { extractor?: string; strategy?: string; text?: string };
+    expect(details.extractor).toBe("firecrawl");
+    expect(details.strategy).toBe("fast");
+    expect(details.text).toContain("firecrawl-fast-content");
+  });
+
+  it("uses race strategy to resolve fallback with firecrawl", async () => {
+    const mockFetch = vi.fn((input: RequestInfo) => {
+      const url = requestUrl(input);
+      if (url.includes("api.firecrawl.dev")) {
+        return Promise.resolve(
+          firecrawlResponse("firecrawl-race-content", url),
+        ) as Promise<Response>;
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 429,
+        headers: makeHeaders({ "content-type": "text/html" }),
+        text: async () => "rate limited",
+      } as Response);
+    });
+    // @ts-expect-error mock fetch
+    global.fetch = mockFetch;
+
+    const tool = createWebFetchTool({
+      config: {
+        tools: {
+          web: {
+            fetch: {
+              strategy: "race",
+              cacheTtlMinutes: 0,
+              firecrawl: { apiKey: "firecrawl-test" },
+            },
+          },
+        },
+      },
+      sandboxed: false,
+    });
+
+    const result = await tool?.execute?.("call", { url: "https://example.com/race-fallback" });
+    const details = result?.details as { extractor?: string; strategy?: string; text?: string };
+    expect(details.extractor).toBe("firecrawl");
+    expect(details.strategy).toBe("race");
+    expect(details.text).toContain("firecrawl-race-content");
+  });
 });

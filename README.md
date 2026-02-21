@@ -24,6 +24,7 @@ A single command for the entire stock analysis workflow -- turns "download data,
 ## Core Features
 
 - **Daily Stocks**: watchlist-driven, repeatable daily analysis with decision dashboards and report output
+- **Flow Radar**: global liquidity dashboard for US/HK/A-shares, metals, and crypto with 7-day drill-down
 - **Research Chat**: browse, capture sources, and write memo-like summaries (finance tone)
 - **Desktop App**: standalone Electron app with native sidebar, embedded Control UI, and auto-managed gateway
 - **Portfolio analytics**: risk, correlation, optimization, and comparisons
@@ -76,7 +77,7 @@ MarketBot Desktop is a standalone Electron application. Install it, launch it, a
 | Section | Tabs |
 |---------|------|
 | Chat | Chat |
-| Finance | Desk, Stocks, Runs |
+| Finance | Desk, Market Data, Flow Radar, Stocks, Runs |
 | Control | Connection, Config, Channels, Sessions, Cron Jobs, Logs |
 
 ### Desktop Chat Runtime Behavior
@@ -85,7 +86,7 @@ MarketBot Desktop is a standalone Electron application. Install it, launch it, a
 - Queued messages are sent automatically after the current run completes.
 - During fast tab switching, Desktop defers tab changes until the embedded webview finishes loading to reduce navigation contention.
 - Transient webview navigation aborts (`ERR_ABORTED`, code `-3`) can happen during superseded navigations and are treated as non-fatal.
-- Language switching in the Desktop shell now propagates to all embedded Control UI pages (`Desk`, `Stocks`, `Runs`, `Connection`, `Config`, `Sessions`, `Channels`, `Cron`, `Logs`, etc.).
+- Language switching in the Desktop shell now propagates to all embedded Control UI pages (`Desk`, `Market Data`, `Flow Radar`, `Stocks`, `Runs`, `Connection`, `Config`, `Sessions`, `Channels`, `Cron`, `Logs`, etc.).
 - Embedded page language updates are applied immediately after toggling (`EN`/`中文`) without restarting Desktop.
 - Gateway startup states are surfaced with richer status (`checking`, `starting`, `retrying`, `error`) so "Connecting..." is debuggable from the UI.
 - The `Config` page uses a stabilized responsive layout (clear section grouping + adaptive action rows) to avoid overlap and cramped controls on smaller desktop windows.
@@ -98,7 +99,7 @@ Quick runtime check:
 2. Immediately send one or two more messages.
 3. Confirm the button shows `Queue`, then queued messages flush and appear in the thread.
 4. Switch between `Chat` and `Connection` quickly, then return to `Chat` and confirm the thread is still usable.
-5. Toggle language (`EN`/`中文`) in Desktop sidebar and confirm `Desk`, `Stocks`, `Runs`, `Connection`, `Config`, and `Sessions` switch language immediately.
+5. Toggle language (`EN`/`中文`) in Desktop sidebar and confirm `Desk`, `Market Data`, `Flow Radar`, `Stocks`, `Runs`, `Connection`, `Config`, and `Sessions` switch language immediately.
 
 ### Running the Desktop App
 
@@ -117,22 +118,43 @@ pnpm --dir apps/desktop start
 This starts the Desktop app and auto-starts the gateway as a subprocess, same
 as the packaged app.
 
+For Desktop development (hot reload + quickest restart loop):
+
+```bash
+pnpm --dir apps/desktop dev
+```
+
 ### Restarting Packaged Desktop (macOS arm64)
 
-Use this as the only Desktop restart path:
+Primary restart path:
 
 ```bash
 pnpm desktop:restart
 ```
 
-Equivalent one-liner:
+If this fails with `kLSNoExecutableErr` / "The executable is missing", package
+Desktop first and retry:
 
 ```bash
-APP="/Users/yunxuanhan/Documents/workspace/ai/MarketBot/apps/desktop/release/mac-arm64/MarketBot Desktop.app"; \
+pnpm --dir apps/desktop package:mac
+pnpm desktop:restart
+```
+
+Equivalent restart one-liner for a packaged app:
+
+```bash
+ROOT="$(pwd)"; \
+APP="$ROOT/apps/desktop/release/mac-arm64/MarketBot Desktop.app"; \
 PATTERN="MarketBot Desktop.app/Contents/MacOS/MarketBot Desktop"; \
 pkill -f "$PATTERN" || true; sleep 1; \
 pgrep -f "$PATTERN" >/dev/null && pkill -9 -f "$PATTERN" || true; \
 open "$APP"
+```
+
+If you only need a working Desktop session (not packaged), start dev mode:
+
+```bash
+pnpm --dir apps/desktop dev
 ```
 
 Do not use `scripts/restart-mac.sh` for Desktop restart; that script is for the native macOS app build flow under `apps/macos`.
@@ -207,6 +229,8 @@ http://127.0.0.1:18789/
 Primary pages:
 
 - Desk: `/desk`
+- Market Data: `/market-data`
+- Flow Radar: `/flow-radar`
 - Stocks: `/stocks`
 - Research Chat: `/chat`
 - Connection: `/overview`
@@ -238,6 +262,22 @@ Outputs:
 - Decision dashboard summary
 - Research-style markdown report per symbol
 - Persisted "last run" snapshot for the Desk
+
+## Flow Radar (Design)
+
+Flow Radar is an API-first liquidity dashboard focused on cross-asset capital movement.
+
+Inputs:
+
+- Asset classes: US equities, HK equities, A-shares, metals, crypto
+- Cache controls: TTL input + preset buttons + force refresh
+- Row selection: click any top-gainer symbol for detail
+
+Outputs:
+
+- Cross-asset flow board + macro liquidity regime summary
+- Top movers by asset class with reason confidence tags
+- 7-day detail drill-down (trend chart, signal breakdown, related news)
 
 ## Research + File Analysis (Design)
 

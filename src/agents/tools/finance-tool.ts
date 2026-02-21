@@ -61,7 +61,7 @@ function coerceMarketSeries(input: unknown): MarketSeries | null {
   }
   return {
     symbol: typeof obj.symbol === "string" ? obj.symbol : "UNKNOWN",
-    source: (obj.source as "yahoo" | "openbb" | "unknown") ?? "unknown",
+    source: (obj.source as "yahoo" | "openbb" | "alpaca" | "unknown") ?? "unknown",
     currency: typeof obj.currency === "string" ? obj.currency : undefined,
     exchange: typeof obj.exchange === "string" ? obj.exchange : undefined,
     timezone: typeof obj.timezone === "string" ? obj.timezone : undefined,

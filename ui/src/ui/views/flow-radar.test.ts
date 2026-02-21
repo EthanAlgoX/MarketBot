@@ -86,7 +86,10 @@ function createProps(overrides: Partial<FlowRadarProps> = {}): FlowRadarProps {
     },
     activeAssetClass: "usStocks",
     activeSymbol: "NVDA",
+    cacheTtlMsText: "180000",
+    onCacheTtlMsTextChange: () => undefined,
     onRefresh: () => undefined,
+    onForceRefresh: () => undefined,
     onSelect: () => undefined,
     ...overrides,
   };
@@ -103,6 +106,10 @@ describe("flow-radar view", () => {
     expect(container.textContent).toContain("US Equities Top Gainers");
     expect(container.textContent).toContain("近 7 天走势与分析");
     expect(container.textContent).toContain("NVIDIA extends rally");
+    expect(container.textContent).toContain("热点聚焦");
+    expect(container.textContent).toContain("置信度");
+    expect(container.textContent).toContain("动作雷达");
+    expect(container.textContent).toContain("7日状态时间线");
   });
 
   runIfDom("triggers row selection callback", () => {
@@ -122,6 +129,26 @@ describe("flow-radar view", () => {
     );
     expect(row).toBeDefined();
     row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onSelect).toHaveBeenCalledWith("usStocks", "NVDA");
+  });
+
+  runIfDom("triggers spotlight selection callback", () => {
+    const container = document.createElement("div");
+    const onSelect = vi.fn();
+    render(
+      renderFlowRadar(
+        createProps({
+          onSelect,
+        }),
+      ),
+      container,
+    );
+
+    const item = Array.from(container.querySelectorAll("button")).find((entry) =>
+      entry.classList.contains("flow-radar-spotlight-item"),
+    );
+    expect(item).toBeDefined();
+    item?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(onSelect).toHaveBeenCalledWith("usStocks", "NVDA");
   });
 });

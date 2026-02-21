@@ -294,6 +294,7 @@ export class MarketBotApp extends LitElement {
   @state() flowRadarActiveAssetClass: FlowAssetClass | null = null;
   @state() flowRadarActiveSymbol: string | null = null;
   @state() flowRadarDetail: FlowDetail | null = null;
+  @state() flowRadarCacheTtlMsText = "180000";
 
   client: GatewayBrowserClient | null = null;
   private chatScrollFrame: number | null = null;
@@ -445,13 +446,19 @@ export class MarketBotApp extends LitElement {
     );
   }
 
-  async runFlowRadarSnapshot() {
+  async runFlowRadarSnapshot(opts?: { refresh?: boolean; cacheTtlMs?: number }) {
     await runFlowRadarSnapshotInternal(
       this as unknown as Parameters<typeof runFlowRadarSnapshotInternal>[0],
+      opts,
     );
   }
 
-  async loadFlowRadarDetail(opts?: { assetClass?: FlowAssetClass; symbol?: string }) {
+  async loadFlowRadarDetail(opts?: {
+    assetClass?: FlowAssetClass;
+    symbol?: string;
+    refresh?: boolean;
+    cacheTtlMs?: number;
+  }) {
     await loadFlowRadarDetailInternal(
       this as unknown as Parameters<typeof loadFlowRadarDetailInternal>[0],
       opts,

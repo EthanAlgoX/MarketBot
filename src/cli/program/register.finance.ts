@@ -108,7 +108,7 @@ export function registerFinanceCommand(program: Command) {
 
   finance
     .option("--profile <name>", "Browser profile (default: marketbot)")
-    .option("--provider <id>", "Finance data provider (e.g. yahoo, stooq, openbb)")
+    .option("--provider <id>", "Finance data provider (e.g. alpaca, yahoo, stooq, openbb)")
     .option("--provider-order <list>", "Comma-separated provider fallback order")
     .option("--json", "Output JSON", false);
 

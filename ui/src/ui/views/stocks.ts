@@ -392,7 +392,7 @@ function extractNewsFromMarkdown(markdown: string, maxItems = 5): Array<{ title:
 
 function sentimentFromCounts(
   counts: DailyStockRunResult["counts"] | null,
-  text: (typeof STOCKS_TEXT)["en"],
+  text: (typeof STOCKS_TEXT)["en" | "zh"],
 ) {
   const base = counts ?? { buy: 0, watch: 0, sell: 0, failed: 0 };
   const active = base.buy + base.watch + base.sell;
@@ -417,7 +417,7 @@ function deriveQueueStatus(params: {
   watchlist: string[];
   last: DailyStockRunResult | null;
   running: boolean;
-  text: (typeof STOCKS_TEXT)["en"];
+  text: (typeof STOCKS_TEXT)["en" | "zh"];
 }) {
   const { watchlist, last, running, text } = params;
   const bySymbol = new Map<string, DailyStockRunResult["items"][number]>();
@@ -441,7 +441,7 @@ function deriveQueueStatus(params: {
   });
 }
 
-function renderControls(props: StocksProps, text: (typeof STOCKS_TEXT)["en"]) {
+function renderControls(props: StocksProps, text: (typeof STOCKS_TEXT)["en" | "zh"]) {
   const newsLimit = Number.parseInt(props.newsLimit.trim() || "0", 10);
   const hasNews = Number.isFinite(newsLimit) && newsLimit > 0;
 
@@ -519,9 +519,9 @@ function renderControls(props: StocksProps, text: (typeof STOCKS_TEXT)["en"]) {
           <select
             .value=${props.reportType}
             @change=${(event: Event) => {
-              const value = (event.target as HTMLSelectElement).value;
-              props.onReportTypeChange(value === "full" ? "full" : "simple");
-            }}
+      const value = (event.target as HTMLSelectElement).value;
+      props.onReportTypeChange(value === "full" ? "full" : "simple");
+    }}
           >
             <option value="simple">${text.simple}</option>
             <option value="full">${text.full}</option>
@@ -660,23 +660,23 @@ export function renderStocks(props: StocksProps) {
         <form
           class="stocks-command-bar"
           @submit=${(event: Event) => {
-            event.preventDefault();
-            const form = event.currentTarget as HTMLFormElement;
-            const data = new FormData(form);
-            const rawSymbol = String(data.get("symbol") ?? "").trim();
-            if (rawSymbol) {
-              const normalized = normalizeSymbolDisplay(rawSymbol);
-              const next = [...watchlist];
-              const exists = next.some((symbol) => symbolCanonicalKey(symbol) === symbolCanonicalKey(normalized));
-              if (!exists) {
-                next.unshift(normalized);
-                props.onWatchlistTextChange(next.join("\n"));
-              }
-              const input = form.elements.namedItem("symbol") as HTMLInputElement | null;
-              if (input) input.value = "";
-            }
-            props.onRun();
-          }}
+      event.preventDefault();
+      const form = event.currentTarget as HTMLFormElement;
+      const data = new FormData(form);
+      const rawSymbol = String(data.get("symbol") ?? "").trim();
+      if (rawSymbol) {
+        const normalized = normalizeSymbolDisplay(rawSymbol);
+        const next = [...watchlist];
+        const exists = next.some((symbol) => symbolCanonicalKey(symbol) === symbolCanonicalKey(normalized));
+        if (!exists) {
+          next.unshift(normalized);
+          props.onWatchlistTextChange(next.join("\n"));
+        }
+        const input = form.elements.namedItem("symbol") as HTMLInputElement | null;
+        if (input) input.value = "";
+      }
+      props.onRun();
+    }}
         >
           <input name="symbol" placeholder=${text.quickPlaceholder} />
           <button class="btn primary finance-cta" type="submit" ?disabled=${props.running}>
@@ -713,7 +713,140 @@ export function renderStocks(props: StocksProps) {
       </section>
 
       <div class="stocks-redesign-grid">
-        <aside class="stocks-rail">
+        <main class="stocks-main-content">
+          <div class="stocks-main-top-row">
+            <section class="card stocks-focus-card">
+              <div class="stocks-focus-head">
+                <div>
+                  <div class="stocks-focus-symbol">${parsedPrimary?.symbol ?? watchlist[0] ?? "-"}</div>
+                  <div class="stocks-focus-meta mono">
+                    ${(parsedPrimary?.price ?? "-") + "  ·  " + (parsedPrimary?.asOfIso ?? props.last?.dateIso ?? "-")}
+                  </div>
+                </div>
+                <div class=${`pill stocks-advice-pill stocks-advice-pill--${parsedPrimary?.advice ?? "watch"}`}>
+                  ${parsedPrimary?.adviceRaw ?? text.adviceWatch}
+                </div>
+              </div>
+
+              <div class="stocks-focus-body">
+                <div class="stocks-focus-label">${text.focusTitle}</div>
+                <p>${insightText}</p>
+                ${checklistSlice.length > 0
+      ? html`
+                      <div class="stocks-checklist-grid">
+                        ${checklistSlice.map((check) => html`<div class="stocks-check-item">${check}</div>`)}
+                      </div>
+                    `
+      : nothing}
+              </div>
+
+              <div class="stocks-focus-actions">
+                <div class="stocks-focus-action">
+                  <div class="stocks-focus-action-label">${text.operationAdvice}</div>
+                  <div class="stocks-focus-action-value">${parsedPrimary?.adviceRaw ?? text.adviceWatch}</div>
+                </div>
+                <div class="stocks-focus-action">
+                  <div class="stocks-focus-action-label">${text.trendOutlook}</div>
+                  <div class="stocks-focus-action-value">${trendText}</div>
+                </div>
+              </div>
+            </section>
+
+            <section class=${`card stocks-sentiment-card stocks-sentiment-card--${sentiment.tone}`}>
+              <div class="card-title">${text.sentimentTitle}</div>
+              <div class="stocks-sentiment-ring" style=${`--stocks-score:${sentiment.score};`}>
+                <div class="stocks-sentiment-core">
+                  <div class="stocks-sentiment-score mono">${sentiment.score}</div>
+                  <div class="stocks-sentiment-label">${sentiment.label}</div>
+                </div>
+              </div>
+              <div class="stocks-sentiment-grid">
+                <div class="stocks-sentiment-item"><span>${text.buy}</span><strong class="mono">${props.last?.counts.buy ?? 0}</strong></div>
+                <div class="stocks-sentiment-item"><span>${text.watch}</span><strong class="mono">${props.last?.counts.watch ?? 0}</strong></div>
+                <div class="stocks-sentiment-item"><span>${text.sell}</span><strong class="mono">${props.last?.counts.sell ?? 0}</strong></div>
+                <div class="stocks-sentiment-item"><span>${text.failed}</span><strong class="mono">${props.last?.counts.failed ?? 0}</strong></div>
+              </div>
+              <div class="stocks-sentiment-foot muted">${text.sentimentEngine}</div>
+            </section>
+          </div>
+
+          <div class="stocks-main-mid-row">
+            <section class="card stocks-level-card">
+              <div class="card-title">${text.strategyTitle}</div>
+              <div class="card-sub">${text.strategySub}</div>
+              <div class="stocks-level-grid">
+                <div class="stocks-level-item">
+                  <div class="stocks-level-label">${text.entryIdeal}</div>
+                  <div class="stocks-level-value mono">${parsedPrimary?.entry ?? "n/a"}</div>
+                </div>
+                <div class="stocks-level-item">
+                  <div class="stocks-level-label">${text.entrySecond}</div>
+                  <div class="stocks-level-value mono">${parsedPrimary?.target2 ?? "n/a"}</div>
+                </div>
+                <div class="stocks-level-item stocks-level-item--danger">
+                  <div class="stocks-level-label">${text.stopLoss}</div>
+                  <div class="stocks-level-value mono">${parsedPrimary?.stop ?? "n/a"}</div>
+                </div>
+                <div class="stocks-level-item stocks-level-item--warn">
+                  <div class="stocks-level-label">${text.target1}</div>
+                  <div class="stocks-level-value mono">${parsedPrimary?.target1 ?? "n/a"}</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card stocks-intel-card">
+              <div class="stocks-intel-head">
+                <div>
+                  <div class="card-title">${text.intelTitle}</div>
+                  <div class="card-sub">${text.intelSub}</div>
+                </div>
+                <button class="btn" ?disabled=${props.running} @click=${props.onRun}>${props.running ? text.running : text.run}</button>
+              </div>
+              ${intelItems.length === 0
+      ? html`<div class="muted stocks-empty">${text.noNews}</div>`
+      : html`
+                    <div class="stocks-intel-list">
+                      ${intelItems.map(
+        (item) => html`
+                          <div class="stocks-intel-item">
+                            <div class="stocks-intel-title">${item.title}</div>
+                            ${item.link
+            ? html`
+                                  <a class="stocks-intel-link" href=${item.link} target="_blank" rel="noreferrer">
+                                    ${text.jump}
+                                  </a>
+                                `
+            : nothing}
+                          </div>
+                        `,
+      )}
+                    </div>
+                  `}
+            </section>
+          </div>
+
+          <section class="card report-pane stocks-report-pane">
+            <div class="report-pane__header">
+              <div>
+                <div class="card-title">${text.reportTitle}</div>
+                <div class="card-sub">${text.reportSub}</div>
+              </div>
+              <button class="btn" ?disabled=${props.running} @click=${props.onRun}>
+                ${props.running ? text.running : text.run}
+              </button>
+            </div>
+            <div class="report-pane__body">
+              ${props.last?.reportMarkdown
+      ? html`<div class="sidebar-markdown report-pane__markdown">${unsafeHTML(toSanitizedMarkdownHtml(props.last.reportMarkdown))}</div>`
+      : html`<div class="muted">${text.noReport}</div>`}
+            </div>
+          </section>
+        </main>
+
+        <aside class="stocks-sidebar">
+          ${renderControls(props, text)}
+          ${props.error ? html`<div class="callout danger stocks-callout">${props.error}</div>` : nothing}
+
           <section class="card stocks-queue-card">
             <div class="stocks-queue-head">
               <div>
@@ -727,29 +860,29 @@ export function renderStocks(props: StocksProps) {
               <div class="stocks-progress-fill" style=${`width:${completionRate}%;`}></div>
             </div>
             ${queueItems.length === 0
-              ? html`<div class="muted stocks-empty">${text.queueEmpty}</div>`
-              : html`
+      ? html`<div class="muted stocks-empty">${text.queueEmpty}</div>`
+      : html`
                   <div class="stocks-queue-list">
                     ${queueItems.slice(0, 10).map(
-                      (item) => html`
+        (item) => html`
                         <div class="stocks-queue-item stocks-queue-item--${item.status}">
                           <span class="stocks-queue-dot" aria-hidden="true"></span>
                           <span class="mono stocks-queue-symbol">${normalizeSymbolDisplay(item.symbol)}</span>
                           <span class="stocks-queue-status">${item.label}</span>
                         </div>
                       `,
-                    )}
+      )}
                   </div>
                 `}
 
             <div class="stocks-history-head muted">${text.historyTitle}</div>
             ${(props.last?.symbols?.length ?? 0) === 0
-              ? html`<div class="muted stocks-empty">${text.historyEmpty}</div>`
-              : html`
+      ? html`<div class="muted stocks-empty">${text.historyEmpty}</div>`
+      : html`
                   <div class="stocks-history-list">
                     ${(props.last?.symbols ?? []).slice(0, 8).map(
-                      (symbol) => html`<div class="stocks-history-item mono">${symbol}</div>`,
-                    )}
+        (symbol) => html`<div class="stocks-history-item mono">${symbol}</div>`,
+      )}
                   </div>
                 `}
           </section>
@@ -826,137 +959,6 @@ export function renderStocks(props: StocksProps) {
               </button>
             </div>
           </section>
-        </aside>
-
-        <main class="stocks-stage">
-          <section class="card stocks-focus-card">
-            <div class="stocks-focus-head">
-              <div>
-                <div class="stocks-focus-symbol">${parsedPrimary?.symbol ?? watchlist[0] ?? "-"}</div>
-                <div class="stocks-focus-meta mono">
-                  ${(parsedPrimary?.price ?? "-") + "  ·  " + (parsedPrimary?.asOfIso ?? props.last?.dateIso ?? "-")}
-                </div>
-              </div>
-              <div class=${`pill stocks-advice-pill stocks-advice-pill--${parsedPrimary?.advice ?? "watch"}`}>
-                ${parsedPrimary?.adviceRaw ?? text.adviceWatch}
-              </div>
-            </div>
-
-            <div class="stocks-focus-body">
-              <div class="stocks-focus-label">${text.focusTitle}</div>
-              <p>${insightText}</p>
-              ${checklistSlice.length > 0
-                ? html`
-                    <div class="stocks-checklist-grid">
-                      ${checklistSlice.map((check) => html`<div class="stocks-check-item">${check}</div>`)}
-                    </div>
-                  `
-                : nothing}
-            </div>
-
-            <div class="stocks-focus-actions">
-              <div class="stocks-focus-action">
-                <div class="stocks-focus-action-label">${text.operationAdvice}</div>
-                <div class="stocks-focus-action-value">${parsedPrimary?.adviceRaw ?? text.adviceWatch}</div>
-              </div>
-              <div class="stocks-focus-action">
-                <div class="stocks-focus-action-label">${text.trendOutlook}</div>
-                <div class="stocks-focus-action-value">${trendText}</div>
-              </div>
-            </div>
-          </section>
-
-          <section class="card stocks-level-card">
-            <div class="card-title">${text.strategyTitle}</div>
-            <div class="card-sub">${text.strategySub}</div>
-            <div class="stocks-level-grid">
-              <div class="stocks-level-item">
-                <div class="stocks-level-label">${text.entryIdeal}</div>
-                <div class="stocks-level-value mono">${parsedPrimary?.entry ?? "n/a"}</div>
-              </div>
-              <div class="stocks-level-item">
-                <div class="stocks-level-label">${text.entrySecond}</div>
-                <div class="stocks-level-value mono">${parsedPrimary?.target2 ?? "n/a"}</div>
-              </div>
-              <div class="stocks-level-item stocks-level-item--danger">
-                <div class="stocks-level-label">${text.stopLoss}</div>
-                <div class="stocks-level-value mono">${parsedPrimary?.stop ?? "n/a"}</div>
-              </div>
-              <div class="stocks-level-item stocks-level-item--warn">
-                <div class="stocks-level-label">${text.target1}</div>
-                <div class="stocks-level-value mono">${parsedPrimary?.target1 ?? "n/a"}</div>
-              </div>
-            </div>
-          </section>
-
-          <section class="card stocks-intel-card">
-            <div class="stocks-intel-head">
-              <div>
-                <div class="card-title">${text.intelTitle}</div>
-                <div class="card-sub">${text.intelSub}</div>
-              </div>
-              <button class="btn" ?disabled=${props.running} @click=${props.onRun}>${props.running ? text.running : text.run}</button>
-            </div>
-            ${intelItems.length === 0
-              ? html`<div class="muted stocks-empty">${text.noNews}</div>`
-              : html`
-                  <div class="stocks-intel-list">
-                    ${intelItems.map(
-                      (item) => html`
-                        <div class="stocks-intel-item">
-                          <div class="stocks-intel-title">${item.title}</div>
-                          ${item.link
-                            ? html`
-                                <a class="stocks-intel-link" href=${item.link} target="_blank" rel="noreferrer">
-                                  ${text.jump}
-                                </a>
-                              `
-                            : nothing}
-                        </div>
-                      `,
-                    )}
-                  </div>
-                `}
-          </section>
-
-          <section class="card report-pane stocks-report-pane">
-            <div class="report-pane__header">
-              <div>
-                <div class="card-title">${text.reportTitle}</div>
-                <div class="card-sub">${text.reportSub}</div>
-              </div>
-              <button class="btn" ?disabled=${props.running} @click=${props.onRun}>
-                ${props.running ? text.running : text.run}
-              </button>
-            </div>
-            <div class="report-pane__body">
-              ${props.last?.reportMarkdown
-                ? html`<div class="sidebar-markdown report-pane__markdown">${unsafeHTML(toSanitizedMarkdownHtml(props.last.reportMarkdown))}</div>`
-                : html`<div class="muted">${text.noReport}</div>`}
-            </div>
-          </section>
-        </main>
-
-        <aside class="stocks-pulse">
-          <section class=${`card stocks-sentiment-card stocks-sentiment-card--${sentiment.tone}`}>
-            <div class="card-title">${text.sentimentTitle}</div>
-            <div class="stocks-sentiment-ring" style=${`--stocks-score:${sentiment.score};`}>
-              <div class="stocks-sentiment-core">
-                <div class="stocks-sentiment-score mono">${sentiment.score}</div>
-                <div class="stocks-sentiment-label">${sentiment.label}</div>
-              </div>
-            </div>
-            <div class="stocks-sentiment-grid">
-              <div class="stocks-sentiment-item"><span>${text.buy}</span><strong class="mono">${props.last?.counts.buy ?? 0}</strong></div>
-              <div class="stocks-sentiment-item"><span>${text.watch}</span><strong class="mono">${props.last?.counts.watch ?? 0}</strong></div>
-              <div class="stocks-sentiment-item"><span>${text.sell}</span><strong class="mono">${props.last?.counts.sell ?? 0}</strong></div>
-              <div class="stocks-sentiment-item"><span>${text.failed}</span><strong class="mono">${props.last?.counts.failed ?? 0}</strong></div>
-            </div>
-            <div class="stocks-sentiment-foot muted">${text.sentimentEngine}</div>
-          </section>
-
-          ${renderControls(props, text)}
-          ${props.error ? html`<div class="callout danger stocks-callout">${props.error}</div>` : nothing}
         </aside>
       </div>
     </section>
