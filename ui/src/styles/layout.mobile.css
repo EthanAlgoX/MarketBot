@@ -156,12 +156,37 @@
   }
 
   .desk-grid,
+  .stocks-redesign-grid,
   .stocks-layout,
   .market-data-layout,
   .flow-radar-layout,
   .runs-split {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .stocks-command-bar,
+  .stocks-hero-stats,
+  .stocks-focus-actions,
+  .stocks-level-grid,
+  .stocks-checklist-grid,
+  .stocks-sentiment-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stocks-intel-item {
+    grid-template-columns: 1fr;
+  }
+
+  .stocks-hero-head,
+  .stocks-queue-head,
+  .stocks-intel-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stocks-hero-chip-row {
+    justify-content: flex-start;
   }
 
   .stocks-watchlist-field textarea {
@@ -183,7 +208,7 @@
   }
 
   .flow-radar-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
   }
 
@@ -191,11 +216,15 @@
     display: none;
   }
 
-  .flow-radar-row .flow-radar-reason {
+  .flow-radar-row > span:nth-child(4) {
+    grid-column: 2 / 4;
+  }
+
+  .flow-radar-row > .flow-radar-reason-wrap {
     grid-column: 1 / -1;
   }
 
-  .flow-radar-overview-panels,
+  .flow-radar-core-grid,
   .flow-radar-buckets-grid {
     grid-template-columns: 1fr;
   }
@@ -206,7 +235,44 @@
   }
 
   .flow-radar-hero-actions {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .flow-radar-chip-row,
+  .flow-radar-control-row {
     justify-content: flex-start;
+  }
+
+  .flow-radar-control-panel {
+    width: 100%;
+  }
+
+  .flow-radar-control-row {
+    align-items: flex-end;
+  }
+
+  .flow-radar-ttl-field {
+    min-width: 0;
+    width: min(100%, 220px);
+  }
+
+  .flow-radar-ttl-presets {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .flow-radar-spotlight-list {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-radar-table-shell {
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .flow-radar-timeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .flow-radar-river-meta {

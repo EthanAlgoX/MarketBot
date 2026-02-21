@@ -30,13 +30,28 @@ export type StocksProps = {
 
 const STOCKS_TEXT = {
   en: {
-    watchlistTitle: "Watchlist",
-    watchlistSub:
-      "One symbol per line. Supports US tickers, A-share (600519), HK (hk00700).",
-    watchlistQuality: "Watchlist Quality",
+    heroTitle: "Signal Deck",
+    heroSub:
+      "Daily-stock style command center: queue, sentiment pulse, key insight, and one-click execution.",
+    quickAnalyze: "Quick Analyze",
+    quickPlaceholder: "Enter ticker (AAPL, 600519, hk00700) and hit run",
+    pipelineHealth: "Pipeline Health",
+    completion: "Completion",
+    mode: "Mode",
+    queueTitle: "Analysis Queue",
+    queueSub: "Execution status for the current watchlist.",
+    queueRunning: "running",
+    queueDone: "done",
+    queueFailed: "failed",
+    queuePending: "pending",
+    queueEmpty: "Watchlist is empty.",
+    historyTitle: "Latest Snapshot",
+    historyEmpty: "No completed run yet.",
+    watchlistTitle: "Watchlist Control",
+    watchlistSub: "One symbol per line. US / A-share / HK are supported.",
     watchlistReady: "Watchlist is clean and ready to run.",
-    watchlistNeedsDedupe: "Duplicates detected. Use Deduplicate to avoid repeated symbols.",
-    watchlistNeedsClean: "Invalid lines detected. Use Clean List before running.",
+    watchlistNeedsDedupe: "Duplicates detected. Run dedupe before execution.",
+    watchlistNeedsClean: "Invalid lines detected. Run clean list before execution.",
     totalLines: "Lines",
     uniqueSymbolsLabel: "Unique",
     duplicateLines: "Duplicates",
@@ -48,56 +63,79 @@ const STOCKS_TEXT = {
     refreshing: "Refreshing…",
     refresh: "Refresh",
     save: "Save",
-    dailyRunTitle: "Daily Run",
-    dailyRunSub: "Rule-based decision dashboards and a research-style note for your watchlist.",
-    noSavedRun: "No saved run yet. Click Run to generate today's report.",
+    running: "Running…",
+    runNow: "Run Now",
+    run: "Run",
     date: "Date",
     timeframe: "Timeframe",
-    bws: "BUY/WATCH/SELL",
-    failed: "Failed",
     reportType: "Report Type",
     fundamentals: "Fundamentals",
     newsLimit: "News Limit",
     newsQuick: "Quick",
     locale: "Locale",
-    running: "Running…",
-    runNow: "Run Now",
-    reportTitle: "Report",
-    reportSub: "Latest Daily Stock markdown. Designed to read like a compact research note.",
-    run: "Run",
+    reportTitle: "Full Research Note",
+    reportSub: "Full markdown output for audit and downstream sharing.",
     noReport: "No report available yet.",
     simple: "simple (push-friendly)",
     full: "full (research)",
-    workbenchTitle: "Connect Once Workbench",
-    workbenchSub:
-      "OpenBB-style unified data surface: configure once, then run a single cross-source workflow.",
-    sourcePrice: "Price",
-    sourceFundamentals: "Fundamentals",
-    sourceNews: "News",
-    sourceMarket: "Market Context",
-    sourceReady: "ready",
-    sourceStandby: "standby",
-    symbolsSelected: "Symbols",
-    reportMode: "Mode",
-    localeLabel: "Locale",
-    unifiedQuery: "Unified Query Preview",
-    workbenchHint:
-      "This profile keeps symbols, timeframe, fundamentals, and news under one command path.",
+    focusTitle: "Key Insights",
+    noSavedRun: "No saved run yet. Trigger a run to generate today's dashboard.",
+    operationAdvice: "Action",
+    trendOutlook: "Trend Outlook",
+    adviceBuy: "Bias BUY",
+    adviceWatch: "Bias WATCH",
+    adviceSell: "Bias SELL",
+    strategyTitle: "Strategy Points",
+    strategySub: "Auto-extracted from latest dashboard markdown.",
+    entryIdeal: "Primary Entry",
+    entrySecond: "Secondary Entry",
+    stopLoss: "Stop",
+    target1: "Target",
+    sentimentTitle: "Market Sentiment",
+    sentimentBull: "Risk-On",
+    sentimentNeutral: "Neutral",
+    sentimentBear: "Risk-Off",
+    sentimentEngine: "Signal Mix",
+    buy: "BUY",
+    watch: "WATCH",
+    sell: "SELL",
+    failed: "FAILED",
+    intelTitle: "News Feed",
+    intelSub: "Parsed from latest markdown and linked sources.",
+    noNews: "No news extracted from the last report.",
+    jump: "Open",
+    controlsTitle: "Execution Console",
+    controlsSub: "Tune workflow and data depth before launch.",
     presets: "Presets",
     presetGlobal: "Global Snapshot",
     presetDeep: "Equity Deep Dive",
     presetNews: "News Pulse",
-    toggleSources: "Data Source Toggles",
+    toggleSources: "Source Toggles",
     toggleFundamentals: "Fundamentals",
     toggleNews: "News Feed",
   },
   zh: {
-    watchlistTitle: "观察列表",
-    watchlistSub: "每行一个标的。支持美股代码、A 股（600519）、港股（hk00700）。",
-    watchlistQuality: "列表质量",
+    heroTitle: "信号作战台",
+    heroSub: "参考 daily_stock_analysis 的交易面板：任务队列、情绪脉冲、关键信息与一键执行。",
+    quickAnalyze: "快速分析",
+    quickPlaceholder: "输入代码（AAPL、600519、hk00700）后立即运行",
+    pipelineHealth: "流水线健康度",
+    completion: "完成率",
+    mode: "模式",
+    queueTitle: "分析任务",
+    queueSub: "当前观察列表的执行状态。",
+    queueRunning: "分析中",
+    queueDone: "已完成",
+    queueFailed: "失败",
+    queuePending: "待执行",
+    queueEmpty: "观察列表为空。",
+    historyTitle: "最近快照",
+    historyEmpty: "暂无已完成运行。",
+    watchlistTitle: "观察列表控制台",
+    watchlistSub: "每行一个标的。支持美股 / A 股 / 港股代码。",
     watchlistReady: "列表质量良好，可直接运行。",
-    watchlistNeedsDedupe: "检测到重复项，建议先去重后再运行。",
-    watchlistNeedsClean: "检测到疑似无效行，建议先清洗后再运行。",
+    watchlistNeedsDedupe: "检测到重复项，建议先去重再执行。",
+    watchlistNeedsClean: "检测到疑似无效行，建议先清洗再执行。",
     totalLines: "总行数",
     uniqueSymbolsLabel: "去重后",
     duplicateLines: "重复",
@@ -109,39 +147,49 @@ const STOCKS_TEXT = {
     refreshing: "刷新中…",
     refresh: "刷新",
     save: "保存",
-    dailyRunTitle: "每日运行",
-    dailyRunSub: "为观察列表生成规则化决策面板与研究风格摘要。",
-    noSavedRun: "暂无已保存运行，点击运行以生成今日报告。",
+    running: "运行中…",
+    runNow: "立即运行",
+    run: "运行",
     date: "日期",
     timeframe: "时间范围",
-    bws: "买入/观察/卖出",
-    failed: "失败",
     reportType: "报告类型",
     fundamentals: "基本面",
     newsLimit: "新闻数量",
     newsQuick: "快捷",
     locale: "区域",
-    running: "运行中…",
-    runNow: "立即运行",
-    reportTitle: "报告",
-    reportSub: "最新每日股票 Markdown，按紧凑研究笔记方式呈现。",
-    run: "运行",
+    reportTitle: "完整研究报告",
+    reportSub: "保留完整 Markdown 输出，便于审阅与二次分发。",
     noReport: "暂无可用报告。",
     simple: "simple（适合推送）",
     full: "full（研究版）",
-    workbenchTitle: "Connect Once 工作台",
-    workbenchSub: "参考 OpenBB 的统一数据面板：一次配置，单次运行跨源工作流。",
-    sourcePrice: "行情",
-    sourceFundamentals: "基本面",
-    sourceNews: "新闻",
-    sourceMarket: "市场上下文",
-    sourceReady: "就绪",
-    sourceStandby: "待机",
-    symbolsSelected: "标的数",
-    reportMode: "模式",
-    localeLabel: "区域",
-    unifiedQuery: "统一查询预览",
-    workbenchHint: "该配置把标的、周期、基本面与新闻统一到同一执行路径。",
+    focusTitle: "核心洞察",
+    noSavedRun: "暂无已保存运行，执行一次后会生成今日仪表盘。",
+    operationAdvice: "操作建议",
+    trendOutlook: "趋势判断",
+    adviceBuy: "偏买入",
+    adviceWatch: "偏观望",
+    adviceSell: "偏减仓",
+    strategyTitle: "狙击点位",
+    strategySub: "从最新仪表盘 Markdown 自动提取关键点位。",
+    entryIdeal: "理想买入",
+    entrySecond: "二次买入",
+    stopLoss: "止损",
+    target1: "目标位",
+    sentimentTitle: "市场情绪",
+    sentimentBull: "偏多",
+    sentimentNeutral: "中性",
+    sentimentBear: "偏空",
+    sentimentEngine: "信号构成",
+    buy: "买入",
+    watch: "观望",
+    sell: "卖出",
+    failed: "失败",
+    intelTitle: "资讯雷达",
+    intelSub: "从最新报告内容与链接自动聚合。",
+    noNews: "最新报告中暂无可提取资讯。",
+    jump: "跳转",
+    controlsTitle: "执行控制台",
+    controlsSub: "运行前统一配置工作流参数与数据深度。",
     presets: "预设",
     presetGlobal: "全球快照",
     presetDeep: "股票深度",
@@ -152,29 +200,20 @@ const STOCKS_TEXT = {
   },
 } as const;
 
-function renderSummary(last: DailyStockRunResult | null, text: (typeof STOCKS_TEXT)["en"]) {
-  if (!last) return html`<div class="muted">${text.noSavedRun}</div>`;
-  return html`
-    <div class="stat-grid stocks-summary-grid">
-      <div class="stat">
-        <div class="stat-label">${text.date}</div>
-        <div class="stat-value mono">${last.dateIso}</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">${text.timeframe}</div>
-        <div class="stat-value mono">${last.timeframe}</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">${text.bws}</div>
-        <div class="stat-value mono">${last.counts.buy}/${last.counts.watch}/${last.counts.sell}</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">${text.failed}</div>
-        <div class="stat-value mono">${last.counts.failed}</div>
-      </div>
-    </div>
-  `;
-}
+type ParsedDecision = {
+  symbol: string;
+  asOfIso: string;
+  price: string;
+  conclusion: string;
+  advice: "buy" | "watch" | "sell";
+  adviceRaw: string;
+  entry: string;
+  stop: string;
+  target1: string;
+  target2: string;
+  checklist: string[];
+  news: Array<{ title: string; link?: string }>;
+};
 
 function normalizeSymbolsFromText(text: string): string[] {
   return text
@@ -220,23 +259,191 @@ function summarizeWatchlist(text: string) {
   };
 }
 
-function renderWorkbench(
-  props: StocksProps,
+function parseDecisionMarkdown(markdown: string): ParsedDecision | null {
+  const rawLines = markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (rawLines.length === 0) return null;
+
+  const parsed: ParsedDecision = {
+    symbol: "",
+    asOfIso: "-",
+    price: "-",
+    conclusion: "",
+    advice: "watch",
+    adviceRaw: "WATCH",
+    entry: "n/a",
+    stop: "n/a",
+    target1: "n/a",
+    target2: "n/a",
+    checklist: [],
+    news: [],
+  };
+
+  let section: "none" | "checklist" | "news" = "none";
+
+  for (const line of rawLines) {
+    if (line.startsWith("## ")) {
+      parsed.symbol = line.replace(/^##\s+/, "").replace(/\s+决策仪表盘$/, "").trim();
+      continue;
+    }
+    if (line.startsWith("### Checklist")) {
+      section = "checklist";
+      continue;
+    }
+    if (line.startsWith("### News")) {
+      section = "news";
+      continue;
+    }
+
+    if (line.startsWith("- 截至:")) {
+      parsed.asOfIso = line.replace("- 截至:", "").trim();
+      continue;
+    }
+    if (line.startsWith("- 现价:")) {
+      parsed.price = line.replace("- 现价:", "").trim();
+      continue;
+    }
+    if (line.startsWith("- 结论:")) {
+      parsed.conclusion = line.replace("- 结论:", "").trim();
+      continue;
+    }
+    if (line.startsWith("- 建议:")) {
+      const adviceRaw = line.replace("- 建议:", "").trim();
+      parsed.adviceRaw = adviceRaw;
+      const token = /\b(BUY|WATCH|SELL)\b/i.exec(adviceRaw)?.[1]?.toUpperCase();
+      if (token === "BUY") parsed.advice = "buy";
+      if (token === "SELL") parsed.advice = "sell";
+      if (token === "WATCH") parsed.advice = "watch";
+      continue;
+    }
+    if (line.startsWith("- 点位:")) {
+      const body = line.replace("- 点位:", "").trim();
+      const entry = /entry=([^,]+)/i.exec(body)?.[1]?.trim();
+      const stop = /stop=([^,]+)/i.exec(body)?.[1]?.trim();
+      const t1 = /t1=([^,]+)/i.exec(body)?.[1]?.trim();
+      const t2 = /t2=([^,]+)/i.exec(body)?.[1]?.trim();
+      if (entry) parsed.entry = entry;
+      if (stop) parsed.stop = stop;
+      if (t1) parsed.target1 = t1;
+      if (t2) parsed.target2 = t2;
+      continue;
+    }
+
+    if (section === "checklist" && line.startsWith("- ")) {
+      parsed.checklist.push(line.slice(2).trim());
+      continue;
+    }
+    if (section === "news") {
+      if (line.startsWith("- ")) {
+        parsed.news.push({ title: line.slice(2).trim() });
+        continue;
+      }
+      if (/^https?:\/\//i.test(line)) {
+        const last = parsed.news.at(-1);
+        if (last && !last.link) {
+          last.link = line;
+        }
+      }
+    }
+  }
+
+  if (!parsed.conclusion) return null;
+  return parsed;
+}
+
+function extractNewsFromMarkdown(markdown: string, maxItems = 5): Array<{ title: string; link?: string }> {
+  const items: Array<{ title: string; link?: string }> = [];
+  const seen = new Set<string>();
+
+  const linkPattern = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  for (const match of markdown.matchAll(linkPattern)) {
+    const title = match[1]?.trim();
+    const link = match[2]?.trim();
+    if (!title) continue;
+    const key = `${title}::${link}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push({ title, link });
+    if (items.length >= maxItems) return items;
+  }
+
+  const lines = markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (const line of lines) {
+    if (!line.startsWith("- ")) continue;
+    const text = line.slice(2).trim();
+    if (!text || text.length < 10) continue;
+    if (text.startsWith("截至") || text.startsWith("现价") || text.startsWith("结论") || text.startsWith("建议")) {
+      continue;
+    }
+    const key = `${text}::`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push({ title: text });
+    if (items.length >= maxItems) break;
+  }
+
+  return items;
+}
+
+function sentimentFromCounts(
+  counts: DailyStockRunResult["counts"] | null,
   text: (typeof STOCKS_TEXT)["en"],
-  watchlist: string[],
 ) {
+  const base = counts ?? { buy: 0, watch: 0, sell: 0, failed: 0 };
+  const active = base.buy + base.watch + base.sell;
+  if (active <= 0) {
+    return {
+      score: 50,
+      label: text.sentimentNeutral,
+      tone: "neutral" as const,
+    };
+  }
+  const score = Math.max(0, Math.min(100, Math.round((base.buy * 100 + base.watch * 55 + base.sell * 15) / active)));
+  if (score >= 68) {
+    return { score, label: text.sentimentBull, tone: "bull" as const };
+  }
+  if (score <= 38) {
+    return { score, label: text.sentimentBear, tone: "bear" as const };
+  }
+  return { score, label: text.sentimentNeutral, tone: "neutral" as const };
+}
+
+function deriveQueueStatus(params: {
+  watchlist: string[];
+  last: DailyStockRunResult | null;
+  running: boolean;
+  text: (typeof STOCKS_TEXT)["en"];
+}) {
+  const { watchlist, last, running, text } = params;
+  const bySymbol = new Map<string, DailyStockRunResult["items"][number]>();
+  for (const item of last?.items ?? []) {
+    bySymbol.set(symbolCanonicalKey(item.symbol || item.symbolInput), item);
+  }
+
+  return watchlist.map((symbol, index) => {
+    const key = symbolCanonicalKey(symbol);
+    const item = bySymbol.get(key);
+    if (running && index === 0) {
+      return { symbol, status: "running" as const, label: text.queueRunning };
+    }
+    if (!item) {
+      return { symbol, status: "pending" as const, label: text.queuePending };
+    }
+    if (item.ok) {
+      return { symbol, status: "done" as const, label: text.queueDone };
+    }
+    return { symbol, status: "failed" as const, label: text.queueFailed };
+  });
+}
+
+function renderControls(props: StocksProps, text: (typeof STOCKS_TEXT)["en"]) {
   const newsLimit = Number.parseInt(props.newsLimit.trim() || "0", 10);
   const hasNews = Number.isFinite(newsLimit) && newsLimit > 0;
-  const queryPreview = [
-    "finance.daily.run",
-    `symbols=[${watchlist.slice(0, 8).join(", ")}${watchlist.length > 8 ? ", ..." : ""}]`,
-    `timeframe=${props.timeframe}`,
-    `reportType=${props.reportType}`,
-    `includeFundamentals=${props.includeFundamentals ? "true" : "false"}`,
-    `newsLimit=${Number.isFinite(newsLimit) ? newsLimit : 0}`,
-    `locale=${props.locale || "US"}`,
-    "profile=marketbot",
-  ].join("\n");
 
   const applyPreset = (preset: "global" | "deep" | "news") => {
     if (preset === "global") {
@@ -263,22 +470,16 @@ function renderWorkbench(
   };
 
   return html`
-    <section class="card stocks-workbench">
-      <div class="card-title">${text.workbenchTitle}</div>
-      <div class="card-sub">${text.workbenchSub}</div>
+    <section class="card stocks-control-card">
+      <div class="card-title">${text.controlsTitle}</div>
+      <div class="card-sub">${text.controlsSub}</div>
 
       <div class="field stocks-field-group">
         <span>${text.presets}</span>
         <div class="row stocks-row-wrap stocks-row-tight">
-          <button class="btn" type="button" @click=${() => applyPreset("global")}>
-            ${text.presetGlobal}
-          </button>
-          <button class="btn" type="button" @click=${() => applyPreset("deep")}>
-            ${text.presetDeep}
-          </button>
-          <button class="btn" type="button" @click=${() => applyPreset("news")}>
-            ${text.presetNews}
-          </button>
+          <button class="btn" type="button" @click=${() => applyPreset("global")}>${text.presetGlobal}</button>
+          <button class="btn" type="button" @click=${() => applyPreset("deep")}>${text.presetDeep}</button>
+          <button class="btn" type="button" @click=${() => applyPreset("news")}>${text.presetNews}</button>
         </div>
       </div>
 
@@ -302,39 +503,71 @@ function renderWorkbench(
         </div>
       </div>
 
-      <div class="chip-row stocks-source-chips">
-        <span class="chip">${text.sourcePrice}: ${text.sourceReady}</span>
-        <span class="chip">${text.sourceFundamentals}: ${props.includeFundamentals ? text.sourceReady : text.sourceStandby}</span>
-        <span class="chip">${text.sourceNews}: ${hasNews ? text.sourceReady : text.sourceStandby}</span>
-        <span class="chip">${text.sourceMarket}: ${text.sourceReady}</span>
+      <div class="form-grid stocks-options-grid">
+        <label class="field stocks-option stocks-option--timeframe">
+          <span>${text.timeframe}</span>
+          <select .value=${props.timeframe} @change=${(event: Event) => props.onTimeframeChange((event.target as HTMLSelectElement).value)}>
+            <option value="6mo">6mo</option>
+            <option value="1y">1y</option>
+            <option value="ytd">ytd</option>
+            <option value="max">max</option>
+          </select>
+        </label>
+
+        <label class="field stocks-option stocks-option--report">
+          <span>${text.reportType}</span>
+          <select
+            .value=${props.reportType}
+            @change=${(event: Event) => {
+              const value = (event.target as HTMLSelectElement).value;
+              props.onReportTypeChange(value === "full" ? "full" : "simple");
+            }}
+          >
+            <option value="simple">${text.simple}</option>
+            <option value="full">${text.full}</option>
+          </select>
+        </label>
+
+        <label class="field stocks-option stocks-option--news">
+          <span>${text.newsLimit}</span>
+          <input
+            .value=${props.newsLimit}
+            @input=${(event: Event) => props.onNewsLimitChange((event.target as HTMLInputElement).value)}
+            placeholder="2"
+          />
+          <div class="row stocks-row-wrap stocks-row-tight stocks-news-quick">
+            <span class="muted">${text.newsQuick}</span>
+            <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("0")}>0</button>
+            <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("2")}>2</button>
+            <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("5")}>5</button>
+            <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("10")}>10</button>
+          </div>
+        </label>
+
+        <label class="field stocks-option stocks-option--locale">
+          <span>${text.locale}</span>
+          <input
+            .value=${props.locale}
+            @input=${(event: Event) => props.onLocaleChange((event.target as HTMLInputElement).value)}
+            placeholder="US"
+          />
+        </label>
+
+        <div class="field field--toggle stocks-option stocks-option--fundamentals">
+          <span>${text.fundamentals}</span>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              .checked=${props.includeFundamentals}
+              @change=${(event: Event) => props.onIncludeFundamentalsChange((event.target as HTMLInputElement).checked)}
+            />
+            <span class="toggle__track" aria-hidden="true"></span>
+            <span class="toggle__thumb" aria-hidden="true"></span>
+          </label>
+        </div>
       </div>
 
-      <div class="stat-grid stocks-summary-grid">
-        <div class="stat">
-          <div class="stat-label">${text.symbolsSelected}</div>
-          <div class="stat-value mono">${watchlist.length}</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">${text.timeframe}</div>
-          <div class="stat-value mono">${props.timeframe}</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">${text.reportMode}</div>
-          <div class="stat-value mono">${props.reportType}</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">${text.localeLabel}</div>
-          <div class="stat-value mono">${props.locale || "US"}</div>
-        </div>
-      </div>
-
-      <div class="field stocks-field-group">
-        <span>${text.unifiedQuery}</span>
-        <pre class="code-block stocks-query-code">${queryPreview}</pre>
-      </div>
-
-      <div class="row stocks-run-bar">
-        <span class="muted stocks-run-hint">${text.workbenchHint}</span>
+      <div class="row stocks-actions">
         <button class="btn primary finance-cta" ?disabled=${props.running} @click=${props.onRun}>
           ${props.running ? text.running : text.runNow}
         </button>
@@ -346,9 +579,10 @@ function renderWorkbench(
 export function renderStocks(props: StocksProps) {
   const language = props.language ?? "en";
   const text = STOCKS_TEXT[language] ?? STOCKS_TEXT.en;
+
   const watchlistSummary = summarizeWatchlist(props.watchlistText);
   const watchlist = watchlistSummary.lines;
-  const lastMarkdown = props.last?.reportMarkdown ?? "";
+
   const dedupedWatchlist = (() => {
     const seen = new Set<string>();
     const next: string[] = [];
@@ -360,6 +594,7 @@ export function renderStocks(props: StocksProps) {
     }
     return next;
   })();
+
   const cleanedWatchlist = (() => {
     const seen = new Set<string>();
     const next: string[] = [];
@@ -373,6 +608,7 @@ export function renderStocks(props: StocksProps) {
     }
     return next;
   })();
+
   const hasInvalidLines = watchlistSummary.invalid > 0;
   const hasDuplicateLines = watchlistSummary.duplicates > 0;
   const qualityTone = hasInvalidLines ? "danger" : hasDuplicateLines ? "warn" : "success";
@@ -381,172 +617,347 @@ export function renderStocks(props: StocksProps) {
     : hasDuplicateLines
       ? text.watchlistNeedsDedupe
       : text.watchlistReady;
+
+  const sentiment = sentimentFromCounts(props.last?.counts ?? null, text);
+  const queueItems = deriveQueueStatus({ watchlist, last: props.last, running: props.running, text });
+  const completedCount = queueItems.filter((item) => item.status === "done" || item.status === "failed").length;
+  const completionRate = queueItems.length > 0 ? Math.round((completedCount / queueItems.length) * 100) : 0;
+
+  const okItems = (props.last?.items ?? []).filter(
+    (item): item is Extract<DailyStockRunResult["items"][number], { ok: true }> => item.ok,
+  );
+  const primaryItem = okItems[0] ?? null;
+  const parsedPrimary = primaryItem ? parseDecisionMarkdown(primaryItem.markdown) : null;
+
+  const intelItems = parsedPrimary?.news?.length
+    ? parsedPrimary.news.slice(0, 5)
+    : extractNewsFromMarkdown(props.last?.reportMarkdown ?? "", 5);
+
+  const insightText = parsedPrimary?.conclusion || text.noSavedRun;
+  const trendText =
+    parsedPrimary?.advice === "buy"
+      ? text.adviceBuy
+      : parsedPrimary?.advice === "sell"
+        ? text.adviceSell
+        : text.adviceWatch;
+
+  const checklistSlice = parsedPrimary?.checklist.slice(0, 4) ?? [];
+
   return html`
-    <section class="stocks-layout finance-page">
-      <div class="stocks-left">
-        <div class="card stocks-card">
-          <div class="row stocks-card-head">
-            <div>
-              <div class="card-title">${text.watchlistTitle}</div>
-              <div class="card-sub">${text.watchlistSub}</div>
-            </div>
-            <div class="pill"><span class="mono">${watchlist.length}</span><span class="muted">${text.symbols}</span></div>
+    <section class="stocks-redesign finance-page">
+      <section class="card stocks-hero-card">
+        <div class="stocks-hero-head">
+          <div>
+            <div class="card-title stocks-hero-title">${text.heroTitle}</div>
+            <div class="card-sub">${text.heroSub}</div>
           </div>
-          <div class="stat-grid stocks-watchlist-health">
-            <div class="stat">
-              <div class="stat-label">${text.totalLines}</div>
-              <div class="stat-value mono">${watchlist.length}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">${text.uniqueSymbolsLabel}</div>
-              <div class="stat-value mono">${watchlistSummary.uniqueCount}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">${text.duplicateLines}</div>
-              <div class="stat-value mono">${watchlistSummary.duplicates}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">${text.invalidLines}</div>
-              <div class="stat-value mono">${watchlistSummary.invalid}</div>
-            </div>
+          <div class="pill stocks-hero-health">
+            <span class="mono">${props.last ? "online" : "idle"}</span>
+            <span class="muted">${text.pipelineHealth}</span>
           </div>
-          <div class="callout ${qualityTone} stocks-quality-callout">${qualityMessage}</div>
-          <label class="field stocks-watchlist-field">
-            <textarea
-              rows="10"
-              .value=${props.watchlistText}
-              placeholder="AAPL\nNVDA\n600519\nhk00700"
-              @input=${(e: Event) => props.onWatchlistTextChange((e.target as HTMLTextAreaElement).value)}
-            ></textarea>
-          </label>
-          <div class="row stocks-watchlist-tools">
-            <button
-              class="btn"
-              ?disabled=${props.loading || cleanedWatchlist.length === 0}
-              @click=${() => props.onWatchlistTextChange(cleanedWatchlist.join("\n"))}
-            >
-              ${text.cleanList}
-            </button>
-            <button
-              class="btn"
-              ?disabled=${props.loading || dedupedWatchlist.length === watchlist.length}
-              @click=${() => props.onWatchlistTextChange(dedupedWatchlist.join("\n"))}
-            >
-              ${text.dedupeList}
-            </button>
-            <button
-              class="btn"
-              ?disabled=${props.loading || watchlist.length === 0}
-              @click=${() => props.onWatchlistTextChange("")}
-            >
-              ${text.clearList}
-            </button>
-          </div>
-          <div class="row stocks-actions stocks-watchlist-persist">
-            <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
-              ${props.loading ? text.refreshing : text.refresh}
-            </button>
-            <button class="btn primary finance-cta" ?disabled=${props.loading} @click=${props.onSaveWatchlist}>
-              ${text.save}
-            </button>
-          </div>
-          ${props.error ? html`<div class="callout danger stocks-callout">${props.error}</div>` : nothing}
         </div>
 
-        <div class="card stocks-card">
-          <div class="row stocks-card-head stocks-daily-head">
-            <div>
-              <div class="card-title">${text.dailyRunTitle}</div>
-              <div class="card-sub">${text.dailyRunSub}</div>
-            </div>
-            <button class="btn primary finance-cta" ?disabled=${props.running} @click=${props.onRun}>
-              ${props.running ? text.running : text.runNow}
-            </button>
+        <form
+          class="stocks-command-bar"
+          @submit=${(event: Event) => {
+            event.preventDefault();
+            const form = event.currentTarget as HTMLFormElement;
+            const data = new FormData(form);
+            const rawSymbol = String(data.get("symbol") ?? "").trim();
+            if (rawSymbol) {
+              const normalized = normalizeSymbolDisplay(rawSymbol);
+              const next = [...watchlist];
+              const exists = next.some((symbol) => symbolCanonicalKey(symbol) === symbolCanonicalKey(normalized));
+              if (!exists) {
+                next.unshift(normalized);
+                props.onWatchlistTextChange(next.join("\n"));
+              }
+              const input = form.elements.namedItem("symbol") as HTMLInputElement | null;
+              if (input) input.value = "";
+            }
+            props.onRun();
+          }}
+        >
+          <input name="symbol" placeholder=${text.quickPlaceholder} />
+          <button class="btn primary finance-cta" type="submit" ?disabled=${props.running}>
+            ${props.running ? text.running : text.quickAnalyze}
+          </button>
+        </form>
+
+        <div class="stocks-hero-stats">
+          <div class="stat">
+            <div class="stat-label">${text.date}</div>
+            <div class="stat-value mono">${props.last?.dateIso ?? "-"}</div>
           </div>
-          ${renderSummary(props.last, text)}
-          <div class="form-grid stocks-options-grid">
-            <label class="field stocks-option stocks-option--timeframe">
-              <span>${text.timeframe}</span>
-              <select .value=${props.timeframe} @change=${(e: Event) => props.onTimeframeChange((e.target as HTMLSelectElement).value)}>
-                <option value="6mo">6mo</option>
-                <option value="1y">1y</option>
-                <option value="ytd">ytd</option>
-                <option value="max">max</option>
-              </select>
-            </label>
-            <label class="field stocks-option stocks-option--report">
-              <span>${text.reportType}</span>
-              <select
-                .value=${props.reportType}
-                @change=${(e: Event) => {
-                  const value = (e.target as HTMLSelectElement).value;
-                  props.onReportTypeChange(value === "full" ? "full" : "simple");
-                }}
-              >
-                <option value="simple">${text.simple}</option>
-                <option value="full">${text.full}</option>
-              </select>
-            </label>
-            <div class="field field--toggle stocks-option stocks-option--fundamentals">
-              <span>${text.fundamentals}</span>
-              <label class="toggle">
-                <input
-                  type="checkbox"
-                  .checked=${props.includeFundamentals}
-                  @change=${(e: Event) => props.onIncludeFundamentalsChange((e.target as HTMLInputElement).checked)}
-                />
-                <span class="toggle__track" aria-hidden="true"></span>
-                <span class="toggle__thumb" aria-hidden="true"></span>
-              </label>
+          <div class="stat">
+            <div class="stat-label">${text.timeframe}</div>
+            <div class="stat-value mono">${props.last?.timeframe ?? props.timeframe}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">${text.buy}/${text.watch}/${text.sell}</div>
+            <div class="stat-value mono">
+              ${props.last ? `${props.last.counts.buy}/${props.last.counts.watch}/${props.last.counts.sell}` : "-"}
             </div>
-            <label class="field stocks-option stocks-option--news">
-              <span>${text.newsLimit}</span>
-              <input
-                .value=${props.newsLimit}
-                @input=${(e: Event) => props.onNewsLimitChange((e.target as HTMLInputElement).value)}
-                placeholder="2"
-              />
-              <div class="row stocks-row-wrap stocks-row-tight stocks-news-quick">
-                <span class="muted">${text.newsQuick}</span>
-                <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("0")}>0</button>
-                <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("2")}>2</button>
-                <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("5")}>5</button>
-                <button class="btn btn--sm" type="button" @click=${() => props.onNewsLimitChange("10")}>10</button>
+          </div>
+          <div class="stat">
+            <div class="stat-label">${text.failed}</div>
+            <div class="stat-value mono">${props.last?.counts.failed ?? 0}</div>
+          </div>
+        </div>
+
+        <div class="chip-row stocks-hero-chip-row">
+          <span class="chip">${text.mode}: <strong class="mono">${props.reportType}</strong></span>
+          <span class="chip">${text.locale}: <strong class="mono">${(props.locale || "US").toUpperCase()}</strong></span>
+          <span class="chip">${text.completion}: <strong class="mono">${completionRate}%</strong></span>
+        </div>
+      </section>
+
+      <div class="stocks-redesign-grid">
+        <aside class="stocks-rail">
+          <section class="card stocks-queue-card">
+            <div class="stocks-queue-head">
+              <div>
+                <div class="card-title">${text.queueTitle}</div>
+                <div class="card-sub">${text.queueSub}</div>
               </div>
-            </label>
-            <label class="field stocks-option stocks-option--locale">
-              <span>${text.locale}</span>
-              <input
-                .value=${props.locale}
-                @input=${(e: Event) => props.onLocaleChange((e.target as HTMLInputElement).value)}
-                placeholder="US"
-              />
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="stocks-right">
-        ${renderWorkbench(props, text, watchlist)}
-
-        <section class="card report-pane stocks-report-pane">
-          <div class="report-pane__header">
-            <div>
-              <div class="card-title">${text.reportTitle}</div>
-              <div class="card-sub">${text.reportSub}</div>
+              <div class="pill"><span class="mono">${completionRate}%</span><span class="muted">${text.completion}</span></div>
             </div>
-            <div class="row">
+
+            <div class="stocks-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${completionRate}>
+              <div class="stocks-progress-fill" style=${`width:${completionRate}%;`}></div>
+            </div>
+            ${queueItems.length === 0
+              ? html`<div class="muted stocks-empty">${text.queueEmpty}</div>`
+              : html`
+                  <div class="stocks-queue-list">
+                    ${queueItems.slice(0, 10).map(
+                      (item) => html`
+                        <div class="stocks-queue-item stocks-queue-item--${item.status}">
+                          <span class="stocks-queue-dot" aria-hidden="true"></span>
+                          <span class="mono stocks-queue-symbol">${normalizeSymbolDisplay(item.symbol)}</span>
+                          <span class="stocks-queue-status">${item.label}</span>
+                        </div>
+                      `,
+                    )}
+                  </div>
+                `}
+
+            <div class="stocks-history-head muted">${text.historyTitle}</div>
+            ${(props.last?.symbols?.length ?? 0) === 0
+              ? html`<div class="muted stocks-empty">${text.historyEmpty}</div>`
+              : html`
+                  <div class="stocks-history-list">
+                    ${(props.last?.symbols ?? []).slice(0, 8).map(
+                      (symbol) => html`<div class="stocks-history-item mono">${symbol}</div>`,
+                    )}
+                  </div>
+                `}
+          </section>
+
+          <section class="card stocks-watchlist-card">
+            <div class="row stocks-card-head">
+              <div>
+                <div class="card-title">${text.watchlistTitle}</div>
+                <div class="card-sub">${text.watchlistSub}</div>
+              </div>
+              <div class="pill"><span class="mono">${watchlist.length}</span><span class="muted">${text.symbols}</span></div>
+            </div>
+
+            <div class="stat-grid stocks-watchlist-health">
+              <div class="stat">
+                <div class="stat-label">${text.totalLines}</div>
+                <div class="stat-value mono">${watchlist.length}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">${text.uniqueSymbolsLabel}</div>
+                <div class="stat-value mono">${watchlistSummary.uniqueCount}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">${text.duplicateLines}</div>
+                <div class="stat-value mono">${watchlistSummary.duplicates}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">${text.invalidLines}</div>
+                <div class="stat-value mono">${watchlistSummary.invalid}</div>
+              </div>
+            </div>
+
+            <div class="callout ${qualityTone} stocks-quality-callout">${qualityMessage}</div>
+
+            <label class="field stocks-watchlist-field">
+              <textarea
+                rows="10"
+                .value=${props.watchlistText}
+                placeholder="AAPL\nNVDA\n600519\nhk00700"
+                @input=${(event: Event) => props.onWatchlistTextChange((event.target as HTMLTextAreaElement).value)}
+              ></textarea>
+            </label>
+
+            <div class="row stocks-watchlist-tools">
+              <button
+                class="btn"
+                ?disabled=${props.loading || cleanedWatchlist.length === 0}
+                @click=${() => props.onWatchlistTextChange(cleanedWatchlist.join("\n"))}
+              >
+                ${text.cleanList}
+              </button>
+              <button
+                class="btn"
+                ?disabled=${props.loading || dedupedWatchlist.length === watchlist.length}
+                @click=${() => props.onWatchlistTextChange(dedupedWatchlist.join("\n"))}
+              >
+                ${text.dedupeList}
+              </button>
+              <button
+                class="btn"
+                ?disabled=${props.loading || watchlist.length === 0}
+                @click=${() => props.onWatchlistTextChange("")}
+              >
+                ${text.clearList}
+              </button>
+            </div>
+
+            <div class="row stocks-actions stocks-watchlist-persist">
+              <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+                ${props.loading ? text.refreshing : text.refresh}
+              </button>
+              <button class="btn primary finance-cta" ?disabled=${props.loading} @click=${props.onSaveWatchlist}>
+                ${text.save}
+              </button>
+            </div>
+          </section>
+        </aside>
+
+        <main class="stocks-stage">
+          <section class="card stocks-focus-card">
+            <div class="stocks-focus-head">
+              <div>
+                <div class="stocks-focus-symbol">${parsedPrimary?.symbol ?? watchlist[0] ?? "-"}</div>
+                <div class="stocks-focus-meta mono">
+                  ${(parsedPrimary?.price ?? "-") + "  ·  " + (parsedPrimary?.asOfIso ?? props.last?.dateIso ?? "-")}
+                </div>
+              </div>
+              <div class=${`pill stocks-advice-pill stocks-advice-pill--${parsedPrimary?.advice ?? "watch"}`}>
+                ${parsedPrimary?.adviceRaw ?? text.adviceWatch}
+              </div>
+            </div>
+
+            <div class="stocks-focus-body">
+              <div class="stocks-focus-label">${text.focusTitle}</div>
+              <p>${insightText}</p>
+              ${checklistSlice.length > 0
+                ? html`
+                    <div class="stocks-checklist-grid">
+                      ${checklistSlice.map((check) => html`<div class="stocks-check-item">${check}</div>`)}
+                    </div>
+                  `
+                : nothing}
+            </div>
+
+            <div class="stocks-focus-actions">
+              <div class="stocks-focus-action">
+                <div class="stocks-focus-action-label">${text.operationAdvice}</div>
+                <div class="stocks-focus-action-value">${parsedPrimary?.adviceRaw ?? text.adviceWatch}</div>
+              </div>
+              <div class="stocks-focus-action">
+                <div class="stocks-focus-action-label">${text.trendOutlook}</div>
+                <div class="stocks-focus-action-value">${trendText}</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card stocks-level-card">
+            <div class="card-title">${text.strategyTitle}</div>
+            <div class="card-sub">${text.strategySub}</div>
+            <div class="stocks-level-grid">
+              <div class="stocks-level-item">
+                <div class="stocks-level-label">${text.entryIdeal}</div>
+                <div class="stocks-level-value mono">${parsedPrimary?.entry ?? "n/a"}</div>
+              </div>
+              <div class="stocks-level-item">
+                <div class="stocks-level-label">${text.entrySecond}</div>
+                <div class="stocks-level-value mono">${parsedPrimary?.target2 ?? "n/a"}</div>
+              </div>
+              <div class="stocks-level-item stocks-level-item--danger">
+                <div class="stocks-level-label">${text.stopLoss}</div>
+                <div class="stocks-level-value mono">${parsedPrimary?.stop ?? "n/a"}</div>
+              </div>
+              <div class="stocks-level-item stocks-level-item--warn">
+                <div class="stocks-level-label">${text.target1}</div>
+                <div class="stocks-level-value mono">${parsedPrimary?.target1 ?? "n/a"}</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card stocks-intel-card">
+            <div class="stocks-intel-head">
+              <div>
+                <div class="card-title">${text.intelTitle}</div>
+                <div class="card-sub">${text.intelSub}</div>
+              </div>
+              <button class="btn" ?disabled=${props.running} @click=${props.onRun}>${props.running ? text.running : text.run}</button>
+            </div>
+            ${intelItems.length === 0
+              ? html`<div class="muted stocks-empty">${text.noNews}</div>`
+              : html`
+                  <div class="stocks-intel-list">
+                    ${intelItems.map(
+                      (item) => html`
+                        <div class="stocks-intel-item">
+                          <div class="stocks-intel-title">${item.title}</div>
+                          ${item.link
+                            ? html`
+                                <a class="stocks-intel-link" href=${item.link} target="_blank" rel="noreferrer">
+                                  ${text.jump}
+                                </a>
+                              `
+                            : nothing}
+                        </div>
+                      `,
+                    )}
+                  </div>
+                `}
+          </section>
+
+          <section class="card report-pane stocks-report-pane">
+            <div class="report-pane__header">
+              <div>
+                <div class="card-title">${text.reportTitle}</div>
+                <div class="card-sub">${text.reportSub}</div>
+              </div>
               <button class="btn" ?disabled=${props.running} @click=${props.onRun}>
                 ${props.running ? text.running : text.run}
               </button>
             </div>
-          </div>
-          <div class="report-pane__body">
-            ${lastMarkdown
-              ? html`<div class="sidebar-markdown report-pane__markdown">${unsafeHTML(toSanitizedMarkdownHtml(lastMarkdown))}</div>`
-              : html`<div class="muted">${text.noReport}</div>`}
-          </div>
-        </section>
+            <div class="report-pane__body">
+              ${props.last?.reportMarkdown
+                ? html`<div class="sidebar-markdown report-pane__markdown">${unsafeHTML(toSanitizedMarkdownHtml(props.last.reportMarkdown))}</div>`
+                : html`<div class="muted">${text.noReport}</div>`}
+            </div>
+          </section>
+        </main>
+
+        <aside class="stocks-pulse">
+          <section class=${`card stocks-sentiment-card stocks-sentiment-card--${sentiment.tone}`}>
+            <div class="card-title">${text.sentimentTitle}</div>
+            <div class="stocks-sentiment-ring" style=${`--stocks-score:${sentiment.score};`}>
+              <div class="stocks-sentiment-core">
+                <div class="stocks-sentiment-score mono">${sentiment.score}</div>
+                <div class="stocks-sentiment-label">${sentiment.label}</div>
+              </div>
+            </div>
+            <div class="stocks-sentiment-grid">
+              <div class="stocks-sentiment-item"><span>${text.buy}</span><strong class="mono">${props.last?.counts.buy ?? 0}</strong></div>
+              <div class="stocks-sentiment-item"><span>${text.watch}</span><strong class="mono">${props.last?.counts.watch ?? 0}</strong></div>
+              <div class="stocks-sentiment-item"><span>${text.sell}</span><strong class="mono">${props.last?.counts.sell ?? 0}</strong></div>
+              <div class="stocks-sentiment-item"><span>${text.failed}</span><strong class="mono">${props.last?.counts.failed ?? 0}</strong></div>
+            </div>
+            <div class="stocks-sentiment-foot muted">${text.sentimentEngine}</div>
+          </section>
+
+          ${renderControls(props, text)}
+          ${props.error ? html`<div class="callout danger stocks-callout">${props.error}</div>` : nothing}
+        </aside>
       </div>
     </section>
   `;
