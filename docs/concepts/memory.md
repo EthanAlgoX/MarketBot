@@ -12,16 +12,22 @@ source of truth; the model only "remembers" what gets written to disk.
 Memory search tools are provided by the active memory plugin (default:
 `memory-core`). Disable memory plugins with `plugins.slots.memory = "none"`.
 
-## Memory files (Markdown)
+## Memory files
 
-The default workspace layout uses two memory layers:
+The default workspace layout uses layered memory files:
 
-- `memory/YYYY-MM-DD.md`
-  - Daily log (append-only).
-  - Read today + yesterday at session start.
-- `MEMORY.md` (optional)
+- `memory/.abstract` (L0)
+  - Directory index with summaries and cross-references.
+  - First file to read for broad recall.
+- `SESSION-STATE.md` (L0)
+  - Working buffer for current context + persistent pointers.
+  - Refreshed by maintenance flows and pre-compaction flush.
+- `MEMORY.md` (L1, optional)
   - Curated long-term memory.
-  - **Only load in the main, private session** (never in group contexts).
+- `memory/insights/*.md` and `memory/lessons/*` (L1)
+  - Compounded summaries, lessons, and durable intermediate memory.
+- `memory/YYYY-MM-DD.md` (L2)
+  - Daily raw log and short-lived working notes.
 
 These files live under the workspace (`agents.defaults.workspace`, default
 `~/.marketbot/workspace`). See [Agent workspace](/concepts/agent-workspace) for the full layout.
@@ -52,8 +58,8 @@ This is controlled by `agents.defaults.compaction.memoryFlush`:
         memoryFlush: {
           enabled: true,
           softThresholdTokens: 4000,
-          systemPrompt: "Session nearing compaction. Store durable memories now.",
-          prompt: "Write any lasting notes to memory/YYYY-MM-DD.md; reply with NO_REPLY if nothing to store."
+          systemPrompt: "Session nearing compaction. Update SESSION-STATE and store durable memory now.",
+          prompt: "Refresh SESSION-STATE.md and write lasting notes to memory/YYYY-MM-DD.md; reply with NO_REPLY if nothing to store."
         }
       }
     }
@@ -75,9 +81,9 @@ For the full compaction lifecycle, see
 
 ## Vector memory search
 
-MarketBot can build a small vector index over `MEMORY.md` and `memory/*.md` (plus
-any extra directories or files you opt in) so semantic queries can find related
-notes even when wording differs.
+MarketBot can build a small vector index over layered memory files (`memory/.abstract`,
+`SESSION-STATE.md`, `MEMORY.md`, `memory/**/*`, plus opted-in extra paths) so semantic
+queries can find related notes even when wording differs.
 
 Defaults:
 - Enabled by default.
@@ -99,7 +105,7 @@ set `memorySearch.remote.apiKey` (and optional `memorySearch.remote.headers`).
 
 ### Additional memory paths
 
-If you want to index Markdown files outside the default workspace layout, add
+If you want to index additional files outside the default workspace layout, add
 explicit paths:
 
 ```json5
@@ -114,8 +120,8 @@ agents: {
 
 Notes:
 - Paths can be absolute or workspace-relative.
-- Directories are scanned recursively for `.md` files.
-- Only Markdown files are indexed.
+- Directories are scanned recursively for `.md`, `.mdx`, `.jsonl`, and `.abstract` files.
+- Matching files under `extraPaths` are indexed with the same chunking/index rules as workspace memory files.
 - Symlinks are ignored (files or directories).
 
 ### Gemini embeddings (native)
@@ -210,15 +216,16 @@ Local mode:
 
 ### How the memory tools work
 
-- `memory_search` semantically searches Markdown chunks (~400 token target, 80-token overlap) from `MEMORY.md` + `memory/**/*.md`. It returns snippet text (capped ~700 chars), file path, line range, score, provider/model, and whether we fell back from local → remote embeddings. No full file payload is returned.
-- `memory_get` reads a specific memory Markdown file (workspace-relative), optionally from a starting line and for N lines. Paths outside `MEMORY.md` / `memory/` are allowed only when explicitly listed in `memorySearch.extraPaths`.
+- `memory_search` runs layered retrieval first (`l0` for `.abstract` and `SESSION-STATE.md`, then `l1`/`l2` as needed). It supports `depth`, `maxDepth`, and `includeExpired` filters. Results include snippet text (capped ~700 chars), file path, line range, score, layer, priority, expiry metadata, provider/model, and fallback metadata.
+- `memory_get` reads specific memory files (workspace-relative), optionally from a starting line and for N lines. Paths outside memory roots are allowed only when explicitly listed in `memorySearch.extraPaths`.
 - Both tools are enabled only when `memorySearch.enabled` resolves true for the agent.
 
 ### What gets indexed (and when)
 
-- File type: Markdown only (`MEMORY.md`, `memory/**/*.md`, plus any `.md` files under `memorySearch.extraPaths`).
+- File types: `.md`, `.mdx`, `.jsonl`, and `.abstract` (`MEMORY.md`, `SESSION-STATE.md`, `memory/**/*`, plus matching files under `memorySearch.extraPaths`).
 - Index storage: per-agent SQLite at `~/.marketbot/memory/<agentId>.sqlite` (configurable via `agents.defaults.memorySearch.store.path`, supports `{agentId}` token).
-- Freshness: watcher on `MEMORY.md`, `memory/`, and `memorySearch.extraPaths` marks the index dirty (debounce 1.5s). Sync is scheduled on session start, on search, or on an interval and runs asynchronously. Session transcripts use delta thresholds to trigger background sync.
+- Freshness: watcher on `MEMORY.md`, `SESSION-STATE.md`, `memory/`, and `memorySearch.extraPaths` marks the index dirty (debounce 1.5s). Sync is scheduled on session start, on search, or on an interval and runs asynchronously. Session transcripts use delta thresholds to trigger background sync.
+- Auto maintenance: during sync, MarketBot can auto-run janitor/archive, `.abstract` rebuild, and `SESSION-STATE.md` refresh using `memorySearch.sync.maintenance.*` thresholds.
 - Reindex triggers: the index stores the embedding **provider/model + endpoint fingerprint + chunking params**. If any of those change, MarketBot automatically resets and reindexes the entire store.
 
 ### Hybrid search (BM25 + vector)
