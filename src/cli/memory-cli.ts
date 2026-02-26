@@ -378,6 +378,12 @@ export async function runMemoryStatus(opts: MemoryCommandOptions) {
   const warn = (text: string) => colorize(rich, theme.warn, text);
   const accent = (text: string) => colorize(rich, theme.accent, text);
   const label = (text: string) => muted(`${text}:`);
+  const formatRunAt = (value: number) => {
+    if (!value || !Number.isFinite(value) || value <= 0) {
+      return "never";
+    }
+    return new Date(value).toISOString();
+  };
 
   for (const result of allResults) {
     const { agentId, status, embeddingProbe, indexError, scan } = result;
@@ -477,6 +483,19 @@ export async function runMemoryStatus(opts: MemoryCommandOptions) {
       if (status.fts.error) {
         lines.push(`${label("FTS error")} ${warn(status.fts.error)}`);
       }
+    }
+    if (status.maintenance) {
+      const cfg = status.maintenance.config;
+      lines.push(label("Maintenance"));
+      lines.push(
+        `  ${accent("interval")} ${muted(`${cfg.minIntervalMs}ms`)} ${muted("·")} ${accent("janitor")} ${muted(`${cfg.janitorMinIntervalMs}ms`)}`,
+      );
+      lines.push(
+        `  ${accent("thresholds")} ${muted(`abstract(files=${cfg.abstractChangedFilesThreshold}, l2Bytes=${cfg.abstractL2BytesThreshold}); session(files=${cfg.sessionStateChangedFilesThreshold}, l2Bytes=${cfg.sessionStateL2BytesThreshold})`)}`,
+      );
+      lines.push(
+        `  ${accent("last runs")} ${muted(`abstract=${formatRunAt(status.maintenance.lastAutoAbstractRunAt)}, session-state=${formatRunAt(status.maintenance.lastAutoSessionStateRunAt)}, janitor=${formatRunAt(status.maintenance.lastAutoJanitorRunAt)}`)}`,
+      );
     }
     if (status.cache) {
       const cacheState = status.cache.enabled ? "enabled" : "disabled";

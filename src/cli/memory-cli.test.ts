@@ -69,6 +69,19 @@ describe("memory cli", () => {
             extensionPath: "/opt/sqlite-vec.dylib",
             dims: 1024,
           },
+          maintenance: {
+            config: {
+              minIntervalMs: 300000,
+              janitorMinIntervalMs: 43200000,
+              abstractChangedFilesThreshold: 4,
+              abstractL2BytesThreshold: 12000,
+              sessionStateChangedFilesThreshold: 2,
+              sessionStateL2BytesThreshold: 8000,
+            },
+            lastAutoAbstractRunAt: 0,
+            lastAutoSessionStateRunAt: 0,
+            lastAutoJanitorRunAt: 0,
+          },
         }),
         close,
       },
@@ -84,6 +97,8 @@ describe("memory cli", () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Vector dims: 1024"));
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Vector path: /opt/sqlite-vec.dylib"));
     expect(log).toHaveBeenCalledWith(expect.stringContaining("FTS: ready"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Maintenance:"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("last runs"));
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining("Embedding cache: enabled (123 entries)"),
     );

@@ -625,6 +625,19 @@ export class MemoryIndexManager {
       lastError?: string;
       lastProvider?: string;
     };
+    maintenance?: {
+      config: {
+        minIntervalMs: number;
+        janitorMinIntervalMs: number;
+        abstractChangedFilesThreshold: number;
+        abstractL2BytesThreshold: number;
+        sessionStateChangedFilesThreshold: number;
+        sessionStateL2BytesThreshold: number;
+      };
+      lastAutoAbstractRunAt: number;
+      lastAutoSessionStateRunAt: number;
+      lastAutoJanitorRunAt: number;
+    };
   } {
     const sourceFilter = this.buildSourceFilter();
     const files = this.db
@@ -728,6 +741,21 @@ export class MemoryIndexManager {
         timeoutMs: this.batch.timeoutMs,
         lastError: this.batchFailureLastError,
         lastProvider: this.batchFailureLastProvider,
+      },
+      maintenance: {
+        config: {
+          minIntervalMs: this.settings.sync.maintenance.minIntervalMs,
+          janitorMinIntervalMs: this.settings.sync.maintenance.janitorMinIntervalMs,
+          abstractChangedFilesThreshold:
+            this.settings.sync.maintenance.abstractChangedFilesThreshold,
+          abstractL2BytesThreshold: this.settings.sync.maintenance.abstractL2BytesThreshold,
+          sessionStateChangedFilesThreshold:
+            this.settings.sync.maintenance.sessionStateChangedFilesThreshold,
+          sessionStateL2BytesThreshold: this.settings.sync.maintenance.sessionStateL2BytesThreshold,
+        },
+        lastAutoAbstractRunAt: this.lastAutoAbstractRunAt,
+        lastAutoSessionStateRunAt: this.lastAutoSessionStateRunAt,
+        lastAutoJanitorRunAt: this.lastAutoJanitorRunAt,
       },
     };
   }
