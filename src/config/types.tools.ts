@@ -317,6 +317,20 @@ export type MemorySearchConfig = {
       /** Minimum appended JSONL lines before session transcripts are reindexed. */
       deltaMessages?: number;
     };
+    maintenance?: {
+      /** Minimum interval between auto abstract/session-state maintenance runs (ms). */
+      minIntervalMs?: number;
+      /** Minimum interval between auto janitor runs (ms). */
+      janitorMinIntervalMs?: number;
+      /** Trigger auto .abstract rebuild when changed files exceed this threshold. */
+      abstractChangedFilesThreshold?: number;
+      /** Trigger auto .abstract rebuild when changed L2 bytes exceed this threshold. */
+      abstractL2BytesThreshold?: number;
+      /** Trigger auto SESSION-STATE refresh when changed files exceed this threshold. */
+      sessionStateChangedFilesThreshold?: number;
+      /** Trigger auto SESSION-STATE refresh when changed L2 bytes exceed this threshold. */
+      sessionStateL2BytesThreshold?: number;
+    };
   };
   /** Query behavior. */
   query?: {

@@ -266,6 +266,18 @@ const FIELD_LABELS: Record<string, string> = {
   "agents.defaults.memorySearch.sync.watchDebounceMs": "Memory Watch Debounce (ms)",
   "agents.defaults.memorySearch.sync.sessions.deltaBytes": "Session Delta Bytes",
   "agents.defaults.memorySearch.sync.sessions.deltaMessages": "Session Delta Messages",
+  "agents.defaults.memorySearch.sync.maintenance.minIntervalMs":
+    "Memory Maintenance Min Interval (ms)",
+  "agents.defaults.memorySearch.sync.maintenance.janitorMinIntervalMs":
+    "Memory Janitor Min Interval (ms)",
+  "agents.defaults.memorySearch.sync.maintenance.abstractChangedFilesThreshold":
+    "Memory Abstract Changed Files Threshold",
+  "agents.defaults.memorySearch.sync.maintenance.abstractL2BytesThreshold":
+    "Memory Abstract L2 Bytes Threshold",
+  "agents.defaults.memorySearch.sync.maintenance.sessionStateChangedFilesThreshold":
+    "Session-State Changed Files Threshold",
+  "agents.defaults.memorySearch.sync.maintenance.sessionStateL2BytesThreshold":
+    "Session-State L2 Bytes Threshold",
   "agents.defaults.memorySearch.query.maxResults": "Memory Search Max Results",
   "agents.defaults.memorySearch.query.minScore": "Memory Search Min Score",
   "agents.defaults.memorySearch.query.hybrid.enabled": "Memory Search Hybrid",
@@ -577,6 +589,18 @@ const FIELD_HELP: Record<string, string> = {
     "Minimum appended bytes before session transcripts trigger reindex (default: 100000).",
   "agents.defaults.memorySearch.sync.sessions.deltaMessages":
     "Minimum appended JSONL lines before session transcripts trigger reindex (default: 50).",
+  "agents.defaults.memorySearch.sync.maintenance.minIntervalMs":
+    "Minimum interval between auto abstract/session-state maintenance runs in milliseconds (default: 300000).",
+  "agents.defaults.memorySearch.sync.maintenance.janitorMinIntervalMs":
+    "Minimum interval between auto janitor runs in milliseconds (default: 43200000).",
+  "agents.defaults.memorySearch.sync.maintenance.abstractChangedFilesThreshold":
+    "Auto-rebuild .abstract when changed files meet or exceed this threshold (default: 4).",
+  "agents.defaults.memorySearch.sync.maintenance.abstractL2BytesThreshold":
+    "Auto-rebuild .abstract when changed L2 bytes meet or exceed this threshold (default: 12000).",
+  "agents.defaults.memorySearch.sync.maintenance.sessionStateChangedFilesThreshold":
+    "Auto-refresh SESSION-STATE when changed files meet or exceed this threshold (default: 2).",
+  "agents.defaults.memorySearch.sync.maintenance.sessionStateL2BytesThreshold":
+    "Auto-refresh SESSION-STATE when changed L2 bytes meet or exceed this threshold (default: 8000).",
   "plugins.enabled": "Enable plugin/extension loading (default: true).",
   "plugins.allow": "Optional allowlist of plugin ids; when set, only listed plugins load.",
   "plugins.deny": "Optional denylist of plugin ids; deny wins over allowlist.",

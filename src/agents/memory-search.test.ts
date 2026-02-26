@@ -193,6 +193,58 @@ describe("memory search config", () => {
       deltaBytes: 100000,
       deltaMessages: 50,
     });
+    expect(resolved?.sync.maintenance).toEqual({
+      minIntervalMs: 300000,
+      janitorMinIntervalMs: 43200000,
+      abstractChangedFilesThreshold: 4,
+      abstractL2BytesThreshold: 12000,
+      sessionStateChangedFilesThreshold: 2,
+      sessionStateL2BytesThreshold: 8000,
+    });
+  });
+
+  it("merges and clamps maintenance thresholds", () => {
+    const cfg = {
+      agents: {
+        defaults: {
+          memorySearch: {
+            provider: "openai",
+            sync: {
+              maintenance: {
+                minIntervalMs: 1000,
+                janitorMinIntervalMs: 2000,
+                abstractChangedFilesThreshold: 5,
+              },
+            },
+          },
+        },
+        list: [
+          {
+            id: "main",
+            default: true,
+            memorySearch: {
+              sync: {
+                maintenance: {
+                  minIntervalMs: -1,
+                  abstractL2BytesThreshold: 3456,
+                  sessionStateChangedFilesThreshold: 0,
+                  sessionStateL2BytesThreshold: 7890,
+                },
+              },
+            },
+          },
+        ],
+      },
+    };
+    const resolved = resolveMemorySearchConfig(cfg, "main");
+    expect(resolved?.sync.maintenance).toEqual({
+      minIntervalMs: 0,
+      janitorMinIntervalMs: 2000,
+      abstractChangedFilesThreshold: 5,
+      abstractL2BytesThreshold: 3456,
+      sessionStateChangedFilesThreshold: 0,
+      sessionStateL2BytesThreshold: 7890,
+    });
   });
 
   it("merges remote defaults with agent overrides", () => {

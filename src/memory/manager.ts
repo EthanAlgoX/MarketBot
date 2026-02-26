@@ -146,12 +146,6 @@ const EMBEDDING_BATCH_TIMEOUT_REMOTE_MS = 2 * 60_000;
 const EMBEDDING_BATCH_TIMEOUT_LOCAL_MS = 10 * 60_000;
 const DEFAULT_P1_TTL_DAYS = 90;
 const DEFAULT_P2_TTL_DAYS = 30;
-const AUTO_MEMORY_MAINTENANCE_MIN_INTERVAL_MS = 5 * 60 * 1000;
-const AUTO_ABSTRACT_CHANGED_FILES_THRESHOLD = 4;
-const AUTO_ABSTRACT_L2_BYTES_THRESHOLD = 12_000;
-const AUTO_SESSION_STATE_CHANGED_FILES_THRESHOLD = 2;
-const AUTO_SESSION_STATE_L2_BYTES_THRESHOLD = 8_000;
-const AUTO_JANITOR_MIN_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const LAYER_SCORE_BOOST: Record<MemoryLayer, number> = {
   l0: 0.12,
   l1: 0.06,
@@ -1398,9 +1392,11 @@ export class MemoryIndexManager {
     }
     const changedL2Bytes = this.resolveL2ChangedBytes(params.changedEntries);
     const nowMs = Date.now();
+    const maintenance = this.settings.sync.maintenance;
     let janitorMoved = 0;
 
-    const janitorCooldownPassed = nowMs - this.lastAutoJanitorRunAt >= AUTO_JANITOR_MIN_INTERVAL_MS;
+    const janitorCooldownPassed =
+      nowMs - this.lastAutoJanitorRunAt >= maintenance.janitorMinIntervalMs;
     const shouldRunJanitor =
       janitorCooldownPassed &&
       (params.needsFullReindex || params.removedCount > 0 || changedCount > 0);
@@ -1435,10 +1431,9 @@ export class MemoryIndexManager {
       params.needsFullReindex ||
       params.removedCount > 0 ||
       janitorMoved > 0 ||
-      changedCount >= AUTO_ABSTRACT_CHANGED_FILES_THRESHOLD ||
-      changedL2Bytes >= AUTO_ABSTRACT_L2_BYTES_THRESHOLD;
-    const abstractCooldownPassed =
-      nowMs - this.lastAutoAbstractRunAt >= AUTO_MEMORY_MAINTENANCE_MIN_INTERVAL_MS;
+      changedCount >= maintenance.abstractChangedFilesThreshold ||
+      changedL2Bytes >= maintenance.abstractL2BytesThreshold;
+    const abstractCooldownPassed = nowMs - this.lastAutoAbstractRunAt >= maintenance.minIntervalMs;
 
     if (shouldRefreshAbstract && abstractCooldownPassed) {
       try {
@@ -1465,10 +1460,10 @@ export class MemoryIndexManager {
       params.needsFullReindex ||
       params.removedCount > 0 ||
       janitorMoved > 0 ||
-      changedCount >= AUTO_SESSION_STATE_CHANGED_FILES_THRESHOLD ||
-      changedL2Bytes >= AUTO_SESSION_STATE_L2_BYTES_THRESHOLD;
+      changedCount >= maintenance.sessionStateChangedFilesThreshold ||
+      changedL2Bytes >= maintenance.sessionStateL2BytesThreshold;
     const sessionStateCooldownPassed =
-      nowMs - this.lastAutoSessionStateRunAt >= AUTO_MEMORY_MAINTENANCE_MIN_INTERVAL_MS;
+      nowMs - this.lastAutoSessionStateRunAt >= maintenance.minIntervalMs;
     if (shouldRefreshSessionState && sessionStateCooldownPassed) {
       try {
         const result = await refreshSessionState({

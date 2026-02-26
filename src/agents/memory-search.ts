@@ -73,6 +73,14 @@ export type ResolvedMemorySearchConfig = {
       deltaBytes: number;
       deltaMessages: number;
     };
+    maintenance: {
+      minIntervalMs: number;
+      janitorMinIntervalMs: number;
+      abstractChangedFilesThreshold: number;
+      abstractL2BytesThreshold: number;
+      sessionStateChangedFilesThreshold: number;
+      sessionStateL2BytesThreshold: number;
+    };
   };
   query: {
     maxResults: number;
@@ -97,6 +105,12 @@ const DEFAULT_CHUNK_OVERLAP = 80;
 const DEFAULT_WATCH_DEBOUNCE_MS = 1500;
 const DEFAULT_SESSION_DELTA_BYTES = 100_000;
 const DEFAULT_SESSION_DELTA_MESSAGES = 50;
+const DEFAULT_MAINTENANCE_MIN_INTERVAL_MS = 5 * 60 * 1000;
+const DEFAULT_MAINTENANCE_JANITOR_MIN_INTERVAL_MS = 12 * 60 * 60 * 1000;
+const DEFAULT_MAINTENANCE_ABSTRACT_CHANGED_FILES_THRESHOLD = 4;
+const DEFAULT_MAINTENANCE_ABSTRACT_L2_BYTES_THRESHOLD = 12_000;
+const DEFAULT_MAINTENANCE_SESSION_STATE_CHANGED_FILES_THRESHOLD = 2;
+const DEFAULT_MAINTENANCE_SESSION_STATE_L2_BYTES_THRESHOLD = 8_000;
 const DEFAULT_MAX_RESULTS = 6;
 const DEFAULT_MIN_SCORE = 0.35;
 const DEFAULT_HYBRID_ENABLED = true;
@@ -227,6 +241,32 @@ function mergeConfig(
         defaults?.sync?.sessions?.deltaMessages ??
         DEFAULT_SESSION_DELTA_MESSAGES,
     },
+    maintenance: {
+      minIntervalMs:
+        overrides?.sync?.maintenance?.minIntervalMs ??
+        defaults?.sync?.maintenance?.minIntervalMs ??
+        DEFAULT_MAINTENANCE_MIN_INTERVAL_MS,
+      janitorMinIntervalMs:
+        overrides?.sync?.maintenance?.janitorMinIntervalMs ??
+        defaults?.sync?.maintenance?.janitorMinIntervalMs ??
+        DEFAULT_MAINTENANCE_JANITOR_MIN_INTERVAL_MS,
+      abstractChangedFilesThreshold:
+        overrides?.sync?.maintenance?.abstractChangedFilesThreshold ??
+        defaults?.sync?.maintenance?.abstractChangedFilesThreshold ??
+        DEFAULT_MAINTENANCE_ABSTRACT_CHANGED_FILES_THRESHOLD,
+      abstractL2BytesThreshold:
+        overrides?.sync?.maintenance?.abstractL2BytesThreshold ??
+        defaults?.sync?.maintenance?.abstractL2BytesThreshold ??
+        DEFAULT_MAINTENANCE_ABSTRACT_L2_BYTES_THRESHOLD,
+      sessionStateChangedFilesThreshold:
+        overrides?.sync?.maintenance?.sessionStateChangedFilesThreshold ??
+        defaults?.sync?.maintenance?.sessionStateChangedFilesThreshold ??
+        DEFAULT_MAINTENANCE_SESSION_STATE_CHANGED_FILES_THRESHOLD,
+      sessionStateL2BytesThreshold:
+        overrides?.sync?.maintenance?.sessionStateL2BytesThreshold ??
+        defaults?.sync?.maintenance?.sessionStateL2BytesThreshold ??
+        DEFAULT_MAINTENANCE_SESSION_STATE_L2_BYTES_THRESHOLD,
+    },
   };
   const query = {
     maxResults: overrides?.query?.maxResults ?? defaults?.query?.maxResults ?? DEFAULT_MAX_RESULTS,
@@ -265,6 +305,32 @@ function mergeConfig(
   const candidateMultiplier = clampInt(hybrid.candidateMultiplier, 1, 20);
   const deltaBytes = clampInt(sync.sessions.deltaBytes, 0, Number.MAX_SAFE_INTEGER);
   const deltaMessages = clampInt(sync.sessions.deltaMessages, 0, Number.MAX_SAFE_INTEGER);
+  const minIntervalMs = clampInt(sync.maintenance.minIntervalMs, 0, Number.MAX_SAFE_INTEGER);
+  const janitorMinIntervalMs = clampInt(
+    sync.maintenance.janitorMinIntervalMs,
+    0,
+    Number.MAX_SAFE_INTEGER,
+  );
+  const abstractChangedFilesThreshold = clampInt(
+    sync.maintenance.abstractChangedFilesThreshold,
+    0,
+    Number.MAX_SAFE_INTEGER,
+  );
+  const abstractL2BytesThreshold = clampInt(
+    sync.maintenance.abstractL2BytesThreshold,
+    0,
+    Number.MAX_SAFE_INTEGER,
+  );
+  const sessionStateChangedFilesThreshold = clampInt(
+    sync.maintenance.sessionStateChangedFilesThreshold,
+    0,
+    Number.MAX_SAFE_INTEGER,
+  );
+  const sessionStateL2BytesThreshold = clampInt(
+    sync.maintenance.sessionStateL2BytesThreshold,
+    0,
+    Number.MAX_SAFE_INTEGER,
+  );
   return {
     enabled,
     sources,
@@ -284,6 +350,14 @@ function mergeConfig(
       sessions: {
         deltaBytes,
         deltaMessages,
+      },
+      maintenance: {
+        minIntervalMs,
+        janitorMinIntervalMs,
+        abstractChangedFilesThreshold,
+        abstractL2BytesThreshold,
+        sessionStateChangedFilesThreshold,
+        sessionStateL2BytesThreshold,
       },
     },
     query: {

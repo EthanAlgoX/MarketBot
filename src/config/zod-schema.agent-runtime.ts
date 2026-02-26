@@ -416,6 +416,17 @@ export const MemorySearchSchema = z
           })
           .strict()
           .optional(),
+        maintenance: z
+          .object({
+            minIntervalMs: z.number().int().nonnegative().optional(),
+            janitorMinIntervalMs: z.number().int().nonnegative().optional(),
+            abstractChangedFilesThreshold: z.number().int().nonnegative().optional(),
+            abstractL2BytesThreshold: z.number().int().nonnegative().optional(),
+            sessionStateChangedFilesThreshold: z.number().int().nonnegative().optional(),
+            sessionStateL2BytesThreshold: z.number().int().nonnegative().optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),
