@@ -17,50 +17,50 @@
  * along with MarketBot.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import path from "node:path";
+
+import { mkdir } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import {
-  DEFAULT_MEMORY_ALT_FILENAME,
-  DEFAULT_MEMORY_FILENAME,
+  DEFAULT_MEMORY_ABSTRACT_PATH,
+  DEFAULT_SESSION_STATE_FILENAME,
   loadWorkspaceBootstrapFiles,
 } from "./workspace.js";
 import { makeTempWorkspace, writeWorkspaceFile } from "../test-helpers/workspace.js";
 
 describe("loadWorkspaceBootstrapFiles", () => {
-  it("includes MEMORY.md when present", async () => {
+  it("includes SESSION-STATE.md when present", async () => {
     const tempDir = await makeTempWorkspace("marketbot-workspace-");
-    await writeWorkspaceFile({ dir: tempDir, name: "MEMORY.md", content: "memory" });
+    await writeWorkspaceFile({ dir: tempDir, name: "SESSION-STATE.md", content: "state" });
 
     const files = await loadWorkspaceBootstrapFiles(tempDir);
-    const memoryEntries = files.filter((file) =>
-      [DEFAULT_MEMORY_FILENAME, DEFAULT_MEMORY_ALT_FILENAME].includes(file.name),
-    );
+    const stateEntries = files.filter((file) => file.name === DEFAULT_SESSION_STATE_FILENAME);
 
-    expect(memoryEntries).toHaveLength(1);
-    expect(memoryEntries[0]?.missing).toBe(false);
-    expect(memoryEntries[0]?.content).toBe("memory");
+    expect(stateEntries).toHaveLength(1);
+    expect(stateEntries[0]?.missing).toBe(false);
+    expect(stateEntries[0]?.content).toBe("state");
   });
 
-  it("includes memory.md when MEMORY.md is absent", async () => {
+  it("includes memory/.abstract when present", async () => {
     const tempDir = await makeTempWorkspace("marketbot-workspace-");
-    await writeWorkspaceFile({ dir: tempDir, name: "memory.md", content: "alt" });
+    await mkdir(path.join(tempDir, "memory"), { recursive: true });
+    await writeWorkspaceFile({ dir: tempDir, name: "memory/.abstract", content: "index" });
 
     const files = await loadWorkspaceBootstrapFiles(tempDir);
-    const memoryEntries = files.filter((file) =>
-      [DEFAULT_MEMORY_FILENAME, DEFAULT_MEMORY_ALT_FILENAME].includes(file.name),
-    );
+    const abstractEntries = files.filter((file) => file.name === DEFAULT_MEMORY_ABSTRACT_PATH);
 
-    expect(memoryEntries).toHaveLength(1);
-    expect(memoryEntries[0]?.missing).toBe(false);
-    expect(memoryEntries[0]?.content).toBe("alt");
+    expect(abstractEntries).toHaveLength(1);
+    expect(abstractEntries[0]?.missing).toBe(false);
+    expect(abstractEntries[0]?.content).toBe("index");
   });
 
-  it("omits memory entries when no memory files exist", async () => {
+  it("omits memory bootstrap summaries when no files exist", async () => {
     const tempDir = await makeTempWorkspace("marketbot-workspace-");
 
     const files = await loadWorkspaceBootstrapFiles(tempDir);
     const memoryEntries = files.filter((file) =>
-      [DEFAULT_MEMORY_FILENAME, DEFAULT_MEMORY_ALT_FILENAME].includes(file.name),
+      [DEFAULT_MEMORY_ABSTRACT_PATH, DEFAULT_SESSION_STATE_FILENAME].includes(file.name),
     );
 
     expect(memoryEntries).toHaveLength(0);

@@ -32,6 +32,10 @@ import { withProgress, withProgressTotals } from "./progress.js";
 import { formatErrorMessage, withManager } from "./cli-utils.js";
 import { getMemorySearchManager, type MemorySearchManagerResult } from "../memory/index.js";
 import { listMemoryFiles, normalizeExtraMemoryPaths } from "../memory/internal.js";
+import { rebuildMemoryAbstracts } from "../memory/abstract.js";
+import { runMemoryJanitor } from "../memory/janitor.js";
+import { normalizeMemoryLayer } from "../memory/memory-meta.js";
+import { refreshSessionState } from "../memory/session-state.js";
 import { defaultRuntime } from "../runtime.js";
 import { formatDocsLink } from "../terminal/links.js";
 import { colorize, isRich, theme } from "../terminal/theme.js";
@@ -44,6 +48,14 @@ type MemoryCommandOptions = {
   deep?: boolean;
   index?: boolean;
   verbose?: boolean;
+};
+
+type MemorySearchOptions = MemoryCommandOptions & {
+  maxResults?: number;
+  minScore?: number;
+  depth?: string;
+  maxDepth?: string;
+  includeExpired?: boolean;
 };
 
 type MemoryManager = NonNullable<MemorySearchManagerResult["manager"]>;
@@ -95,6 +107,17 @@ function resolveAgentIds(cfg: ReturnType<typeof loadConfig>, agent?: string): st
     return list.map((entry) => entry.id).filter(Boolean);
   }
   return [resolveDefaultAgentId(cfg)];
+}
+
+function parseLayerOption(raw: string | undefined, label: "depth" | "maxDepth") {
+  if (!raw) {
+    return undefined;
+  }
+  const normalized = normalizeMemoryLayer(raw);
+  if (!normalized) {
+    throw new Error(`${label} must be one of: l0, l1, l2`);
+  }
+  return normalized;
 }
 
 function formatExtraPaths(workspaceDir: string, extraPaths: string[]): string[] {
@@ -402,6 +425,14 @@ export async function runMemoryStatus(opts: MemoryCommandOptions) {
         lines.push(`  ${accent(entry.source)} ${muted("·")} ${muted(counts)}`);
       }
     }
+    if (status.layerCounts?.length) {
+      lines.push(label("By layer"));
+      for (const entry of status.layerCounts) {
+        lines.push(
+          `  ${accent(entry.layer.toUpperCase())} ${muted("·")} ${muted(`${entry.chunks} chunks`)}`,
+        );
+      }
+    }
     if (status.fallback) {
       lines.push(`${label("Fallback")} ${warn(status.fallback.from)}`);
     }
@@ -637,19 +668,15 @@ export function registerMemoryCli(program: Command) {
     });
 
   memory
-    .command("search")
-    .description("Search memory files")
-    .argument("<query>", "Search query")
+    .command("abstract")
+    .description("Rebuild memory/.abstract indexes (L0)")
     .option("--agent <id>", "Agent id (default: default agent)")
-    .option("--max-results <n>", "Max results", (value: string) => Number(value))
-    .option("--min-score <n>", "Minimum score", (value: string) => Number(value))
+    .option("--include-archive", "Include memory/archive directories", false)
     .option("--json", "Print JSON")
     .action(
       async (
-        query: string,
         opts: MemoryCommandOptions & {
-          maxResults?: number;
-          minScore?: number;
+          includeArchive?: boolean;
         },
       ) => {
         const cfg = loadConfig();
@@ -661,42 +688,183 @@ export function registerMemoryCli(program: Command) {
             defaultRuntime.error(`Memory manager close failed: ${formatErrorMessage(err)}`),
           close: (manager) => manager.close(),
           run: async (manager) => {
-            let results: Awaited<ReturnType<typeof manager.search>>;
-            try {
-              results = await manager.search(query, {
-                maxResults: opts.maxResults,
-                minScore: opts.minScore,
-              });
-            } catch (err) {
-              const message = formatErrorMessage(err);
-              defaultRuntime.error(`Memory search failed: ${message}`);
-              process.exitCode = 1;
-              return;
-            }
+            const status = manager.status();
+            const result = await rebuildMemoryAbstracts({
+              workspaceDir: status.workspaceDir,
+              includeArchive: Boolean(opts.includeArchive),
+            });
+            manager.sync({ reason: "abstract-rebuild" }).catch(() => {});
             if (opts.json) {
-              defaultRuntime.log(JSON.stringify({ results }, null, 2));
+              defaultRuntime.log(JSON.stringify(result, null, 2));
               return;
             }
-            if (results.length === 0) {
-              defaultRuntime.log("No matches.");
-              return;
+            defaultRuntime.log(
+              `Abstract rebuild complete: ${result.written.length} updated, ${result.scannedDirs} directories scanned.`,
+            );
+            if (result.written.length > 0) {
+              for (const file of result.written) {
+                defaultRuntime.log(`- ${shortenHomePath(file)}`);
+              }
             }
-            const rich = isRich();
-            const lines: string[] = [];
-            for (const result of results) {
-              lines.push(
-                `${colorize(rich, theme.success, result.score.toFixed(3))} ${colorize(
-                  rich,
-                  theme.accent,
-                  `${shortenHomePath(result.path)}:${result.startLine}-${result.endLine}`,
-                )}`,
-              );
-              lines.push(colorize(rich, theme.muted, result.snippet));
-              lines.push("");
-            }
-            defaultRuntime.log(lines.join("\n").trim());
           },
         });
       },
     );
+
+  memory
+    .command("janitor")
+    .description("Archive expired P1/P2 memory files")
+    .option("--agent <id>", "Agent id (default: default agent)")
+    .option("--p1-days <n>", "TTL days for P1 (default: 90)", (value: string) => Number(value))
+    .option("--p2-days <n>", "TTL days for P2 (default: 30)", (value: string) => Number(value))
+    .option("--dry-run", "Preview moves without writing", false)
+    .option("--json", "Print JSON")
+    .action(
+      async (
+        opts: MemoryCommandOptions & {
+          p1Days?: number;
+          p2Days?: number;
+          dryRun?: boolean;
+        },
+      ) => {
+        const cfg = loadConfig();
+        const agentId = resolveAgent(cfg, opts.agent);
+        await withManager<MemoryManager>({
+          getManager: () => getMemorySearchManager({ cfg, agentId }),
+          onMissing: (error) => defaultRuntime.log(error ?? "Memory search disabled."),
+          onCloseError: (err) =>
+            defaultRuntime.error(`Memory manager close failed: ${formatErrorMessage(err)}`),
+          close: (manager) => manager.close(),
+          run: async (manager) => {
+            const status = manager.status();
+            const result = await runMemoryJanitor({
+              workspaceDir: status.workspaceDir,
+              p1Days: opts.p1Days,
+              p2Days: opts.p2Days,
+              dryRun: opts.dryRun,
+            });
+            manager.sync({ reason: "janitor" }).catch(() => {});
+            if (opts.json) {
+              defaultRuntime.log(JSON.stringify(result, null, 2));
+              return;
+            }
+            defaultRuntime.log(
+              `Janitor ${result.dryRun ? "preview" : "run"} complete: ${result.moved.length}/${result.expired} expired files ${result.dryRun ? "would be moved" : "moved"} (scanned ${result.scanned}).`,
+            );
+            for (const move of result.moved) {
+              defaultRuntime.log(
+                `- [${move.priority.toUpperCase()}] ${shortenHomePath(move.from)} -> ${shortenHomePath(move.to)}`,
+              );
+            }
+          },
+        });
+      },
+    );
+
+  memory
+    .command("session-state")
+    .description("Refresh SESSION-STATE.md working buffer")
+    .option("--agent <id>", "Agent id (default: default agent)")
+    .option("--max-items <n>", "Max source items to include", (value: string) => Number(value))
+    .option("--json", "Print JSON")
+    .action(
+      async (
+        opts: MemoryCommandOptions & {
+          maxItems?: number;
+        },
+      ) => {
+        const cfg = loadConfig();
+        const agentId = resolveAgent(cfg, opts.agent);
+        await withManager<MemoryManager>({
+          getManager: () => getMemorySearchManager({ cfg, agentId }),
+          onMissing: (error) => defaultRuntime.log(error ?? "Memory search disabled."),
+          onCloseError: (err) =>
+            defaultRuntime.error(`Memory manager close failed: ${formatErrorMessage(err)}`),
+          close: (manager) => manager.close(),
+          run: async (manager) => {
+            const status = manager.status();
+            const result = await refreshSessionState({
+              workspaceDir: status.workspaceDir,
+              maxItems: opts.maxItems,
+            });
+            manager.sync({ reason: "session-state-refresh" }).catch(() => {});
+            if (opts.json) {
+              defaultRuntime.log(JSON.stringify(result, null, 2));
+              return;
+            }
+            defaultRuntime.log(
+              `${result.written ? "Updated" : "No change"} ${shortenHomePath(result.outputPath)} (${result.sourceFiles.length} source files).`,
+            );
+          },
+        });
+      },
+    );
+
+  memory
+    .command("search")
+    .description("Search memory files")
+    .argument("<query>", "Search query")
+    .option("--agent <id>", "Agent id (default: default agent)")
+    .option("--max-results <n>", "Max results", (value: string) => Number(value))
+    .option("--min-score <n>", "Minimum score", (value: string) => Number(value))
+    .option("--depth <layer>", "Exact depth filter: l0 | l1 | l2")
+    .option("--max-depth <layer>", "Layer cap: l0 | l1 | l2")
+    .option("--include-expired", "Include expired P1/P2 memories", false)
+    .option("--json", "Print JSON")
+    .action(async (query: string, opts: MemorySearchOptions) => {
+      const cfg = loadConfig();
+      const agentId = resolveAgent(cfg, opts.agent);
+      const depth = parseLayerOption(opts.depth, "depth");
+      const maxDepth = parseLayerOption(opts.maxDepth, "maxDepth");
+      await withManager<MemoryManager>({
+        getManager: () => getMemorySearchManager({ cfg, agentId }),
+        onMissing: (error) => defaultRuntime.log(error ?? "Memory search disabled."),
+        onCloseError: (err) =>
+          defaultRuntime.error(`Memory manager close failed: ${formatErrorMessage(err)}`),
+        close: (manager) => manager.close(),
+        run: async (manager) => {
+          let results: Awaited<ReturnType<typeof manager.search>>;
+          try {
+            results = await manager.search(query, {
+              maxResults: opts.maxResults,
+              minScore: opts.minScore,
+              depth,
+              maxDepth,
+              includeExpired: opts.includeExpired,
+            });
+          } catch (err) {
+            const message = formatErrorMessage(err);
+            defaultRuntime.error(`Memory search failed: ${message}`);
+            process.exitCode = 1;
+            return;
+          }
+          if (opts.json) {
+            defaultRuntime.log(JSON.stringify({ results }, null, 2));
+            return;
+          }
+          if (results.length === 0) {
+            defaultRuntime.log("No matches.");
+            return;
+          }
+          const rich = isRich();
+          const lines: string[] = [];
+          for (const result of results) {
+            const layer = typeof result.layer === "string" ? result.layer.toUpperCase() : "NA";
+            const priority =
+              typeof result.priority === "string" ? result.priority.toUpperCase() : "NA";
+            const meta = `[${layer}|${priority}]`;
+            lines.push(
+              `${colorize(rich, theme.success, result.score.toFixed(3))} ${colorize(
+                rich,
+                theme.accent,
+                `${shortenHomePath(result.path)}:${result.startLine}-${result.endLine}`,
+              )} ${colorize(rich, theme.muted, meta)}`,
+            );
+            lines.push(colorize(rich, theme.muted, result.snippet));
+            lines.push("");
+          }
+          defaultRuntime.log(lines.join("\n").trim());
+        },
+      });
+    });
 }

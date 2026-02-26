@@ -46,6 +46,8 @@ export const DEFAULT_HEARTBEAT_FILENAME = "HEARTBEAT.md";
 export const DEFAULT_BOOTSTRAP_FILENAME = "BOOTSTRAP.md";
 export const DEFAULT_MEMORY_FILENAME = "MEMORY.md";
 export const DEFAULT_MEMORY_ALT_FILENAME = "memory.md";
+export const DEFAULT_SESSION_STATE_FILENAME = "SESSION-STATE.md";
+export const DEFAULT_MEMORY_ABSTRACT_PATH = "memory/.abstract";
 
 function stripFrontMatter(content: string): string {
   if (!content.startsWith("---")) {
@@ -82,8 +84,8 @@ export type WorkspaceBootstrapFileName =
   | typeof DEFAULT_USER_FILENAME
   | typeof DEFAULT_HEARTBEAT_FILENAME
   | typeof DEFAULT_BOOTSTRAP_FILENAME
-  | typeof DEFAULT_MEMORY_FILENAME
-  | typeof DEFAULT_MEMORY_ALT_FILENAME;
+  | typeof DEFAULT_SESSION_STATE_FILENAME
+  | typeof DEFAULT_MEMORY_ABSTRACT_PATH;
 
 export type WorkspaceBootstrapFile = {
   name: WorkspaceBootstrapFileName;
@@ -223,38 +225,27 @@ export async function ensureAgentWorkspace(params?: {
 async function resolveMemoryBootstrapEntries(
   resolvedDir: string,
 ): Promise<Array<{ name: WorkspaceBootstrapFileName; filePath: string }>> {
-  const candidates: WorkspaceBootstrapFileName[] = [
-    DEFAULT_MEMORY_FILENAME,
-    DEFAULT_MEMORY_ALT_FILENAME,
+  const candidates: Array<{ name: WorkspaceBootstrapFileName; filePath: string }> = [
+    {
+      name: DEFAULT_SESSION_STATE_FILENAME,
+      filePath: path.join(resolvedDir, DEFAULT_SESSION_STATE_FILENAME),
+    },
+    {
+      name: DEFAULT_MEMORY_ABSTRACT_PATH,
+      filePath: path.join(resolvedDir, "memory", ".abstract"),
+    },
   ];
   const entries: Array<{ name: WorkspaceBootstrapFileName; filePath: string }> = [];
-  for (const name of candidates) {
-    const filePath = path.join(resolvedDir, name);
+  for (const candidate of candidates) {
+    const filePath = candidate.filePath;
     try {
       await fs.access(filePath);
-      entries.push({ name, filePath });
+      entries.push({ name: candidate.name, filePath });
     } catch {
       // optional
     }
   }
-  if (entries.length <= 1) {
-    return entries;
-  }
-
-  const seen = new Set<string>();
-  const deduped: Array<{ name: WorkspaceBootstrapFileName; filePath: string }> = [];
-  for (const entry of entries) {
-    let key = entry.filePath;
-    try {
-      key = await fs.realpath(entry.filePath);
-    } catch {}
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    deduped.push(entry);
-  }
-  return deduped;
+  return entries;
 }
 
 export async function loadWorkspaceBootstrapFiles(dir: string): Promise<WorkspaceBootstrapFile[]> {

@@ -37,6 +37,9 @@ export type MemoryChunk = {
   hash: string;
 };
 
+const INDEXABLE_MEMORY_EXTENSIONS = new Set([".md", ".mdx", ".jsonl"]);
+const INDEXABLE_MEMORY_BASENAMES = new Set([".abstract"]);
+
 export function ensureDir(dir: string): string {
   try {
     fsSync.mkdirSync(dir, { recursive: true });
@@ -67,10 +70,23 @@ export function isMemoryPath(relPath: string): boolean {
   if (!normalized) {
     return false;
   }
-  if (normalized === "MEMORY.md" || normalized === "memory.md") {
+  if (
+    normalized === "MEMORY.md" ||
+    normalized === "memory.md" ||
+    normalized === "SESSION-STATE.md"
+  ) {
     return true;
   }
   return normalized.startsWith("memory/");
+}
+
+export function isIndexableMemoryFile(filePath: string): boolean {
+  const base = path.basename(filePath).toLowerCase();
+  if (INDEXABLE_MEMORY_BASENAMES.has(base)) {
+    return true;
+  }
+  const ext = path.extname(base);
+  return INDEXABLE_MEMORY_EXTENSIONS.has(ext);
 }
 
 async function walkDir(dir: string, files: string[]) {
@@ -87,7 +103,7 @@ async function walkDir(dir: string, files: string[]) {
     if (!entry.isFile()) {
       continue;
     }
-    if (!entry.name.endsWith(".md")) {
+    if (!isIndexableMemoryFile(entry.name)) {
       continue;
     }
     files.push(full);
@@ -101,23 +117,25 @@ export async function listMemoryFiles(
   const result: string[] = [];
   const memoryFile = path.join(workspaceDir, "MEMORY.md");
   const altMemoryFile = path.join(workspaceDir, "memory.md");
+  const sessionStateFile = path.join(workspaceDir, "SESSION-STATE.md");
   const memoryDir = path.join(workspaceDir, "memory");
 
-  const addMarkdownFile = async (absPath: string) => {
+  const addIndexableFile = async (absPath: string) => {
     try {
       const stat = await fs.lstat(absPath);
       if (stat.isSymbolicLink() || !stat.isFile()) {
         return;
       }
-      if (!absPath.endsWith(".md")) {
+      if (!isIndexableMemoryFile(absPath)) {
         return;
       }
       result.push(absPath);
     } catch {}
   };
 
-  await addMarkdownFile(memoryFile);
-  await addMarkdownFile(altMemoryFile);
+  await addIndexableFile(memoryFile);
+  await addIndexableFile(altMemoryFile);
+  await addIndexableFile(sessionStateFile);
   try {
     const dirStat = await fs.lstat(memoryDir);
     if (!dirStat.isSymbolicLink() && dirStat.isDirectory()) {
@@ -137,7 +155,7 @@ export async function listMemoryFiles(
           await walkDir(inputPath, result);
           continue;
         }
-        if (stat.isFile() && inputPath.endsWith(".md")) {
+        if (stat.isFile() && isIndexableMemoryFile(inputPath)) {
           result.push(inputPath);
         }
       } catch {}

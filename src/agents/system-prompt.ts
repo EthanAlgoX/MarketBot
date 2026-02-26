@@ -64,7 +64,7 @@ function buildMemorySection(params: { isMinimal: boolean; availableTools: Set<st
   }
   return [
     "## Memory Recall",
-    "Before answering anything about prior work, decisions, dates, people, preferences, or todos: run memory_search on MEMORY.md + memory/*.md; then use memory_get to pull only the needed lines. If low confidence after search, say you checked.",
+    "Before answering anything about prior work, decisions, dates, people, preferences, or todos: run memory_search in layers (depth=l0 for .abstract/SESSION-STATE first, then l1/l2 only when needed); use memory_get to pull only needed lines. If low confidence after search, say you checked.",
     "",
   ];
 }

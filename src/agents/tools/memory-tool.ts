@@ -21,8 +21,10 @@ import { Type } from "@sinclair/typebox";
 
 import type { MarketBotConfig } from "../../config/config.js";
 import { getMemorySearchManager } from "../../memory/index.js";
+import { normalizeMemoryLayer } from "../../memory/memory-meta.js";
 import { resolveSessionAgentId } from "../agent-scope.js";
 import { resolveMemorySearchConfig } from "../memory-search.js";
+import { optionalStringEnum } from "../schema/typebox.js";
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, readNumberParam, readStringParam } from "./common.js";
 
@@ -30,6 +32,9 @@ const MemorySearchSchema = Type.Object({
   query: Type.String(),
   maxResults: Type.Optional(Type.Number()),
   minScore: Type.Optional(Type.Number()),
+  depth: optionalStringEnum(["l0", "l1", "l2"] as const),
+  maxDepth: optionalStringEnum(["l0", "l1", "l2"] as const),
+  includeExpired: Type.Optional(Type.Boolean()),
 });
 
 const MemoryGetSchema = Type.Object({
@@ -57,12 +62,28 @@ export function createMemorySearchTool(options: {
     label: "Memory Search",
     name: "memory_search",
     description:
-      "Mandatory recall step: semantically search MEMORY.md + memory/*.md (and optional session transcripts) before answering questions about prior work, decisions, dates, people, preferences, or todos; returns top snippets with path + lines.",
+      "Mandatory recall step: search memory in layers (.abstract → summaries → raw logs). Use depth=l0 first, then expand to l1/l2 as needed. Returns top snippets with path + lines.",
     parameters: MemorySearchSchema,
     execute: async (_toolCallId, params) => {
       const query = readStringParam(params, "query", { required: true });
       const maxResults = readNumberParam(params, "maxResults");
       const minScore = readNumberParam(params, "minScore");
+      const rawDepth = readStringParam(params, "depth");
+      const rawMaxDepth = readStringParam(params, "maxDepth");
+      const depth = rawDepth ? normalizeMemoryLayer(rawDepth) : null;
+      const maxDepth = rawMaxDepth ? normalizeMemoryLayer(rawMaxDepth) : null;
+      if (rawDepth && !depth) {
+        return jsonResult({ results: [], disabled: true, error: "depth must be l0, l1, or l2" });
+      }
+      if (rawMaxDepth && !maxDepth) {
+        return jsonResult({
+          results: [],
+          disabled: true,
+          error: "maxDepth must be l0, l1, or l2",
+        });
+      }
+      const includeExpired =
+        typeof params.includeExpired === "boolean" ? params.includeExpired : undefined;
       const { manager, error } = await getMemorySearchManager({
         cfg,
         agentId,
@@ -75,6 +96,9 @@ export function createMemorySearchTool(options: {
           maxResults,
           minScore,
           sessionKey: options.agentSessionKey,
+          depth: depth ?? undefined,
+          maxDepth: maxDepth ?? undefined,
+          includeExpired,
         });
         const status = manager.status();
         return jsonResult({
@@ -110,7 +134,7 @@ export function createMemoryGetTool(options: {
     label: "Memory Get",
     name: "memory_get",
     description:
-      "Safe snippet read from MEMORY.md, memory/*.md, or configured memorySearch.extraPaths with optional from/lines; use after memory_search to pull only the needed lines and keep context small.",
+      "Safe snippet read from memory files (.md/.mdx/.jsonl/.abstract) or configured memorySearch.extraPaths with optional from/lines; use after memory_search to pull only needed lines.",
     parameters: MemoryGetSchema,
     execute: async (_toolCallId, params) => {
       const relPath = readStringParam(params, "path", { required: true });

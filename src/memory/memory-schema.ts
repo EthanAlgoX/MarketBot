@@ -35,6 +35,9 @@ export function ensureMemoryIndexSchema(params: {
     CREATE TABLE IF NOT EXISTS files (
       path TEXT PRIMARY KEY,
       source TEXT NOT NULL DEFAULT 'memory',
+      layer TEXT NOT NULL DEFAULT 'l2',
+      priority TEXT NOT NULL DEFAULT 'none',
+      expires_at INTEGER,
       hash TEXT NOT NULL,
       mtime INTEGER NOT NULL,
       size INTEGER NOT NULL
@@ -45,6 +48,9 @@ export function ensureMemoryIndexSchema(params: {
       id TEXT PRIMARY KEY,
       path TEXT NOT NULL,
       source TEXT NOT NULL DEFAULT 'memory',
+      layer TEXT NOT NULL DEFAULT 'l2',
+      priority TEXT NOT NULL DEFAULT 'none',
+      expires_at INTEGER,
       start_line INTEGER NOT NULL,
       end_line INTEGER NOT NULL,
       hash TEXT NOT NULL,
@@ -80,6 +86,9 @@ export function ensureMemoryIndexSchema(params: {
           `  id UNINDEXED,\n` +
           `  path UNINDEXED,\n` +
           `  source UNINDEXED,\n` +
+          `  layer UNINDEXED,\n` +
+          `  priority UNINDEXED,\n` +
+          `  expires_at UNINDEXED,\n` +
           `  model UNINDEXED,\n` +
           `  start_line UNINDEXED,\n` +
           `  end_line UNINDEXED\n` +
@@ -94,9 +103,19 @@ export function ensureMemoryIndexSchema(params: {
   }
 
   ensureColumn(params.db, "files", "source", "TEXT NOT NULL DEFAULT 'memory'");
+  ensureColumn(params.db, "files", "layer", "TEXT NOT NULL DEFAULT 'l2'");
+  ensureColumn(params.db, "files", "priority", "TEXT NOT NULL DEFAULT 'none'");
+  ensureColumn(params.db, "files", "expires_at", "INTEGER");
   ensureColumn(params.db, "chunks", "source", "TEXT NOT NULL DEFAULT 'memory'");
+  ensureColumn(params.db, "chunks", "layer", "TEXT NOT NULL DEFAULT 'l2'");
+  ensureColumn(params.db, "chunks", "priority", "TEXT NOT NULL DEFAULT 'none'");
+  ensureColumn(params.db, "chunks", "expires_at", "INTEGER");
   params.db.exec(`CREATE INDEX IF NOT EXISTS idx_chunks_path ON chunks(path);`);
   params.db.exec(`CREATE INDEX IF NOT EXISTS idx_chunks_source ON chunks(source);`);
+  params.db.exec(`CREATE INDEX IF NOT EXISTS idx_chunks_layer ON chunks(layer);`);
+  params.db.exec(`CREATE INDEX IF NOT EXISTS idx_chunks_priority ON chunks(priority);`);
+  params.db.exec(`CREATE INDEX IF NOT EXISTS idx_chunks_expires_at ON chunks(expires_at);`);
+  params.db.exec(`CREATE INDEX IF NOT EXISTS idx_files_expires_at ON files(expires_at);`);
 
   return { ftsAvailable, ...(ftsError ? { ftsError } : {}) };
 }

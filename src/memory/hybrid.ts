@@ -25,6 +25,9 @@ export type HybridVectorResult = {
   startLine: number;
   endLine: number;
   source: HybridSource;
+  layer: string;
+  priority: string;
+  expiresAt: number | null;
   snippet: string;
   vectorScore: number;
 };
@@ -35,6 +38,9 @@ export type HybridKeywordResult = {
   startLine: number;
   endLine: number;
   source: HybridSource;
+  layer: string;
+  priority: string;
+  expiresAt: number | null;
   snippet: string;
   textScore: number;
 };
@@ -78,6 +84,9 @@ export function mergeHybridResults(params: {
       startLine: number;
       endLine: number;
       source: HybridSource;
+      layer: string;
+      priority: string;
+      expiresAt: number | null;
       snippet: string;
       vectorScore: number;
       textScore: number;
@@ -91,6 +100,9 @@ export function mergeHybridResults(params: {
       startLine: r.startLine,
       endLine: r.endLine,
       source: r.source,
+      layer: r.layer,
+      priority: r.priority,
+      expiresAt: r.expiresAt,
       snippet: r.snippet,
       vectorScore: r.vectorScore,
       textScore: 0,
@@ -104,6 +116,15 @@ export function mergeHybridResults(params: {
       if (r.snippet && r.snippet.length > 0) {
         existing.snippet = r.snippet;
       }
+      if (r.layer) {
+        existing.layer = r.layer;
+      }
+      if (r.priority) {
+        existing.priority = r.priority;
+      }
+      if (r.expiresAt !== undefined) {
+        existing.expiresAt = r.expiresAt;
+      }
     } else {
       byId.set(r.id, {
         id: r.id,
@@ -111,6 +132,9 @@ export function mergeHybridResults(params: {
         startLine: r.startLine,
         endLine: r.endLine,
         source: r.source,
+        layer: r.layer,
+        priority: r.priority,
+        expiresAt: r.expiresAt,
         snippet: r.snippet,
         vectorScore: 0,
         textScore: r.textScore,
@@ -127,6 +151,9 @@ export function mergeHybridResults(params: {
       score,
       snippet: entry.snippet,
       source: entry.source,
+      layer: entry.layer,
+      priority: entry.priority,
+      expiresAt: entry.expiresAt,
     };
   });
 
