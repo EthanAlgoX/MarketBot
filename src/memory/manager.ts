@@ -53,6 +53,7 @@ import {
   chunkMarkdown,
   ensureDir,
   hashText,
+  isIndexableMemoryFile,
   isMemoryPath,
   listMemoryFiles,
   normalizeExtraMemoryPaths,
@@ -60,6 +61,16 @@ import {
   type MemoryFileEntry,
   parseEmbedding,
 } from "./internal.js";
+import { rebuildMemoryAbstracts } from "./abstract.js";
+import {
+  type MemoryLayer,
+  type MemoryPriority,
+  resolveLayerSelection,
+  resolveMemoryLayer,
+  resolveMemoryPriority,
+  resolvePriorityExpiryMs,
+} from "./memory-meta.js";
+import { refreshSessionState } from "./session-state.js";
 import { bm25RankToScore, buildFtsQuery, mergeHybridResults } from "./hybrid.js";
 import { searchKeyword, searchVector } from "./manager-search.js";
 import { ensureMemoryIndexSchema } from "./memory-schema.js";
@@ -75,9 +86,13 @@ export type MemorySearchResult = {
   score: number;
   snippet: string;
   source: MemorySource;
+  layer: MemoryLayer;
+  priority: MemoryPriority;
+  expiresAt: number | null;
 };
 
 type MemoryIndexMeta = {
+  schemaVersion: number;
   model: string;
   provider: string;
   providerKey?: string;
@@ -109,6 +124,7 @@ type MemorySyncProgressState = {
 };
 
 const META_KEY = "memory_index_meta_v1";
+const MEMORY_INDEX_SCHEMA_VERSION = 2;
 const SNIPPET_MAX_CHARS = 700;
 const VECTOR_TABLE = "chunks_vec";
 const FTS_TABLE = "chunks_fts";
@@ -127,6 +143,24 @@ const EMBEDDING_QUERY_TIMEOUT_REMOTE_MS = 60_000;
 const EMBEDDING_QUERY_TIMEOUT_LOCAL_MS = 5 * 60_000;
 const EMBEDDING_BATCH_TIMEOUT_REMOTE_MS = 2 * 60_000;
 const EMBEDDING_BATCH_TIMEOUT_LOCAL_MS = 10 * 60_000;
+const DEFAULT_P1_TTL_DAYS = 90;
+const DEFAULT_P2_TTL_DAYS = 30;
+const AUTO_MEMORY_MAINTENANCE_MIN_INTERVAL_MS = 5 * 60 * 1000;
+const AUTO_ABSTRACT_CHANGED_FILES_THRESHOLD = 4;
+const AUTO_ABSTRACT_L2_BYTES_THRESHOLD = 12_000;
+const AUTO_SESSION_STATE_CHANGED_FILES_THRESHOLD = 2;
+const AUTO_SESSION_STATE_L2_BYTES_THRESHOLD = 8_000;
+const LAYER_SCORE_BOOST: Record<MemoryLayer, number> = {
+  l0: 0.12,
+  l1: 0.06,
+  l2: 0,
+};
+const PRIORITY_SCORE_BOOST: Record<MemoryPriority, number> = {
+  p0: 0.08,
+  p1: 0.04,
+  p2: 0,
+  none: 0,
+};
 
 const log = createSubsystemLogger("memory");
 
@@ -189,6 +223,8 @@ export class MemoryIndexManager {
     string,
     { lastSize: number; pendingBytes: number; pendingMessages: number }
   >();
+  private lastAutoAbstractRunAt = 0;
+  private lastAutoSessionStateRunAt = 0;
   private sessionWarm = new Set<string>();
   private syncing: Promise<void> | null = null;
 
@@ -294,6 +330,9 @@ export class MemoryIndexManager {
       maxResults?: number;
       minScore?: number;
       sessionKey?: string;
+      depth?: MemoryLayer;
+      maxDepth?: MemoryLayer;
+      includeExpired?: boolean;
     },
   ): Promise<MemorySearchResult[]> {
     void this.warmSession(opts?.sessionKey);
@@ -309,23 +348,44 @@ export class MemoryIndexManager {
     const minScore = opts?.minScore ?? this.settings.query.minScore;
     const maxResults = opts?.maxResults ?? this.settings.query.maxResults;
     const hybrid = this.settings.query.hybrid;
+    const layers = resolveLayerSelection({
+      depth: opts?.depth,
+      maxDepth: opts?.maxDepth,
+    });
+    const includeExpired = Boolean(opts?.includeExpired);
+    const nowMs = Date.now();
     const candidates = Math.min(
-      200,
+      1000,
       Math.max(1, Math.floor(maxResults * hybrid.candidateMultiplier)),
     );
 
     const keywordResults = hybrid.enabled
-      ? await this.searchKeyword(cleaned, candidates).catch(() => [])
+      ? await this.searchKeyword(cleaned, candidates, layers, includeExpired, nowMs).catch(
+          (err) => {
+            log.warn(`memory keyword search failed: ${String(err)}`);
+            return [];
+          },
+        )
       : [];
 
     const queryVec = await this.embedQueryWithTimeout(cleaned);
     const hasVector = queryVec.some((v) => v !== 0);
     const vectorResults = hasVector
-      ? await this.searchVector(queryVec, candidates).catch(() => [])
+      ? await this.searchVector(queryVec, candidates, layers, includeExpired, nowMs).catch(
+          (err) => {
+            log.warn(`memory vector search failed: ${String(err)}`);
+            return [];
+          },
+        )
       : [];
 
     if (!hybrid.enabled) {
-      return vectorResults.filter((entry) => entry.score >= minScore).slice(0, maxResults);
+      const ranked = vectorResults
+        .map((entry) => this.applyResultScoreBoost(entry))
+        .toSorted((a, b) => b.score - a.score);
+      return this.dedupeByPath(ranked)
+        .filter((entry) => entry.score >= minScore)
+        .slice(0, maxResults);
     }
 
     const merged = this.mergeHybridResults({
@@ -335,12 +395,20 @@ export class MemoryIndexManager {
       textWeight: hybrid.textWeight,
     });
 
-    return merged.filter((entry) => entry.score >= minScore).slice(0, maxResults);
+    const ranked = merged
+      .map((entry) => this.applyResultScoreBoost(entry))
+      .toSorted((a, b) => b.score - a.score);
+    return this.dedupeByPath(ranked)
+      .filter((entry) => entry.score >= minScore)
+      .slice(0, maxResults);
   }
 
   private async searchVector(
     queryVec: number[],
     limit: number,
+    layers: MemoryLayer[],
+    includeExpired: boolean,
+    nowMs: number,
   ): Promise<Array<MemorySearchResult & { id: string }>> {
     const results = await searchVector({
       db: this.db,
@@ -352,6 +420,9 @@ export class MemoryIndexManager {
       ensureVectorReady: async (dimensions) => await this.ensureVectorReady(dimensions),
       sourceFilterVec: this.buildSourceFilter("c"),
       sourceFilterChunks: this.buildSourceFilter(),
+      layerFilter: this.buildLayerFilter(layers, "c"),
+      includeExpired,
+      nowMs,
     });
     return results.map((entry) => entry as MemorySearchResult & { id: string });
   }
@@ -363,6 +434,9 @@ export class MemoryIndexManager {
   private async searchKeyword(
     query: string,
     limit: number,
+    layers: MemoryLayer[],
+    includeExpired: boolean,
+    nowMs: number,
   ): Promise<Array<MemorySearchResult & { id: string; textScore: number }>> {
     if (!this.fts.enabled || !this.fts.available) {
       return [];
@@ -376,6 +450,9 @@ export class MemoryIndexManager {
       limit,
       snippetMaxChars: SNIPPET_MAX_CHARS,
       sourceFilter,
+      layerFilter: this.buildLayerFilter(layers),
+      includeExpired,
+      nowMs,
       buildFtsQuery: (raw) => this.buildFtsQuery(raw),
       bm25RankToScore,
     });
@@ -395,6 +472,9 @@ export class MemoryIndexManager {
         startLine: r.startLine,
         endLine: r.endLine,
         source: r.source,
+        layer: r.layer,
+        priority: r.priority,
+        expiresAt: r.expiresAt,
         snippet: r.snippet,
         vectorScore: r.score,
       })),
@@ -404,6 +484,9 @@ export class MemoryIndexManager {
         startLine: r.startLine,
         endLine: r.endLine,
         source: r.source,
+        layer: r.layer,
+        priority: r.priority,
+        expiresAt: r.expiresAt,
         snippet: r.snippet,
         textScore: r.textScore,
       })),
@@ -411,6 +494,25 @@ export class MemoryIndexManager {
       textWeight: params.textWeight,
     });
     return merged.map((entry) => entry as MemorySearchResult);
+  }
+
+  private applyResultScoreBoost(entry: MemorySearchResult): MemorySearchResult {
+    const layerBoost = LAYER_SCORE_BOOST[entry.layer] ?? 0;
+    const priorityBoost = PRIORITY_SCORE_BOOST[entry.priority] ?? 0;
+    return {
+      ...entry,
+      score: Math.min(1, entry.score + layerBoost + priorityBoost),
+    };
+  }
+
+  private dedupeByPath(results: MemorySearchResult[]): MemorySearchResult[] {
+    const byPath = new Map<string, MemorySearchResult>();
+    for (const result of results) {
+      if (!byPath.has(result.path)) {
+        byPath.set(result.path, result);
+      }
+    }
+    return Array.from(byPath.values());
   }
 
   async sync(params?: {
@@ -463,7 +565,7 @@ export class MemoryIndexManager {
             continue;
           }
           if (stat.isFile()) {
-            if (absPath === additionalPath && absPath.endsWith(".md")) {
+            if (absPath === additionalPath && isIndexableMemoryFile(absPath)) {
               allowedAdditional = true;
               break;
             }
@@ -474,7 +576,7 @@ export class MemoryIndexManager {
     if (!allowedWorkspace && !allowedAdditional) {
       throw new Error("path required");
     }
-    if (!absPath.endsWith(".md")) {
+    if (!isIndexableMemoryFile(absPath)) {
       throw new Error("path required");
     }
     const stat = await fs.lstat(absPath);
@@ -504,6 +606,7 @@ export class MemoryIndexManager {
     sources: MemorySource[];
     extraPaths: string[];
     sourceCounts: Array<{ source: MemorySource; files: number; chunks: number }>;
+    layerCounts: Array<{ layer: MemoryLayer; chunks: number }>;
     cache?: { enabled: boolean; entries?: number; maxEntries?: number };
     fts?: { enabled: boolean; available: boolean; error?: string };
     fallback?: { from: string; reason?: string };
@@ -568,6 +671,16 @@ export class MemoryIndexManager {
       }
       return sources.map((source) => Object.assign({ source }, bySource.get(source)!));
     })();
+    const layerCounts = (() => {
+      const rows = this.db
+        .prepare(
+          `SELECT layer, COUNT(*) as c FROM chunks WHERE 1=1${sourceFilter.sql} GROUP BY layer`,
+        )
+        .all(...sourceFilter.params) as Array<{ layer: MemoryLayer; c: number }>;
+      return rows
+        .map((row) => ({ layer: row.layer, chunks: row.c ?? 0 }))
+        .toSorted((a, b) => a.layer.localeCompare(b.layer));
+    })();
     return {
       files: files?.c ?? 0,
       chunks: chunks?.c ?? 0,
@@ -580,6 +693,7 @@ export class MemoryIndexManager {
       sources: Array.from(this.sources),
       extraPaths: this.settings.extraPaths,
       sourceCounts,
+      layerCounts,
       cache: this.cache.enabled
         ? {
             enabled: true,
@@ -758,6 +872,18 @@ export class MemoryIndexManager {
     return { sql: ` AND ${column} IN (${placeholders})`, params: sources };
   }
 
+  private buildLayerFilter(
+    layers: MemoryLayer[],
+    alias?: string,
+  ): { sql: string; params: MemoryLayer[] } {
+    if (!layers.length) {
+      return { sql: "", params: [] };
+    }
+    const column = alias ? `${alias}.layer` : "layer";
+    const placeholders = layers.map(() => "?").join(", ");
+    return { sql: ` AND ${column} IN (${placeholders})`, params: layers };
+  }
+
   private openDatabase(): DatabaseSync {
     const dbPath = resolveUserPath(this.settings.store.path);
     return this.openDatabaseAtPath(dbPath);
@@ -883,6 +1009,7 @@ export class MemoryIndexManager {
     const watchPaths = new Set<string>([
       path.join(this.workspaceDir, "MEMORY.md"),
       path.join(this.workspaceDir, "memory.md"),
+      path.join(this.workspaceDir, "SESSION-STATE.md"),
       path.join(this.workspaceDir, "memory"),
       ...additionalPaths,
     ]);
@@ -1139,6 +1266,7 @@ export class MemoryIndexManager {
       concurrency: this.getIndexConcurrency(),
     });
     const activePaths = new Set(fileEntries.map((entry) => entry.path));
+    const changedEntries: MemoryFileEntry[] = [];
     if (params.progress) {
       params.progress.total += fileEntries.length;
       params.progress.report({
@@ -1163,6 +1291,7 @@ export class MemoryIndexManager {
         return;
       }
       await this.indexFile(entry, { source: "memory" });
+      changedEntries.push(entry);
       if (params.progress) {
         params.progress.completed += 1;
         params.progress.report({
@@ -1176,10 +1305,12 @@ export class MemoryIndexManager {
     const staleRows = this.db
       .prepare(`SELECT path FROM files WHERE source = ?`)
       .all("memory") as Array<{ path: string }>;
+    let removedCount = 0;
     for (const stale of staleRows) {
       if (activePaths.has(stale.path)) {
         continue;
       }
+      removedCount += 1;
       this.db.prepare(`DELETE FROM files WHERE path = ? AND source = ?`).run(stale.path, "memory");
       try {
         this.db
@@ -1195,6 +1326,107 @@ export class MemoryIndexManager {
             .prepare(`DELETE FROM ${FTS_TABLE} WHERE path = ? AND source = ? AND model = ?`)
             .run(stale.path, "memory", this.provider.model);
         } catch {}
+      }
+    }
+    await this.runAutoMemoryMaintenance({
+      needsFullReindex: params.needsFullReindex,
+      changedEntries,
+      removedCount,
+    });
+  }
+
+  private resolveL2ChangedBytes(entries: MemoryFileEntry[]): number {
+    let total = 0;
+    for (const entry of entries) {
+      const layer = resolveMemoryLayer({
+        source: "memory",
+        relPath: entry.path,
+      });
+      if (layer === "l2") {
+        total += Math.max(0, entry.size);
+      }
+    }
+    return total;
+  }
+
+  private async indexMemoryPathIfPresent(absPath: string): Promise<void> {
+    try {
+      const stat = await fs.lstat(absPath);
+      if (!stat.isFile() || stat.isSymbolicLink() || !isIndexableMemoryFile(absPath)) {
+        return;
+      }
+      const entry = await buildFileEntry(absPath, this.workspaceDir);
+      await this.indexFile(entry, { source: "memory" });
+    } catch (err) {
+      log.debug(`memory maintenance skipped unreadable path: ${absPath}`, { error: String(err) });
+    }
+  }
+
+  private async runAutoMemoryMaintenance(params: {
+    needsFullReindex: boolean;
+    changedEntries: MemoryFileEntry[];
+    removedCount: number;
+  }): Promise<void> {
+    if (!this.sources.has("memory")) {
+      return;
+    }
+    const changedCount = params.changedEntries.length;
+    if (!params.needsFullReindex && changedCount === 0 && params.removedCount === 0) {
+      return;
+    }
+    const changedL2Bytes = this.resolveL2ChangedBytes(params.changedEntries);
+    const nowMs = Date.now();
+
+    const shouldRefreshAbstract =
+      params.needsFullReindex ||
+      params.removedCount > 0 ||
+      changedCount >= AUTO_ABSTRACT_CHANGED_FILES_THRESHOLD ||
+      changedL2Bytes >= AUTO_ABSTRACT_L2_BYTES_THRESHOLD;
+    const abstractCooldownPassed =
+      nowMs - this.lastAutoAbstractRunAt >= AUTO_MEMORY_MAINTENANCE_MIN_INTERVAL_MS;
+
+    if (shouldRefreshAbstract && abstractCooldownPassed) {
+      try {
+        const result = await rebuildMemoryAbstracts({
+          workspaceDir: this.workspaceDir,
+          includeArchive: false,
+        });
+        this.lastAutoAbstractRunAt = nowMs;
+        if (result.written.length > 0) {
+          for (const absPath of result.written) {
+            await this.indexMemoryPathIfPresent(absPath);
+          }
+          log.debug("memory maintenance: rebuilt .abstract indexes", {
+            scannedDirs: result.scannedDirs,
+            updated: result.written.length,
+          });
+        }
+      } catch (err) {
+        log.warn(`memory maintenance: abstract rebuild failed: ${String(err)}`);
+      }
+    }
+
+    const shouldRefreshSessionState =
+      params.needsFullReindex ||
+      params.removedCount > 0 ||
+      changedCount >= AUTO_SESSION_STATE_CHANGED_FILES_THRESHOLD ||
+      changedL2Bytes >= AUTO_SESSION_STATE_L2_BYTES_THRESHOLD;
+    const sessionStateCooldownPassed =
+      nowMs - this.lastAutoSessionStateRunAt >= AUTO_MEMORY_MAINTENANCE_MIN_INTERVAL_MS;
+    if (shouldRefreshSessionState && sessionStateCooldownPassed) {
+      try {
+        const result = await refreshSessionState({
+          workspaceDir: this.workspaceDir,
+        });
+        this.lastAutoSessionStateRunAt = nowMs;
+        if (result.written) {
+          await this.indexMemoryPathIfPresent(result.outputPath);
+          log.debug("memory maintenance: refreshed SESSION-STATE.md", {
+            sources: result.sourceFiles.length,
+          });
+        }
+      } catch (err) {
+        log.warn(`memory maintenance: session-state refresh failed: ${String(err)}`);
       }
     }
   }
@@ -1343,6 +1575,7 @@ export class MemoryIndexManager {
     const needsFullReindex =
       params?.force ||
       !meta ||
+      meta.schemaVersion !== MEMORY_INDEX_SCHEMA_VERSION ||
       meta.model !== this.provider.model ||
       meta.provider !== this.provider.id ||
       meta.providerKey !== this.providerKey ||
@@ -1526,6 +1759,7 @@ export class MemoryIndexManager {
       }
 
       nextMeta = {
+        schemaVersion: MEMORY_INDEX_SCHEMA_VERSION,
         model: this.provider.model,
         provider: this.provider.id,
         providerKey: this.providerKey,
@@ -2321,6 +2555,23 @@ export class MemoryIndexManager {
     options: { source: MemorySource; content?: string },
   ) {
     const content = options.content ?? (await fs.readFile(entry.absPath, "utf-8"));
+    const layer = resolveMemoryLayer({
+      source: options.source,
+      relPath: entry.path,
+      content,
+    });
+    const priority = resolveMemoryPriority({
+      source: options.source,
+      relPath: entry.path,
+      layer,
+      content,
+    });
+    const expiresAt = resolvePriorityExpiryMs({
+      priority,
+      referenceMs: entry.mtimeMs,
+      p1Days: DEFAULT_P1_TTL_DAYS,
+      p2Days: DEFAULT_P2_TTL_DAYS,
+    });
     const chunks = chunkMarkdown(content, this.settings.chunking).filter(
       (chunk) => chunk.text.trim().length > 0,
     );
@@ -2357,9 +2608,15 @@ export class MemoryIndexManager {
       );
       this.db
         .prepare(
-          `INSERT INTO chunks (id, path, source, start_line, end_line, hash, model, text, embedding, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO chunks (
+             id, path, source, layer, priority, expires_at,
+             start_line, end_line, hash, model, text, embedding, updated_at
+           )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
+             layer=excluded.layer,
+             priority=excluded.priority,
+             expires_at=excluded.expires_at,
              hash=excluded.hash,
              model=excluded.model,
              text=excluded.text,
@@ -2370,6 +2627,9 @@ export class MemoryIndexManager {
           id,
           entry.path,
           options.source,
+          layer,
+          priority,
+          expiresAt,
           chunk.startLine,
           chunk.endLine,
           chunk.hash,
@@ -2389,14 +2649,17 @@ export class MemoryIndexManager {
       if (this.fts.enabled && this.fts.available) {
         this.db
           .prepare(
-            `INSERT INTO ${FTS_TABLE} (text, id, path, source, model, start_line, end_line)\n` +
-              ` VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO ${FTS_TABLE} (text, id, path, source, layer, priority, expires_at, model, start_line, end_line)\n` +
+              ` VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             chunk.text,
             id,
             entry.path,
             options.source,
+            layer,
+            priority,
+            expiresAt,
             this.provider.model,
             chunk.startLine,
             chunk.endLine,
@@ -2405,13 +2668,25 @@ export class MemoryIndexManager {
     }
     this.db
       .prepare(
-        `INSERT INTO files (path, source, hash, mtime, size) VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO files (path, source, layer, priority, expires_at, hash, mtime, size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(path) DO UPDATE SET
            source=excluded.source,
+           layer=excluded.layer,
+           priority=excluded.priority,
+           expires_at=excluded.expires_at,
            hash=excluded.hash,
            mtime=excluded.mtime,
            size=excluded.size`,
       )
-      .run(entry.path, options.source, entry.hash, entry.mtimeMs, entry.size);
+      .run(
+        entry.path,
+        options.source,
+        layer,
+        priority,
+        expiresAt,
+        entry.hash,
+        entry.mtimeMs,
+        entry.size,
+      );
   }
 }

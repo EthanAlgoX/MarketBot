@@ -434,6 +434,37 @@ describe("memory index", () => {
     expect(status.vector?.available).toBe(available);
   });
 
+  it("auto-maintains l0 indexes and session buffer during sync", async () => {
+    const cfg = {
+      agents: {
+        defaults: {
+          workspace: workspaceDir,
+          memorySearch: {
+            provider: "openai",
+            model: "mock-embed",
+            store: { path: indexPath, vector: { enabled: false } },
+            sync: { watch: false, onSessionStart: false, onSearch: false },
+            query: { minScore: 0 },
+          },
+        },
+        list: [{ id: "main", default: true }],
+      },
+    };
+    const result = await getMemorySearchManager({ cfg, agentId: "main" });
+    expect(result.manager).not.toBeNull();
+    if (!result.manager) {
+      throw new Error("manager missing");
+    }
+    manager = result.manager;
+
+    await manager.sync({ force: true });
+
+    await expect(
+      fs.access(path.join(workspaceDir, "memory", ".abstract")),
+    ).resolves.toBeUndefined();
+    await expect(fs.access(path.join(workspaceDir, "SESSION-STATE.md"))).resolves.toBeUndefined();
+  });
+
   it("rejects reading non-memory paths", async () => {
     const cfg = {
       agents: {
