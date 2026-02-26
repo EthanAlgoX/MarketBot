@@ -465,6 +465,42 @@ describe("memory index", () => {
     await expect(fs.access(path.join(workspaceDir, "SESSION-STATE.md"))).resolves.toBeUndefined();
   });
 
+  it("auto-runs janitor and archives expired p2 files during sync", async () => {
+    const cfg = {
+      agents: {
+        defaults: {
+          workspace: workspaceDir,
+          memorySearch: {
+            provider: "openai",
+            model: "mock-embed",
+            store: { path: indexPath, vector: { enabled: false } },
+            sync: { watch: false, onSessionStart: false, onSearch: false },
+            query: { minScore: 0 },
+          },
+        },
+        list: [{ id: "main", default: true }],
+      },
+    };
+    const oldPath = path.join(workspaceDir, "memory", "2025-01-01.md");
+    await fs.writeFile(oldPath, "# Old log\nThis should be archived.");
+    const staleDate = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000);
+    await fs.utimes(oldPath, staleDate, staleDate);
+
+    const result = await getMemorySearchManager({ cfg, agentId: "main" });
+    expect(result.manager).not.toBeNull();
+    if (!result.manager) {
+      throw new Error("manager missing");
+    }
+    manager = result.manager;
+
+    await manager.sync({ force: true });
+
+    await expect(
+      fs.access(path.join(workspaceDir, "memory", "archive", "2025-01-01.md")),
+    ).resolves.toBeUndefined();
+    await expect(fs.access(oldPath)).rejects.toThrow();
+  });
+
   it("rejects reading non-memory paths", async () => {
     const cfg = {
       agents: {

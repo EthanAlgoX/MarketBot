@@ -72,6 +72,7 @@ import {
 } from "./memory-meta.js";
 import { refreshSessionState } from "./session-state.js";
 import { bm25RankToScore, buildFtsQuery, mergeHybridResults } from "./hybrid.js";
+import { runMemoryJanitor } from "./janitor.js";
 import { searchKeyword, searchVector } from "./manager-search.js";
 import { ensureMemoryIndexSchema } from "./memory-schema.js";
 import { requireNodeSqlite } from "./sqlite.js";
@@ -150,6 +151,7 @@ const AUTO_ABSTRACT_CHANGED_FILES_THRESHOLD = 4;
 const AUTO_ABSTRACT_L2_BYTES_THRESHOLD = 12_000;
 const AUTO_SESSION_STATE_CHANGED_FILES_THRESHOLD = 2;
 const AUTO_SESSION_STATE_L2_BYTES_THRESHOLD = 8_000;
+const AUTO_JANITOR_MIN_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const LAYER_SCORE_BOOST: Record<MemoryLayer, number> = {
   l0: 0.12,
   l1: 0.06,
@@ -225,6 +227,7 @@ export class MemoryIndexManager {
   >();
   private lastAutoAbstractRunAt = 0;
   private lastAutoSessionStateRunAt = 0;
+  private lastAutoJanitorRunAt = 0;
   private sessionWarm = new Set<string>();
   private syncing: Promise<void> | null = null;
 
@@ -1362,6 +1365,25 @@ export class MemoryIndexManager {
     }
   }
 
+  private deleteIndexedPath(pathInIndex: string, source: MemorySource): void {
+    this.db.prepare(`DELETE FROM files WHERE path = ? AND source = ?`).run(pathInIndex, source);
+    try {
+      this.db
+        .prepare(
+          `DELETE FROM ${VECTOR_TABLE} WHERE id IN (SELECT id FROM chunks WHERE path = ? AND source = ?)`,
+        )
+        .run(pathInIndex, source);
+    } catch {}
+    this.db.prepare(`DELETE FROM chunks WHERE path = ? AND source = ?`).run(pathInIndex, source);
+    if (this.fts.enabled && this.fts.available) {
+      try {
+        this.db
+          .prepare(`DELETE FROM ${FTS_TABLE} WHERE path = ? AND source = ? AND model = ?`)
+          .run(pathInIndex, source, this.provider.model);
+      } catch {}
+    }
+  }
+
   private async runAutoMemoryMaintenance(params: {
     needsFullReindex: boolean;
     changedEntries: MemoryFileEntry[];
@@ -1376,10 +1398,43 @@ export class MemoryIndexManager {
     }
     const changedL2Bytes = this.resolveL2ChangedBytes(params.changedEntries);
     const nowMs = Date.now();
+    let janitorMoved = 0;
+
+    const janitorCooldownPassed = nowMs - this.lastAutoJanitorRunAt >= AUTO_JANITOR_MIN_INTERVAL_MS;
+    const shouldRunJanitor =
+      janitorCooldownPassed &&
+      (params.needsFullReindex || params.removedCount > 0 || changedCount > 0);
+    if (shouldRunJanitor) {
+      try {
+        const janitor = await runMemoryJanitor({
+          workspaceDir: this.workspaceDir,
+          p1Days: DEFAULT_P1_TTL_DAYS,
+          p2Days: DEFAULT_P2_TTL_DAYS,
+          dryRun: false,
+          nowMs,
+        });
+        this.lastAutoJanitorRunAt = nowMs;
+        janitorMoved = janitor.moved.length;
+        if (janitorMoved > 0) {
+          for (const move of janitor.moved) {
+            const fromRel = path.relative(this.workspaceDir, move.from).replace(/\\/g, "/");
+            this.deleteIndexedPath(fromRel, "memory");
+            await this.indexMemoryPathIfPresent(move.to);
+          }
+          log.debug("memory maintenance: janitor archived expired files", {
+            moved: janitorMoved,
+            scanned: janitor.scanned,
+          });
+        }
+      } catch (err) {
+        log.warn(`memory maintenance: janitor failed: ${String(err)}`);
+      }
+    }
 
     const shouldRefreshAbstract =
       params.needsFullReindex ||
       params.removedCount > 0 ||
+      janitorMoved > 0 ||
       changedCount >= AUTO_ABSTRACT_CHANGED_FILES_THRESHOLD ||
       changedL2Bytes >= AUTO_ABSTRACT_L2_BYTES_THRESHOLD;
     const abstractCooldownPassed =
@@ -1409,6 +1464,7 @@ export class MemoryIndexManager {
     const shouldRefreshSessionState =
       params.needsFullReindex ||
       params.removedCount > 0 ||
+      janitorMoved > 0 ||
       changedCount >= AUTO_SESSION_STATE_CHANGED_FILES_THRESHOLD ||
       changedL2Bytes >= AUTO_SESSION_STATE_L2_BYTES_THRESHOLD;
     const sessionStateCooldownPassed =
