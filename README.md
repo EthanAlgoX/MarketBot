@@ -26,6 +26,7 @@ A single command for the entire stock analysis workflow -- turns "download data,
 - **Daily Stocks**: watchlist-driven, repeatable daily analysis with decision dashboards and report output
 - **Flow Radar**: global liquidity dashboard for US/HK/A-shares, metals, and crypto with 7-day drill-down
 - **Research Chat**: browse, capture sources, and write memo-like summaries (finance tone)
+- **Layered memory**: file-system style memory with L0/L1/L2 retrieval and P0/P1/P2 lifecycle controls
 - **Desktop App**: standalone Electron app with native sidebar, embedded Control UI, and auto-managed gateway
 - **Portfolio analytics**: risk, correlation, optimization, and comparisons
 - **File analysis**: summarize local CSV/JSON/PDF and generate finance-style notes
@@ -53,6 +54,33 @@ Key design choices:
 - **Report outputs**: primary outputs are markdown reports intended to read like research notes.
 - **Separation of concerns**: finance calculations are deterministic; agent writing and summarization is layered on top.
 - **Delivery is explicit**: connect a channel, verify status, then send or schedule.
+
+## Memory Architecture (P x L)
+
+MarketBot memory treats workspace files as a file system instead of a single long document:
+
+- **L axis (Layering)**: read memory progressively (`L0 -> L1 -> L2`) so retrieval is scoped and token-efficient.
+- **P axis (Persistence)**: tag memory by lifecycle (`P0/P1/P2`) and archive expired entries automatically.
+
+Default layout:
+
+- `memory/.abstract` (L0): directory index and cross-reference entry point.
+- `SESSION-STATE.md` (L0): active working buffer refreshed during maintenance and pre-compaction flush.
+- `MEMORY.md`, `memory/insights/*`, `memory/lessons/*` (L1): durable curated memory.
+- `memory/YYYY-MM-DD.md` (L2): daily raw logs.
+
+Operational commands:
+
+- `marketbot memory status --deep --index`
+- `marketbot memory search "query" --depth l0 --max-depth l1`
+- `marketbot memory abstract`
+- `marketbot memory janitor --dry-run`
+- `marketbot memory session-state`
+
+Docs:
+
+- https://docs.marketbot.ai/concepts/memory
+- https://docs.marketbot.ai/cli/memory
 
 ## MarketBot Desktop
 
