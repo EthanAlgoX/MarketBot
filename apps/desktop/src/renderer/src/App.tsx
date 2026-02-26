@@ -82,6 +82,28 @@ interface NavBadge {
   tone: NavBadgeTone;
 }
 
+type CommandActionId = 'restartGateway' | 'toggleLanguage' | 'toggleSidebar';
+
+type CommandEntry =
+  | {
+      key: string;
+      kind: 'tab';
+      tabId: TabId;
+      label: string;
+      group: string;
+      icon: string;
+      score: number;
+    }
+  | {
+      key: string;
+      kind: 'action';
+      actionId: CommandActionId;
+      label: string;
+      group: string;
+      icon: string;
+      score: number;
+    };
+
 interface SidebarMetrics {
   runsTotal: number;
   runsActive: number;
@@ -181,22 +203,67 @@ const TABS: Record<TabId, NavTab> = {
   },
 };
 
+const COMMAND_ACTION_ICONS: Record<CommandActionId, string> = {
+  restartGateway:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a7 7 0 0113.36-2.83M17 10a7 7 0 01-13.36 2.83"/><path d="M16.5 3v4.5H12M3.5 17v-4.5H8"/></svg>',
+  toggleLanguage:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2 2 3 4.9 3 7.5s-1 5.5-3 7.5M10 2.5c-2 2-3 4.9-3 7.5s1 5.5 3 7.5"/></svg>',
+  toggleSidebar:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="15" height="14" rx="2"/><path d="M8 3v14M11.5 6.5l2.5 3.5-2.5 3.5"/></svg>',
+};
+
 const NAV_GROUPS: NavGroup[] = [
-  { id: 'chat', tabs: [TABS.chat] },
-  { id: 'workspace', tabs: [TABS.desk, TABS.marketData, TABS.flowRadar, TABS.stocks, TABS.runs] },
+  { id: 'chat', tabs: [TABS.chat, TABS.desk] },
+  { id: 'workspace', tabs: [TABS.marketData, TABS.flowRadar, TABS.stocks] },
   {
     id: 'ops',
-    tabs: [TABS.channels, TABS.sessions, TABS.cron, TABS.logs],
+    tabs: [TABS.runs, TABS.channels, TABS.sessions, TABS.cron, TABS.logs],
   },
   {
     id: 'system',
-    tabs: [TABS.overview, TABS.config, TABS.models],
+    tabs: [TABS.overview, TABS.models, TABS.config],
   },
+];
+
+const TAB_GROUP_BY_ID: Record<TabId, NavGroup['id']> = {
+  chat: 'chat',
+  desk: 'chat',
+  marketData: 'workspace',
+  flowRadar: 'workspace',
+  stocks: 'workspace',
+  runs: 'ops',
+  channels: 'ops',
+  sessions: 'ops',
+  cron: 'ops',
+  logs: 'ops',
+  overview: 'system',
+  models: 'system',
+  config: 'system',
+};
+
+const TAB_SHORTCUTS: TabId[] = [
+  'chat',
+  'desk',
+  'marketData',
+  'flowRadar',
+  'stocks',
+  'runs',
+  'sessions',
+  'logs',
+  'models',
 ];
 
 type Language = 'en' | 'zh';
 
 const LANGUAGE_STORAGE_KEY = 'marketbot.desktop.language.v1';
+const NAV_GROUP_COLLAPSE_STORAGE_KEY = 'marketbot.desktop.nav-groups.v1';
+
+const DEFAULT_GROUP_COLLAPSE_STATE: Record<NavGroup['id'], boolean> = {
+  chat: false,
+  workspace: false,
+  ops: false,
+  system: false,
+};
 
 const MESSAGES: Record<Language, Record<string, string>> = {
   en: {
@@ -223,6 +290,12 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     onboardingWelcomeTitle: 'Welcome to MarketBot',
     onboardingWelcomeDesc: "Your autonomous financial analysis agent. Let's get you set up with an AI provider to get started.",
     onboardingGetStarted: 'Get Started',
+    onboardingSideTitle: 'Set up once, run continuously',
+    onboardingSideDesc: 'Connect a model provider, store credentials locally, and launch your desktop trading copilot.',
+    onboardingStepWelcome: 'Welcome',
+    onboardingStepProvider: 'Choose provider',
+    onboardingStepApiKey: 'Add API key',
+    onboardingStepDone: 'Ready',
     onboardingChooseProvider: 'Choose Your AI Provider',
     onboardingChooseProviderDesc: "Select the provider you'd like to use. You can change this later in Settings.",
     back: 'Back',
@@ -236,6 +309,7 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     offlineSettingsHint: 'Gateway is offline. Settings will load once connected.',
     loadingModels: 'Loading models...',
     modelsTitle: 'AI Models',
+    modelsSubtitle: 'Control model routing, local runtime, and provider credentials.',
     refresh: 'Refresh',
     localModels: 'Local Models',
     localModelsDesc: 'Run AI models locally via Ollama. No API key required, completely private.',
@@ -297,6 +371,22 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     groupWorkspace: 'Workspace',
     groupOps: 'Ops',
     groupSystem: 'System',
+    opsPulse: 'Ops Pulse',
+    opsPulseHint: 'Live queue health and quick navigation',
+    pulseRuns: 'Runs',
+    pulseSessions: 'Sessions',
+    pulseCron: 'Cron',
+    pulseErrors: 'Errors',
+    recentModules: 'Recent',
+    commandPlaceholder: 'Search modules...',
+    commandRecent: 'Recent modules',
+    commandNoResults: 'No matching modules',
+    commandActions: 'Quick actions',
+    commandTagAction: 'Action',
+    actionRestartGateway: 'Restart gateway',
+    actionToggleLanguage: 'Switch language',
+    actionToggleSidebar: 'Toggle sidebar',
+    shortcutsHint: 'Shortcuts: Cmd/Ctrl+1-9, Cmd/Ctrl+B, Cmd/Ctrl+K',
   },
   zh: {
     expand: '展开',
@@ -322,6 +412,12 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     onboardingWelcomeTitle: '欢迎使用 MarketBot',
     onboardingWelcomeDesc: '你的自主金融分析助手。先配置一个 AI 提供商即可开始使用。',
     onboardingGetStarted: '开始配置',
+    onboardingSideTitle: '一次配置，持续运行',
+    onboardingSideDesc: '连接模型提供商，本地存储凭据，启动你的桌面交易助手。',
+    onboardingStepWelcome: '欢迎',
+    onboardingStepProvider: '选择提供商',
+    onboardingStepApiKey: '添加 API Key',
+    onboardingStepDone: '完成',
     onboardingChooseProvider: '选择 AI 提供商',
     onboardingChooseProviderDesc: '选择你要使用的提供商，后续可在设置中修改。',
     back: '返回',
@@ -335,6 +431,7 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     offlineSettingsHint: '网关离线，连接后将加载设置。',
     loadingModels: '正在加载模型...',
     modelsTitle: 'AI 模型',
+    modelsSubtitle: '统一管理模型路由、本地运行时与提供商凭据。',
     refresh: '刷新',
     localModels: '本地模型',
     localModelsDesc: '通过 Ollama 本地运行模型，无需 API Key，数据更私密。',
@@ -396,6 +493,22 @@ const MESSAGES: Record<Language, Record<string, string>> = {
     groupWorkspace: '工作区',
     groupOps: '运维',
     groupSystem: '系统',
+    opsPulse: '运维脉搏',
+    opsPulseHint: '实时队列健康与快捷跳转',
+    pulseRuns: '运行',
+    pulseSessions: '会话',
+    pulseCron: '定时',
+    pulseErrors: '错误',
+    recentModules: '最近访问',
+    commandPlaceholder: '搜索模块...',
+    commandRecent: '最近模块',
+    commandNoResults: '没有匹配的模块',
+    commandActions: '快捷动作',
+    commandTagAction: '动作',
+    actionRestartGateway: '重启网关',
+    actionToggleLanguage: '切换语言',
+    actionToggleSidebar: '切换侧栏',
+    shortcutsHint: '快捷键：Cmd/Ctrl+1-9，Cmd/Ctrl+B，Cmd/Ctrl+K',
   },
 };
 
@@ -764,111 +877,141 @@ function OnboardingWizard({
     onComplete();
   }, [gatewayUrl, onComplete]);
 
+  const stepOrder: OnboardingStep[] = ['welcome', 'provider', 'apikey', 'done'];
+  const stepLabelKey: Record<OnboardingStep, string> = {
+    welcome: 'onboardingStepWelcome',
+    provider: 'onboardingStepProvider',
+    apikey: 'onboardingStepApiKey',
+    done: 'onboardingStepDone',
+  };
+  const activeStepIndex = stepOrder.indexOf(step);
+
   return (
     <div className="onboarding">
-      <div className="onboarding-container">
-        {/* Progress dots */}
-        <div className="onboarding-progress">
-          {(['welcome', 'provider', 'apikey', 'done'] as OnboardingStep[]).map((s, i) => (
-            <div
-              key={s}
-              className={`progress-dot${step === s ? ' active' : ''}${
-                ['welcome', 'provider', 'apikey', 'done'].indexOf(step) > i ? ' completed' : ''
-              }`}
-            />
-          ))}
-        </div>
-
-        {step === 'welcome' && (
-          <div className="onboarding-step fade-in">
-            <div className="onboarding-logo">
-              <div className="onboarding-logo-inner">MB</div>
-            </div>
-            <h1 className="onboarding-title">{t('onboardingWelcomeTitle')}</h1>
-            <p className="onboarding-desc">
-              {t('onboardingWelcomeDesc')}
-            </p>
-            <button className="primary onboarding-btn" onClick={() => setStep('provider')}>
-              {t('onboardingGetStarted')}
-            </button>
+      <div className="onboarding-shell">
+        <aside className="onboarding-aside">
+          <div className="onboarding-aside-logo">
+            <div className="onboarding-aside-logo-inner">MB</div>
           </div>
-        )}
-
-        {step === 'provider' && (
-          <div className="onboarding-step fade-in">
-            <h2 className="onboarding-step-title">{t('onboardingChooseProvider')}</h2>
-            <p className="onboarding-desc">
-              {t('onboardingChooseProviderDesc')}
-            </p>
-            <div className="provider-grid">
-              {PROVIDERS.map((p) => (
-                <button
-                  key={p.id}
-                  className="provider-card"
-                  onClick={() => handleProviderSelect(p)}
-                >
-                  <div className="provider-badge" style={{ background: p.color }}>
-                    {p.label.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="provider-name">{p.label}</div>
-                </button>
-              ))}
-            </div>
-            <button className="ghost onboarding-back" onClick={handleBack}>
-              {t('back')}
-            </button>
+          <div className="onboarding-aside-content">
+            <h2 className="onboarding-aside-title">{t('onboardingSideTitle')}</h2>
+            <p className="onboarding-aside-desc">{t('onboardingSideDesc')}</p>
+            <ol className="onboarding-step-list">
+              {stepOrder.map((stepId, index) => {
+                const state =
+                  index < activeStepIndex ? 'done' : index === activeStepIndex ? 'active' : 'pending';
+                return (
+                  <li key={stepId} className={`onboarding-step-item ${state}`}>
+                    <span className="onboarding-step-index">{index + 1}</span>
+                    <span className="onboarding-step-label">{t(stepLabelKey[stepId])}</span>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
-        )}
+        </aside>
 
-        {step === 'apikey' && selectedProvider && (
-          <div className="onboarding-step fade-in">
-            <h2 className="onboarding-step-title">{t('onboardingEnterApiKey')}</h2>
-            <p className="onboarding-desc">
-              {t('onboardingEnterApiKeyDesc', { provider: selectedProvider.label })}
-            </p>
-            <div className="apikey-input-wrap">
-              <input
-                type="password"
-                className="apikey-input"
-                placeholder={selectedProvider.placeholder}
-                value={apiKey}
-                onChange={(e) => { setApiKey(e.target.value); setError(''); }}
-                autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter' && apiKey.trim()) handleSaveKey(); }}
+        <div className="onboarding-container">
+          <div className="onboarding-progress">
+            {stepOrder.map((s, i) => (
+              <div
+                key={s}
+                className={`progress-dot${step === s ? ' active' : ''}${activeStepIndex > i ? ' completed' : ''}`}
               />
-              <p className="apikey-hint">{getProviderHint(selectedProvider, language)}</p>
-            </div>
-            {error && <div className="onboarding-error">{error}</div>}
-            <div className="onboarding-actions">
-              <button className="ghost" onClick={handleBack}>{t('back')}</button>
-              <button
-                className="primary"
-                onClick={handleSaveKey}
-                disabled={!apiKey.trim() || saving}
-              >
-                {saving ? t('saving') : t('onboardingSaveContinue')}
+            ))}
+          </div>
+
+          {step === 'welcome' && (
+            <div className="onboarding-step fade-in">
+              <div className="onboarding-logo">
+                <div className="onboarding-logo-inner">MB</div>
+              </div>
+              <h1 className="onboarding-title">{t('onboardingWelcomeTitle')}</h1>
+              <p className="onboarding-desc">
+                {t('onboardingWelcomeDesc')}
+              </p>
+              <button className="primary onboarding-btn" onClick={() => setStep('provider')}>
+                {t('onboardingGetStarted')}
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {step === 'done' && (
-          <div className="onboarding-step fade-in">
-            <div className="onboarding-check">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 12l3 3 5-6" />
-              </svg>
+          {step === 'provider' && (
+            <div className="onboarding-step fade-in">
+              <h2 className="onboarding-step-title">{t('onboardingChooseProvider')}</h2>
+              <p className="onboarding-desc">
+                {t('onboardingChooseProviderDesc')}
+              </p>
+              <div className="provider-grid">
+                {PROVIDERS.map((p) => (
+                  <button
+                    key={p.id}
+                    className="provider-card"
+                    onClick={() => handleProviderSelect(p)}
+                  >
+                    <div className="provider-badge" style={{ background: p.color }}>
+                      {p.label.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="provider-name">{p.label}</div>
+                  </button>
+                ))}
+              </div>
+              <button className="ghost onboarding-back" onClick={handleBack}>
+                {t('back')}
+              </button>
             </div>
-            <h2 className="onboarding-step-title">{t('onboardingDoneTitle')}</h2>
-            <p className="onboarding-desc">
-              {t('onboardingDoneDesc', { provider: selectedProvider?.label ?? '' })}
-            </p>
-            <button className="primary onboarding-btn" onClick={handleFinish}>
-              {t('onboardingStartUsing')}
-            </button>
-          </div>
-        )}
+          )}
+
+          {step === 'apikey' && selectedProvider && (
+            <div className="onboarding-step fade-in">
+              <h2 className="onboarding-step-title">{t('onboardingEnterApiKey')}</h2>
+              <p className="onboarding-desc">
+                {t('onboardingEnterApiKeyDesc', { provider: selectedProvider.label })}
+              </p>
+              <div className="apikey-input-wrap">
+                <input
+                  type="password"
+                  className="apikey-input"
+                  placeholder={selectedProvider.placeholder}
+                  value={apiKey}
+                  onChange={(e) => { setApiKey(e.target.value); setError(''); }}
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter' && apiKey.trim()) handleSaveKey(); }}
+                />
+                <p className="apikey-hint">{getProviderHint(selectedProvider, language)}</p>
+              </div>
+              {error && <div className="onboarding-error">{error}</div>}
+              <div className="onboarding-actions">
+                <button className="ghost" onClick={handleBack}>{t('back')}</button>
+                <button
+                  className="primary"
+                  onClick={handleSaveKey}
+                  disabled={!apiKey.trim() || saving}
+                >
+                  {saving ? t('saving') : t('onboardingSaveContinue')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'done' && (
+            <div className="onboarding-step fade-in">
+              <div className="onboarding-check">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 12l3 3 5-6" />
+                </svg>
+              </div>
+              <h2 className="onboarding-step-title">{t('onboardingDoneTitle')}</h2>
+              <p className="onboarding-desc">
+                {t('onboardingDoneDesc', { provider: selectedProvider?.label ?? '' })}
+              </p>
+              <button className="primary onboarding-btn" onClick={handleFinish}>
+                {t('onboardingStartUsing')}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1336,7 +1479,10 @@ function ModelSettings({
     return (
       <div className="ms-panel">
         <div className="ms-header">
-          <h1 className="ms-title">{t('modelsTitle')}</h1>
+          <div className="ms-heading">
+            <h1 className="ms-title">{t('modelsTitle')}</h1>
+            <p className="ms-subtitle">{t('modelsSubtitle')}</p>
+          </div>
         </div>
         <div className="ms-offline">
           <p>{t('offlineSettingsHint')}</p>
@@ -1349,7 +1495,10 @@ function ModelSettings({
     return (
       <div className="ms-panel">
         <div className="ms-header">
-          <h1 className="ms-title">{t('modelsTitle')}</h1>
+          <div className="ms-heading">
+            <h1 className="ms-title">{t('modelsTitle')}</h1>
+            <p className="ms-subtitle">{t('modelsSubtitle')}</p>
+          </div>
         </div>
         <div className="ms-loading">
           <div className="loading-progress" style={{ width: 120 }}>
@@ -1364,7 +1513,10 @@ function ModelSettings({
   return (
     <div className="ms-panel">
       <div className="ms-header">
-        <h1 className="ms-title">{t('modelsTitle')}</h1>
+        <div className="ms-heading">
+          <h1 className="ms-title">{t('modelsTitle')}</h1>
+          <p className="ms-subtitle">{t('modelsSubtitle')}</p>
+        </div>
         <button className="ghost ms-refresh" onClick={() => fetchData(true)} title={t('refresh')}>
           <span
             className="nav-icon"
@@ -1373,6 +1525,7 @@ function ModelSettings({
                 '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a7 7 0 0113.36-2.83M17 10a7 7 0 01-13.36 2.83"/><path d="M16.5 3v4.5H12M3.5 17v-4.5H8"/></svg>',
             }}
           />
+          <span>{t('refresh')}</span>
         </button>
       </div>
 
@@ -1397,8 +1550,9 @@ function ModelSettings({
         </div>
       </section>
 
+      <div className="ms-layout">
       {/* ── Local Models ── */}
-      <section className="ms-section ms-section-card">
+      <section className="ms-section ms-section-card ms-section-full">
         <h2 className="ms-section-title">{t('localModels')}</h2>
         <p className="ms-section-desc">
           {t('localModelsDesc')}
@@ -1589,7 +1743,7 @@ function ModelSettings({
       </section>
 
       {/* ── API Keys / Providers ── */}
-      <section className="ms-section ms-section-card">
+      <section className="ms-section ms-section-card ms-section-full">
         <h2 className="ms-section-title">{t('apiKeys')}</h2>
         <p className="ms-section-desc">
           {t('apiKeysDesc')}
@@ -1663,6 +1817,7 @@ function ModelSettings({
           })}
         </div>
       </section>
+      </div>
     </div>
   );
 }
@@ -1691,6 +1846,25 @@ export default function App() {
   const [webviewPreload, setWebviewPreload] = useState('');
   const [activeTab, setActiveTab] = useState<TabId>('chat');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [groupCollapsed, setGroupCollapsed] = useState<Record<NavGroup['id'], boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(NAV_GROUP_COLLAPSE_STORAGE_KEY);
+      if (!raw) return DEFAULT_GROUP_COLLAPSE_STATE;
+      const parsed = JSON.parse(raw) as Partial<Record<NavGroup['id'], unknown>>;
+      return {
+        chat: Boolean(parsed.chat),
+        workspace: Boolean(parsed.workspace),
+        ops: Boolean(parsed.ops),
+        system: Boolean(parsed.system),
+      };
+    } catch {
+      return DEFAULT_GROUP_COLLAPSE_STATE;
+    }
+  });
+  const [recentTabs, setRecentTabs] = useState<TabId[]>(['chat']);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState('');
+  const [commandActiveIndex, setCommandActiveIndex] = useState(0);
   const [currentModel, setCurrentModel] = useState('');
   const [statusExpanded, setStatusExpanded] = useState(false);
   const [sidebarMetrics, setSidebarMetrics] = useState<SidebarMetrics>(EMPTY_SIDEBAR_METRICS);
@@ -1703,6 +1877,7 @@ export default function App() {
   const prevUrlRef = useRef('');
   const activeTabRef = useRef<TabId>('chat');
   const pendingTabRef = useRef<TabId | null>(null);
+  const commandInputRef = useRef<HTMLInputElement | null>(null);
   const t = useCallback((key: string, vars?: Record<string, string>) => {
     return getText(language, key, vars);
   }, [language]);
@@ -1719,6 +1894,26 @@ export default function App() {
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
+  useEffect(() => {
+    setRecentTabs((prev) => [activeTab, ...prev.filter((tab) => tab !== activeTab)].slice(0, 6));
+  }, [activeTab]);
+
+  useEffect(() => {
+    const activeGroupId = TAB_GROUP_BY_ID[activeTab];
+    setGroupCollapsed((prev) => {
+      if (!prev[activeGroupId]) return prev;
+      return { ...prev, [activeGroupId]: false };
+    });
+  }, [activeTab]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(NAV_GROUP_COLLAPSE_STORAGE_KEY, JSON.stringify(groupCollapsed));
+    } catch {
+      // ignore storage errors
+    }
+  }, [groupCollapsed]);
+
   const handleRequestTabChange = useCallback((next: TabId) => {
     const view = webviewRef.current;
     if (view && typeof view.isLoading === 'function' && view.isLoading()) {
@@ -1727,6 +1922,10 @@ export default function App() {
     }
     pendingTabRef.current = null;
     setActiveTab(next);
+  }, []);
+
+  const handleToggleGroup = useCallback((groupId: NavGroup['id']) => {
+    setGroupCollapsed((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
   }, []);
 
   // Phase 1: Fetch config from main process, then check onboarding.
@@ -2017,6 +2216,109 @@ export default function App() {
     return badges;
   }, [sidebarMetrics]);
 
+  const pulseCards = useMemo(() => {
+    const runsValue = sidebarMetrics.runsActive > 0
+      ? formatBadgeCount(sidebarMetrics.runsActive)
+      : formatBadgeCount(sidebarMetrics.runsTotal);
+    const runsTone: NavBadgeTone = sidebarMetrics.runsActive > 0 ? 'info' : 'default';
+
+    const cronTone: NavBadgeTone = sidebarMetrics.cronTotal > 0
+      ? (sidebarMetrics.cronEnabled > 0 ? 'info' : 'warn')
+      : 'default';
+    const cronValue = sidebarMetrics.cronTotal > 0
+      ? `${formatBadgeCount(sidebarMetrics.cronEnabled)}/${formatBadgeCount(sidebarMetrics.cronTotal)}`
+      : '0';
+
+    const logTone: NavBadgeTone = sidebarMetrics.logErrors > 0 ? 'danger' : 'default';
+
+    return [
+      { id: 'runs', tab: 'runs' as const, label: t('pulseRuns'), value: runsValue, tone: runsTone },
+      { id: 'sessions', tab: 'sessions' as const, label: t('pulseSessions'), value: formatBadgeCount(sidebarMetrics.sessions), tone: 'default' as const },
+      { id: 'cron', tab: 'cron' as const, label: t('pulseCron'), value: cronValue, tone: cronTone },
+      { id: 'errors', tab: 'logs' as const, label: t('pulseErrors'), value: formatBadgeCount(sidebarMetrics.logErrors), tone: logTone },
+    ];
+  }, [sidebarMetrics, t]);
+
+  const commandActionDefs = useMemo(() => {
+    return [
+      { actionId: 'restartGateway' as const, label: t('actionRestartGateway') },
+      { actionId: 'toggleLanguage' as const, label: t('actionToggleLanguage') },
+      { actionId: 'toggleSidebar' as const, label: t('actionToggleSidebar') },
+    ];
+  }, [t]);
+
+  const commandResults = useMemo<CommandEntry[]>(() => {
+    const query = commandQuery.trim().toLowerCase();
+    const recencyWeight = new Map<TabId, number>();
+    recentTabs.forEach((tabId, index) => {
+      recencyWeight.set(tabId, Math.max(0, 8 - index));
+    });
+
+    const scoredTabs = (Object.values(TABS) as NavTab[]).map((tab): CommandEntry => {
+      const label = getTabLabel(language, tab.id);
+      const group = getGroupLabel(language, TAB_GROUP_BY_ID[tab.id]);
+      const labelLower = label.toLowerCase();
+      const groupLower = group.toLowerCase();
+      const idLower = tab.id.toLowerCase();
+      const recentScore = (recencyWeight.get(tab.id) ?? 0) * 12;
+
+      let score = recentScore;
+      if (!query) {
+        score += recentScore > 0 ? 90 : 20;
+      } else {
+        if (labelLower.startsWith(query)) score += 160;
+        else if (labelLower.includes(query)) score += 120;
+        if (groupLower.includes(query)) score += 50;
+        if (idLower.includes(query)) score += 35;
+      }
+
+      return {
+        key: `tab:${tab.id}`,
+        kind: 'tab',
+        tabId: tab.id,
+        label,
+        group,
+        icon: tab.icon,
+        score,
+      };
+    });
+
+    const scoredActions = commandActionDefs.map((action): CommandEntry => {
+      const labelLower = action.label.toLowerCase();
+      let score = query ? 0 : 32;
+      if (query) {
+        if (labelLower.startsWith(query)) score += 155;
+        else if (labelLower.includes(query)) score += 118;
+      }
+      return {
+        key: `action:${action.actionId}`,
+        kind: 'action',
+        actionId: action.actionId,
+        label: action.label,
+        group: t('commandActions'),
+        icon: COMMAND_ACTION_ICONS[action.actionId],
+        score,
+      };
+    });
+
+    return [...scoredTabs, ...scoredActions]
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score);
+  }, [commandActionDefs, commandQuery, language, recentTabs, t]);
+
+  const commandVisibleResults = useMemo(() => commandResults.slice(0, 8), [commandResults]);
+
+  useEffect(() => {
+    if (!commandOpen || commandVisibleResults.length === 0) {
+      setCommandActiveIndex(0);
+      return;
+    }
+    setCommandActiveIndex((prev) => {
+      if (prev < 0 || prev >= commandVisibleResults.length) return 0;
+      return prev;
+    });
+  }, [commandOpen, commandVisibleResults]);
+
   const tabUrl = useMemo(() => {
     if (!gatewayUrl || activeTab === 'models') return '';
     const extraParams =
@@ -2082,6 +2384,64 @@ export default function App() {
   const handleToggleLanguage = useCallback(() => {
     setLanguage((prev) => (prev === 'zh' ? 'en' : 'zh'));
   }, []);
+
+  const handleCommandSelect = useCallback(async (entry: CommandEntry) => {
+    if (entry.kind === 'tab') {
+      handleRequestTabChange(entry.tabId);
+    } else if (entry.actionId === 'restartGateway') {
+      await handleRestart();
+    } else if (entry.actionId === 'toggleLanguage') {
+      handleToggleLanguage();
+    } else if (entry.actionId === 'toggleSidebar') {
+      setSidebarCollapsed((collapsed) => !collapsed);
+    }
+    setCommandOpen(false);
+    setCommandQuery('');
+    setCommandActiveIndex(0);
+  }, [handleRequestTabChange, handleRestart, handleToggleLanguage]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      const withModifier = event.metaKey || event.ctrlKey;
+
+      if (withModifier && key === 'k') {
+        event.preventDefault();
+        setCommandOpen(true);
+        setCommandQuery('');
+        setCommandActiveIndex(0);
+        commandInputRef.current?.focus();
+        commandInputRef.current?.select();
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tagName = target.tagName.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable) {
+          return;
+        }
+      }
+
+      if (!withModifier) return;
+
+      if (key === 'b') {
+        event.preventDefault();
+        setSidebarCollapsed((collapsed) => !collapsed);
+        return;
+      }
+
+      const index = Number.parseInt(event.key, 10);
+      if (!Number.isNaN(index) && index >= 1 && index <= TAB_SHORTCUTS.length) {
+        event.preventDefault();
+        handleRequestTabChange(TAB_SHORTCUTS[index - 1]);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleRequestTabChange]);
+
   const languageToggleLabel = language === 'zh' ? t('english') : t('chinese');
 
   const connectionLabel = useMemo(() => {
@@ -2134,6 +2494,9 @@ export default function App() {
   const showWebviewContainer = phase === 'ready' && running && Boolean(lastWebviewUrl);
   const showWebview = showWebviewContainer && activeTab !== 'models';
   const showModelSettings = activeTab === 'models' && phase === 'ready';
+  const activeGroup = TAB_GROUP_BY_ID[activeTab];
+  const activeGroupLabel = getGroupLabel(language, activeGroup);
+  const activeTabLabel = getTabLabel(language, activeTab);
 
   return (
     <div className={`app${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
@@ -2189,11 +2552,62 @@ export default function App() {
           )}
         </div>
 
+        {!sidebarCollapsed && (
+          <section className="sidebar-pulse" aria-label={t('opsPulse')}>
+            <div className="sidebar-pulse-header">
+              <div className="sidebar-pulse-title">{t('opsPulse')}</div>
+              <div className="sidebar-pulse-hint">{t('opsPulseHint')}</div>
+            </div>
+            <div className="sidebar-pulse-grid">
+              {pulseCards.map((card) => (
+                <button
+                  key={card.id}
+                  className={`sidebar-pulse-card ${card.tone}${activeTab === card.tab ? ' active' : ''}`}
+                  onClick={() => handleRequestTabChange(card.tab)}
+                  title={`${card.label}: ${card.value}`}
+                >
+                  <span className="sidebar-pulse-value">{card.value}</span>
+                  <span className="sidebar-pulse-label">{card.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!sidebarCollapsed && (
+          <section className="sidebar-recent" aria-label={t('recentModules')}>
+            <div className="sidebar-recent-title">{t('recentModules')}</div>
+            <div className="sidebar-recent-list">
+              {recentTabs.slice(0, 5).map((tabId) => (
+                <button
+                  key={tabId}
+                  className={`sidebar-recent-chip${activeTab === tabId ? ' active' : ''}`}
+                  onClick={() => handleRequestTabChange(tabId)}
+                  title={getTabLabel(language, tabId)}
+                >
+                  {getTabLabel(language, tabId)}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         <nav className="nav">
           {NAV_GROUPS.map((group) => (
-            <div key={group.id} className="nav-group">
-              {!sidebarCollapsed && <div className="nav-group-title">{getGroupLabel(language, group.id)}</div>}
-              {group.tabs.map((tab) => {
+            <div key={group.id} className={`nav-group${groupCollapsed[group.id] ? ' collapsed' : ''}`}>
+              {!sidebarCollapsed && (
+                <button
+                  className="nav-group-toggle"
+                  onClick={() => handleToggleGroup(group.id)}
+                  title={groupCollapsed[group.id] ? t('expand') : t('collapse')}
+                >
+                  <span className="nav-group-title">{getGroupLabel(language, group.id)}</span>
+                  <span className={`nav-group-chevron${groupCollapsed[group.id] ? '' : ' expanded'}`} aria-hidden>
+                    {'\u25B8'}
+                  </span>
+                </button>
+              )}
+              {(sidebarCollapsed || !groupCollapsed[group.id]) && group.tabs.map((tab) => {
                 const badge = navBadges[tab.id];
                 const tabTitle = sidebarCollapsed
                   ? `${getTabLabel(language, tab.id)}${badge ? ` (${badge.text})` : ''}`
@@ -2249,49 +2663,149 @@ export default function App() {
             {!sidebarCollapsed && <span>{t('restartGateway')}</span>}
           </button>
         </div>
+        {!sidebarCollapsed && <div className="sidebar-shortcuts-hint">{t('shortcutsHint')}</div>}
       </aside>
 
       <main className="content">
-        {showWebviewContainer ? (
-          <webview
-            ref={webviewRef as React.Ref<HTMLElement>}
-            src={lastWebviewUrl}
-            {...(webviewPreload ? { preload: webviewPreload } : {})}
-            className={`webview-frame${showWebview ? '' : ' hidden'}`}
-          />
-        ) : null}
-
-        {showModelSettings ? (
-          <ModelSettings
-            gatewayUrl={gatewayUrl}
-            gatewayToken={gatewayToken}
-            running={running}
-            language={language}
-          />
-        ) : !showWebviewContainer ? (
-          <div className="webview-frame loading-state">
-            <div className="loading-content">
-              <div className="loading-logo">
-                <div className="loading-logo-inner">MB</div>
-              </div>
-              <div className="loading-text">{loadingText}</div>
-              {connectionDetail ? (
-                <div className="loading-subtext">{connectionDetail}</div>
-              ) : null}
-              {showConnectingStalledHint ? (
-                <div className="loading-actions">
-                  <div className="loading-stalled-hint">{t('loadingConnectingStalled')}</div>
-                  <button className="ghost loading-restart-btn" onClick={handleRestart}>
-                    {t('restartGateway')}
-                  </button>
-                </div>
-              ) : null}
-              <div className="loading-progress">
-                <div className="loading-progress-bar" />
-              </div>
+        <header className="content-header">
+          <div className="content-header-title">
+            <span className="nav-icon content-title-icon" dangerouslySetInnerHTML={{ __html: TABS[activeTab].icon }} />
+            <div className="content-title-text">
+              <div className="content-title-main">{activeTabLabel}</div>
+              <div className="content-title-sub">{activeGroupLabel}</div>
             </div>
           </div>
-        ) : null}
+          <div className="content-command">
+            <input
+              ref={commandInputRef}
+              type="text"
+              className="content-command-input"
+              placeholder={t('commandPlaceholder')}
+              value={commandQuery}
+              onFocus={() => {
+                setCommandOpen(true);
+                setCommandActiveIndex(0);
+              }}
+              onBlur={() => {
+                setTimeout(() => setCommandOpen(false), 120);
+              }}
+              onChange={(event) => {
+                setCommandQuery(event.target.value);
+                setCommandActiveIndex(0);
+                if (!commandOpen) setCommandOpen(true);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setCommandOpen(false);
+                  setCommandQuery('');
+                  setCommandActiveIndex(0);
+                  return;
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  if (commandVisibleResults.length === 0) return;
+                  setCommandActiveIndex((prev) => (prev + 1) % commandVisibleResults.length);
+                  return;
+                }
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  if (commandVisibleResults.length === 0) return;
+                  setCommandActiveIndex((prev) => (prev - 1 + commandVisibleResults.length) % commandVisibleResults.length);
+                  return;
+                }
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  const next = commandVisibleResults[commandActiveIndex] ?? commandVisibleResults[0];
+                  if (next) {
+                    void handleCommandSelect(next);
+                  }
+                }
+              }}
+            />
+            {commandOpen && (
+              <div className="content-command-menu">
+                <div className="content-command-caption">
+                  {commandQuery.trim() ? t('commandPlaceholder') : t('commandRecent')}
+                </div>
+                {commandVisibleResults.length === 0 ? (
+                  <div className="content-command-empty">{t('commandNoResults')}</div>
+                ) : (
+                  commandVisibleResults.map((item, index) => (
+                    <button
+                      key={item.key}
+                      className={`content-command-item${commandActiveIndex === index ? ' active' : ''}`}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onMouseEnter={() => setCommandActiveIndex(index)}
+                      onClick={() => {
+                        void handleCommandSelect(item);
+                      }}
+                    >
+                      <span className="nav-icon content-command-icon" dangerouslySetInnerHTML={{ __html: item.icon }} />
+                      <span className="content-command-item-text">
+                        <span className="content-command-item-label">{item.label}</span>
+                        <span className="content-command-item-group">{item.group}</span>
+                      </span>
+                      {item.kind === 'action' ? <span className="content-command-item-tag">{t('commandTagAction')}</span> : null}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+          <div className={`content-connection ${running ? 'ok' : 'off'}`}>
+            <span className={`status-dot ${running ? 'ok' : 'off'}`} />
+            <div className="content-connection-text">
+              <div className="content-connection-label">{connectionLabel}</div>
+              {connectionDetail ? (
+                <div className="content-connection-detail">{connectionDetail}</div>
+              ) : null}
+            </div>
+          </div>
+        </header>
+
+        <div className="content-body">
+          {showWebviewContainer ? (
+            <webview
+              ref={webviewRef as React.Ref<HTMLElement>}
+              src={lastWebviewUrl}
+              {...(webviewPreload ? { preload: webviewPreload } : {})}
+              className={`webview-frame${showWebview ? '' : ' hidden'}`}
+            />
+          ) : null}
+
+          {showModelSettings ? (
+            <ModelSettings
+              gatewayUrl={gatewayUrl}
+              gatewayToken={gatewayToken}
+              running={running}
+              language={language}
+            />
+          ) : !showWebviewContainer ? (
+            <div className="webview-frame loading-state">
+              <div className="loading-content">
+                <div className="loading-logo">
+                  <div className="loading-logo-inner">MB</div>
+                </div>
+                <div className="loading-text">{loadingText}</div>
+                {connectionDetail ? (
+                  <div className="loading-subtext">{connectionDetail}</div>
+                ) : null}
+                {showConnectingStalledHint ? (
+                  <div className="loading-actions">
+                    <div className="loading-stalled-hint">{t('loadingConnectingStalled')}</div>
+                    <button className="ghost loading-restart-btn" onClick={handleRestart}>
+                      {t('restartGateway')}
+                    </button>
+                  </div>
+                ) : null}
+                <div className="loading-progress">
+                  <div className="loading-progress-bar" />
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </main>
     </div>
   );
