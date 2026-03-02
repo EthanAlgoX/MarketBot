@@ -11,6 +11,7 @@ Last updated: 2025-12-09
 - The always-on process that owns the single Baileys/Telegram connection and the control/event plane.
 - Replaces the legacy `gateway` command. CLI entry point: `marketbot gateway`.
 - Runs until stopped; exits non-zero on fatal errors so the supervisor restarts it.
+- Architecture map: [Gateway architecture](/gateway/architecture).
 
 ## How to run (local)
 ```bash
