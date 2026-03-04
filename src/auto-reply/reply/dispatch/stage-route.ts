@@ -39,7 +39,9 @@ export function createRouteStage(params: {
   const originatingTo = ctx.OriginatingTo;
   const currentSurface = (ctx.Surface ?? ctx.Provider)?.toLowerCase();
   const shouldRouteToOriginating =
-    isRoutableChannel(originatingChannel) && originatingTo && originatingChannel !== currentSurface;
+    isRoutableChannel(originatingChannel) &&
+    Boolean(originatingTo) &&
+    originatingChannel !== currentSurface;
   const ttsChannel = shouldRouteToOriginating ? originatingChannel : currentSurface;
 
   const sendPayloadAsync = async (
