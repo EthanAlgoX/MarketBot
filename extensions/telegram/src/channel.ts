@@ -32,11 +32,12 @@ import { getTelegramRuntime } from "./runtime.js";
 const meta = getChatChannelMeta("telegram");
 
 const telegramMessageActions: ChannelMessageActionAdapter = {
-  listActions: (ctx) => getTelegramRuntime().channel.telegram.messageActions.listActions(ctx),
+  listActions: (ctx) =>
+    getTelegramRuntime().experimental.channel.telegram.messageActions.listActions(ctx),
   extractToolSend: (ctx) =>
-    getTelegramRuntime().channel.telegram.messageActions.extractToolSend(ctx),
+    getTelegramRuntime().experimental.channel.telegram.messageActions.extractToolSend(ctx),
   handleAction: async (ctx) =>
-    await getTelegramRuntime().channel.telegram.messageActions.handleAction(ctx),
+    await getTelegramRuntime().experimental.channel.telegram.messageActions.handleAction(ctx),
 };
 
 function parseReplyToMessageId(replyToId?: string | null) {
@@ -66,11 +67,16 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount> = {
     idLabel: "telegramUserId",
     normalizeAllowEntry: (entry) => entry.replace(/^(telegram|tg):/i, ""),
     notifyApproval: async ({ cfg, id }) => {
-      const { token } = getTelegramRuntime().channel.telegram.resolveTelegramToken(cfg);
+      const { token } =
+        getTelegramRuntime().experimental.channel.telegram.resolveTelegramToken(cfg);
       if (!token) throw new Error("telegram token not configured");
-      await getTelegramRuntime().channel.telegram.sendMessageTelegram(id, PAIRING_APPROVED_MESSAGE, {
-        token,
-      });
+      await getTelegramRuntime().experimental.channel.telegram.sendMessageTelegram(
+        id,
+        PAIRING_APPROVED_MESSAGE,
+        {
+          token,
+        },
+      );
     },
   },
   capabilities: {
@@ -250,12 +256,14 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount> = {
   },
   outbound: {
     deliveryMode: "direct",
-    chunker: (text, limit) => getTelegramRuntime().channel.text.chunkMarkdownText(text, limit),
+    chunker: (text, limit) =>
+      getTelegramRuntime().stable.channel.text.chunkMarkdownText(text, limit),
     chunkerMode: "markdown",
     textChunkLimit: 4000,
     sendText: async ({ to, text, accountId, deps, replyToId, threadId }) => {
       const send =
-        deps?.sendTelegram ?? getTelegramRuntime().channel.telegram.sendMessageTelegram;
+        deps?.sendTelegram ??
+        getTelegramRuntime().experimental.channel.telegram.sendMessageTelegram;
       const replyToMessageId = parseReplyToMessageId(replyToId);
       const messageThreadId = parseThreadId(threadId);
       const result = await send(to, text, {
@@ -268,7 +276,8 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount> = {
     },
     sendMedia: async ({ to, text, mediaUrl, accountId, deps, replyToId, threadId }) => {
       const send =
-        deps?.sendTelegram ?? getTelegramRuntime().channel.telegram.sendMessageTelegram;
+        deps?.sendTelegram ??
+        getTelegramRuntime().experimental.channel.telegram.sendMessageTelegram;
       const replyToMessageId = parseReplyToMessageId(replyToId);
       const messageThreadId = parseThreadId(threadId);
       const result = await send(to, text, {
@@ -302,7 +311,7 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount> = {
       lastProbeAt: snapshot.lastProbeAt ?? null,
     }),
     probeAccount: async ({ account, timeoutMs }) =>
-      getTelegramRuntime().channel.telegram.probeTelegram(
+      getTelegramRuntime().experimental.channel.telegram.probeTelegram(
         account.token,
         timeoutMs,
         account.config.proxy,
@@ -312,7 +321,7 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount> = {
         cfg.channels?.telegram?.accounts?.[account.accountId]?.groups ??
         cfg.channels?.telegram?.groups;
       const { groupIds, unresolvedGroups, hasWildcardUnmentionedGroups } =
-        getTelegramRuntime().channel.telegram.collectUnmentionedGroupIds(groups);
+        getTelegramRuntime().experimental.channel.telegram.collectUnmentionedGroupIds(groups);
       if (!groupIds.length && unresolvedGroups === 0 && !hasWildcardUnmentionedGroups) {
         return undefined;
       }
@@ -331,7 +340,7 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount> = {
           elapsedMs: 0,
         };
       }
-      const audit = await getTelegramRuntime().channel.telegram.auditGroupMembership({
+      const audit = await getTelegramRuntime().experimental.channel.telegram.auditGroupMembership({
         token: account.token,
         botId,
         groupIds,
@@ -381,7 +390,7 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount> = {
       const token = account.token.trim();
       let telegramBotLabel = "";
       try {
-        const probe = await getTelegramRuntime().channel.telegram.probeTelegram(
+        const probe = await getTelegramRuntime().experimental.channel.telegram.probeTelegram(
           token,
           2500,
           account.config.proxy,
@@ -389,12 +398,12 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount> = {
         const username = probe.ok ? probe.bot?.username?.trim() : null;
         if (username) telegramBotLabel = ` (@${username})`;
       } catch (err) {
-        if (getTelegramRuntime().logging.shouldLogVerbose()) {
+        if (getTelegramRuntime().stable.logging.shouldLogVerbose()) {
           ctx.log?.debug?.(`[${account.accountId}] bot probe failed: ${String(err)}`);
         }
       }
       ctx.log?.info(`[${account.accountId}] starting provider${telegramBotLabel}`);
-      return getTelegramRuntime().channel.telegram.monitorTelegramProvider({
+      return getTelegramRuntime().experimental.channel.telegram.monitorTelegramProvider({
         token,
         accountId: account.accountId,
         config: ctx.cfg,
@@ -470,7 +479,7 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount> = {
       });
       const loggedOut = resolved.tokenSource === "none";
       if (changed) {
-        await getTelegramRuntime().config.writeConfigFile(nextCfg);
+        await getTelegramRuntime().stable.config.writeConfigFile(nextCfg);
       }
       return { cleared, envToken: Boolean(envToken), loggedOut };
     },

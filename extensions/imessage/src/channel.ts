@@ -38,7 +38,7 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount> = {
   pairing: {
     idLabel: "imessageSenderId",
     notifyApproval: async ({ id }) => {
-      await getIMessageRuntime().channel.imessage.sendMessageIMessage(
+      await getIMessageRuntime().experimental.channel.imessage.sendMessageIMessage(
         id,
         PAIRING_APPROVED_MESSAGE,
       );
@@ -182,11 +182,13 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount> = {
   },
   outbound: {
     deliveryMode: "direct",
-    chunker: (text, limit) => getIMessageRuntime().channel.text.chunkText(text, limit),
+    chunker: (text, limit) => getIMessageRuntime().stable.channel.text.chunkText(text, limit),
     chunkerMode: "text",
     textChunkLimit: 4000,
     sendText: async ({ cfg, to, text, accountId, deps }) => {
-      const send = deps?.sendIMessage ?? getIMessageRuntime().channel.imessage.sendMessageIMessage;
+      const send =
+        deps?.sendIMessage ??
+        getIMessageRuntime().experimental.channel.imessage.sendMessageIMessage;
       const maxBytes = resolveChannelMediaMaxBytes({
         cfg,
         resolveChannelLimitMb: ({ cfg, accountId }) =>
@@ -201,7 +203,9 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount> = {
       return { channel: "imessage", ...result };
     },
     sendMedia: async ({ cfg, to, text, mediaUrl, accountId, deps }) => {
-      const send = deps?.sendIMessage ?? getIMessageRuntime().channel.imessage.sendMessageIMessage;
+      const send =
+        deps?.sendIMessage ??
+        getIMessageRuntime().experimental.channel.imessage.sendMessageIMessage;
       const maxBytes = resolveChannelMediaMaxBytes({
         cfg,
         resolveChannelLimitMb: ({ cfg, accountId }) =>
@@ -252,7 +256,7 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount> = {
       lastProbeAt: snapshot.lastProbeAt ?? null,
     }),
     probeAccount: async ({ timeoutMs }) =>
-      getIMessageRuntime().channel.imessage.probeIMessage(timeoutMs),
+      getIMessageRuntime().experimental.channel.imessage.probeIMessage(timeoutMs),
     buildAccountSnapshot: ({ account, runtime, probe }) => ({
       accountId: account.accountId,
       name: account.name,
@@ -283,7 +287,7 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount> = {
       ctx.log?.info(
         `[${account.accountId}] starting provider (${cliPath}${dbPath ? ` db=${dbPath}` : ""})`,
       );
-      return getIMessageRuntime().channel.imessage.monitorIMessageProvider({
+      return getIMessageRuntime().experimental.channel.imessage.monitorIMessageProvider({
         accountId: account.accountId,
         config: ctx.cfg,
         runtime: ctx.runtime,

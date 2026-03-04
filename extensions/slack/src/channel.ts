@@ -58,7 +58,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
     idLabel: "slackUserId",
     normalizeAllowEntry: (entry) => entry.replace(/^(slack|user):/i, ""),
     notifyApproval: async ({ id }) => {
-      const cfg = getSlackRuntime().config.loadConfig();
+      const cfg = getSlackRuntime().stable.config.loadConfig();
       const account = resolveSlackAccount({
         cfg,
         accountId: DEFAULT_ACCOUNT_ID,
@@ -67,11 +67,18 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
       const botToken = account.botToken?.trim();
       const tokenOverride = token && token !== botToken ? token : undefined;
       if (tokenOverride) {
-        await getSlackRuntime().channel.slack.sendMessageSlack(`user:${id}`, PAIRING_APPROVED_MESSAGE, {
-          token: tokenOverride,
-        });
+        await getSlackRuntime().experimental.channel.slack.sendMessageSlack(
+          `user:${id}`,
+          PAIRING_APPROVED_MESSAGE,
+          {
+            token: tokenOverride,
+          },
+        );
       } else {
-        await getSlackRuntime().channel.slack.sendMessageSlack(`user:${id}`, PAIRING_APPROVED_MESSAGE);
+        await getSlackRuntime().experimental.channel.slack.sendMessageSlack(
+          `user:${id}`,
+          PAIRING_APPROVED_MESSAGE,
+        );
       }
     },
   },
@@ -181,9 +188,10 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
     self: async () => null,
     listPeers: async (params) => listSlackDirectoryPeersFromConfig(params),
     listGroups: async (params) => listSlackDirectoryGroupsFromConfig(params),
-    listPeersLive: async (params) => getSlackRuntime().channel.slack.listDirectoryPeersLive(params),
+    listPeersLive: async (params) =>
+      getSlackRuntime().experimental.channel.slack.listDirectoryPeersLive(params),
     listGroupsLive: async (params) =>
-      getSlackRuntime().channel.slack.listDirectoryGroupsLive(params),
+      getSlackRuntime().experimental.channel.slack.listDirectoryGroupsLive(params),
   },
   resolver: {
     resolveTargets: async ({ cfg, accountId, inputs, kind }) => {
@@ -197,10 +205,12 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
         }));
       }
       if (kind === "group") {
-        const resolved = await getSlackRuntime().channel.slack.resolveChannelAllowlist({
-          token,
-          entries: inputs,
-        });
+        const resolved = await getSlackRuntime().experimental.channel.slack.resolveChannelAllowlist(
+          {
+            token,
+            entries: inputs,
+          },
+        );
         return resolved.map((entry) => ({
           input: entry.input,
           resolved: entry.resolved,
@@ -209,7 +219,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
           note: entry.archived ? "archived" : undefined,
         }));
       }
-      const resolved = await getSlackRuntime().channel.slack.resolveUserAllowlist({
+      const resolved = await getSlackRuntime().experimental.channel.slack.resolveUserAllowlist({
         token,
         entries: inputs,
       });
@@ -231,7 +241,10 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
       const isActionEnabled = (key: string, defaultValue = true) => {
         for (const account of accounts) {
           const gate = createActionGate(
-            (account.actions ?? cfg.channels?.slack?.actions) as Record<string, boolean | undefined>,
+            (account.actions ?? cfg.channels?.slack?.actions) as Record<
+              string,
+              boolean | undefined
+            >,
           );
           if (gate(key, defaultValue)) return true;
         }
@@ -278,7 +291,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
         const mediaUrl = readStringParam(params, "media", { trim: false });
         const threadId = readStringParam(params, "threadId");
         const replyTo = readStringParam(params, "replyTo");
-        return await getSlackRuntime().channel.slack.handleSlackAction(
+        return await getSlackRuntime().experimental.channel.slack.handleSlackAction(
           {
             action: "sendMessage",
             to,
@@ -298,7 +311,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
         });
         const emoji = readStringParam(params, "emoji", { allowEmpty: true });
         const remove = typeof params.remove === "boolean" ? params.remove : undefined;
-        return await getSlackRuntime().channel.slack.handleSlackAction(
+        return await getSlackRuntime().experimental.channel.slack.handleSlackAction(
           {
             action: "react",
             channelId: resolveChannelId(),
@@ -316,7 +329,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
           required: true,
         });
         const limit = readNumberParam(params, "limit", { integer: true });
-        return await getSlackRuntime().channel.slack.handleSlackAction(
+        return await getSlackRuntime().experimental.channel.slack.handleSlackAction(
           {
             action: "reactions",
             channelId: resolveChannelId(),
@@ -330,7 +343,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
 
       if (action === "read") {
         const limit = readNumberParam(params, "limit", { integer: true });
-        return await getSlackRuntime().channel.slack.handleSlackAction(
+        return await getSlackRuntime().experimental.channel.slack.handleSlackAction(
           {
             action: "readMessages",
             channelId: resolveChannelId(),
@@ -348,7 +361,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
           required: true,
         });
         const content = readStringParam(params, "message", { required: true });
-        return await getSlackRuntime().channel.slack.handleSlackAction(
+        return await getSlackRuntime().experimental.channel.slack.handleSlackAction(
           {
             action: "editMessage",
             channelId: resolveChannelId(),
@@ -364,7 +377,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
         const messageId = readStringParam(params, "messageId", {
           required: true,
         });
-        return await getSlackRuntime().channel.slack.handleSlackAction(
+        return await getSlackRuntime().experimental.channel.slack.handleSlackAction(
           {
             action: "deleteMessage",
             channelId: resolveChannelId(),
@@ -380,7 +393,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
           action === "list-pins"
             ? undefined
             : readStringParam(params, "messageId", { required: true });
-        return await getSlackRuntime().channel.slack.handleSlackAction(
+        return await getSlackRuntime().experimental.channel.slack.handleSlackAction(
           {
             action:
               action === "pin" ? "pinMessage" : action === "unpin" ? "unpinMessage" : "listPins",
@@ -394,14 +407,14 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
 
       if (action === "member-info") {
         const userId = readStringParam(params, "userId", { required: true });
-        return await getSlackRuntime().channel.slack.handleSlackAction(
+        return await getSlackRuntime().experimental.channel.slack.handleSlackAction(
           { action: "memberInfo", userId, accountId: accountId ?? undefined },
           cfg,
         );
       }
 
       if (action === "emoji-list") {
-        return await getSlackRuntime().channel.slack.handleSlackAction(
+        return await getSlackRuntime().experimental.channel.slack.handleSlackAction(
           { action: "emojiList", accountId: accountId ?? undefined },
           cfg,
         );
@@ -486,7 +499,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
     chunker: null,
     textChunkLimit: 4000,
     sendText: async ({ to, text, accountId, deps, replyToId, cfg }) => {
-      const send = deps?.sendSlack ?? getSlackRuntime().channel.slack.sendMessageSlack;
+      const send = deps?.sendSlack ?? getSlackRuntime().experimental.channel.slack.sendMessageSlack;
       const account = resolveSlackAccount({ cfg, accountId });
       const token = getTokenForOperation(account, "write");
       const botToken = account.botToken?.trim();
@@ -499,7 +512,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
       return { channel: "slack", ...result };
     },
     sendMedia: async ({ to, text, mediaUrl, accountId, deps, replyToId, cfg }) => {
-      const send = deps?.sendSlack ?? getSlackRuntime().channel.slack.sendMessageSlack;
+      const send = deps?.sendSlack ?? getSlackRuntime().experimental.channel.slack.sendMessageSlack;
       const account = resolveSlackAccount({ cfg, accountId });
       const token = getTokenForOperation(account, "write");
       const botToken = account.botToken?.trim();
@@ -535,7 +548,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
     probeAccount: async ({ account, timeoutMs }) => {
       const token = account.botToken?.trim();
       if (!token) return { ok: false, error: "missing token" };
-      return await getSlackRuntime().channel.slack.probeSlack(token, timeoutMs);
+      return await getSlackRuntime().experimental.channel.slack.probeSlack(token, timeoutMs);
     },
     buildAccountSnapshot: ({ account, runtime, probe }) => {
       const configured = Boolean(account.botToken && account.appToken);
@@ -562,7 +575,7 @@ export const slackPlugin: ChannelPlugin<ResolvedSlackAccount> = {
       const botToken = account.botToken?.trim();
       const appToken = account.appToken?.trim();
       ctx.log?.info(`[${account.accountId}] starting provider`);
-      return getSlackRuntime().channel.slack.monitorSlackProvider({
+      return getSlackRuntime().experimental.channel.slack.monitorSlackProvider({
         botToken: botToken ?? "",
         appToken: appToken ?? "",
         accountId: account.accountId,

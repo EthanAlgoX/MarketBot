@@ -10,11 +10,11 @@ const memoryCorePlugin = {
   register(api: MarketBotPluginApi) {
     api.registerTool(
       (ctx) => {
-        const memorySearchTool = api.runtime.tools.createMemorySearchTool({
+        const memorySearchTool = api.runtime.stable.tools.createMemorySearchTool({
           config: ctx.config,
           agentSessionKey: ctx.sessionKey,
         });
-        const memoryGetTool = api.runtime.tools.createMemoryGetTool({
+        const memoryGetTool = api.runtime.stable.tools.createMemoryGetTool({
           config: ctx.config,
           agentSessionKey: ctx.sessionKey,
         });
@@ -26,7 +26,7 @@ const memoryCorePlugin = {
 
     api.registerCli(
       ({ program }) => {
-        api.runtime.tools.registerMemoryCli(program);
+        api.runtime.stable.tools.registerMemoryCli(program);
       },
       { commands: ["memory"] },
     );

@@ -26,10 +26,12 @@ import {
 import { getSignalRuntime } from "./runtime.js";
 
 const signalMessageActions: ChannelMessageActionAdapter = {
-  listActions: (ctx) => getSignalRuntime().channel.signal.messageActions.listActions(ctx),
-  supportsAction: (ctx) => getSignalRuntime().channel.signal.messageActions.supportsAction?.(ctx),
+  listActions: (ctx) =>
+    getSignalRuntime().experimental.channel.signal.messageActions.listActions(ctx),
+  supportsAction: (ctx) =>
+    getSignalRuntime().experimental.channel.signal.messageActions.supportsAction?.(ctx),
   handleAction: async (ctx) =>
-    await getSignalRuntime().channel.signal.messageActions.handleAction(ctx),
+    await getSignalRuntime().experimental.channel.signal.messageActions.handleAction(ctx),
 };
 
 const meta = getChatChannelMeta("signal");
@@ -44,7 +46,10 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
     idLabel: "signalNumber",
     normalizeAllowEntry: (entry) => entry.replace(/^signal:/i, ""),
     notifyApproval: async ({ id }) => {
-      await getSignalRuntime().channel.signal.sendMessageSignal(id, PAIRING_APPROVED_MESSAGE);
+      await getSignalRuntime().experimental.channel.signal.sendMessageSignal(
+        id,
+        PAIRING_APPROVED_MESSAGE,
+      );
     },
   },
   capabilities: {
@@ -206,11 +211,12 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
   },
   outbound: {
     deliveryMode: "direct",
-    chunker: (text, limit) => getSignalRuntime().channel.text.chunkText(text, limit),
+    chunker: (text, limit) => getSignalRuntime().stable.channel.text.chunkText(text, limit),
     chunkerMode: "text",
     textChunkLimit: 4000,
     sendText: async ({ cfg, to, text, accountId, deps }) => {
-      const send = deps?.sendSignal ?? getSignalRuntime().channel.signal.sendMessageSignal;
+      const send =
+        deps?.sendSignal ?? getSignalRuntime().experimental.channel.signal.sendMessageSignal;
       const maxBytes = resolveChannelMediaMaxBytes({
         cfg,
         resolveChannelLimitMb: ({ cfg, accountId }) =>
@@ -225,7 +231,8 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
       return { channel: "signal", ...result };
     },
     sendMedia: async ({ cfg, to, text, mediaUrl, accountId, deps }) => {
-      const send = deps?.sendSignal ?? getSignalRuntime().channel.signal.sendMessageSignal;
+      const send =
+        deps?.sendSignal ?? getSignalRuntime().experimental.channel.signal.sendMessageSignal;
       const maxBytes = resolveChannelMediaMaxBytes({
         cfg,
         resolveChannelLimitMb: ({ cfg, accountId }) =>
@@ -274,7 +281,7 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
     }),
     probeAccount: async ({ account, timeoutMs }) => {
       const baseUrl = account.baseUrl;
-      return await getSignalRuntime().channel.signal.probeSignal(baseUrl, timeoutMs);
+      return await getSignalRuntime().experimental.channel.signal.probeSignal(baseUrl, timeoutMs);
     },
     buildAccountSnapshot: ({ account, runtime, probe }) => ({
       accountId: account.accountId,
@@ -300,7 +307,7 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
       });
       ctx.log?.info(`[${account.accountId}] starting provider (${account.baseUrl})`);
       // Lazy import: the monitor pulls the reply pipeline; avoid ESM init cycles.
-      return getSignalRuntime().channel.signal.monitorSignalProvider({
+      return getSignalRuntime().experimental.channel.signal.monitorSignalProvider({
         accountId: account.accountId,
         config: ctx.cfg,
         runtime: ctx.runtime,

@@ -32,11 +32,12 @@ import { getDiscordRuntime } from "./runtime.js";
 const meta = getChatChannelMeta("discord");
 
 const discordMessageActions: ChannelMessageActionAdapter = {
-  listActions: (ctx) => getDiscordRuntime().channel.discord.messageActions.listActions(ctx),
+  listActions: (ctx) =>
+    getDiscordRuntime().experimental.channel.discord.messageActions.listActions(ctx),
   extractToolSend: (ctx) =>
-    getDiscordRuntime().channel.discord.messageActions.extractToolSend(ctx),
+    getDiscordRuntime().experimental.channel.discord.messageActions.extractToolSend(ctx),
   handleAction: async (ctx) =>
-    await getDiscordRuntime().channel.discord.messageActions.handleAction(ctx),
+    await getDiscordRuntime().experimental.channel.discord.messageActions.handleAction(ctx),
 };
 
 export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
@@ -49,7 +50,7 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
     idLabel: "discordUserId",
     normalizeAllowEntry: (entry) => entry.replace(/^(discord|user):/i, ""),
     notifyApproval: async ({ id }) => {
-      await getDiscordRuntime().channel.discord.sendMessageDiscord(
+      await getDiscordRuntime().experimental.channel.discord.sendMessageDiscord(
         `user:${id}`,
         PAIRING_APPROVED_MESSAGE,
       );
@@ -165,9 +166,9 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
     listPeers: async (params) => listDiscordDirectoryPeersFromConfig(params),
     listGroups: async (params) => listDiscordDirectoryGroupsFromConfig(params),
     listPeersLive: async (params) =>
-      getDiscordRuntime().channel.discord.listDirectoryPeersLive(params),
+      getDiscordRuntime().experimental.channel.discord.listDirectoryPeersLive(params),
     listGroupsLive: async (params) =>
-      getDiscordRuntime().channel.discord.listDirectoryGroupsLive(params),
+      getDiscordRuntime().experimental.channel.discord.listDirectoryGroupsLive(params),
   },
   resolver: {
     resolveTargets: async ({ cfg, accountId, inputs, kind }) => {
@@ -181,10 +182,11 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
         }));
       }
       if (kind === "group") {
-        const resolved = await getDiscordRuntime().channel.discord.resolveChannelAllowlist({
-          token,
-          entries: inputs,
-        });
+        const resolved =
+          await getDiscordRuntime().experimental.channel.discord.resolveChannelAllowlist({
+            token,
+            entries: inputs,
+          });
         return resolved.map((entry) => ({
           input: entry.input,
           resolved: entry.resolved,
@@ -196,7 +198,7 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
           note: entry.note,
         }));
       }
-      const resolved = await getDiscordRuntime().channel.discord.resolveUserAllowlist({
+      const resolved = await getDiscordRuntime().experimental.channel.discord.resolveUserAllowlist({
         token,
         entries: inputs,
       });
@@ -282,7 +284,7 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
     pollMaxOptions: 10,
     sendText: async ({ to, text, accountId, deps, replyToId }) => {
       const send =
-        deps?.sendDiscord ?? getDiscordRuntime().channel.discord.sendMessageDiscord;
+        deps?.sendDiscord ?? getDiscordRuntime().experimental.channel.discord.sendMessageDiscord;
       const result = await send(to, text, {
         verbose: false,
         replyTo: replyToId ?? undefined,
@@ -292,7 +294,7 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
     },
     sendMedia: async ({ to, text, mediaUrl, accountId, deps, replyToId }) => {
       const send =
-        deps?.sendDiscord ?? getDiscordRuntime().channel.discord.sendMessageDiscord;
+        deps?.sendDiscord ?? getDiscordRuntime().experimental.channel.discord.sendMessageDiscord;
       const result = await send(to, text, {
         verbose: false,
         mediaUrl,
@@ -302,7 +304,7 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
       return { channel: "discord", ...result };
     },
     sendPoll: async ({ to, poll, accountId }) =>
-      await getDiscordRuntime().channel.discord.sendPollDiscord(to, poll, {
+      await getDiscordRuntime().experimental.channel.discord.sendPollDiscord(to, poll, {
         accountId: accountId ?? undefined,
       }),
   },
@@ -326,7 +328,7 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
       lastProbeAt: snapshot.lastProbeAt ?? null,
     }),
     probeAccount: async ({ account, timeoutMs }) =>
-      getDiscordRuntime().channel.discord.probeDiscord(account.token, timeoutMs, {
+      getDiscordRuntime().experimental.channel.discord.probeDiscord(account.token, timeoutMs, {
         includeApplication: true,
       }),
     auditAccount: async ({ account, timeoutMs, cfg }) => {
@@ -345,7 +347,7 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
           elapsedMs: 0,
         };
       }
-      const audit = await getDiscordRuntime().channel.discord.auditChannelPermissions({
+      const audit = await getDiscordRuntime().experimental.channel.discord.auditChannelPermissions({
         token: botToken,
         accountId: account.accountId,
         channelIds,
@@ -382,9 +384,13 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
       const token = account.token.trim();
       let discordBotLabel = "";
       try {
-        const probe = await getDiscordRuntime().channel.discord.probeDiscord(token, 2500, {
-          includeApplication: true,
-        });
+        const probe = await getDiscordRuntime().experimental.channel.discord.probeDiscord(
+          token,
+          2500,
+          {
+            includeApplication: true,
+          },
+        );
         const username = probe.ok ? probe.bot?.username?.trim() : null;
         if (username) discordBotLabel = ` (@${username})`;
         ctx.setStatus({
@@ -403,12 +409,12 @@ export const discordPlugin: ChannelPlugin<ResolvedDiscordAccount> = {
           );
         }
       } catch (err) {
-        if (getDiscordRuntime().logging.shouldLogVerbose()) {
+        if (getDiscordRuntime().stable.logging.shouldLogVerbose()) {
           ctx.log?.debug?.(`[${account.accountId}] bot probe failed: ${String(err)}`);
         }
       }
       ctx.log?.info(`[${account.accountId}] starting provider${discordBotLabel}`);
-      return getDiscordRuntime().channel.discord.monitorDiscordProvider({
+      return getDiscordRuntime().experimental.channel.discord.monitorDiscordProvider({
         token,
         accountId: account.accountId,
         config: ctx.cfg,
