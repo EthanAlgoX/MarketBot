@@ -25,6 +25,16 @@ async function withTempStateDir<T>(fn: (dir: string) => Promise<T>) {
         return path.join(homedir(), ".marketbot");
       },
     },
+    stable: {
+      state: {
+        resolveStateDir: (env, homedir) => {
+          const override =
+            env.MARKETBOT_STATE_DIR?.trim() || env.MARKETBOT_STATE_DIR?.trim();
+          if (override) return override;
+          return path.join(homedir(), ".marketbot");
+        },
+      },
+    },
   } as PluginRuntime);
   try {
     return await fn(dir);

@@ -19,6 +19,9 @@ const runtimeStub = {
     },
   },
   stable: {
+    media: {
+      detectMime: (...args: unknown[]) => detectMimeMock(...args),
+    },
     channel: {
       media: {
         saveMediaBuffer: (...args: unknown[]) => saveMediaBufferMock(...args),

@@ -20,7 +20,7 @@ export function resolveMatrixCredentialsDir(
   stateDir?: string,
 ): string {
   const resolvedStateDir =
-    stateDir ?? getMatrixRuntime().state.resolveStateDir(env, os.homedir);
+    stateDir ?? getMatrixRuntime().stable.state.resolveStateDir(env, os.homedir);
   return path.join(resolvedStateDir, "credentials", "matrix");
 }
 

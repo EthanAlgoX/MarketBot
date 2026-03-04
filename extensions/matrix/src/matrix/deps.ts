@@ -41,7 +41,7 @@ export async function ensureMatrixSdkInstalled(params: {
     ? ["pnpm", "install"]
     : ["npm", "install", "--omit=dev", "--silent"];
   params.runtime.log?.(`matrix: installing dependencies via ${command[0]} (${root})…`);
-  const result = await getMatrixRuntime().system.runCommandWithTimeout(command, {
+  const result = await getMatrixRuntime().stable.system.runCommandWithTimeout(command, {
     cwd: root,
     timeoutMs: 300_000,
     env: { COREPACK_ENABLE_DOWNLOAD_PROMPT: "0" },

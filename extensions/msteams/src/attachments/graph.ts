@@ -159,7 +159,7 @@ async function downloadGraphHostedContent(params: {
       continue;
     }
     if (buffer.byteLength > params.maxBytes) continue;
-    const mime = await getMSTeamsRuntime().media.detectMime({
+    const mime = await getMSTeamsRuntime().stable.media.detectMime({
       buffer,
       headerMime: item.contentType ?? undefined,
     });
@@ -244,7 +244,7 @@ export async function downloadMSTeamsGraphMedia(params: {
           if (spRes.ok) {
             const buffer = Buffer.from(await spRes.arrayBuffer());
             if (buffer.byteLength <= params.maxBytes) {
-              const mime = await getMSTeamsRuntime().media.detectMime({
+              const mime = await getMSTeamsRuntime().stable.media.detectMime({
                 buffer,
                 headerMime: spRes.headers.get("content-type") ?? undefined,
                 filePath: name,

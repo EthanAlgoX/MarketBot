@@ -47,7 +47,7 @@ function resolveNostrStatePath(
   accountId?: string,
   env: NodeJS.ProcessEnv = process.env
 ): string {
-  const stateDir = getNostrRuntime().state.resolveStateDir(env, os.homedir);
+  const stateDir = getNostrRuntime().stable.state.resolveStateDir(env, os.homedir);
   const normalized = normalizeAccountId(accountId);
   return path.join(stateDir, "nostr", `bus-state-${normalized}.json`);
 }
@@ -56,7 +56,7 @@ function resolveNostrProfileStatePath(
   accountId?: string,
   env: NodeJS.ProcessEnv = process.env
 ): string {
-  const stateDir = getNostrRuntime().state.resolveStateDir(env, os.homedir);
+  const stateDir = getNostrRuntime().stable.state.resolveStateDir(env, os.homedir);
   const normalized = normalizeAccountId(accountId);
   return path.join(stateDir, "nostr", `profile-state-${normalized}.json`);
 }

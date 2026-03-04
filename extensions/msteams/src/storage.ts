@@ -16,7 +16,7 @@ export function resolveMSTeamsStorePath(params: MSTeamsStorePathOptions): string
 
   const env = params.env ?? process.env;
   const stateDir = params.homedir
-    ? getMSTeamsRuntime().state.resolveStateDir(env, params.homedir)
-    : getMSTeamsRuntime().state.resolveStateDir(env);
+    ? getMSTeamsRuntime().stable.state.resolveStateDir(env, params.homedir)
+    : getMSTeamsRuntime().stable.state.resolveStateDir(env);
   return path.join(stateDir, params.filename);
 }

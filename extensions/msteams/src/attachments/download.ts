@@ -175,7 +175,7 @@ export async function downloadMSTeamsAttachments(params: {
       if (!res.ok) continue;
       const buffer = Buffer.from(await res.arrayBuffer());
       if (buffer.byteLength > params.maxBytes) continue;
-      const mime = await getMSTeamsRuntime().media.detectMime({
+      const mime = await getMSTeamsRuntime().stable.media.detectMime({
         buffer,
         headerMime: res.headers.get("content-type"),
         filePath: candidate.fileHint ?? candidate.url,
