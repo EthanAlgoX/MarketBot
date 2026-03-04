@@ -70,10 +70,16 @@ Tool authoring guide: [Plugin agent tools](/plugins/agent-tools).
 
 ## Runtime helpers
 
-Plugins can access selected core helpers via `api.runtime`. For telephony TTS:
+Plugins can access selected core helpers via `api.runtime`.
+
+- Prefer `api.runtime.stable.*` for compatibility.
+- `api.runtime.experimental.*` may change between releases.
+- Legacy top-level runtime paths remain available for compatibility.
+
+For telephony TTS:
 
 ```ts
-const result = await api.runtime.tts.textToSpeechTelephony({
+const result = await api.runtime.stable.tts.textToSpeechTelephony({
   text: 'Hello from MarketBot',
   cfg: api.config,
 });

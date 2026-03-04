@@ -37,7 +37,11 @@ import type { createVpsAwareOAuthHandlers } from "../commands/oauth-flow.js";
 import type { GatewayRequestHandler } from "../gateway/server-methods/types.js";
 import type { PluginRuntime } from "./runtime/types.js";
 
-export type { PluginRuntime } from "./runtime/types.js";
+export type {
+  PluginRuntime,
+  PluginRuntimeExperimental,
+  PluginRuntimeStable,
+} from "./runtime/types.js";
 
 export type PluginLogger = {
   debug?: (message: string) => void;

@@ -194,7 +194,7 @@ export type RuntimeLogger = {
   error: (message: string) => void;
 };
 
-export type PluginRuntime = {
+type PluginRuntimeLegacy = {
   version: string;
   config: {
     loadConfig: LoadConfig;
@@ -377,4 +377,32 @@ export type PluginRuntime = {
   state: {
     resolveStateDir: ResolveStateDir;
   };
+};
+
+type ExperimentalChannelNamespace =
+  | "discord"
+  | "slack"
+  | "telegram"
+  | "signal"
+  | "imessage"
+  | "whatsapp"
+  | "line";
+
+export type PluginRuntimeStable = Omit<PluginRuntimeLegacy, "channel"> & {
+  channel: Omit<PluginRuntimeLegacy["channel"], ExperimentalChannelNamespace>;
+};
+
+export type PluginRuntimeExperimental = {
+  channel: Pick<PluginRuntimeLegacy["channel"], ExperimentalChannelNamespace>;
+};
+
+export type PluginRuntime = PluginRuntimeLegacy & {
+  /**
+   * Preferred compatibility surface for plugin authors.
+   */
+  stable: PluginRuntimeStable;
+  /**
+   * Experimental helpers may change between releases.
+   */
+  experimental: PluginRuntimeExperimental;
 };
