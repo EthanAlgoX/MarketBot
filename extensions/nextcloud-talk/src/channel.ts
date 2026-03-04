@@ -246,7 +246,7 @@ export const nextcloudTalkPlugin: ChannelPlugin<ResolvedNextcloudTalkAccount> = 
   },
   outbound: {
     deliveryMode: "direct",
-    chunker: (text, limit) => getNextcloudTalkRuntime().channel.text.chunkMarkdownText(text, limit),
+    chunker: (text, limit) => getNextcloudTalkRuntime().stable.channel.text.chunkMarkdownText(text, limit),
     chunkerMode: "markdown",
     textChunkLimit: 4000,
     sendText: async ({ to, text, accountId, replyToId }) => {
@@ -391,7 +391,7 @@ export const nextcloudTalkPlugin: ChannelPlugin<ResolvedNextcloudTalkAccount> = 
       const loggedOut = resolved.secretSource === "none";
 
       if (changed) {
-        await getNextcloudTalkRuntime().config.writeConfigFile(nextCfg);
+        await getNextcloudTalkRuntime().stable.config.writeConfigFile(nextCfg);
       }
 
       return {

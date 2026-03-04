@@ -16,6 +16,13 @@ describe("downloadMatrixMedia", () => {
         saveMediaBuffer: (...args: unknown[]) => saveMediaBuffer(...args),
       },
     },
+    stable: {
+      channel: {
+        media: {
+          saveMediaBuffer: (...args: unknown[]) => saveMediaBuffer(...args),
+        },
+      },
+    },
   } as unknown as PluginRuntime;
 
   beforeEach(() => {

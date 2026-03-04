@@ -149,7 +149,7 @@ export async function downloadMSTeamsAttachments(params: {
     if (inline.data.byteLength > params.maxBytes) continue;
     try {
       // Data inline candidates (base64 data URLs) don't have original filenames
-      const saved = await getMSTeamsRuntime().channel.media.saveMediaBuffer(
+      const saved = await getMSTeamsRuntime().stable.channel.media.saveMediaBuffer(
         inline.data,
         inline.contentType,
         "inbound",
@@ -181,7 +181,7 @@ export async function downloadMSTeamsAttachments(params: {
         filePath: candidate.fileHint ?? candidate.url,
       });
       const originalFilename = params.preserveFilenames ? candidate.fileHint : undefined;
-      const saved = await getMSTeamsRuntime().channel.media.saveMediaBuffer(
+      const saved = await getMSTeamsRuntime().stable.channel.media.saveMediaBuffer(
         buffer,
         mime ?? candidate.contentTypeHint,
         "inbound",

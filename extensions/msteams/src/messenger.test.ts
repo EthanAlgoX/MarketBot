@@ -28,6 +28,19 @@ const runtimeStub = {
       convertMarkdownTables: (text: string) => text,
     },
   },
+  stable: {
+    config: {
+      loadConfig: () => ({}),
+    },
+    channel: {
+      text: {
+        chunkMarkdownText,
+        chunkMarkdownTextWithMode: chunkMarkdownText,
+        resolveMarkdownTableMode: () => "code",
+        convertMarkdownTables: (text: string) => text,
+      },
+    },
+  },
 } as unknown as PluginRuntime;
 
 describe("msteams messenger", () => {

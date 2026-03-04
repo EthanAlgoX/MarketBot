@@ -165,7 +165,7 @@ async function downloadGraphHostedContent(params: {
     });
     // Download any file type, not just images
     try {
-      const saved = await getMSTeamsRuntime().channel.media.saveMediaBuffer(
+      const saved = await getMSTeamsRuntime().stable.channel.media.saveMediaBuffer(
         buffer,
         mime ?? item.contentType ?? undefined,
         "inbound",
@@ -250,7 +250,7 @@ export async function downloadMSTeamsGraphMedia(params: {
                 filePath: name,
               });
               const originalFilename = params.preserveFilenames ? name : undefined;
-              const saved = await getMSTeamsRuntime().channel.media.saveMediaBuffer(
+              const saved = await getMSTeamsRuntime().stable.channel.media.saveMediaBuffer(
                 buffer,
                 mime ?? "application/octet-stream",
                 "inbound",

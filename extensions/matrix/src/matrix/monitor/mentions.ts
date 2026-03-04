@@ -23,7 +23,7 @@ export function resolveMentions(params: {
   const wasMentioned =
     Boolean(mentions?.room) ||
     (params.userId ? mentionedUsers.has(params.userId) : false) ||
-    getMatrixRuntime().channel.mentions.matchesMentionPatterns(
+    getMatrixRuntime().stable.channel.mentions.matchesMentionPatterns(
       params.text ?? "",
       params.mentionRegexes,
     );

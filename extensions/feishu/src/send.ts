@@ -130,7 +130,7 @@ export async function sendMessageFeishu(
   }
 
   const receiveIdType = resolveReceiveIdType(receiveId);
-  const tableMode = getFeishuRuntime().channel.text.resolveMarkdownTableMode({
+  const tableMode = getFeishuRuntime().stable.channel.text.resolveMarkdownTableMode({
     cfg,
     channel: "feishu",
   });
@@ -140,7 +140,7 @@ export async function sendMessageFeishu(
   if (mentions && mentions.length > 0) {
     rawText = buildMentionedMessage(mentions, rawText);
   }
-  const messageText = getFeishuRuntime().channel.text.convertMarkdownTables(rawText, tableMode);
+  const messageText = getFeishuRuntime().stable.channel.text.convertMarkdownTables(rawText, tableMode);
 
   const content = JSON.stringify({ text: messageText });
 
@@ -319,11 +319,11 @@ export async function editMessageFeishu(params: {
   }
 
   const client = createFeishuClient(feishuCfg);
-  const tableMode = getFeishuRuntime().channel.text.resolveMarkdownTableMode({
+  const tableMode = getFeishuRuntime().stable.channel.text.resolveMarkdownTableMode({
     cfg,
     channel: "feishu",
   });
-  const messageText = getFeishuRuntime().channel.text.convertMarkdownTables(text ?? "", tableMode);
+  const messageText = getFeishuRuntime().stable.channel.text.convertMarkdownTables(text ?? "", tableMode);
   const content = JSON.stringify({ text: messageText });
 
   const response = ensureFeishuApiSuccess(

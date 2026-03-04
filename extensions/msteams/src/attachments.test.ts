@@ -18,6 +18,13 @@ const runtimeStub = {
       saveMediaBuffer: (...args: unknown[]) => saveMediaBufferMock(...args),
     },
   },
+  stable: {
+    channel: {
+      media: {
+        saveMediaBuffer: (...args: unknown[]) => saveMediaBufferMock(...args),
+      },
+    },
+  },
 } as unknown as PluginRuntime;
 
 describe("msteams attachments", () => {

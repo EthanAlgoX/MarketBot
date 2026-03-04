@@ -99,7 +99,7 @@ export async function downloadMatrixMedia(params: {
 
   if (!fetched) return null;
   const headerType = fetched.headerType ?? params.contentType ?? undefined;
-  const saved = await getMatrixRuntime().channel.media.saveMediaBuffer(
+  const saved = await getMatrixRuntime().stable.channel.media.saveMediaBuffer(
     fetched.buffer,
     headerType,
     "inbound",

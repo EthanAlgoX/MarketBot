@@ -94,11 +94,11 @@ export async function sendMessageMSTeams(
   params: SendMSTeamsMessageParams,
 ): Promise<SendMSTeamsMessageResult> {
   const { cfg, to, text, mediaUrl } = params;
-  const tableMode = getMSTeamsRuntime().channel.text.resolveMarkdownTableMode({
+  const tableMode = getMSTeamsRuntime().stable.channel.text.resolveMarkdownTableMode({
     cfg,
     channel: "msteams",
   });
-  const messageText = getMSTeamsRuntime().channel.text.convertMarkdownTables(
+  const messageText = getMSTeamsRuntime().stable.channel.text.convertMarkdownTables(
     text ?? "",
     tableMode,
   );

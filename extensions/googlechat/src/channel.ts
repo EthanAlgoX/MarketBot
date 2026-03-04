@@ -373,7 +373,7 @@ export const googlechatPlugin: ChannelPlugin<ResolvedGoogleChatAccount> = {
   outbound: {
     deliveryMode: "direct",
     chunker: (text, limit) =>
-      getGoogleChatRuntime().channel.text.chunkMarkdownText(text, limit),
+      getGoogleChatRuntime().stable.channel.text.chunkMarkdownText(text, limit),
     chunkerMode: "markdown",
     textChunkLimit: 4000,
     resolveTarget: ({ to, allowFrom, mode }) => {

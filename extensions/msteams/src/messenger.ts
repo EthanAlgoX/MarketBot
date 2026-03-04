@@ -136,7 +136,7 @@ function pushTextMessages(
 ) {
   if (!text) return;
   if (opts.chunkText) {
-    for (const chunk of getMSTeamsRuntime().channel.text.chunkMarkdownTextWithMode(
+    for (const chunk of getMSTeamsRuntime().stable.channel.text.chunkMarkdownTextWithMode(
       text,
       opts.chunkLimit,
       opts.chunkMode,
@@ -208,14 +208,14 @@ export function renderReplyPayloadsToMessages(
   const mediaMode = options.mediaMode ?? "split";
   const tableMode =
     options.tableMode ??
-    getMSTeamsRuntime().channel.text.resolveMarkdownTableMode({
-      cfg: getMSTeamsRuntime().config.loadConfig(),
+    getMSTeamsRuntime().stable.channel.text.resolveMarkdownTableMode({
+      cfg: getMSTeamsRuntime().stable.config.loadConfig(),
       channel: "msteams",
     });
 
   for (const payload of replies) {
     const mediaList = payload.mediaUrls ?? (payload.mediaUrl ? [payload.mediaUrl] : []);
-    const text = getMSTeamsRuntime().channel.text.convertMarkdownTables(
+    const text = getMSTeamsRuntime().stable.channel.text.convertMarkdownTables(
       payload.text ?? "",
       tableMode,
     );

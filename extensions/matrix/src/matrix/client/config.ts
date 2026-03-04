@@ -10,7 +10,7 @@ function clean(value?: string): string {
 }
 
 export function resolveMatrixConfig(
-  cfg: CoreConfig = getMatrixRuntime().config.loadConfig() as CoreConfig,
+  cfg: CoreConfig = getMatrixRuntime().stable.config.loadConfig() as CoreConfig,
   env: NodeJS.ProcessEnv = process.env,
 ): MatrixResolvedConfig {
   const matrix = cfg.channels?.matrix ?? {};
@@ -41,7 +41,7 @@ export async function resolveMatrixAuth(params?: {
   cfg?: CoreConfig;
   env?: NodeJS.ProcessEnv;
 }): Promise<MatrixAuth> {
-  const cfg = params?.cfg ?? (getMatrixRuntime().config.loadConfig() as CoreConfig);
+  const cfg = params?.cfg ?? (getMatrixRuntime().stable.config.loadConfig() as CoreConfig);
   const env = params?.env ?? process.env;
   const resolved = resolveMatrixConfig(cfg, env);
   if (!resolved.homeserver) {

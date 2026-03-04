@@ -56,7 +56,7 @@ export async function sendMessageNextcloudTalk(
   text: string,
   opts: NextcloudTalkSendOpts = {},
 ): Promise<NextcloudTalkSendResult> {
-  const cfg = getNextcloudTalkRuntime().config.loadConfig() as CoreConfig;
+  const cfg = getNextcloudTalkRuntime().stable.config.loadConfig() as CoreConfig;
   const account = resolveNextcloudTalkAccount({
     cfg,
     accountId: opts.accountId,
@@ -71,12 +71,12 @@ export async function sendMessageNextcloudTalk(
     throw new Error("Message must be non-empty for Nextcloud Talk sends");
   }
 
-  const tableMode = getNextcloudTalkRuntime().channel.text.resolveMarkdownTableMode({
+  const tableMode = getNextcloudTalkRuntime().stable.channel.text.resolveMarkdownTableMode({
     cfg,
     channel: "nextcloud-talk",
     accountId: account.accountId,
   });
-  const message = getNextcloudTalkRuntime().channel.text.convertMarkdownTables(
+  const message = getNextcloudTalkRuntime().stable.channel.text.convertMarkdownTables(
     text.trim(),
     tableMode,
   );
@@ -152,7 +152,7 @@ export async function sendMessageNextcloudTalk(
     console.log(`[nextcloud-talk] Sent message ${messageId} to room ${roomToken}`);
   }
 
-  getNextcloudTalkRuntime().channel.activity.record({
+  getNextcloudTalkRuntime().stable.channel.activity.record({
     channel: "nextcloud-talk",
     accountId: account.accountId,
     direction: "outbound",
@@ -167,7 +167,7 @@ export async function sendReactionNextcloudTalk(
   reaction: string,
   opts: Omit<NextcloudTalkSendOpts, "replyTo"> = {},
 ): Promise<{ ok: true }> {
-  const cfg = getNextcloudTalkRuntime().config.loadConfig() as CoreConfig;
+  const cfg = getNextcloudTalkRuntime().stable.config.loadConfig() as CoreConfig;
   const account = resolveNextcloudTalkAccount({
     cfg,
     accountId: opts.accountId,

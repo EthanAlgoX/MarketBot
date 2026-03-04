@@ -25,13 +25,13 @@ export async function resolveActionClient(
   const shouldShareClient = Boolean(process.env.MARKETBOT_GATEWAY_PORT);
   if (shouldShareClient) {
     const client = await resolveSharedMatrixClient({
-      cfg: getMatrixRuntime().config.loadConfig() as CoreConfig,
+      cfg: getMatrixRuntime().stable.config.loadConfig() as CoreConfig,
       timeoutMs: opts.timeoutMs,
     });
     return { client, stopOnDone: false };
   }
   const auth = await resolveMatrixAuth({
-    cfg: getMatrixRuntime().config.loadConfig() as CoreConfig,
+    cfg: getMatrixRuntime().stable.config.loadConfig() as CoreConfig,
   });
   const client = await createMatrixClient({
     homeserver: auth.homeserver,

@@ -10,10 +10,12 @@ vi.mock("./client.js", () => ({
 
 vi.mock("./runtime.js", () => ({
   getFeishuRuntime: () => ({
-    channel: {
-      text: {
-        resolveMarkdownTableMode: () => "code",
-        convertMarkdownTables: (text: string) => text,
+    stable: {
+      channel: {
+        text: {
+          resolveMarkdownTableMode: () => "code",
+          convertMarkdownTables: (text: string) => text,
+        },
       },
     },
   }),
