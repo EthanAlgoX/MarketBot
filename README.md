@@ -1,6 +1,9 @@
 <div align="center">
   <img src="marketbot_logo.png" alt="marketbot" width="500">
-  <h1>marketbot: Ultra-Lightweight Personal AI Assistant</h1>
+  <h1>marketbot: Finance-First, Ultra-Lightweight AI Assistant</h1>
+  <p>
+    <b>The minimalist agent framework designed for quantitative research and personal automation.</b>
+  </p>
   <p>
     <a href="https://pypi.org/project/marketbot-ai/"><img src="https://img.shields.io/pypi/v/marketbot-ai" alt="PyPI"></a>
     <a href="https://pepy.tech/project/marketbot-ai"><img src="https://static.pepy.tech/badge/marketbot-ai" alt="Downloads"></a>
@@ -8,76 +11,47 @@
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
     <a href="./COMMUNICATION.md"><img src="https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat&logo=feishu&logoColor=white" alt="Feishu"></a>
     <a href="./COMMUNICATION.md"><img src="https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white" alt="WeChat"></a>
-    <a href="https://discord.gg/MnCvHqpUGB"><img src="https://img.shields.io/badge/Discord-Community-5865F2?style=flat&logo=discord&logoColor=white" alt="Discord"></a>
   </p>
 </div>
 
-🐈 **marketbot** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw).
+---
 
-⚡️ Delivers core agent functionality with **99% fewer lines of code** than OpenClaw.
+🐈 **marketbot** 是一个**金融优先 (Finance-First)** 的超轻量级个人 AI 助手。
+
+- ⚡️ **极简核心**: 仅约 4,000 行 Python 代码，比传统复杂框架精简 99%。
+- 📈 **金融洞察**: 内置强大的金融研究能力，自动化市场数据分析与报告合成。
+- 🔗 **多维联接**: 无缝集成 Telegram, Discord, 飞书, 微信等主流 IM 渠道。
+- 🛡️ **设计哲学**: 采用 "获取 -> 分析 -> 合成" 的确定性流程，拒绝臃肿。
+
+---
+
+🐈 **marketbot** is a **Finance-First**, **Ultra-Lightweight** personal AI assistant framework.
+
+- ⚡️ **Minimalist Core**: ~4,000 lines of Python — 99% smaller than heavy-weight alternatives.
+- 📈 **Financial Insight**: Built-in capabilities for automated market research and report synthesis.
+- 🔗 **Multi-Channel**: Native support for Telegram, Discord, Feishu, WhatsApp, and more.
+- 📐 **Research-Ready**: Clean, modular code designed for transparency and easy extension.
 
 📏 Real-time line count: run `bash core_agent_lines.sh` to verify anytime.
 
-## 📢 News
-
-- **2026-02-28** 🚀 Released **v0.1.4.post3** — cleaner context, hardened session history, and smarter agent. Please see [release notes](https://github.com/HKUDS/marketbot/releases/tag/v0.1.4.post3) for details.
-- **2026-02-27** 🧠 Experimental thinking mode support, DingTalk media messages, Feishu and QQ channel fixes.
-- **2026-02-26** 🛡️ Session poisoning fix, WhatsApp dedup, Windows path guard, Mistral compatibility.
-- **2026-02-25** 🧹 New Matrix channel, cleaner session context, auto workspace template sync.
-- **2026-02-24** 🚀 Released **v0.1.4.post2** — a reliability-focused release with a redesigned heartbeat, prompt cache optimization, and hardened provider & channel stability. See [release notes](https://github.com/HKUDS/marketbot/releases/tag/v0.1.4.post2) for details.
-- **2026-02-23** 🔧 Virtual tool-call heartbeat, prompt cache optimization, Slack mrkdwn fixes.
-- **2026-02-22** 🛡️ Slack thread isolation, Discord typing fix, agent reliability improvements.
-- **2026-02-21** 🎉 Released **v0.1.4.post1** — new providers, media support across channels, and major stability improvements. See [release notes](https://github.com/HKUDS/marketbot/releases/tag/v0.1.4.post1) for details.
-- **2026-02-20** 🐦 Feishu now receives multimodal files from users. More reliable memory under the hood.
-- **2026-02-19** ✨ Slack now sends files, Discord splits long messages, and subagents work in CLI mode.
-
-<details>
-<summary>Earlier news</summary>
-
-- **2026-02-18** ⚡️ marketbot now supports VolcEngine, MCP custom auth headers, and Anthropic prompt caching.
-- **2026-02-17** 🎉 Released **v0.1.4** — MCP support, progress streaming, new providers, and multiple channel improvements. Please see [release notes](https://github.com/HKUDS/marketbot/releases/tag/v0.1.4) for details.
-- **2026-02-16** 🦞 marketbot now integrates a [ClawHub](https://clawhub.ai) skill — search and install public agent skills.
-- **2026-02-15** 🔑 marketbot now supports OpenAI Codex provider with OAuth login support.
-- **2026-02-14** 🔌 marketbot now supports MCP! See [MCP section](#mcp-model-context-protocol) for details.
-- **2026-02-13** 🎉 Released **v0.1.3.post7** — includes security hardening and multiple improvements. **Please upgrade to the latest version to address security issues**. See [release notes](https://github.com/HKUDS/marketbot/releases/tag/v0.1.3.post7) for more details.
-- **2026-02-12** 🧠 Redesigned memory system — Less code, more reliable. Join the [discussion](https://github.com/HKUDS/marketbot/discussions/566) about it!
-- **2026-02-11** ✨ Enhanced CLI experience and added MiniMax support!
-- **2026-02-10** 🎉 Released **v0.1.3.post6** with improvements! Check the updates [notes](https://github.com/HKUDS/marketbot/releases/tag/v0.1.3.post6) and our [roadmap](https://github.com/HKUDS/marketbot/discussions/431).
-- **2026-02-09** 💬 Added Slack, Email, and QQ support — marketbot now supports multiple chat platforms!
-- **2026-02-08** 🔧 Refactored Providers—adding a new LLM provider now takes just 2 simple steps! Check [here](#providers).
-- **2026-02-07** 🚀 Released **v0.1.3.post5** with Qwen support & several key improvements! Check [here](https://github.com/HKUDS/marketbot/releases/tag/v0.1.3.post5) for details.
-- **2026-02-06** ✨ Added Moonshot/Kimi provider, Discord integration, and enhanced security hardening!
-- **2026-02-05** ✨ Added Feishu channel, DeepSeek provider, and enhanced scheduled tasks support!
-- **2026-02-04** 🚀 Released **v0.1.3.post4** with multi-provider & Docker support! Check [here](https://github.com/HKUDS/marketbot/releases/tag/v0.1.3.post4) for details.
-- **2026-02-03** ⚡ Integrated vLLM for local LLM support and improved natural language task scheduling!
-- **2026-02-02** 🎉 marketbot officially launched! Welcome to try 🐈 marketbot!
-
 </details>
 
-## Key Features of marketbot:
+## 💡 Design Philosophy
 
-🪶 **Ultra-Lightweight**: Just ~4,000 lines of core agent code — 99% smaller than Clawdbot.
+MarketBot is built on the belief that **less is more**. While other agent frameworks grow increasingly complex, MarketBot remains focused on three pillars:
 
-🔬 **Research-Ready**: Clean, readable code that's easy to understand, modify, and extend for research.
+1. **Determinism over Chaos**: Uses a "Fetch -> Analyze -> Synthesize" workflow to ensure high-quality, reproducible financial insights.
+2. **Minimalist State**: A unique "Two-Layer Memory" system using `MEMORY.md` for long-term facts and `HISTORY.md` for searchable logs. No heavy databases required by default.
+3. **Transparency**: The entire core is readable in a single afternoon. Perfect for researchers who need to know *exactly* how their agent thinks.
 
-⚡️ **Lightning Fast**: Minimal footprint means faster startup, lower resource usage, and quicker iterations.
-
-💎 **Easy-to-Use**: One-click to deploy and you're ready to go.
-
-## 🏗️ Architecture
-
-<p align="center">
-  <img src="marketbot_arch.png" alt="marketbot architecture" width="800">
-</p>
-
-## ✨ Features
+## ✨ Core Capabilities
 
 <table align="center">
   <tr align="center">
-    <th><p align="center">📈 24/7 Real-Time Market Analysis</p></th>
-    <th><p align="center">🚀 Full-Stack Software Engineer</p></th>
-    <th><p align="center">📅 Smart Daily Routine Manager</p></th>
-    <th><p align="center">📚 Personal Knowledge Assistant</p></th>
+    <th><p align="center">📈 24/7 Market Research</p></th>
+    <th><p align="center">🚀 Automated Execution</p></th>
+    <th><p align="center">📅 Smart Routine Management</p></th>
+    <th><p align="center">📚 Knowledge Consolidation</p></th>
   </tr>
   <tr>
     <td align="center"><p align="center"><img src="case/search.gif" width="180" height="400"></p></td>
@@ -86,10 +60,10 @@
     <td align="center"><p align="center"><img src="case/memory.gif" width="180" height="400"></p></td>
   </tr>
   <tr>
-    <td align="center">Discovery • Insights • Trends</td>
-    <td align="center">Develop • Deploy • Scale</td>
-    <td align="center">Schedule • Automate • Organize</td>
-    <td align="center">Learn • Memory • Reasoning</td>
+    <td align="center">Discovery • Data • Trends</td>
+    <td align="center">Code • Deploy • Scale</td>
+    <td align="center">Schedule • Automate • Log</td>
+    <td align="center">Summarize • Facts • Reasoning</td>
   </tr>
 </table>
 
@@ -103,23 +77,7 @@ cd marketbot
 pip install -e .
 ```
 
-**Install with [uv](https://github.com/astral-sh/uv)** (stable, fast)
-
-```bash
-uv tool install marketbot-ai
-```
-
-**Install from PyPI** (stable)
-
-```bash
-pip install marketbot-ai
-```
-
 ## 🚀 Quick Start
-
-> [!TIP]
-> Set your API key in `~/.marketbot/config.json`.
-> Get API keys: [OpenRouter](https://openrouter.ai/keys) (Global) · [Brave Search](https://brave.com/search/api/) (optional, for web search)
 
 **1. Initialize**
 
@@ -129,38 +87,32 @@ marketbot onboard
 
 **2. Configure** (`~/.marketbot/config.json`)
 
-Add or merge these **two parts** into your config (other options have defaults).
+MarketBot is designed to be "plug-and-play". Just add your API key:
 
-*Set your API key* (e.g. OpenRouter, recommended for global users):
 ```json
 {
   "providers": {
     "openrouter": {
       "apiKey": "sk-or-v1-xxx"
     }
-  }
-}
-```
-
-*Set your model* (optionally pin a provider — defaults to auto-detection):
-```json
-{
+  },
   "agents": {
     "defaults": {
-      "model": "anthropic/claude-opus-4-5",
+      "model": "anthropic/claude-3-5-sonnet",
       "provider": "openrouter"
     }
   }
 }
 ```
 
-**3. Chat**
+**3. Launch**
 
 ```bash
 marketbot agent
 ```
 
-That's it! You have a working AI assistant in 2 minutes.
+> [!TIP]
+> Visit [OpenRouter](https://openrouter.ai/keys) to get an API key that works with almost any model.
 
 ## 💬 Chat Apps
 
@@ -182,6 +134,7 @@ Connect marketbot to your favorite chat platform.
 <summary><b>Telegram</b> (Recommended)</summary>
 
 **1. Create a bot**
+
 - Open Telegram, search `@BotFather`
 - Send `/newbot`, follow prompts
 - Copy the token
@@ -202,7 +155,6 @@ Connect marketbot to your favorite chat platform.
 
 > You can find your **User ID** in Telegram settings. It is shown as `@yourUserId`.
 > Copy this value **without the `@` symbol** and paste it into the config file.
-
 
 **3. Run**
 
@@ -263,8 +215,6 @@ If you prefer to configure manually, add the following to `~/.marketbot/config.j
 }
 ```
 
-
-
 </details>
 
 </details>
@@ -273,15 +223,18 @@ If you prefer to configure manually, add the following to `~/.marketbot/config.j
 <summary><b>Discord</b></summary>
 
 **1. Create a bot**
-- Go to https://discord.com/developers/applications
+
+- Go to <https://discord.com/developers/applications>
 - Create an application → Bot → Add Bot
 - Copy the bot token
 
 **2. Enable intents**
+
 - In the Bot settings, enable **MESSAGE CONTENT INTENT**
 - (Optional) Enable **SERVER MEMBERS INTENT** if you plan to use allow lists based on member data
 
 **3. Get your User ID**
+
 - Discord Settings → Advanced → enable **Developer Mode**
 - Right-click your avatar → **Copy User ID**
 
@@ -301,11 +254,13 @@ If you prefer to configure manually, add the following to `~/.marketbot/config.j
 ```
 
 > `groupPolicy` controls how the bot responds in group channels:
+>
 > - `"mention"` (default) — Only respond when @mentioned
 > - `"open"` — Respond to all messages
 > DMs always respond when the sender is in `allowFrom`.
 
 **5. Invite the bot**
+
 - OAuth2 → URL Generator
 - Scopes: `bot`
 - Bot Permissions: `Send Messages`, `Read Message History`
@@ -374,9 +329,6 @@ pip install marketbot-ai[matrix]
 | `e2eeEnabled` | E2EE support (default `true`). Set `false` for plaintext-only. |
 | `maxMediaBytes` | Max attachment size (default `20MB`). Set `0` to block all media. |
 
-
-
-
 **4. Run**
 
 ```bash
@@ -432,6 +384,7 @@ marketbot gateway
 Uses **WebSocket** long connection — no public IP required.
 
 **1. Create a Feishu bot**
+
 - Visit [Feishu Open Platform](https://open.feishu.cn/app)
 - Create a new app → Enable **Bot** capability
 - **Permissions**: Add `im:message` (send messages) and `im:message.p2p_msg:readonly` (receive messages)
@@ -477,11 +430,13 @@ marketbot gateway
 Uses **botpy SDK** with WebSocket — no public IP required. Currently supports **private messages only**.
 
 **1. Register & create bot**
+
 - Visit [QQ Open Platform](https://q.qq.com) → Register as a developer (personal or enterprise)
 - Create a new bot application
 - Go to **开发设置 (Developer Settings)** → copy **AppID** and **AppSecret**
 
 **2. Set up sandbox for testing**
+
 - In the bot management console, find **沙箱配置 (Sandbox Config)**
 - Under **在消息列表配置**, click **添加成员** and add your own QQ number
 - Once added, scan the bot's QR code with mobile QQ → open the bot profile → tap "发消息" to start chatting
@@ -520,6 +475,7 @@ Now send a message to the bot from QQ — it should respond!
 Uses **Stream Mode** — no public IP required.
 
 **1. Create a DingTalk bot**
+
 - Visit [DingTalk Open Platform](https://open-dev.dingtalk.com/)
 - Create a new app -> Add **Robot** capability
 - **Configuration**:
@@ -559,10 +515,12 @@ marketbot gateway
 Uses **Socket Mode** — no public URL required.
 
 **1. Create a Slack app**
+
 - Go to [Slack API](https://api.slack.com/apps) → **Create New App** → "From scratch"
 - Pick a name and select your workspace
 
 **2. Configure the app**
+
 - **Socket Mode**: Toggle ON → Generate an **App-Level Token** with `connections:write` scope → copy it (`xapp-...`)
 - **OAuth & Permissions**: Add bot scopes: `chat:write`, `reactions:write`, `app_mentions:read`
 - **Event Subscriptions**: Toggle ON → Subscribe to bot events: `message.im`, `message.channels`, `app_mention` → Save Changes
@@ -594,6 +552,7 @@ marketbot gateway
 DM the bot directly or @mention it in a channel — it should respond!
 
 > [!TIP]
+>
 > - `groupPolicy`: `"mention"` (default — respond only when @mentioned), `"open"` (respond to all channel messages), or `"allowlist"` (restrict to specific channels).
 > - DM policy defaults to open. Set `"dm": {"enabled": false}` to disable DMs.
 
@@ -605,6 +564,7 @@ DM the bot directly or @mention it in a channel — it should respond!
 Give marketbot its own email account. It polls **IMAP** for incoming mail and replies via **SMTP** — like a personal email assistant.
 
 **1. Get credentials (Gmail example)**
+
 - Create a dedicated Gmail account for your bot (e.g. `my-marketbot@gmail.com`)
 - Enable 2-Step Verification → Create an [App Password](https://myaccount.google.com/apppasswords)
 - Use this app password for both IMAP and SMTP
@@ -637,7 +597,6 @@ Give marketbot its own email account. It polls **IMAP** for incoming mail and re
 }
 ```
 
-
 **3. Run**
 
 ```bash
@@ -664,6 +623,7 @@ Config file: `~/.marketbot/config.json`
 ### Providers
 
 > [!TIP]
+>
 > - **Groq** provides free voice transcription via Whisper. If configured, Telegram voice messages will be automatically transcribed.
 > - **Zhipu Coding Plan**: If you're on Zhipu's coding plan, set `"apiBase": "https://open.bigmodel.cn/api/coding/paas/v4"` in your zhipu provider config.
 > - **MiniMax (Mainland China)**: If your API key is from MiniMax's mainland China platform (minimaxi.com), set `"apiBase": "https://api.minimaxi.com/v1"` in your minimax provider config.
@@ -697,11 +657,13 @@ Config file: `~/.marketbot/config.json`
 Codex uses OAuth instead of API keys. Requires a ChatGPT Plus or Pro account.
 
 **1. Login:**
+
 ```bash
 marketbot provider login openai-codex
 ```
 
 **2. Set model** (merge into `~/.marketbot/config.json`):
+
 ```json
 {
   "agents": {
@@ -713,6 +675,7 @@ marketbot provider login openai-codex
 ```
 
 **3. Chat:**
+
 ```bash
 marketbot agent -m "Hello!"
 ```
@@ -752,6 +715,7 @@ Connects directly to any OpenAI-compatible endpoint — LM Studio, llama.cpp, To
 Run your own model with vLLM or any OpenAI-compatible server, then add to config:
 
 **1. Start the server** (example):
+
 ```bash
 vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
 ```
@@ -759,6 +723,7 @@ vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
 **2. Add to config** (partial — merge into `~/.marketbot/config.json`):
 
 *Provider (key can be any non-empty string for local):*
+
 ```json
 {
   "providers": {
@@ -771,6 +736,7 @@ vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
 ```
 
 *Model:*
+
 ```json
 {
   "agents": {
@@ -827,7 +793,6 @@ That's it! Environment variables, model prefixing, config matching, and `marketb
 
 </details>
 
-
 ### MCP (Model Context Protocol)
 
 > [!TIP]
@@ -880,9 +845,6 @@ Use `toolTimeout` to override the default 30s per-call timeout for slow servers:
 
 MCP tools are automatically discovered and registered on startup. The LLM can use them alongside built-in tools — no extra configuration needed.
 
-
-
-
 ### Security
 
 > [!TIP]
@@ -894,7 +856,6 @@ MCP tools are automatically discovered and registered on startup. The LLM can us
 | `tools.restrictToWorkspace` | `false` | When `true`, restricts **all** agent tools (shell, file read/write/edit, list) to the workspace directory. Prevents path traversal and out-of-scope access. |
 | `tools.exec.pathAppend` | `""` | Extra directories to append to `PATH` when running shell commands (e.g. `/usr/sbin` for `ufw`). |
 | `channels.*.allowFrom` | `[]` (allow all) | Whitelist of user IDs. Empty = allow everyone; non-empty = only listed users can interact. |
-
 
 ## Multiple Instances
 
@@ -918,10 +879,10 @@ marketbot gateway -w ~/.marketbot/botC -c ~/.marketbot/botC/config.json -p 18793
 | `--port` | `-p` | Gateway port (default: `18790`) |
 
 Each instance has its own:
+
 - Workspace directory (MEMORY.md, HEARTBEAT.md, session files)
 - Cron jobs storage (`workspace/cron/jobs.json`)
 - Configuration (if using `--config`)
-
 
 ## CLI Reference
 
@@ -1092,7 +1053,6 @@ PRs welcome! The codebase is intentionally small and readable. 🤗
   <img src="https://contrib.rocks/image?repo=HKUDS/marketbot&max=100&columns=12&updated=20260210" alt="Contributors" />
 </a>
 
-
 ## ⭐ Star History
 
 <div align="center">
@@ -1109,7 +1069,6 @@ PRs welcome! The codebase is intentionally small and readable. 🤗
   <em> Thanks for visiting ✨ marketbot!</em><br><br>
   <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.marketbot&style=for-the-badge&color=00d4ff" alt="Views">
 </p>
-
 
 <p align="center">
   <sub>marketbot is for educational, research, and technical exchange purposes only</sub>
