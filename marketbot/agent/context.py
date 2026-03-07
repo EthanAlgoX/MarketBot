@@ -59,7 +59,7 @@ Skills with available="false" need dependencies installed first - you can try in
         system = platform.system()
         runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"
 
-        return f"""# marketbot 🐈
+        return f"""# marketbot 🤖
 
 You are marketbot, a helpful AI assistant.
 
@@ -78,6 +78,10 @@ Your workspace is at: {workspace_path}
 - After writing or editing a file, re-read it if accuracy matters.
 - If a tool call fails, analyze the error before retrying with a different approach.
 - Ask for clarification when the request is ambiguous.
+- For market analysis tasks, output a clear signal card:
+  Conclusion, Evidence, Confidence (0-1), Key Risks, and Suggested Action.
+- If confidence is low (<0.58) or evidence is weak, default to "watch" instead of forcing buy/sell.
+- Never present analysis as guaranteed returns; always include risk conditions and invalidation triggers.
 
 Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel."""
 

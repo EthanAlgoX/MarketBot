@@ -308,6 +308,43 @@ class ExecToolConfig(Base):
     path_append: str = ""
 
 
+class MarketSignalWeightsConfig(Base):
+    """Weights used to combine factors into a final market signal score."""
+
+    price_momentum: float = Field(0.35, ge=0.0, le=1.0)
+    news_sentiment: float = Field(0.30, ge=0.0, le=1.0)
+    social_sentiment: float = Field(0.20, ge=0.0, le=1.0)
+    macro_regime: float = Field(0.15, ge=0.0, le=1.0)
+
+
+class MarketRiskConfig(Base):
+    """Risk controls for market recommendations."""
+
+    min_confidence: float = Field(0.58, ge=0.0, le=1.0)
+    max_position_pct: float = Field(0.10, ge=0.0, le=1.0)
+    stop_loss_pct: float = Field(0.03, ge=0.0, le=1.0)
+    max_daily_signals: int = Field(20, ge=1, le=500)
+
+
+class MarketToolsConfig(Base):
+    """Market analysis tool configuration."""
+
+    enabled: bool = True
+    request_timeout_s: int = Field(12, ge=1, le=120)
+    snapshot_max_symbols: int = Field(12, ge=1, le=100)
+    quote_source: Literal["yahoo", "mock"] = "yahoo"
+    news_sources: list[str] = Field(default_factory=lambda: ["reuters", "bloomberg", "cls"])
+    social_sources: list[str] = Field(default_factory=lambda: ["x", "reddit"])
+    macro_source: Literal["fred", "manual"] = "fred"
+    fred_api_key: str = ""
+    default_symbols: list[str] = Field(
+        default_factory=lambda: ["SPY", "QQQ", "IWM", "GLD", "USO", "BTC-USD"]
+    )
+    cache_ttl_s: int = Field(60, ge=0, le=3600)
+    weights: MarketSignalWeightsConfig = Field(default_factory=MarketSignalWeightsConfig)
+    risk: MarketRiskConfig = Field(default_factory=MarketRiskConfig)
+
+
 class MCPServerConfig(Base):
     """MCP server connection configuration (stdio or HTTP)."""
 
@@ -325,6 +362,7 @@ class ToolsConfig(Base):
 
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
+    market: MarketToolsConfig = Field(default_factory=MarketToolsConfig)
     restrict_to_workspace: bool = False  # If true, restrict all tool access to workspace directory
     mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
 

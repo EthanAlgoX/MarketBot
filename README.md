@@ -16,7 +16,7 @@
 
 ---
 
-🐈 **marketbot** 是一个**金融优先 (Finance-First)** 的超轻量级个人 AI 助手。
+🤖 **marketbot** 是一个**金融优先 (Finance-First)** 的超轻量级个人 AI 助手。
 
 - ⚡️ **极简核心**: 仅约 4,000 行 Python 代码，比传统复杂框架精简 99%。
 - 📈 **金融洞察**: 内置强大的金融研究能力，自动化市场数据分析与报告合成。
@@ -25,7 +25,7 @@
 
 ---
 
-🐈 **marketbot** is a **Finance-First**, **Ultra-Lightweight** personal AI assistant framework.
+🤖 **marketbot** is a **Finance-First**, **Ultra-Lightweight** personal AI assistant framework.
 
 - ⚡️ **Minimalist Core**: ~4,000 lines of Python — 99% smaller than heavy-weight alternatives.
 - 📈 **Financial Insight**: Built-in capabilities for automated market research and report synthesis.
@@ -607,7 +607,7 @@ marketbot gateway
 
 ## 🌐 Agent Social Network
 
-🐈 marketbot is capable of linking to the agent social network (agent community). **Just send one message and your marketbot joins automatically!**
+🤖 marketbot is capable of linking to the agent social network (agent community). **Just send one message and your marketbot joins automatically!**
 
 | Platform | How to Join (send this message to your bot) |
 |----------|-------------|
@@ -1052,18 +1052,6 @@ PRs welcome! The codebase is intentionally small and readable. 🤗
 <a href="https://github.com/HKUDS/marketbot/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=HKUDS/marketbot&max=100&columns=12&updated=20260210" alt="Contributors" />
 </a>
-
-## ⭐ Star History
-
-<div align="center">
-  <a href="https://star-history.com/#HKUDS/marketbot&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/marketbot&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/marketbot&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/marketbot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
-    </picture>
-  </a>
-</div>
 
 <p align="center">
   <em> Thanks for visiting ✨ marketbot!</em><br><br>
