@@ -335,6 +335,8 @@ class MarketToolsConfig(Base):
     quote_source: Literal["yahoo", "mock"] = "yahoo"
     news_sources: list[str] = Field(default_factory=lambda: ["reuters", "bloomberg", "cls"])
     social_sources: list[str] = Field(default_factory=lambda: ["x", "reddit"])
+    social_lookback_hours: int = Field(24, ge=1, le=168)
+    social_post_limit: int = Field(30, ge=1, le=200)
     macro_source: Literal["fred", "manual"] = "fred"
     fred_api_key: str = ""
     default_symbols: list[str] = Field(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -26,6 +27,38 @@ def _clamp(value: float, lower: float, upper: float) -> float:
 def _utc_now_iso() -> str:
     """ISO timestamp in UTC."""
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+_POSITIVE_SENTIMENT_TERMS = {
+    "beat",
+    "strong",
+    "surge",
+    "bullish",
+    "upgrade",
+    "record",
+    "breakout",
+    "rally",
+    "growth",
+}
+_NEGATIVE_SENTIMENT_TERMS = {
+    "miss",
+    "weak",
+    "bearish",
+    "downgrade",
+    "drop",
+    "selloff",
+    "lawsuit",
+    "recession",
+    "risk",
+}
+
+
+def _lexicon_sentiment(text: str) -> float:
+    """Simple lexicon sentiment score in [-1, 1]."""
+    lower = text.lower()
+    pos = sum(1 for term in _POSITIVE_SENTIMENT_TERMS if term in lower)
+    neg = sum(1 for term in _NEGATIVE_SENTIMENT_TERMS if term in lower)
+    return _clamp((pos - neg) / 4.0, -1.0, 1.0)
 
 
 class MarketSnapshotTool(Tool):
@@ -570,6 +603,177 @@ class MarketNewsTool(Tool):
         )
 
 
+class MarketSocialSentimentTool(Tool):
+    """Aggregate social sentiment for symbols from reddit/mock feeds."""
+
+    name = "market_social_sentiment"
+    description = (
+        "Aggregate social sentiment from community posts for symbols. "
+        "Returns per-symbol sentiment, confidence, and sampled posts."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "symbols": {"type": "array", "items": {"type": "string"}},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20},
+        },
+    }
+
+    def __init__(self, config: MarketToolsConfig | None = None):
+        self._config = config
+        self._timeout = float(config.request_timeout_s) if config else 12.0
+        self._defaults = (config.default_symbols if config else []) or ["SPY", "QQQ", "BTC-USD"]
+        self._sources = [s.lower() for s in ((config.social_sources if config else None) or ["reddit"])]
+        self._lookback_hours = int(config.social_lookback_hours) if config else 24
+        self._post_limit = int(config.social_post_limit) if config else 30
+
+    @staticmethod
+    def _mock_summary(symbol: str, limit: int) -> dict[str, Any]:
+        seed = sum(ord(c) for c in symbol)
+        sentiment = _clamp(((seed % 21) - 10) / 10.0, -1.0, 1.0)
+        confidence = _clamp(0.45 + (abs(sentiment) * 0.25), 0.1, 0.95)
+        mentions = max(6, min(limit, 20))
+        posts = [
+            {
+                "source": "mock",
+                "title": f"{symbol} community tone sample #{i + 1}",
+                "score": int(50 + (seed % 80) + i),
+                "comments": int(8 + (seed % 20)),
+                "sentiment": round(sentiment, 4),
+                "publishedAt": _utc_now_iso(),
+                "url": f"https://example.com/social/{symbol}/{i + 1}",
+            }
+            for i in range(min(3, mentions))
+        ]
+        return {
+            "symbol": symbol,
+            "sentiment": round(sentiment, 4),
+            "confidence": round(confidence, 4),
+            "mentions": mentions,
+            "posts": posts,
+        }
+
+    async def _fetch_reddit(self, symbol: str, limit: int) -> tuple[dict[str, Any], str | None]:
+        params = {
+            "q": f"{symbol} stock OR {symbol} earnings OR {symbol} market",
+            "sort": "new",
+            "limit": str(limit),
+            "t": "day",
+            "restrict_sr": "false",
+        }
+        url = f"https://www.reddit.com/search.json?{urlencode(params)}"
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get(
+                    url,
+                    headers={"User-Agent": "marketbot/0.1 (+https://github.com/HKUDS/marketbot)"},
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except Exception as e:
+            logger.error("market_social_sentiment reddit fetch failed for {}: {}", symbol, e)
+            return {"symbol": symbol, "sentiment": 0.0, "confidence": 0.1, "mentions": 0, "posts": []}, str(e)
+
+        children = payload.get("data", {}).get("children", [])
+        cutoff_ts = datetime.now(UTC).timestamp() - (self._lookback_hours * 3600)
+
+        weighted_sum = 0.0
+        weight_total = 0.0
+        posts: list[dict[str, Any]] = []
+
+        for child in children:
+            data = child.get("data", {}) if isinstance(child, dict) else {}
+            created_utc = float(data.get("created_utc") or 0)
+            if created_utc and created_utc < cutoff_ts:
+                continue
+
+            title = str(data.get("title") or "").strip()
+            if not title:
+                continue
+            body = str(data.get("selftext") or "")
+            text = f"{title}\n{body}".strip()
+            sentiment = _lexicon_sentiment(text)
+
+            score = int(data.get("score") or 0)
+            comments = int(data.get("num_comments") or 0)
+            weight = max(0.1, math.log1p(max(score, 0) + max(comments, 0)))
+
+            weighted_sum += sentiment * weight
+            weight_total += weight
+
+            published = (
+                datetime.fromtimestamp(created_utc, tz=UTC).isoformat().replace("+00:00", "Z")
+                if created_utc
+                else _utc_now_iso()
+            )
+            permalink = str(data.get("permalink") or "")
+            posts.append(
+                {
+                    "source": "reddit",
+                    "title": title,
+                    "subreddit": data.get("subreddit"),
+                    "score": score,
+                    "comments": comments,
+                    "sentiment": round(sentiment, 4),
+                    "publishedAt": published,
+                    "url": f"https://www.reddit.com{permalink}" if permalink else "",
+                }
+            )
+
+        mentions = len(posts)
+        avg_sentiment = (weighted_sum / weight_total) if weight_total > 0 else 0.0
+        confidence = _clamp((weight_total / 16.0), 0.1, 0.95)
+
+        return {
+            "symbol": symbol,
+            "sentiment": round(_clamp(avg_sentiment, -1.0, 1.0), 4),
+            "confidence": round(confidence, 4),
+            "mentions": mentions,
+            "posts": posts[: min(8, mentions)],
+        }, None
+
+    async def execute(self, symbols: list[str] | None = None, limit: int = 20, **kwargs: Any) -> str:
+        symbols_in = symbols or self._defaults
+        clean_symbols = MarketSnapshotTool._normalize_symbols(symbols_in)
+        if not clean_symbols:
+            return json.dumps({"error": "no valid symbols"}, ensure_ascii=False)
+
+        limit = int(_clamp(float(limit), 1.0, float(self._post_limit)))
+        summaries: list[dict[str, Any]] = []
+        warnings: list[str] = []
+
+        for symbol in clean_symbols:
+            if "mock" in self._sources:
+                summaries.append(self._mock_summary(symbol, limit))
+                continue
+
+            if "reddit" in self._sources:
+                summary, err = await self._fetch_reddit(symbol, limit)
+                summaries.append(summary)
+                if err:
+                    warnings.append(f"{symbol}: {err}")
+                continue
+
+            summaries.append(self._mock_summary(symbol, limit))
+            warnings.append(f"{symbol}: unsupported social source, fallback to mock")
+
+        total_mentions = sum(int(item.get("mentions", 0)) for item in summaries)
+        overall_sentiment = 0.0
+        if summaries:
+            overall_sentiment = sum(float(item.get("sentiment", 0.0)) for item in summaries) / len(summaries)
+
+        result = {
+            "asOf": _utc_now_iso(),
+            "sources": self._sources,
+            "lookbackHours": self._lookback_hours,
+            "perSymbol": summaries,
+            "overallSentiment": round(_clamp(overall_sentiment, -1.0, 1.0), 4),
+            "totalMentions": total_mentions,
+            "warnings": warnings,
+        }
+        return json.dumps(result, ensure_ascii=False)
+
+
 class MarketMacroTool(Tool):
     """Load macro indicators and estimate a macro risk score."""
 
@@ -721,6 +925,7 @@ class MarketBriefTool(Tool):
             "body": {"type": "string", "description": "Optional detail body for the headline"},
             "includeNews": {"type": "boolean", "default": True},
             "includeMacro": {"type": "boolean", "default": True},
+            "includeSocial": {"type": "boolean", "default": True},
         },
     }
 
@@ -730,6 +935,7 @@ class MarketBriefTool(Tool):
         self._event = MarketEventExtractTool()
         self._signal = MarketSignalTool(config=config)
         self._news = MarketNewsTool(config=config)
+        self._social = MarketSocialSentimentTool(config=config)
         self._macro = MarketMacroTool(config=config)
 
     @staticmethod
@@ -757,6 +963,7 @@ class MarketBriefTool(Tool):
         body: str = "",
         includeNews: bool = True,
         includeMacro: bool = True,
+        includeSocial: bool = True,
         **kwargs: Any,
     ) -> str:
         snapshot = json.loads(await self._snapshot.execute(symbols=symbols, includeMacro=includeMacro))
@@ -774,8 +981,18 @@ class MarketBriefTool(Tool):
         if includeNews:
             news = json.loads(await self._news.execute(symbols=symbols, limit=4))
 
+        social = {"perSymbol": [], "overallSentiment": 0.0, "warnings": []}
+        if includeSocial:
+            social = json.loads(await self._social.execute(symbols=symbols, limit=20))
+        social_by_symbol = {
+            str(item.get("symbol", "")).upper(): float(item.get("sentiment", 0.0))
+            for item in social.get("perSymbol", [])
+            if isinstance(item, dict)
+        }
+
         event_sentiment = float((event or {}).get("sentimentScore", 0.0))
         macro_risk = float(macro.get("macroRisk", 0.5))
+        social_overall = float(social.get("overallSentiment", 0.0))
 
         actions: list[dict[str, Any]] = []
         for row in quotes:
@@ -783,12 +1000,14 @@ class MarketBriefTool(Tool):
             evidence = [f"flow={row.get('flowHint', 'neutral')}", f"momentum={row.get('momentum', 'flat')}"]
             if event:
                 evidence.append(f"event={event.get('eventType')}")
+            if includeSocial:
+                evidence.append(f"social={social_by_symbol.get(symbol, 0.0):.2f}")
             sig = json.loads(
                 await self._signal.execute(
                     symbol=symbol,
                     priceChangePct=float(row.get("changePct") or 0.0),
                     newsSentiment=event_sentiment,
-                    socialSentiment=0.0,
+                    socialSentiment=social_by_symbol.get(symbol, social_overall),
                     macroRisk=macro_risk,
                     evidence=evidence,
                 )
@@ -804,7 +1023,8 @@ class MarketBriefTool(Tool):
             )
 
         score_avg = sum(float(item.get("score", 0.0)) for item in actions) / max(len(actions), 1)
-        sentiment_index = round((score_avg + 1.0) / 2.0, 4)
+        composite = (score_avg * 0.75) + (social_overall * 0.25)
+        sentiment_index = round(_clamp((composite + 1.0) / 2.0, 0.0, 1.0), 4)
         sentiment_state = "bullish" if sentiment_index >= 0.60 else "bearish" if sentiment_index <= 0.40 else "neutral"
         scenarios = self._scenario_recommendations(actions, macro_risk)
 
@@ -813,6 +1033,7 @@ class MarketBriefTool(Tool):
             f"- As Of: {_utc_now_iso()}",
             f"- Market Sentiment Index: {sentiment_index:.2f} ({sentiment_state})",
             f"- Macro Regime: {macro.get('regime', 'unknown')} (risk={macro_risk:.2f})",
+            f"- Social Sentiment: {social_overall:.2f}",
             "",
             "### Signals",
         ]
@@ -841,6 +1062,7 @@ class MarketBriefTool(Tool):
             "snapshot": snapshot,
             "event": event,
             "news": news,
+            "social": social,
             "macro": macro,
             "signals": actions,
             "marketSentimentIndex": sentiment_index,

@@ -7,6 +7,7 @@ from marketbot.agent.tools.market import (
     MarketEventExtractTool,
     MarketMacroTool,
     MarketNewsTool,
+    MarketSocialSentimentTool,
     MarketSignalTool,
     MarketSnapshotTool,
 )
@@ -106,13 +107,26 @@ def test_market_macro_manual_mode() -> None:
     assert 0.0 <= payload["macroRisk"] <= 1.0
 
 
+def test_market_social_sentiment_mock_source() -> None:
+    cfg = MarketToolsConfig()
+    cfg.social_sources = ["mock"]
+    tool = MarketSocialSentimentTool(config=cfg)
+    payload = json.loads(_run(tool.execute(symbols=["NVDA", "SPY"], limit=12)))
+    assert payload["sources"] == ["mock"]
+    assert len(payload["perSymbol"]) == 2
+    assert "overallSentiment" in payload
+    assert payload["totalMentions"] >= 2
+
+
 def test_market_brief_composes_outputs() -> None:
     cfg = MarketToolsConfig(quote_source="mock")
     cfg.news_sources = ["mock"]
+    cfg.social_sources = ["mock"]
     cfg.macro_source = "manual"
     tool = MarketBriefTool(config=cfg)
     payload = json.loads(_run(tool.execute(symbols=["NVDA", "SPY"], headline="NVIDIA launches new AI chip")))
     assert len(payload["signals"]) == 2
+    assert "social" in payload
     assert "briefMarkdown" in payload
     assert "Scenario Playbook" in payload["briefMarkdown"]
 
@@ -128,6 +142,7 @@ def test_agent_loop_registers_market_tools_by_default(tmp_path) -> None:
     assert "market_event_extract" in loop.tools.tool_names
     assert "market_signal" in loop.tools.tool_names
     assert "market_news" in loop.tools.tool_names
+    assert "market_social_sentiment" in loop.tools.tool_names
     assert "market_macro" in loop.tools.tool_names
     assert "market_brief" in loop.tools.tool_names
 
@@ -144,5 +159,6 @@ def test_agent_loop_skips_market_tools_when_disabled(tmp_path) -> None:
     assert "market_event_extract" not in loop.tools.tool_names
     assert "market_signal" not in loop.tools.tool_names
     assert "market_news" not in loop.tools.tool_names
+    assert "market_social_sentiment" not in loop.tools.tool_names
     assert "market_macro" not in loop.tools.tool_names
     assert "market_brief" not in loop.tools.tool_names

@@ -1,10 +1,12 @@
 """CLI commands for marketbot."""
 
 import asyncio
+import json
 import os
 import select
 import signal
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Force UTF-8 encoding for Windows console
@@ -114,6 +116,47 @@ def _print_agent_response(response: str, render_markdown: bool) -> None:
     content = response or ""
     body = Markdown(content) if render_markdown else Text(content)
     console.print()
+
+
+def _parse_symbol_csv(symbols: str | None) -> list[str]:
+    """Parse comma-separated symbols into a normalized list."""
+    if not symbols:
+        return []
+    result: list[str] = []
+    for part in symbols.split(","):
+        symbol = part.strip().upper()
+        if symbol and symbol not in result:
+            result.append(symbol)
+    return result
+
+
+def _default_market_report_path(workspace: Path) -> Path:
+    """Build a timestamped report path under workspace/reports."""
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return workspace / "reports" / f"market_brief_{stamp}.md"
+
+
+def _build_market_heartbeat_template(symbols: list[str]) -> str:
+    """Create a heartbeat template for recurring market reports."""
+    joined = ", ".join(symbols) if symbols else "SPY, QQQ, IWM, GLD, BTC-USD"
+    return f"""# Market Report Tasks
+
+You are responsible for recurring market monitoring.
+
+Active symbols: {joined}
+
+Run a market brief when the current local time is near one of these windows:
+- 09:30 local market open
+- 12:00 midday check
+- 16:00 market close
+
+If the current time is outside those windows, skip.
+
+When you run:
+1. Use `market_brief` for the active symbols.
+2. Summarize the market state, top signals, macro regime, and scenario playbook.
+3. Keep the report concise and actionable.
+"""
     console.print(f"[cyan]{__logo__} marketbot[/cyan]")
     console.print(body)
     console.print()
@@ -639,6 +682,80 @@ def agent(
                 await agent_loop.close_mcp()
 
         asyncio.run(run_interactive())
+
+
+# ============================================================================
+# Market Commands
+# ============================================================================
+
+
+market_app = typer.Typer(help="Market analysis commands")
+app.add_typer(market_app, name="market")
+
+
+@market_app.command("report")
+def market_report(
+    symbols: str = typer.Option("", "--symbols", "-s", help="Comma-separated symbols, e.g. NVDA,SPY,GLD"),
+    headline: str = typer.Option("", "--headline", "-h", help="Optional key headline"),
+    body: str = typer.Option("", "--body", help="Optional headline detail/body"),
+    json_output: bool = typer.Option(False, "--json", help="Print raw JSON instead of markdown brief"),
+    save: bool = typer.Option(False, "--save", help="Save markdown report to workspace/reports"),
+):
+    """Generate a market brief directly from market tools."""
+    from marketbot.agent.tools.market import MarketBriefTool
+    from marketbot.config.loader import load_config
+
+    config = load_config()
+    selected_symbols = _parse_symbol_csv(symbols) or config.tools.market.default_symbols
+    tool = MarketBriefTool(config.tools.market)
+
+    async def run_once() -> dict:
+        raw = await tool.execute(
+            symbols=selected_symbols,
+            headline=headline,
+            body=body,
+            includeNews=True,
+            includeMacro=True,
+            includeSocial=True,
+        )
+        return json.loads(raw)
+
+    payload = asyncio.run(run_once())
+    brief_markdown = payload.get("briefMarkdown", "")
+
+    if save and brief_markdown:
+        report_path = _default_market_report_path(config.workspace_path)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(brief_markdown, encoding="utf-8")
+        console.print(f"[green]✓[/green] Saved report to {report_path}")
+
+    if json_output:
+        console.print_json(data=payload)
+    else:
+        console.print(Markdown(brief_markdown or "No market brief generated."))
+
+
+@market_app.command("heartbeat-setup")
+def market_heartbeat_setup(
+    symbols: str = typer.Option("", "--symbols", "-s", help="Comma-separated symbols to monitor"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Replace existing HEARTBEAT.md content"),
+):
+    """Create or append a heartbeat template for recurring market reports."""
+    from marketbot.config.loader import load_config
+
+    config = load_config()
+    heartbeat_path = config.workspace_path / "HEARTBEAT.md"
+    content = _build_market_heartbeat_template(_parse_symbol_csv(symbols))
+
+    if heartbeat_path.exists() and not overwrite:
+        existing = heartbeat_path.read_text(encoding="utf-8")
+        if content.strip() not in existing:
+            heartbeat_path.write_text(existing.rstrip() + "\n\n---\n\n" + content, encoding="utf-8")
+    else:
+        heartbeat_path.parent.mkdir(parents=True, exist_ok=True)
+        heartbeat_path.write_text(content, encoding="utf-8")
+
+    console.print(f"[green]✓[/green] Updated {heartbeat_path}")
 
 
 # ============================================================================

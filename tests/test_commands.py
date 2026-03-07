@@ -1,6 +1,6 @@
 import shutil
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from typer.testing import CliRunner
@@ -128,3 +128,31 @@ def test_litellm_provider_canonicalizes_github_copilot_hyphen_prefix():
 def test_openai_codex_strip_prefix_supports_hyphen_and_underscore():
     assert _strip_model_prefix("openai-codex/gpt-5.1-codex") == "gpt-5.1-codex"
     assert _strip_model_prefix("openai_codex/gpt-5.1-codex") == "gpt-5.1-codex"
+
+
+def test_market_report_command_renders_markdown(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+
+    with patch("marketbot.config.loader.load_config", return_value=config), \
+         patch("marketbot.agent.tools.market.MarketBriefTool.execute", new=AsyncMock(return_value='{"briefMarkdown":"## Market Brief\\n\\n- NVDA: BUY","marketState":"bullish","signals":[{"symbol":"NVDA","action":"buy"}]}')):
+        result = runner.invoke(app, ["market", "report", "--symbols", "NVDA,SPY"])
+
+    assert result.exit_code == 0
+    assert "Market Brief" in result.stdout
+    assert "NVDA: BUY" in result.stdout
+
+
+def test_market_heartbeat_setup_writes_template(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+
+    with patch("marketbot.config.loader.load_config", return_value=config):
+        result = runner.invoke(app, ["market", "heartbeat-setup", "--symbols", "NVDA,SPY", "--overwrite"])
+
+    assert result.exit_code == 0
+    heartbeat = tmp_path / "HEARTBEAT.md"
+    assert heartbeat.exists()
+    content = heartbeat.read_text(encoding="utf-8")
+    assert "NVDA, SPY" in content
+    assert "09:30 local market open" in content

@@ -23,6 +23,7 @@ from marketbot.agent.tools.market import (
     MarketEventExtractTool,
     MarketMacroTool,
     MarketNewsTool,
+    MarketSocialSentimentTool,
     MarketSignalTool,
     MarketSnapshotTool,
 )
@@ -142,6 +143,7 @@ class AgentLoop:
             self.tools.register(MarketEventExtractTool())
             self.tools.register(MarketSignalTool(config=self.market_config))
             self.tools.register(MarketNewsTool(config=self.market_config))
+            self.tools.register(MarketSocialSentimentTool(config=self.market_config))
             self.tools.register(MarketMacroTool(config=self.market_config))
             self.tools.register(MarketBriefTool(config=self.market_config))
         if self.cron_service:

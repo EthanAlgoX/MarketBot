@@ -9,8 +9,10 @@ from marketbot.providers.base import LLMResponse, ToolCallRequest
 class DummyProvider:
     def __init__(self, responses: list[LLMResponse]):
         self._responses = list(responses)
+        self.calls: list[dict] = []
 
     async def chat(self, *args, **kwargs) -> LLMResponse:
+        self.calls.append(kwargs)
         if self._responses:
             return self._responses.pop(0)
         return LLMResponse(content="", tool_calls=[])
@@ -50,6 +52,32 @@ async def test_decide_returns_skip_when_no_tool_call(tmp_path) -> None:
     action, tasks = await service._decide("heartbeat content")
     assert action == "skip"
     assert tasks == ""
+
+
+@pytest.mark.asyncio
+async def test_decide_includes_current_time_context(tmp_path) -> None:
+    provider = DummyProvider(
+        [
+            LLMResponse(
+                content="",
+                tool_calls=[
+                    ToolCallRequest(id="hb_1", name="heartbeat", arguments={"action": "skip"})
+                ],
+            )
+        ]
+    )
+    service = HeartbeatService(
+        workspace=tmp_path,
+        provider=provider,
+        model="openai/gpt-4o-mini",
+    )
+
+    action, _ = await service._decide("Run something only at 09:30.")
+
+    assert action == "skip"
+    user_message = provider.calls[0]["messages"][1]["content"]
+    assert "Current local time:" in user_message
+    assert "Timezone:" in user_message
 
 
 @pytest.mark.asyncio

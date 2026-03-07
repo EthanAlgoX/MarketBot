@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import re
+from datetime import datetime, time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
+from zoneinfo import ZoneInfo
 
 from loguru import logger
 
@@ -35,6 +38,11 @@ _HEARTBEAT_TOOL = [
         },
     }
 ]
+
+_TZ_RE = re.compile(r"<!--\s*marketbot:timezone\s+([A-Za-z0-9_\-/+]+)\s*-->")
+_WEEKDAYS_RE = re.compile(r"<!--\s*marketbot:weekdays\s+([a-z,\s]+)\s*-->", re.I)
+_WINDOWS_RE = re.compile(r"<!--\s*marketbot:windows\s+([0-9:,\-\s]+)\s*-->")
+_WEEKDAY_MAP = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 
 
 class HeartbeatService:
@@ -82,16 +90,91 @@ class HeartbeatService:
                 return None
         return None
 
+    @staticmethod
+    def _parse_window_token(token: str) -> tuple[time, time] | None:
+        parts = [part.strip() for part in token.split("-", 1)]
+        if len(parts) != 2:
+            return None
+        try:
+            start = time.fromisoformat(parts[0])
+            end = time.fromisoformat(parts[1])
+        except ValueError:
+            return None
+        return start, end
+
+    @classmethod
+    def _extract_constraints(cls, content: str) -> dict[str, Any]:
+        tz_match = _TZ_RE.search(content)
+        weekday_match = _WEEKDAYS_RE.search(content)
+        windows_match = _WINDOWS_RE.search(content)
+
+        timezone = tz_match.group(1).strip() if tz_match else None
+        weekdays: set[int] = set()
+        if weekday_match:
+            for token in weekday_match.group(1).split(","):
+                key = token.strip().lower()[:3]
+                if key in _WEEKDAY_MAP:
+                    weekdays.add(_WEEKDAY_MAP[key])
+
+        windows: list[tuple[time, time]] = []
+        if windows_match:
+            for token in windows_match.group(1).split(","):
+                parsed = cls._parse_window_token(token.strip())
+                if parsed:
+                    windows.append(parsed)
+
+        return {
+            "timezone": timezone,
+            "weekdays": weekdays,
+            "windows": windows,
+        }
+
+    @classmethod
+    def _within_constraints(cls, content: str, now: datetime | None = None) -> tuple[bool, str | None]:
+        constraints = cls._extract_constraints(content)
+        timezone_name = constraints["timezone"]
+        weekdays = constraints["weekdays"]
+        windows = constraints["windows"]
+
+        if not timezone_name and not weekdays and not windows:
+            return True, None
+
+        current = now or datetime.now().astimezone()
+        if timezone_name:
+            try:
+                current = current.astimezone(ZoneInfo(timezone_name))
+            except Exception:
+                return False, f"invalid timezone '{timezone_name}'"
+
+        if weekdays and current.weekday() not in weekdays:
+            return False, "outside configured weekdays"
+
+        if windows:
+            current_time = current.timetz().replace(tzinfo=None)
+            for start, end in windows:
+                if start <= end:
+                    if start <= current_time <= end:
+                        return True, None
+                else:
+                    if current_time >= start or current_time <= end:
+                        return True, None
+            return False, "outside configured windows"
+
+        return True, None
+
     async def _decide(self, content: str) -> tuple[str, str]:
         """Phase 1: ask LLM to decide skip/run via virtual tool call.
 
         Returns (action, tasks) where action is 'skip' or 'run'.
         """
+        now = datetime.now().astimezone()
         response = await self.provider.chat(
             messages=[
                 {"role": "system", "content": "You are a heartbeat agent. Call the heartbeat tool to report your decision."},
                 {"role": "user", "content": (
                     "Review the following HEARTBEAT.md and decide whether there are active tasks.\n\n"
+                    f"Current local time: {now.isoformat()}\n"
+                    f"Timezone: {now.tzname() or 'local'}\n\n"
                     f"{content}"
                 )},
             ],
@@ -144,6 +227,11 @@ class HeartbeatService:
             logger.debug("Heartbeat: HEARTBEAT.md missing or empty")
             return
 
+        allowed, reason = self._within_constraints(content)
+        if not allowed:
+            logger.info("Heartbeat: skipped ({})", reason or "constraint not met")
+            return
+
         logger.info("Heartbeat: checking for tasks...")
 
         try:
@@ -166,6 +254,9 @@ class HeartbeatService:
         """Manually trigger a heartbeat."""
         content = self._read_heartbeat_file()
         if not content:
+            return None
+        allowed, _reason = self._within_constraints(content)
+        if not allowed:
             return None
         action, tasks = await self._decide(content)
         if action != "run" or not self.on_execute:
