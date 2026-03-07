@@ -1,39 +1,40 @@
-FROM node:22-bookworm
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-# Install Bun (required for build scripts)
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
-
-RUN corepack enable
+# Install Node.js 20 for the WhatsApp bridge
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates gnupg git && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends nodejs && \
+    apt-get purge -y gnupg && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-ARG MARKETBOT_DOCKER_APT_PACKAGES=""
-RUN if [ -n "$MARKETBOT_DOCKER_APT_PACKAGES" ]; then \
-      apt-get update && \
-      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $MARKETBOT_DOCKER_APT_PACKAGES && \
-      apt-get clean && \
-      rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
-    fi
+# Install Python dependencies first (cached layer)
+COPY pyproject.toml README.md LICENSE ./
+RUN mkdir -p marketbot bridge && touch marketbot/__init__.py && \
+    uv pip install --system --no-cache . && \
+    rm -rf marketbot bridge
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY ui/package.json ./ui/package.json
-COPY patches ./patches
-COPY scripts ./scripts
+# Copy the full source and install
+COPY marketbot/ marketbot/
+COPY bridge/ bridge/
+RUN uv pip install --system --no-cache .
 
-RUN pnpm install --frozen-lockfile
+# Build the WhatsApp bridge
+WORKDIR /app/bridge
+RUN npm install && npm run build
+WORKDIR /app
 
-COPY . .
-RUN MARKETBOT_A2UI_SKIP_MISSING=1 pnpm build
-# Force pnpm for UI build (Bun may fail on ARM/Synology architectures)
-ENV MARKETBOT_PREFER_PNPM=1
-RUN pnpm ui:build
+# Create config directory
+RUN mkdir -p /root/.marketbot
 
-ENV NODE_ENV=production
+# Gateway default port
+EXPOSE 18790
 
-# Security hardening: Run as non-root user
-# The node:22-bookworm image includes a 'node' user (uid 1000)
-# This reduces the attack surface by preventing container escape via root privileges
-USER node
-
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["marketbot"]
+CMD ["status"]

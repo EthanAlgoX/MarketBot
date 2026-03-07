@@ -1,71 +1,263 @@
 # Security Policy
 
-If you believe you've found a security issue in MarketBot, please report it privately.
+## Reporting a Vulnerability
 
-## Reporting
+If you discover a security vulnerability in marketbot, please report it by:
 
-- Email: `steipete@gmail.com`
-- What to include: reproduction steps, impact assessment, and (if possible) a minimal PoC.
+1. **DO NOT** open a public GitHub issue
+2. Create a private security advisory on GitHub or contact the repository maintainers (xubinrencs@gmail.com)
+3. Include:
+   - Description of the vulnerability
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fix (if any)
 
-## Bug Bounties
+We aim to respond to security reports within 48 hours.
 
-MarketBot is a labor of love. There is no bug bounty program and no budget for paid reports. Please still disclose responsibly so we can fix issues quickly.
-The best way to help the project right now is by sending PRs.
+## Security Best Practices
 
-## Out of Scope
+### 1. API Key Management
 
-- Public Internet Exposure
-- Using MarketBot in ways that the docs recommend not to
-
-## Operational Guidance
-
-For threat model + hardening guidance (including `marketbot security audit --deep` and `--fix`), see:
-
-- `https://docs.marketbot.ai/gateway/security`
-
-### Web Interface Safety
-
-MarketBot's web interface is intended for local use only. Do **not** bind it to the public internet; it is not hardened for public exposure.
-
-## Runtime Requirements
-
-### Node.js Version
-
-MarketBot requires **Node.js 22.12.0 or later** (LTS). This version includes important security patches:
-
-- CVE-2025-59466: async_hooks DoS vulnerability
-- CVE-2026-21636: Permission model bypass vulnerability
-
-Verify your Node.js version:
+**CRITICAL**: Never commit API keys to version control.
 
 ```bash
-node --version  # Should be v22.12.0 or later
+# ✅ Good: Store in config file with restricted permissions
+chmod 600 ~/.marketbot/config.json
+
+# ❌ Bad: Hardcoding keys in code or committing them
 ```
 
-### Docker Security
+**Recommendations:**
+- Store API keys in `~/.marketbot/config.json` with file permissions set to `0600`
+- Consider using environment variables for sensitive keys
+- Use OS keyring/credential manager for production deployments
+- Rotate API keys regularly
+- Use separate API keys for development and production
 
-When running MarketBot in Docker:
+### 2. Channel Access Control
 
-1. The official image runs as a non-root user (`node`) for reduced attack surface
-2. Use `--read-only` flag when possible for additional filesystem protection
-3. Limit container capabilities with `--cap-drop=ALL`
+**IMPORTANT**: Always configure `allowFrom` lists for production use.
 
-Example secure Docker run:
+```json
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "YOUR_BOT_TOKEN",
+      "allowFrom": ["123456789", "987654321"]
+    },
+    "whatsapp": {
+      "enabled": true,
+      "allowFrom": ["+1234567890"]
+    }
+  }
+}
+```
+
+**Security Notes:**
+- In `v0.1.4.post3` and earlier, an empty `allowFrom` allows all users. In newer versions (including source builds), **empty `allowFrom` denies all access** — set `["*"]` to explicitly allow everyone.
+- Get your Telegram user ID from `@userinfobot`
+- Use full phone numbers with country code for WhatsApp
+- Review access logs regularly for unauthorized access attempts
+
+### 3. Shell Command Execution
+
+The `exec` tool can execute shell commands. While dangerous command patterns are blocked, you should:
+
+- ✅ Review all tool usage in agent logs
+- ✅ Understand what commands the agent is running
+- ✅ Use a dedicated user account with limited privileges
+- ✅ Never run marketbot as root
+- ❌ Don't disable security checks
+- ❌ Don't run on systems with sensitive data without careful review
+
+**Blocked patterns:**
+- `rm -rf /` - Root filesystem deletion
+- Fork bombs
+- Filesystem formatting (`mkfs.*`)
+- Raw disk writes
+- Other destructive operations
+
+### 4. File System Access
+
+File operations have path traversal protection, but:
+
+- ✅ Run marketbot with a dedicated user account
+- ✅ Use filesystem permissions to protect sensitive directories
+- ✅ Regularly audit file operations in logs
+- ❌ Don't give unrestricted access to sensitive files
+
+### 5. Network Security
+
+**API Calls:**
+- All external API calls use HTTPS by default
+- Timeouts are configured to prevent hanging requests
+- Consider using a firewall to restrict outbound connections if needed
+
+**WhatsApp Bridge:**
+- The bridge binds to `127.0.0.1:3001` (localhost only, not accessible from external network)
+- Set `bridgeToken` in config to enable shared-secret authentication between Python and Node.js
+- Keep authentication data in `~/.marketbot/whatsapp-auth` secure (mode 0700)
+
+### 6. Dependency Security
+
+**Critical**: Keep dependencies updated!
 
 ```bash
-docker run --read-only --cap-drop=ALL \
-  -v marketbot-data:/app/data \
-  marketbot/marketbot:latest
+# Check for vulnerable dependencies
+pip install pip-audit
+pip-audit
+
+# Update to latest secure versions
+pip install --upgrade marketbot-ai
 ```
 
-## Security Scanning
-
-This project uses `detect-secrets` for automated secret detection in CI/CD.
-See `.detect-secrets.cfg` for configuration and `.secrets.baseline` for the baseline.
-
-Run locally:
-
+For Node.js dependencies (WhatsApp bridge):
 ```bash
-pip install detect-secrets==1.5.0
-detect-secrets scan --baseline .secrets.baseline
+cd bridge
+npm audit
+npm audit fix
 ```
+
+**Important Notes:**
+- Keep `litellm` updated to the latest version for security fixes
+- We've updated `ws` to `>=8.17.1` to fix DoS vulnerability
+- Run `pip-audit` or `npm audit` regularly
+- Subscribe to security advisories for marketbot and its dependencies
+
+### 7. Production Deployment
+
+For production use:
+
+1. **Isolate the Environment**
+   ```bash
+   # Run in a container or VM
+   docker run --rm -it python:3.11
+   pip install marketbot-ai
+   ```
+
+2. **Use a Dedicated User**
+   ```bash
+   sudo useradd -m -s /bin/bash marketbot
+   sudo -u marketbot marketbot gateway
+   ```
+
+3. **Set Proper Permissions**
+   ```bash
+   chmod 700 ~/.marketbot
+   chmod 600 ~/.marketbot/config.json
+   chmod 700 ~/.marketbot/whatsapp-auth
+   ```
+
+4. **Enable Logging**
+   ```bash
+   # Configure log monitoring
+   tail -f ~/.marketbot/logs/marketbot.log
+   ```
+
+5. **Use Rate Limiting**
+   - Configure rate limits on your API providers
+   - Monitor usage for anomalies
+   - Set spending limits on LLM APIs
+
+6. **Regular Updates**
+   ```bash
+   # Check for updates weekly
+   pip install --upgrade marketbot-ai
+   ```
+
+### 8. Development vs Production
+
+**Development:**
+- Use separate API keys
+- Test with non-sensitive data
+- Enable verbose logging
+- Use a test Telegram bot
+
+**Production:**
+- Use dedicated API keys with spending limits
+- Restrict file system access
+- Enable audit logging
+- Regular security reviews
+- Monitor for unusual activity
+
+### 9. Data Privacy
+
+- **Logs may contain sensitive information** - secure log files appropriately
+- **LLM providers see your prompts** - review their privacy policies
+- **Chat history is stored locally** - protect the `~/.marketbot` directory
+- **API keys are in plain text** - use OS keyring for production
+
+### 10. Incident Response
+
+If you suspect a security breach:
+
+1. **Immediately revoke compromised API keys**
+2. **Review logs for unauthorized access**
+   ```bash
+   grep "Access denied" ~/.marketbot/logs/marketbot.log
+   ```
+3. **Check for unexpected file modifications**
+4. **Rotate all credentials**
+5. **Update to latest version**
+6. **Report the incident** to maintainers
+
+## Security Features
+
+### Built-in Security Controls
+
+✅ **Input Validation**
+- Path traversal protection on file operations
+- Dangerous command pattern detection
+- Input length limits on HTTP requests
+
+✅ **Authentication**
+- Allow-list based access control — in `v0.1.4.post3` and earlier empty means allow all; in newer versions empty means deny all (`["*"]` to explicitly allow all)
+- Failed authentication attempt logging
+
+✅ **Resource Protection**
+- Command execution timeouts (60s default)
+- Output truncation (10KB limit)
+- HTTP request timeouts (10-30s)
+
+✅ **Secure Communication**
+- HTTPS for all external API calls
+- TLS for Telegram API
+- WhatsApp bridge: localhost-only binding + optional token auth
+
+## Known Limitations
+
+⚠️ **Current Security Limitations:**
+
+1. **No Rate Limiting** - Users can send unlimited messages (add your own if needed)
+2. **Plain Text Config** - API keys stored in plain text (use keyring for production)
+3. **No Session Management** - No automatic session expiry
+4. **Limited Command Filtering** - Only blocks obvious dangerous patterns
+5. **No Audit Trail** - Limited security event logging (enhance as needed)
+
+## Security Checklist
+
+Before deploying marketbot:
+
+- [ ] API keys stored securely (not in code)
+- [ ] Config file permissions set to 0600
+- [ ] `allowFrom` lists configured for all channels
+- [ ] Running as non-root user
+- [ ] File system permissions properly restricted
+- [ ] Dependencies updated to latest secure versions
+- [ ] Logs monitored for security events
+- [ ] Rate limits configured on API providers
+- [ ] Backup and disaster recovery plan in place
+- [ ] Security review of custom skills/tools
+
+## Updates
+
+**Last Updated**: 2026-02-03
+
+For the latest security updates and announcements, check:
+- GitHub Security Advisories: https://github.com/HKUDS/marketbot/security/advisories
+- Release Notes: https://github.com/HKUDS/marketbot/releases
+
+## License
+
+See LICENSE file for details.
