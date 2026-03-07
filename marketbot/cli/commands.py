@@ -460,6 +460,7 @@ def gateway(
     port: int = typer.Option(18790, "--port", "-p", help="Gateway port"),
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace directory"),
     config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+    heartbeat_interval: int | None = typer.Option(None, "--heartbeat-interval", "-i", help="Heartbeat interval in seconds"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     """Start the marketbot gateway."""
@@ -480,6 +481,9 @@ def gateway(
     config = load_config(config_path)
     if workspace:
         config.agents.defaults.workspace = workspace
+    
+    if heartbeat_interval is not None:
+        config.gateway.heartbeat.interval_s = heartbeat_interval
 
     console.print(f"{__logo__} Starting marketbot gateway on port {port}...")
     sync_workspace_templates(config.workspace_path)

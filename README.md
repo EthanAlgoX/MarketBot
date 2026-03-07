@@ -76,6 +76,61 @@ marketbot agent
 > [!TIP]
 > Visit [OpenRouter](https://openrouter.ai/keys) to get an API key that works with almost any model.
 
+## 🤖 Deploy with GitHub Actions (Recommended)
+
+> 5 minutes to deploy, zero cost, no server required.
+
+### 1. Fork This Repository
+
+Click the `Fork` button in the top right (and star us ⭐ if you like!)
+
+### 2. Configure Secrets
+
+Go to `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
+
+**Required: LLM Provider (at least one)**
+
+| Secret Name | Description | Required |
+|------------|-------------|:--------:|
+| `OPENROUTER_API_KEY` | [OpenRouter](https://openrouter.ai/keys) API Key (recommended, access to all models) | Optional |
+| `ANTHROPIC_API_KEY` | [Anthropic Claude](https://console.anthropic.com/) API Key | Optional |
+| `OPENAI_API_KEY` | [OpenAI](https://platform.openai.com/) API Key | Optional |
+| `DEEPSEEK_API_KEY` | [DeepSeek](https://platform.deepseek.com/) API Key | Optional |
+| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/) API Key | Optional |
+| `AIHUBMIX_KEY` | [AIHubMix](https://aihubmix.com/?aff=CfMq) API Key | Optional |
+| `SILICONFLOW_API_KEY` | [SiliconFlow](https://siliconflow.cn/) API Key | Optional |
+
+**Optional: Chat Channel Configuration**
+
+| Secret Name | Description |
+|------------|-------------|
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token (from @BotFather) |
+| `TELEGRAM_CHAT_ID` | Telegram Chat ID |
+| `DISCORD_BOT_TOKEN` | Discord Bot Token |
+| `DISCORD_CHANNEL_ID` | Discord Channel ID |
+| `FEISHU_APP_ID` | Feishu App ID |
+| `FEISHU_APP_SECRET` | Feishu App Secret |
+| `SLACK_BOT_TOKEN` | Slack Bot Token |
+| `SLACK_APP_TOKEN` | Slack App-Level Token |
+| `DINGTALK_CLIENT_ID` | DingTalk App Key |
+| `DINGTALK_CLIENT_SECRET` | DingTalk App Secret |
+| `EMAIL_SMTP_HOST` | SMTP Server (e.g., smtp.gmail.com) |
+| `EMAIL_SMTP_PORT` | SMTP Port (e.g., 587) |
+| `EMAIL_USERNAME` | Email username |
+| `EMAIL_PASSWORD` | Email password or app password |
+| `EMAIL_FROM` | Sender email address |
+| `EMAIL_TO` | Recipient email (comma-separated) |
+
+### 3. Enable Actions
+
+Go to `Actions` tab → `I understand my workflows, go ahead and enable them`
+
+### 4. Run Workflow
+
+`Actions` → `MarketBot Gateway` → `Run workflow` → `Run workflow`
+
+> By default, the workflow runs on schedule (configurable in `.github/workflows/gateway.yml`). You can also trigger it manually.
+
 ## 💹 Core Financial Skills
 
 MarketBot comes pre-loaded with a suite of **Finance-First skills** designed for quantitative research, algorithmic-style market surveillance, and portfolio analysis. Because MarketBot treats skills as composable, tool-calling pipelines (`SKILL.md`), it achieves complex analytical workflows natively.

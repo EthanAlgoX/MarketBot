@@ -62,33 +62,33 @@ Aggregate all the above data into a cohesive, readable narrative. Generate an ur
 
 ## Output Formats
 
-### Standard Market Summary Output
+### Standard Market Review Output
+
+Use this format for general market overviews and closing bell reports:
 
 ```md
-# 📈 Market Summary & Monitor
+🎯 <DATE> Market Review
 
-## 🌍 Macro & Risk Snapshot
-- **S&P 500**: <Price> (<%>)
-- **NASDAQ**: <Price> (<%>)
-- **VIX**: <Level> (<%>)
-- **US10Y Yield**: <%>
-- **Overall Risk Level**: <Normal / Elevated / High>
+📊 Major Indices
+- SSE Composite: <Price> (<🟢/🔴%>)
+- SZSE Component: <Price> (<🟢/🔴%>)
+- ChiNext Index: <Price> (<🟢/🔴%>)
 
-## 🔄 Sector Performance & Breadth
-- **Leading**: <Sector 1> (+%), <Sector 2> (+%)
-- **Lagging**: <Sector 1> (-%)
+📈 Market Overview
+- Advance: <N> | Decline: <N> | Limit Up: <N> | Limit Down: <N>
+- Market Sentiment: <Bullish/Bearish/Neutral>
 
-## 🚀 Key Movers & Anomalies
-- **Top Gainers**: <Ticker 1> (+%), <Ticker 2> (+%)
-- **Unusual Volume**: <Ticker> (>2x avg volume)
+🔥 Sector Performance
+- Leading: <Sector 1>, <Sector 2>, <Sector 3>
+- Laggards: <Sector 1>, <Sector 2>, <Sector 3>
 
-## 📰 Daily Drivers (News & Earnings)
-- **News**: <Headline and brief impact analysis>
-- **Earnings**: <Key earnings today/after close>
-
-## 🤖 AI Final Assessment
-<1-2 sentences summarizing the trading day>
+🤖 AI Synthesis
+<2-3 sentences summarizing the key market drivers and capital flow logic for the day>.
 ```
+
+### Global Macro & Monitor (Optional)
+
+If the user specifically asks for global/US macro context:
 
 ### Urgent Alert Output (If triggered by severe conditions)
 

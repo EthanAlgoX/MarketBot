@@ -6,42 +6,65 @@ metadata: {"marketbot":{"emoji":"📈"}}
 
 # Stock Watch
 
-Use this skill to monitor specific stocks and provide daily, periodic summaries.
+Use this skill to monitor and analyze specific stocks, providing high-quality "Decision Dashboard" reports that synthesize market data, capital flows, and public sentiment.
 
 ## When to use
 
-- User explicitly asks to watch or monitor a stock (e.g., `/watch AAPL`, `/watch NVDA TSLA`).
-- User wants an automated end-of-day or daily summary for specific tickers.
+- User explicitly asks to watch or analyze stocks (e.g., `/watch AAPL`, `/watch 000657, 300260`).
+- User wants a professional decision-ready summary for specific tickers.
 
 ## Workflow
 
-1. **Scheduling**: If the user asks to start watching a stock on a schedule, use the `cron` tool to schedule a recurring task (e.g., `cron(action="add", message="Execute stock-watch for AAPL", cron_expr="0 21 * * *")`).
-2. **Execution**: When activated (either manually or via the cron reminder), perform the following steps:
-   - Request market data using relevant tools (e.g. price, volume, and technical indicators like MA, RSI, MACD).
-   - Fetch the latest relevant news for the symbol(s).
-   - Combine technical data and news to determine the short-term sentiment.
-3. **Output**: Generate a concise Daily Summary based on the provided format.
+1. **Scheduling (Optional)**: If the user asks for periodic monitoring, use the `cron` tool to schedule the task.
+2. **Data Acquisition**: For each ticker, gather the following:
+   - **Market Snapshot**: Price, volume, and daily change.
+   - **Capital Flow**: Identify main fund inflows/outflows (主力资金) if available via market logs or news.
+   - **Sentiment**: Quantify sentiment from news and social sources (weighted News 0.5, Social 0.3, Forums 0.2).
+   - **Fundamentals**: Key financial dates, performance YoY/QoQ, and catalyst events.
+   - **Risk Assessment**: Check for technical overextension, liquidity issues, or negative news catalysts.
+3. **Execution & Scoring**:
+   - Assign a **Decision Score (0-100)** based on integrated signals.
+   - Categorize into **🟢 Buy**, **🟡 Watch**, or **🔴 Sell**.
+4. **Output Synthesis**: Generate the report according to the "Decision Dashboard" template.
 
 ## Output Format
 
-Output the summary in the following structured format (adjust based on available data):
+Output the summary using this exact structure:
 
 ```md
-# 📅 Daily Summary: <SYMBOL>
+🎯 <DATE> Decision Dashboard
+Total Stocks: <N> | 🟢 Buy: <B> 🟡 Watch: <W> 🔴 Sell: <S>
 
-## 📊 Price & Technicals
-- **Price**: <Current Price> (<% Change>)
-- **Technicals**: <Brief note on MA/RSI/Volume/Key levels>
+📊 Analysis Summary
+<Decision Emoji> <Ticker Name> (<ID>): <Decision> | Score <Score> | Bias <Sentiment>
+...
 
-## 📰 News & Catalysts
-- <Key news headline or fundamental driver>
+---
 
-## 🧠 Sentiment & Conclusion
-- **Sentiment**: <Bullish/Bearish/Neutral>
-- **Conclusion**: <Brief actionable summary>
+### <Ticker Name> (<ID>)
+
+#### 📰 Important Info
+- **Sentiment**: <Description of public sentiment and sentiment acceleration>.
+- **Expectations**: <Brief on upcoming earnings, growth potential, or fundamental drivers>.
+
+#### 🚨 Risk Alerts
+1. **<Risk 1>**: <Description (e.g., Fund outflow, high concentration)>.
+2. **<Risk 2>**: <Description>.
+3. **<Risk 3>**: <Description>.
+
+#### ✨ Bullish Catalysts
+1. **<Catalyst 1>**: <Description (e.g., Sector tailwinds,绑定头部大厂)>.
+2. **<Catalyst 2>**: <Description>.
+
+#### 📢 Latest Dynamics
+【Latest】 <1-2 sentences summarizing the most recent news or capital flow status>.
+
+---
+Generated at: <HH:MM>
 ```
 
-## Supported Parameters
+## Rules
 
-- **Tickers**: One or more stock symbols (e.g., NVDA, 00700.HK, TSLA)
-- **Frequency/Time**: Default to daily if not specified, or configure based on the user's requested schedule.
+- **Precision**: Separate factual capital flow data from speculative sentiment.
+- **Categorization**: "Watch" is the default for scores between 40-70.
+- **Actionable**: Ensure the "Latest Dynamics" provides a "so what" for the user.
