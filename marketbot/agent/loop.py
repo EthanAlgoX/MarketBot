@@ -14,6 +14,7 @@ from loguru import logger
 
 from marketbot.agent.context import ContextBuilder
 from marketbot.agent.memory import MemoryStore
+from marketbot.agent.recursive_retriever import RecursiveRetriever
 from marketbot.agent.subagent import SubagentManager
 from marketbot.agent.tools.cron import CronTool
 from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
@@ -78,6 +79,8 @@ class AgentLoop:
         mcp_servers: dict | None = None,
         channels_config: ChannelsConfig | None = None,
         market_config: MarketToolsConfig | None = None,
+        memory_layer: str = "L1",
+        layered_consolidation: bool = False,
     ):
         from marketbot.config.schema import ExecToolConfig
         self.bus = bus
@@ -96,8 +99,13 @@ class AgentLoop:
         self.cron_service = cron_service
         self.restrict_to_workspace = restrict_to_workspace
         self.market_config = market_config
+        self.memory_layer = memory_layer
+        self.layered_consolidation = layered_consolidation
 
         self.context = ContextBuilder(workspace)
+        self.context.set_memory_layer(self.memory_layer)
+        self.memory_store = MemoryStore(workspace)
+        self.retriever = RecursiveRetriever(self.memory_store)
         self.sessions = session_manager or SessionManager(workspace)
         self.tools = ToolRegistry()
         self.subagents = SubagentManager(
@@ -523,9 +531,10 @@ class AgentLoop:
 
     async def _consolidate_memory(self, session, archive_all: bool = False) -> bool:
         """Delegate to MemoryStore.consolidate(). Returns True on success."""
-        return await MemoryStore(self.workspace).consolidate(
+        return await self.memory_store.consolidate(
             session, self.provider, self.model,
             archive_all=archive_all, memory_window=self.memory_window,
+            layered=self.layered_consolidation,
         )
 
     async def process_direct(

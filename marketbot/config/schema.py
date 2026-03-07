@@ -231,6 +231,8 @@ class AgentDefaults(Base):
     max_tool_iterations: int = 40
     memory_window: int = 100
     reasoning_effort: str | None = None  # low / medium / high — enables LLM thinking mode
+    memory_layer: str = "L1"  # Memory layer: L0 (abstract), L1 (overview), L2 (full)
+    layered_consolidation: bool = False  # Use three-layer memory consolidation
 
 
 class AgentsConfig(Base):

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from marketbot.utils.helpers import ensure_dir
+from marketbot.agent.layered_memory import LayeredMemoryStore, LayeredMemory
 
 if TYPE_CHECKING:
     from marketbot.providers.base import LLMProvider
@@ -43,12 +44,17 @@ _SAVE_MEMORY_TOOL = [
 
 
 class MemoryStore:
-    """Two-layer memory: MEMORY.md (long-term facts) + HISTORY.md (grep-searchable log)."""
+    """Two-layer memory with optional layered context (L0/L1/L2).
+
+    Supports backward compatibility with MEMORY.md + HISTORY.md,
+    plus optional three-layer summary generation via LayeredMemoryStore.
+    """
 
     def __init__(self, workspace: Path):
         self.memory_dir = ensure_dir(workspace / "memory")
         self.memory_file = self.memory_dir / "MEMORY.md"
         self.history_file = self.memory_dir / "HISTORY.md"
+        self.layered = LayeredMemoryStore(workspace)
 
     def read_long_term(self) -> str:
         if self.memory_file.exists():
@@ -74,8 +80,17 @@ class MemoryStore:
         *,
         archive_all: bool = False,
         memory_window: int = 50,
+        layered: bool = False,
     ) -> bool:
         """Consolidate old messages into MEMORY.md + HISTORY.md via LLM tool call.
+
+        Args:
+            session: The conversation session
+            provider: LLM provider for generating summaries
+            model: Model name to use
+            archive_all: If True, archive all messages
+            memory_window: Window size for keeping recent messages
+            layered: If True, generate three-layer summary (L0/L1/L2)
 
         Returns True on success (including no-op), False on failure.
         """
@@ -102,6 +117,10 @@ class MemoryStore:
             lines.append(f"[{m.get('timestamp', '?')[:16]}] {m['role'].upper()}{tools}: {m['content']}")
 
         current_memory = self.read_long_term()
+
+        if layered:
+            return await self._consolidate_layered(provider, model, lines, current_memory)
+
         prompt = f"""Process this conversation and call the save_memory tool with your consolidation.
 
 ## Current Long-term Memory
@@ -125,10 +144,8 @@ class MemoryStore:
                 return False
 
             args = response.tool_calls[0].arguments
-            # Some providers return arguments as a JSON string instead of dict
             if isinstance(args, str):
                 args = json.loads(args)
-            # Some providers return arguments as a list (handle edge case)
             if isinstance(args, list):
                 if args and isinstance(args[0], dict):
                     args = args[0]
@@ -155,3 +172,74 @@ class MemoryStore:
         except Exception:
             logger.exception("Memory consolidation failed")
             return False
+
+    async def _consolidate_layered(
+        self,
+        provider: LLMProvider,
+        model: str,
+        lines: list[str],
+        current_memory: str,
+    ) -> bool:
+        """Consolidate using three-layer summary (L0/L1/L2)."""
+        history = "\n\n".join(lines)
+
+        prompt = f"""Analyze the following conversation and generate a three-layer summary.
+
+## Current Long-term Memory
+{current_memory or "(empty)"}
+
+## Conversation to Process
+{history}
+
+Generate three layers:
+
+1. **L0 (Abstract)**: One sentence (max 100 tokens) - core essence
+2. **L1 (Overview)**: Key info and usage scenarios (500-2000 tokens)
+3. **L2 (Details)**: Complete content to preserve
+
+Output ONLY valid JSON:
+{{"abstract": "...", "overview": "...", "details": "..."}}"""
+
+        try:
+            response = await provider.chat(
+                messages=[
+                    {"role": "system", "content": "You are a memory consolidation agent. Output ONLY valid JSON."},
+                    {"role": "user", "content": prompt},
+                ],
+                model=model,
+            )
+
+            content = (response.content or "").strip()
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+
+            data = json.loads(content.strip())
+            layered = LayeredMemory(
+                abstract=data.get("abstract", ""),
+                overview=data.get("overview", ""),
+                details=data.get("details", ""),
+            )
+
+            self.layered.write_layers(layered)
+            self.append_history(f"[Layered Memory] L0: {layered.abstract[:100]}...")
+
+            logger.info("Layered memory consolidation done")
+            return True
+        except Exception:
+            logger.exception("Layered memory consolidation failed")
+            return False
+
+    def get_context(self, layer: str = "L1") -> str:
+        """Get memory context at specified layer (L0/L1/L2).
+
+        Args:
+            layer: "L0" for abstract, "L1" for overview, "L2" for full
+
+        Returns:
+            Memory content at the requested layer
+        """
+        return self.layered.get_context(layer)

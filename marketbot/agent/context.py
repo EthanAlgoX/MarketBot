@@ -24,6 +24,12 @@ class ContextBuilder:
         self.workspace = workspace
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)
+        self.memory_layer = "L1"
+
+    def set_memory_layer(self, layer: str) -> None:
+        """Set the memory layer to use (L0/L1/L2)."""
+        if layer in ("L0", "L1", "L2"):
+            self.memory_layer = layer
 
     def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
@@ -33,9 +39,10 @@ class ContextBuilder:
         if bootstrap:
             parts.append(bootstrap)
 
-        memory = self.memory.get_memory_context()
+        memory = self.memory.get_context(layer=self.memory_layer)
         if memory:
-            parts.append(f"# Memory\n\n{memory}")
+            layer_label = {"L0": "Abstract", "L1": "Overview", "L2": "Details"}.get(self.memory_layer, "Details")
+            parts.append(f"# Memory ({layer_label})\n\n{memory}")
 
         parts.append(self._market_analysis_playbook())
 

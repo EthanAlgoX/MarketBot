@@ -516,6 +516,8 @@ def gateway(
         mcp_servers=config.tools.mcp_servers,
         channels_config=config.channels,
         market_config=config.tools.market,
+        memory_layer=config.agents.defaults.memory_layer,
+        layered_consolidation=config.agents.defaults.layered_consolidation,
     )
 
     # Set cron callback (needs agent)
@@ -772,6 +774,8 @@ def agent(
         mcp_servers=config.tools.mcp_servers,
         channels_config=config.channels,
         market_config=config.tools.market,
+        memory_layer=config.agents.defaults.memory_layer,
+        layered_consolidation=config.agents.defaults.layered_consolidation,
     )
 
     # Show spinner when logs are off (no output to miss); skip when logs are on

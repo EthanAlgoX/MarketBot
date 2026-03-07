@@ -26,7 +26,7 @@
 MarketBot is built on the belief that **less is more**. While other agent frameworks grow increasingly complex, MarketBot remains focused on three pillars:
 
 1. **Determinism over Chaos**: Uses a "Fetch -> Analyze -> Synthesize" workflow to ensure high-quality, reproducible financial insights.
-2. **Minimalist State**: A unique "Two-Layer Memory" system using `MEMORY.md` for long-term facts and `HISTORY.md` for searchable logs. No heavy databases required by default.
+2. **Minimalist State**: A unique "Layered Memory" system (L0/L1/L2) inspired by OpenViking. Uses `.abstract` (~100 tokens), `.overview` (~2k tokens), and `MEMORY.md` for long-term facts with recursive retrieval. No heavy databases required by default.
 3. **Transparency**: The entire core is readable in a single afternoon. Perfect for researchers who need to know *exactly* how their agent thinks.
 
 ## 📦 Install
