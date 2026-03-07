@@ -16,7 +16,7 @@
 
 ---
 
-🤖 **marketbot** 是一个**金融优先 (Finance-First)** 的超轻量级个人 AI 助手。
+🐂 **marketbot** 是一个**金融优先 (Finance-First)** 的超轻量级个人 AI 助手。
 
 - ⚡️ **极简核心**: 仅约 4,000 行 Python 代码，比传统复杂框架精简 99%。
 - 📈 **金融洞察**: 内置强大的金融研究能力，自动化市场数据分析与报告合成。
@@ -25,7 +25,7 @@
 
 ---
 
-🤖 **marketbot** is a **Finance-First**, **Ultra-Lightweight** personal AI assistant framework.
+🐂 **marketbot** is a **Finance-First**, **Ultra-Lightweight** personal AI assistant framework.
 
 - ⚡️ **Minimalist Core**: ~4,000 lines of Python — 99% smaller than heavy-weight alternatives.
 - 📈 **Financial Insight**: Built-in capabilities for automated market research and report synthesis.
@@ -607,7 +607,7 @@ marketbot gateway
 
 ## 🌐 Agent Social Network
 
-🤖 marketbot is capable of linking to the agent social network (agent community). **Just send one message and your marketbot joins automatically!**
+🐂 marketbot is capable of linking to the agent social network (agent community). **Just send one message and your marketbot joins automatically!**
 
 | Platform | How to Join (send this message to your bot) |
 |----------|-------------|
@@ -1029,7 +1029,7 @@ marketbot/
 ├── bus/            # 🚌 Message routing
 ├── cron/           # ⏰ Scheduled tasks
 ├── heartbeat/      # 💓 Proactive wake-up
-├── providers/      # 🤖 LLM providers (OpenRouter, etc.)
+├── providers/      # 🐂 LLM providers (OpenRouter, etc.)
 ├── session/        # 💬 Conversation sessions
 ├── config/         # ⚙️ Configuration
 └── cli/            # 🖥️ Commands
