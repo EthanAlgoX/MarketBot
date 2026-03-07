@@ -80,6 +80,7 @@ include = [
     "marketbot/**/*.py",
     "marketbot/templates/**/*.md",
     "marketbot/skills/**/*.md",
+    "marketbot/skills/**/*.py",
     "marketbot/skills/**/*.sh",
 ]
 

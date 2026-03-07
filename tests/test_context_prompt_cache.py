@@ -63,3 +63,17 @@ def test_runtime_context_is_separate_untrusted_user_message(tmp_path) -> None:
     assert "Channel: cli" in user_content
     assert "Chat ID: direct" in user_content
     assert "Return exactly: OK" in user_content
+
+
+def test_system_prompt_includes_market_analysis_playbook(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    prompt = builder.build_system_prompt()
+
+    assert "# Market Analysis Playbook" in prompt
+    assert "`market-report`" in prompt
+    assert "`catalyst-tracker`" in prompt
+    assert "`risk-checklist`" in prompt
+    assert "`market_brief`" in prompt
+    assert "`market_signal`" in prompt

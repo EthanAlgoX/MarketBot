@@ -157,7 +157,9 @@ def test_market_heartbeat_setup_writes_template(tmp_path):
     content = heartbeat.read_text(encoding="utf-8")
     assert "NVDA, SPY" in content
     assert "09:30 local market open" in content
+    assert "<!-- marketbot:mode market-report -->" in content
     assert "<!-- marketbot:timezone America/New_York -->" in content
+    assert "<!-- marketbot:symbols NVDA,SPY -->" in content
     assert "<!-- marketbot:windows 09:20-09:40,11:55-12:10,15:55-16:10 -->" in content
 
 
@@ -232,3 +234,78 @@ def test_market_report_rejects_invalid_session(tmp_path):
 
     assert result.exit_code != 0
     assert "session must be one of" in result.stdout
+
+
+def test_market_report_notify_sends_to_explicit_channel(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    config.channels.telegram.enabled = True
+    config.channels.telegram.token = "test-token"
+    payload = {
+        "briefMarkdown": "## Market Brief\n\n- NVDA: BUY",
+        "marketState": "bullish",
+        "marketSentimentIndex": 0.72,
+        "signals": [{"symbol": "NVDA", "action": "buy", "confidence": 0.81}],
+        "macro": {"regime": "risk-on", "macroRisk": 0.22},
+    }
+    send_mock = AsyncMock()
+
+    with patch("marketbot.config.loader.load_config", return_value=config), \
+         patch("marketbot.agent.tools.market.MarketBriefTool.execute", new=AsyncMock(return_value=json.dumps(payload))), \
+         patch("marketbot.cli.commands._send_message_once", new=send_mock):
+        result = runner.invoke(
+            app,
+            [
+                "market",
+                "report",
+                "--symbols",
+                "NVDA",
+                "--notify",
+                "--notify-channel",
+                "telegram",
+                "--chat-id",
+                "10001",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert "Sent report to telegram:10001" in result.stdout
+    reports = list((tmp_path / "reports").glob("market_report_*"))
+    assert len(reports) == 1
+    send_mock.assert_awaited_once()
+    args = send_mock.await_args.args
+    assert args[1] == "telegram"
+    assert args[2] == "10001"
+    assert "Market Report Alert" in args[3]
+    assert args[4] == [str(reports[0])]
+
+
+def test_market_report_notify_can_use_recent_session(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    config.channels.telegram.enabled = True
+    config.channels.telegram.token = "test-token"
+    send_mock = AsyncMock()
+
+    with patch("marketbot.config.loader.load_config", return_value=config), \
+         patch("marketbot.agent.tools.market.MarketBriefTool.execute", new=AsyncMock(return_value='{"briefMarkdown":"## Market Brief","marketState":"neutral","signals":[],"macro":{"regime":"neutral","macroRisk":0.4}}')), \
+         patch("marketbot.session.manager.SessionManager.list_sessions", return_value=[{"key": "telegram:recent-chat"}]), \
+         patch("marketbot.cli.commands._send_message_once", new=send_mock):
+        result = runner.invoke(app, ["market", "report", "--notify"])
+
+    assert result.exit_code == 0
+    send_mock.assert_awaited_once()
+    assert send_mock.await_args.args[1] == "telegram"
+    assert send_mock.await_args.args[2] == "recent-chat"
+
+
+def test_market_report_notify_requires_chat_id_for_explicit_channel(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    config.channels.telegram.enabled = True
+
+    with patch("marketbot.config.loader.load_config", return_value=config):
+        result = runner.invoke(app, ["market", "report", "--notify", "--notify-channel", "telegram"])
+
+    assert result.exit_code != 0
+    assert "chat-id is required" in result.stdout

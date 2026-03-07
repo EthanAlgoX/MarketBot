@@ -36,6 +36,8 @@ class ContextBuilder:
         if memory:
             parts.append(f"# Memory\n\n{memory}")
 
+        parts.append(self._market_analysis_playbook())
+
         always_skills = self.skills.get_always_skills()
         if always_skills:
             always_content = self.skills.load_skills_for_context(always_skills)
@@ -84,6 +86,33 @@ Your workspace is at: {workspace_path}
 - Never present analysis as guaranteed returns; always include risk conditions and invalidation triggers.
 
 Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel."""
+
+    @staticmethod
+    def _market_analysis_playbook() -> str:
+        """Get the built-in playbook for single-asset market analysis."""
+        return """# Market Analysis Playbook
+
+When the user asks for analysis of a specific asset or trade setup, prefer this workflow:
+
+1. Gather evidence with market tools:
+   - `market_snapshot` for price, momentum, and flow hints
+   - `market_news` and `market_social_sentiment` for narrative and crowd context
+   - `market_macro` for regime and macro risk
+   - `market_event_extract` when a headline or catalyst is driving the move
+   - `market_signal` for explicit confidence, sizing, and invalidation
+   - `market_brief` when the user wants an end-to-end brief quickly
+2. Load the most relevant skills with `read_file`:
+   - `market-report` for the final structured write-up
+   - `catalyst-tracker` for event calendars and drivers
+   - `risk-checklist` for guardrails and position sizing
+3. In the final answer, separate facts from assumptions and include:
+   - Conclusion
+   - Evidence
+   - Confidence
+   - Key risks
+   - Suggested action
+
+If evidence is mixed, reduce conviction and default to `watch`."""
 
     @staticmethod
     def _build_runtime_context(channel: str | None, chat_id: str | None) -> str:

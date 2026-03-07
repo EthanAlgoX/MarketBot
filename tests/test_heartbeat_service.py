@@ -199,3 +199,46 @@ async def test_trigger_now_skips_without_provider_call_when_outside_constraints(
     )
     assert await service.trigger_now() is None
     assert provider.calls == []
+
+
+@pytest.mark.asyncio
+async def test_trigger_now_uses_market_heartbeat_spec_without_provider_call(tmp_path, monkeypatch) -> None:
+    (tmp_path / "HEARTBEAT.md").write_text(
+        "<!-- marketbot:mode market-report -->\n"
+        "<!-- marketbot:symbols NVDA,SPY -->\n",
+        encoding="utf-8",
+    )
+    provider = DummyProvider([
+        LLMResponse(
+            content="",
+            tool_calls=[ToolCallRequest(id="hb_1", name="heartbeat", arguments={"action": "skip"})],
+        )
+    ])
+    called_with: list[str] = []
+
+    async def _on_execute(tasks: str) -> str:
+        called_with.append(tasks)
+        return "market-report"
+
+    service = HeartbeatService(
+        workspace=tmp_path,
+        provider=provider,
+        model="openai/gpt-4o-mini",
+        on_execute=_on_execute,
+    )
+
+    monkeypatch.setattr(
+        "marketbot.heartbeat.service.extract_market_heartbeat_spec",
+        lambda content: {
+            "mode": "market-report",
+            "symbols": ["NVDA", "SPY"],
+            "timezone": "America/New_York",
+            "session": "premarket",
+            "task": "Generate a premarket market report for symbols: NVDA, SPY.",
+        },
+    )
+
+    result = await service.trigger_now()
+    assert result == "market-report"
+    assert called_with == ["Generate a premarket market report for symbols: NVDA, SPY."]
+    assert provider.calls == []

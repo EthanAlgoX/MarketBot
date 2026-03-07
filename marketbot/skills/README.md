@@ -22,4 +22,9 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `summarize` | Summarize URLs, files, and YouTube videos |
 | `tmux` | Remote-control tmux sessions |
 | `clawhub` | Search and install skills from ClawHub registry |
+| `market-report` | Produce structured single-asset market analysis |
+| `catalyst-tracker` | Build a catalyst list and event calendar |
+| `risk-checklist` | Generate trade risk and position-sizing guardrails |
+| `stock-info-explorer` | Use local Yahoo Finance charts and indicator scripts |
+| `crypto-gold-monitor` | Monitor BTC, ETH, gold, and silver from free APIs |
 | `skill-creator` | Create new skills |

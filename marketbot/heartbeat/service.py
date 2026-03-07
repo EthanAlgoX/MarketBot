@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine
 from zoneinfo import ZoneInfo
 
 from loguru import logger
+from marketbot.market_reporting import extract_market_heartbeat_spec
 
 if TYPE_CHECKING:
     from marketbot.providers.base import LLMProvider
@@ -235,7 +236,13 @@ class HeartbeatService:
         logger.info("Heartbeat: checking for tasks...")
 
         try:
-            action, tasks = await self._decide(content)
+            market_spec = extract_market_heartbeat_spec(content)
+            if market_spec:
+                action = "run"
+                tasks = str(market_spec["task"])
+                logger.info("Heartbeat: market report scheduled ({})", market_spec["session"])
+            else:
+                action, tasks = await self._decide(content)
 
             if action != "run":
                 logger.info("Heartbeat: OK (nothing to report)")
@@ -258,7 +265,11 @@ class HeartbeatService:
         allowed, _reason = self._within_constraints(content)
         if not allowed:
             return None
-        action, tasks = await self._decide(content)
+        market_spec = extract_market_heartbeat_spec(content)
+        if market_spec:
+            action, tasks = "run", str(market_spec["task"])
+        else:
+            action, tasks = await self._decide(content)
         if action != "run" or not self.on_execute:
             return None
         return await self.on_execute(tasks)

@@ -8,7 +8,7 @@ import signal
 import sys
 from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from typing import Any
 
 # Force UTF-8 encoding for Windows console
 if sys.platform == "win32":
@@ -34,6 +34,14 @@ from rich.text import Text
 
 from marketbot import __logo__, __version__
 from marketbot.config.schema import Config
+from marketbot.market_reporting import (
+    default_market_report_path,
+    extract_market_heartbeat_spec,
+    infer_market_report_session,
+    render_market_report_document,
+    render_market_report_notification,
+    resolve_market_timezone,
+)
 from marketbot.utils.helpers import sync_workspace_templates
 
 app = typer.Typer(
@@ -133,163 +141,19 @@ def _parse_symbol_csv(symbols: str | None) -> list[str]:
     return result
 
 
-def _resolve_market_timezone(timezone_name: str) -> ZoneInfo:
-    """Resolve an IANA timezone, falling back to UTC when unavailable."""
-    try:
-        return ZoneInfo(timezone_name)
-    except ZoneInfoNotFoundError:
-        return ZoneInfo("UTC")
-
-
-def _infer_market_report_session(now: datetime) -> str:
-    """Map a timestamp to a report session label."""
-    if now.weekday() >= 5:
-        return "close"
-    current = (now.hour * 60) + now.minute
-    if current < 9 * 60 + 30:
-        return "premarket"
-    if current < 16 * 60:
-        return "intraday"
-    return "close"
-
-
-def _default_market_report_path(workspace: Path, session: str, timezone_name: str) -> Path:
-    """Build a timestamped report path under workspace/reports."""
-    tz = _resolve_market_timezone(timezone_name)
-    stamp = datetime.now(tz).strftime("%Y%m%d_%H%M%S")
-    return workspace / "reports" / f"market_report_{session}_{stamp}.md"
-
-
-def _render_market_report_document(
-    payload: dict,
-    *,
-    symbols: list[str],
-    headline: str,
-    session: str,
-    timezone_name: str,
-) -> str:
-    """Render a standardized market report document for saved reports."""
-    market_state = str(payload.get("marketState", "unknown")).upper()
-    sentiment_index = float(payload.get("marketSentimentIndex", 0.0))
-    macro = payload.get("macro", {}) or {}
-    macro_regime = str(macro.get("regime", "unknown"))
-    macro_risk = float(macro.get("macroRisk", 0.5))
-    social = payload.get("social", {}) or {}
-    social_overall = float(social.get("overallSentiment", 0.0))
-    signals = payload.get("signals", []) or []
-    scenarios = payload.get("scenarios", {}) or {}
-    event = payload.get("event") or {}
-    news = payload.get("news", {}) or {}
-    snapshot = payload.get("snapshot", {}) or {}
-
-    lines = [
-        "# Market Report",
-        "",
-        f"- Session: {session}",
-        f"- Timezone: {timezone_name}",
-        f"- Generated At: {payload.get('asOf', datetime.utcnow().isoformat() + 'Z')}",
-        f"- Symbols: {', '.join(symbols)}",
-        f"- Market State: {market_state}",
-        f"- Market Sentiment Index: {sentiment_index:.2f}",
-        f"- Macro Regime: {macro_regime} (risk={macro_risk:.2f})",
-        f"- Social Sentiment: {social_overall:.2f}",
-    ]
-
-    if headline.strip():
-        lines.append(f"- Trigger Headline: {headline.strip()}")
-
-    lines += [
-        "",
-        "## Summary",
-        "",
-        f"This {session} report reads the tape as {market_state.lower()} with macro regime `{macro_regime}` and sentiment index `{sentiment_index:.2f}`.",
-        "",
-        "## Signals",
-    ]
-
-    if signals:
-        for signal_row in signals:
-            symbol = str(signal_row.get("symbol", "")).upper()
-            action = str(signal_row.get("action", "watch")).upper()
-            confidence = float(signal_row.get("confidence", 0.0))
-            score = float(signal_row.get("score", 0.0))
-            signal_card = str(signal_row.get("signalCard", "")).strip()
-            lines.append(f"### {symbol}")
-            lines.append(f"- Action: {action}")
-            lines.append(f"- Confidence: {confidence:.2f}")
-            lines.append(f"- Score: {score:.2f}")
-            if signal_card:
-                lines += ["", signal_card, ""]
-    else:
-        lines += ["", "- No signal output generated.", ""]
-
-    lines += [
-        "## Scenario Playbook",
-        "",
-        f"- Aggressive: {'; '.join(scenarios.get('aggressive', ['No plan']))}",
-        f"- Neutral: {'; '.join(scenarios.get('neutral', ['No plan']))}",
-        f"- Defensive: {'; '.join(scenarios.get('defensive', ['No plan']))}",
-    ]
-
-    if event:
-        lines += [
-            "",
-            "## Event Impact",
-            "",
-            f"- Event Type: {event.get('eventType', 'unknown')}",
-            f"- Sentiment: {event.get('sentimentLabel', 'neutral')} ({float(event.get('sentimentScore', 0.0)):.2f})",
-        ]
-        impacted = event.get("impactedAssets", []) or []
-        if impacted:
-            lines.append(f"- Impacted Assets: {', '.join(str(item) for item in impacted)}")
-
-    news_items = news.get("items", []) or []
-    if news_items:
-        lines += ["", "## News Flow", ""]
-        for item in news_items[:6]:
-            title = str(item.get("title", "")).strip()
-            symbol = str(item.get("symbol", "")).upper()
-            source = str(item.get("source", "unknown"))
-            published_at = str(item.get("publishedAt", ""))
-            lines.append(f"- {symbol}: {title} [{source}, {published_at}]")
-
-    social_rows = social.get("perSymbol", []) or []
-    if social_rows:
-        lines += ["", "## Social Pulse", ""]
-        for item in social_rows:
-            symbol = str(item.get("symbol", "")).upper()
-            sentiment = float(item.get("sentiment", 0.0))
-            confidence = float(item.get("confidence", 0.0))
-            mentions = int(item.get("mentions", 0))
-            lines.append(
-                f"- {symbol}: sentiment={sentiment:.2f}, confidence={confidence:.2f}, mentions={mentions}"
-            )
-
-    warnings: list[str] = []
-    for section in (snapshot, news, social, macro):
-        warnings.extend(str(item) for item in (section.get("warnings", []) or []))
-    if warnings:
-        lines += ["", "## Warnings", ""]
-        for warning in warnings:
-            lines.append(f"- {warning}")
-
-    brief_markdown = str(payload.get("briefMarkdown", "")).strip()
-    if brief_markdown:
-        lines += ["", "## Tool Output", "", brief_markdown]
-
-    return "\n".join(lines).rstrip() + "\n"
-
-
 def _build_market_heartbeat_template(symbols: list[str], timezone: str = "America/New_York") -> str:
     """Create a heartbeat template for recurring market reports."""
     joined = ", ".join(symbols) if symbols else "SPY, QQQ, IWM, GLD, BTC-USD"
+    joined_csv = ",".join(symbols) if symbols else "SPY,QQQ,IWM,GLD,BTC-USD"
     return f"""# Market Report Tasks
 
 You are responsible for recurring market monitoring.
 
+<!-- marketbot:mode market-report -->
 <!-- marketbot:timezone {timezone} -->
 <!-- marketbot:weekdays mon,tue,wed,thu,fri -->
 <!-- marketbot:windows 09:20-09:40,11:55-12:10,15:55-16:10 -->
+<!-- marketbot:symbols {joined_csv} -->
 
 Active symbols: {joined}
 
@@ -305,6 +169,141 @@ When you run:
 2. Summarize the market state, top signals, macro regime, and scenario playbook.
 3. Keep the report concise and actionable.
 """
+
+
+def _enabled_notify_channels(config: Config) -> set[str]:
+    channels = config.channels
+    enabled: set[str] = set()
+    if channels.telegram.enabled:
+        enabled.add("telegram")
+    if channels.slack.enabled:
+        enabled.add("slack")
+    if channels.discord.enabled:
+        enabled.add("discord")
+    if channels.feishu.enabled:
+        enabled.add("feishu")
+    return enabled
+
+
+def _pick_notify_target(
+    config: Config,
+    *,
+    preferred_channel: str,
+    preferred_chat_id: str,
+) -> tuple[str, str]:
+    channel = preferred_channel.strip().lower()
+    chat_id = preferred_chat_id.strip()
+    enabled = _enabled_notify_channels(config)
+
+    if channel:
+        if channel not in enabled:
+            raise typer.BadParameter(
+                "notify channel must be enabled and one of: telegram, slack, discord, feishu"
+            )
+        if not chat_id:
+            raise typer.BadParameter("chat-id is required when notify-channel is provided")
+        return channel, chat_id
+
+    if chat_id:
+        raise typer.BadParameter("notify-channel is required when chat-id is provided")
+
+    from marketbot.session.manager import SessionManager
+
+    session_manager = SessionManager(config.workspace_path)
+    for item in session_manager.list_sessions():
+        key = str(item.get("key") or "")
+        if ":" not in key:
+            continue
+        session_channel, session_chat_id = key.split(":", 1)
+        if session_channel in enabled and session_chat_id:
+            return session_channel, session_chat_id
+
+    raise typer.BadParameter(
+        "no notify target found; provide --notify-channel and --chat-id, or use an enabled channel with prior sessions"
+    )
+
+
+async def _send_message_once(
+    config: Config,
+    channel_name: str,
+    chat_id: str,
+    content: str,
+    media: list[str],
+) -> None:
+    """Send one outbound message without starting full listener loops."""
+    from marketbot.bus.events import OutboundMessage
+    from marketbot.bus.queue import MessageBus
+
+    bus = MessageBus()
+    message = OutboundMessage(channel=channel_name, chat_id=chat_id, content=content, media=media)
+
+    if channel_name == "telegram":
+        from marketbot.channels.telegram import TelegramChannel
+        from telegram.ext import Application
+        from telegram.request import HTTPXRequest
+
+        channel = TelegramChannel(
+            config.channels.telegram,
+            bus,
+            groq_api_key=config.providers.groq.api_key,
+        )
+        req = HTTPXRequest(connection_pool_size=4, pool_timeout=5.0, connect_timeout=30.0, read_timeout=30.0)
+        builder = Application.builder().token(config.channels.telegram.token).request(req).get_updates_request(req)
+        if config.channels.telegram.proxy:
+            builder = builder.proxy(config.channels.telegram.proxy).get_updates_proxy(config.channels.telegram.proxy)
+        channel._app = builder.build()
+        await channel._app.initialize()
+        try:
+            await channel.send(message)
+        finally:
+            await channel._app.shutdown()
+            channel._app = None
+        return
+
+    if channel_name == "slack":
+        from marketbot.channels.slack import SlackChannel
+        from slack_sdk.web.async_client import AsyncWebClient
+
+        channel = SlackChannel(config.channels.slack, bus)
+        channel._web_client = AsyncWebClient(token=config.channels.slack.bot_token)
+        try:
+            await channel.send(message)
+        finally:
+            await channel._web_client.close()
+            channel._web_client = None
+        return
+
+    if channel_name == "discord":
+        import httpx
+
+        from marketbot.channels.discord import DiscordChannel
+
+        channel = DiscordChannel(config.channels.discord, bus)
+        channel._http = httpx.AsyncClient(timeout=30.0)
+        try:
+            await channel.send(message)
+        finally:
+            await channel._http.aclose()
+            channel._http = None
+        return
+
+    if channel_name == "feishu":
+        from marketbot.channels.feishu import FEISHU_AVAILABLE, FeishuChannel
+
+        if not FEISHU_AVAILABLE:
+            raise typer.BadParameter("feishu SDK is not installed")
+        import lark_oapi as lark
+
+        channel = FeishuChannel(config.channels.feishu, bus)
+        channel._client = lark.Client.builder() \
+            .app_id(config.channels.feishu.app_id) \
+            .app_secret(config.channels.feishu.app_secret) \
+            .log_level(lark.LogLevel.INFO) \
+            .build()
+        await channel.send(message)
+        return
+
+    raise typer.BadParameter("unsupported notify channel; supported: telegram, slack, discord, feishu")
 
 
 def _is_exit_command(command: str) -> bool:
@@ -576,8 +575,56 @@ def gateway(
         return "cli", "direct"
 
     # Create heartbeat service
+    heartbeat_delivery: dict[str, object] = {}
+
     async def on_heartbeat_execute(tasks: str) -> str:
         """Phase 2: execute heartbeat tasks through the full agent loop."""
+        from marketbot.agent.tools.market import MarketBriefTool
+
+        heartbeat_delivery.clear()
+        heartbeat_path = config.workspace_path / "HEARTBEAT.md"
+        if heartbeat_path.exists():
+            try:
+                heartbeat_content = heartbeat_path.read_text(encoding="utf-8")
+            except Exception:
+                heartbeat_content = ""
+            heartbeat_spec = extract_market_heartbeat_spec(heartbeat_content)
+            if heartbeat_spec:
+                tool = MarketBriefTool(config.tools.market)
+                payload = json.loads(
+                    await tool.execute(
+                        symbols=list(heartbeat_spec["symbols"]),
+                        includeNews=True,
+                        includeMacro=True,
+                        includeSocial=True,
+                    )
+                )
+                report_markdown = render_market_report_document(
+                    payload,
+                    symbols=list(heartbeat_spec["symbols"]),
+                    headline="",
+                    session=str(heartbeat_spec["session"]),
+                    timezone_name=str(heartbeat_spec["timezone"]),
+                )
+                report_path = default_market_report_path(
+                    config.workspace_path,
+                    str(heartbeat_spec["session"]),
+                    str(heartbeat_spec["timezone"]),
+                )
+                report_path.parent.mkdir(parents=True, exist_ok=True)
+                report_path.write_text(report_markdown, encoding="utf-8")
+                heartbeat_delivery.update(
+                    {
+                        "kind": "market-report",
+                        "payload": payload,
+                        "symbols": list(heartbeat_spec["symbols"]),
+                        "session": str(heartbeat_spec["session"]),
+                        "timezone": str(heartbeat_spec["timezone"]),
+                        "report_path": str(report_path),
+                    }
+                )
+                return report_markdown
+
         channel, chat_id = _pick_heartbeat_target()
 
         async def _silent(*_args, **_kwargs):
@@ -597,6 +644,31 @@ def gateway(
         channel, chat_id = _pick_heartbeat_target()
         if channel == "cli":
             return  # No external channel available to deliver to
+        if heartbeat_delivery.get("kind") == "market-report":
+            payload = dict(heartbeat_delivery.get("payload") or {})
+            symbols = list(heartbeat_delivery.get("symbols") or [])
+            session = str(heartbeat_delivery.get("session") or "intraday")
+            timezone_name = str(heartbeat_delivery.get("timezone") or "America/New_York")
+            report_path = Path(str(heartbeat_delivery.get("report_path") or ""))
+            summary = render_market_report_notification(
+                payload,
+                symbols=symbols,
+                session=session,
+                timezone_name=timezone_name,
+                report_path=report_path,
+                channel=channel,
+            )
+            await bus.publish_outbound(
+                OutboundMessage(
+                    channel=channel,
+                    chat_id=chat_id,
+                    content=summary,
+                    media=[str(report_path)] if report_path.is_file() else [],
+                    metadata={"market_report": {"session": session, "path": str(report_path)}},
+                )
+            )
+            return
+
         await bus.publish_outbound(OutboundMessage(channel=channel, chat_id=chat_id, content=response))
 
     hb_cfg = config.gateway.heartbeat
@@ -847,12 +919,26 @@ def market_report(
     session: str = typer.Option("auto", "--session", help="Report session: auto, premarket, intraday, close"),
     json_output: bool = typer.Option(False, "--json", help="Print raw JSON instead of markdown brief"),
     save: bool = typer.Option(False, "--save", help="Save markdown report to workspace/reports"),
+    notify: bool = typer.Option(False, "--notify", help="Send summary + report attachment to a channel"),
+    notify_channel: str = typer.Option("", "--notify-channel", help="Target channel: telegram, slack, discord, feishu"),
+    chat_id: str = typer.Option("", "--chat-id", help="Target chat/channel id for --notify"),
 ):
     """Generate a market brief directly from market tools."""
     from marketbot.agent.tools.market import MarketBriefTool
     from marketbot.config.loader import load_config
 
+    normalized_session = session.strip().lower() or "auto"
+    if normalized_session not in {"auto", "premarket", "intraday", "close"}:
+        raise typer.BadParameter("session must be one of: auto, premarket, intraday, close")
+
     config = load_config()
+    notify_target: tuple[str, str] | None = None
+    if notify:
+        notify_target = _pick_notify_target(
+            config,
+            preferred_channel=notify_channel,
+            preferred_chat_id=chat_id,
+        )
     selected_symbols = _parse_symbol_csv(symbols) or config.tools.market.default_symbols
     tool = MarketBriefTool(config.tools.market)
 
@@ -869,27 +955,43 @@ def market_report(
 
     payload = asyncio.run(run_once())
     brief_markdown = payload.get("briefMarkdown", "")
-    normalized_session = session.strip().lower() or "auto"
-    if normalized_session not in {"auto", "premarket", "intraday", "close"}:
-        raise typer.BadParameter("session must be one of: auto, premarket, intraday, close")
     resolved_session = (
-        _infer_market_report_session(datetime.now(_resolve_market_timezone(timezone)))
+        infer_market_report_session(datetime.now(resolve_market_timezone(timezone)))
         if normalized_session == "auto"
         else normalized_session
     )
-    report_markdown = _render_market_report_document(
+    report_markdown = render_market_report_document(
         payload,
         symbols=selected_symbols,
         headline=headline,
         session=resolved_session,
         timezone_name=timezone,
     )
+    report_path: Path | None = None
 
-    if save and report_markdown:
-        report_path = _default_market_report_path(config.workspace_path, resolved_session, timezone)
+    if (save or notify) and report_markdown:
+        report_path = default_market_report_path(config.workspace_path, resolved_session, timezone)
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report_markdown, encoding="utf-8")
-        console.print(f"[green]✓[/green] Saved report to {report_path}")
+        if save:
+            console.print(f"[green]✓[/green] Saved report to {report_path}")
+
+    if notify:
+        if notify_target is None:
+            raise typer.BadParameter("notify target resolution failed")
+        channel_name, target_chat_id = notify_target
+        if report_path is None:
+            raise typer.BadParameter("notify requires a generated report")
+        notify_text = render_market_report_notification(
+            payload,
+            symbols=selected_symbols,
+            session=resolved_session,
+            timezone_name=timezone,
+            report_path=report_path,
+            channel=channel_name,
+        )
+        asyncio.run(_send_message_once(config, channel_name, target_chat_id, notify_text, [str(report_path)]))
+        console.print(f"[green]✓[/green] Sent report to {channel_name}:{target_chat_id}")
 
     if json_output:
         console.print_json(data=payload)
