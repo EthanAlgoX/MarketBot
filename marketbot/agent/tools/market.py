@@ -14,6 +14,7 @@ import httpx
 from loguru import logger
 
 from marketbot.agent.tools.base import Tool
+from marketbot.market_routing import classify_market_request
 
 if TYPE_CHECKING:
     from marketbot.config.schema import MarketToolsConfig
@@ -1032,10 +1033,16 @@ class MarketBriefTool(Tool):
         sentiment_index = round(_clamp((composite + 1.0) / 2.0, 0.0, 1.0), 4)
         sentiment_state = "bullish" if sentiment_index >= 0.60 else "bearish" if sentiment_index <= 0.40 else "neutral"
         scenarios = self._scenario_recommendations(actions, macro_risk)
+        market_route = classify_market_request(
+            symbols=[str(row.get("symbol", "")).upper() for row in quotes],
+            headline=headline,
+            body=body,
+        )
 
         lines = [
             "## Market Brief",
             f"- As Of: {_utc_now_iso()}",
+            f"- Market Focus: {market_route.get('primary', 'general')}",
             f"- Market Sentiment Index: {sentiment_index:.2f} ({sentiment_state})",
             f"- Macro Regime: {macro.get('regime', 'unknown')} (risk={macro_risk:.2f})",
             f"- Social Sentiment: {social_overall:.2f}",
@@ -1069,6 +1076,7 @@ class MarketBriefTool(Tool):
             "news": news,
             "social": social,
             "macro": macro,
+            "marketRoute": market_route,
             "signals": actions,
             "marketSentimentIndex": sentiment_index,
             "marketState": sentiment_state,

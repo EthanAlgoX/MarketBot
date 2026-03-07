@@ -77,3 +77,106 @@ def test_system_prompt_includes_market_analysis_playbook(tmp_path) -> None:
     assert "`risk-checklist`" in prompt
     assert "`market_brief`" in prompt
     assert "`market_signal`" in prompt
+
+
+def test_explicit_skill_names_are_loaded_into_system_prompt(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    prompt = builder.build_system_prompt(["market-report", "risk-checklist"])
+
+    assert "# Selected Skills" in prompt
+    assert "### Skill: market-report" in prompt
+    assert "### Skill: risk-checklist" in prompt
+
+
+def test_market_analysis_message_auto_injects_market_skills(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Analyze NVDA swing setup, include catalysts and risk checklist.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: market-report" in prompt
+    assert "### Skill: catalyst-tracker" in prompt
+    assert "### Skill: risk-checklist" in prompt
+
+
+def test_chart_and_monitor_messages_auto_inject_tool_skills(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    chart_messages = builder.build_messages(
+        history=[],
+        current_message="Show a BTC-USD RSI chart and MACD setup.",
+        channel="cli",
+        chat_id="direct",
+    )
+    monitor_messages = builder.build_messages(
+        history=[],
+        current_message="Monitor gold, silver, BTC and ETH for me.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    assert "### Skill: stock-info-explorer" in chart_messages[0]["content"]
+    assert "### Skill: crypto-gold-monitor" in monitor_messages[0]["content"]
+
+
+def test_equity_analysis_prefers_equity_skills_without_monitor_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Analyze AAPL earnings setup and map support, resistance, and risk.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: market-report" in prompt
+    assert "### Skill: catalyst-tracker" in prompt
+    assert "### Skill: risk-checklist" in prompt
+    assert "### Skill: stock-info-explorer" in prompt
+    assert "### Skill: crypto-gold-monitor" not in prompt
+
+
+def test_crypto_analysis_uses_chart_and_risk_skills_without_metals_monitor(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Analyze BTC-USD swing trade with RSI, MACD, stop loss, and invalidation.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: market-report" in prompt
+    assert "### Skill: risk-checklist" in prompt
+    assert "### Skill: stock-info-explorer" in prompt
+    assert "### Skill: crypto-gold-monitor" not in prompt
+
+
+def test_metals_macro_monitor_prefers_monitor_and_catalyst_skills(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Monitor gold and silver into FOMC and CPI this week.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: crypto-gold-monitor" in prompt
+    assert "### Skill: catalyst-tracker" in prompt
+    assert "### Skill: stock-info-explorer" not in prompt

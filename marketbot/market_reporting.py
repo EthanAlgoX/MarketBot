@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from marketbot.market_routing import classify_market_request
+
 _MARKET_MODE_RE = re.compile(r"<!--\s*marketbot:mode\s+([a-z0-9\-_]+)\s*-->", re.I)
 _TZ_RE = re.compile(r"<!--\s*marketbot:timezone\s+([A-Za-z0-9_\-/+]+)\s*-->")
 _SYMBOLS_RE = re.compile(r"<!--\s*marketbot:symbols\s+([A-Za-z0-9,\-._\s]+)\s*-->")
@@ -63,6 +65,8 @@ def render_market_report_document(
     """Render a standardized market report document for saved or delivered reports."""
     market_state = str(payload.get("marketState", "unknown")).upper()
     sentiment_index = float(payload.get("marketSentimentIndex", 0.0))
+    market_route = payload.get("marketRoute", {}) or {}
+    market_focus = str(market_route.get("primary", "general"))
     macro = payload.get("macro", {}) or {}
     macro_regime = str(macro.get("regime", "unknown"))
     macro_risk = float(macro.get("macroRisk", 0.5))
@@ -81,6 +85,7 @@ def render_market_report_document(
         f"- Timezone: {timezone_name}",
         f"- Generated At: {payload.get('asOf', datetime.now(UTC).isoformat().replace('+00:00', 'Z'))}",
         f"- Symbols: {', '.join(symbols)}",
+        f"- Market Focus: {market_focus}",
         f"- Market State: {market_state}",
         f"- Market Sentiment Index: {sentiment_index:.2f}",
         f"- Macro Regime: {macro_regime} (risk={macro_risk:.2f})",
@@ -184,6 +189,8 @@ def render_market_report_notification(
     """Render a short channel-friendly notification for a saved market report."""
     market_state = str(payload.get("marketState", "unknown")).upper()
     sentiment_index = float(payload.get("marketSentimentIndex", 0.0))
+    market_route = payload.get("marketRoute", {}) or {}
+    market_focus = str(market_route.get("primary", "general"))
     macro = payload.get("macro", {}) or {}
     macro_regime = str(macro.get("regime", "unknown"))
     macro_risk = float(macro.get("macroRisk", 0.5))
@@ -208,6 +215,7 @@ def render_market_report_notification(
         title,
         "",
         f"Symbols: {', '.join(symbols)}",
+        f"Market Focus: {market_focus}",
         f"Timezone: {timezone_name}",
         f"Market State: {market_state}",
         f"Market Sentiment Index: {sentiment_index:.2f}",
@@ -246,14 +254,16 @@ def extract_market_heartbeat_spec(content: str, now: datetime | None = None) -> 
     current = current.astimezone(resolve_market_timezone(timezone_name))
     session = infer_market_report_session(current)
     joined = ", ".join(symbols)
+    market_route = classify_market_request(symbols=symbols)
 
     return {
         "mode": "market-report",
         "symbols": symbols,
         "timezone": timezone_name,
         "session": session,
+        "marketRoute": market_route,
         "task": (
-            f"Generate a {session} market report for symbols: {joined}. "
+            f"Generate a {session} {market_route['primary']} market report for symbols: {joined}. "
             "Use current market data and return concise, actionable markdown."
         ),
     }

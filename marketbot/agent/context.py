@@ -10,6 +10,7 @@ from typing import Any
 
 from marketbot.agent.memory import MemoryStore
 from marketbot.agent.skills import SkillsLoader
+from marketbot.market_routing import classify_market_request
 from marketbot.utils.helpers import detect_image_mime
 
 
@@ -37,6 +38,12 @@ class ContextBuilder:
             parts.append(f"# Memory\n\n{memory}")
 
         parts.append(self._market_analysis_playbook())
+
+        selected_skills = self._normalize_skill_names(skill_names)
+        if selected_skills:
+            selected_content = self.skills.load_skills_for_context(selected_skills)
+            if selected_content:
+                parts.append(f"# Selected Skills\n\n{selected_content}")
 
         always_skills = self.skills.get_always_skills()
         if always_skills:
@@ -146,6 +153,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         chat_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build the complete message list for an LLM call."""
+        resolved_skill_names = self._resolve_skill_names(current_message, skill_names)
         runtime_ctx = self._build_runtime_context(channel, chat_id)
         user_content = self._build_user_content(current_message, media)
 
@@ -157,10 +165,118 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             merged = [{"type": "text", "text": runtime_ctx}] + user_content
 
         return [
-            {"role": "system", "content": self.build_system_prompt(skill_names)},
+            {"role": "system", "content": self.build_system_prompt(resolved_skill_names)},
             *history,
             {"role": "user", "content": merged},
         ]
+
+    def _resolve_skill_names(self, current_message: str, skill_names: list[str] | None = None) -> list[str]:
+        """Resolve explicit and auto-detected skills for the current message."""
+        resolved = self._normalize_skill_names(skill_names)
+        for name in self._suggest_skills_for_message(current_message):
+            if name not in resolved:
+                resolved.append(name)
+        return resolved
+
+    @staticmethod
+    def _normalize_skill_names(skill_names: list[str] | None) -> list[str]:
+        """Normalize and deduplicate skill names while preserving order."""
+        if not skill_names:
+            return []
+        result: list[str] = []
+        seen: set[str] = set()
+        for raw in skill_names:
+            name = str(raw or "").strip()
+            if name and name not in seen:
+                result.append(name)
+                seen.add(name)
+        return result
+
+    def _suggest_skills_for_message(self, current_message: str) -> list[str]:
+        """Suggest built-in skills from common market-analysis intents."""
+        text = current_message.lower()
+        suggestions: list[str] = []
+
+        def add(name: str) -> None:
+            if self.skills.load_skill(name) and name not in suggestions:
+                suggestions.append(name)
+
+        route = classify_market_request(text=current_message)
+
+        analysis_terms = (
+            "analyze",
+            "analysis",
+            "outlook",
+            "bias",
+            "trade plan",
+            "setup",
+            "support",
+            "resistance",
+            "invalidation",
+            "regime",
+            "trend",
+        )
+        catalyst_terms = (
+            "catalyst",
+            "event",
+            "earnings",
+            "fomc",
+            "cpi",
+            "nfp",
+            "news driver",
+            "macro",
+            "calendar",
+        )
+        risk_terms = (
+            "risk",
+            "position size",
+            "sizing",
+            "stop loss",
+            "stop",
+            "invalidat",
+            "safe",
+            "max loss",
+            "risk-reward",
+        )
+        chart_terms = (
+            "chart",
+            "rsi",
+            "macd",
+            "bollinger",
+            "bb",
+            "vwap",
+            "atr",
+            "fundamental",
+            "quote",
+        )
+        monitor_terms = (
+            "crypto monitor",
+            "watchlist",
+            "monitor",
+            "metals",
+            "precious metals",
+        )
+
+        if route["asset_like"] and any(term in text for term in analysis_terms):
+            add("market-report")
+
+        if (route["asset_like"] or route["macro"]) and any(term in text for term in catalyst_terms):
+            add("catalyst-tracker")
+
+        if route["asset_like"] and any(term in text for term in risk_terms):
+            add("risk-checklist")
+
+        if route["equity"] and (any(term in text for term in chart_terms) or any(term in text for term in analysis_terms)):
+            add("stock-info-explorer")
+        elif route["crypto"] and any(term in text for term in chart_terms):
+            add("stock-info-explorer")
+
+        if route["metals"] or any(term in text for term in monitor_terms):
+            add("crypto-gold-monitor")
+        elif route["crypto"] and ("intermarket" in text or "gold" in text or "silver" in text):
+            add("crypto-gold-monitor")
+
+        return suggestions
 
     def _build_user_content(self, text: str, media: list[str] | None) -> str | list[dict[str, Any]]:
         """Build user message content with optional base64-encoded images."""

@@ -127,7 +127,9 @@ def test_market_brief_composes_outputs() -> None:
     payload = json.loads(_run(tool.execute(symbols=["NVDA", "SPY"], headline="NVIDIA launches new AI chip")))
     assert len(payload["signals"]) == 2
     assert "social" in payload
+    assert payload["marketRoute"]["primary"] == "equity"
     assert "briefMarkdown" in payload
+    assert "Market Focus: equity" in payload["briefMarkdown"]
     assert "Scenario Playbook" in payload["briefMarkdown"]
 
 

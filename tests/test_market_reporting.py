@@ -7,6 +7,7 @@ from marketbot.market_reporting import (
     extract_market_heartbeat_spec,
     infer_market_report_session,
     render_market_report_notification,
+    render_market_report_document,
 )
 
 
@@ -35,6 +36,7 @@ def test_extract_market_heartbeat_spec_parses_directives() -> None:
     assert spec["symbols"] == ["NVDA", "SPY"]
     assert spec["timezone"] == "America/New_York"
     assert spec["session"] == "premarket"
+    assert spec["marketRoute"]["primary"] == "equity"
     assert "NVDA, SPY" in str(spec["task"])
 
 
@@ -59,6 +61,7 @@ def test_render_market_report_notification_includes_summary_and_path() -> None:
     payload = {
         "marketState": "bullish",
         "marketSentimentIndex": 0.68,
+        "marketRoute": {"primary": "equity"},
         "macro": {"regime": "risk-on", "macroRisk": 0.29},
         "signals": [
             {"symbol": "NVDA", "action": "buy", "confidence": 0.84},
@@ -75,6 +78,7 @@ def test_render_market_report_notification_includes_summary_and_path() -> None:
     )
 
     assert "# Market Report Alert (premarket)" in text
+    assert "Market Focus: equity" in text
     assert "NVDA: BUY (0.84)" in text
     assert "Attachment: market_report_premarket.md" in text
 
@@ -83,6 +87,7 @@ def test_render_market_report_notification_uses_channel_specific_format() -> Non
     payload = {
         "marketState": "neutral",
         "marketSentimentIndex": 0.51,
+        "marketRoute": {"primary": "equity"},
         "macro": {"regime": "neutral", "macroRisk": 0.44},
         "signals": [{"symbol": "QQQ", "action": "watch", "confidence": 0.58}],
     }
@@ -106,3 +111,28 @@ def test_render_market_report_notification_uses_channel_specific_format() -> Non
 
     assert slack_text.startswith("*Market Report Alert (intraday)*")
     assert telegram_text.startswith("Market Report Alert (intraday)")
+
+
+def test_render_market_report_document_includes_market_focus() -> None:
+    payload = {
+        "asOf": "2026-03-07T01:23:45Z",
+        "marketState": "neutral",
+        "marketSentimentIndex": 0.55,
+        "marketRoute": {"primary": "crypto"},
+        "macro": {"regime": "neutral", "macroRisk": 0.41, "warnings": []},
+        "social": {"overallSentiment": 0.12, "perSymbol": [], "warnings": []},
+        "signals": [],
+        "scenarios": {},
+        "snapshot": {"warnings": []},
+        "news": {"items": [], "warnings": []},
+    }
+
+    doc = render_market_report_document(
+        payload,
+        symbols=["BTC-USD"],
+        headline="",
+        session="intraday",
+        timezone_name="America/New_York",
+    )
+
+    assert "- Market Focus: crypto" in doc
