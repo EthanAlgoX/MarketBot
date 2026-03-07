@@ -65,7 +65,14 @@ That is the most reusable part for `marketbot`: it turns raw search into a struc
 - `a_share_quote` backed by `efinance` / `tushare`
 - `a_share_chip_distribution` backed by `akshare`
 - `china_market_breadth` backed by `efinance` / `akshare`
-- `cross_market_news_search` with `Bocha` / `Brave` / `Tavily` / `SerpAPI`
+
+### What is already mapped in current marketbot tools
+
+- `market_snapshot` now supports `eastmoney`, `yahoo`, `auto`, and `mock`
+- `market_chip_distribution` now estimates A-share chip structure from Eastmoney daily kline and turnover
+- `market_fundamentals` now loads lightweight valuation/profile fields from Eastmoney for A-share and Yahoo quote for global symbols
+- `market_news` now supports cross-market routing across `Bocha`, `Brave`, `Tavily`, `SerpAPI`, Google RSS, and `mock`
+- `market_source_plan` explains which provider chain should be used for each market/task combination
 
 ## Selection Heuristics
 

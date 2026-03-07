@@ -4,7 +4,9 @@ import json
 from marketbot.agent.loop import AgentLoop
 from marketbot.agent.tools.market import (
     MarketBriefTool,
+    MarketChipDistributionTool,
     MarketEventExtractTool,
+    MarketFundamentalsTool,
     MarketMacroTool,
     MarketNewsTool,
     MarketSocialSentimentTool,
@@ -102,13 +104,20 @@ def test_market_signal_respects_min_confidence() -> None:
 
 def test_market_source_plan_for_a_share_news_and_quote() -> None:
     tool = MarketSourcePlanTool()
-    payload = json.loads(_run(tool.execute(symbols=["600519"], tasks=["quote", "news"])))
+    payload = json.loads(_run(tool.execute(symbols=["600519"], tasks=["quote", "news", "chips", "fundamentals"])))
 
     assert payload["market"] == "a-share"
     assert payload["tasks"][0]["providers"][0] == "tushare"
     assert payload["tasks"][1]["providers"][0] == "bocha"
+    assert payload["tasks"][2]["providers"][0] == "eastmoney-kline-local-cyq"
+    assert payload["tasks"][3]["providers"][0] == "eastmoney"
     assert "market_snapshot (current)" in payload["tasks"][0]["currentMarketbotTools"]
-    assert "cross_market_news_search connector" in payload["tasks"][1]["futureConnectors"]
+    assert "market_news (current cross-market search)" in payload["tasks"][1]["currentMarketbotTools"]
+    assert "market_chip_distribution (current)" in payload["tasks"][2]["currentMarketbotTools"]
+    assert "market_fundamentals (current)" in payload["tasks"][3]["currentMarketbotTools"]
+    assert payload["tasks"][1]["futureConnectors"] == []
+    assert payload["tasks"][2]["futureConnectors"] == []
+    assert payload["tasks"][3]["futureConnectors"] == []
 
 
 def test_market_signal_buy_when_inputs_are_strong() -> None:
@@ -140,6 +149,110 @@ def test_market_news_mock_source() -> None:
     assert payload["sources"] == ["mock"]
     assert len(payload["items"]) == 3
     assert payload["items"][0]["symbol"] == "NVDA"
+
+
+def test_market_news_auto_routes_by_market(monkeypatch) -> None:
+    cfg = MarketToolsConfig()
+    cfg.news_sources = ["auto"]
+    cfg.bocha_api_key = "bocha-key"
+    cfg.brave_api_key = "brave-key"
+    tool = MarketNewsTool(config=cfg)
+    calls: list[tuple[str, str]] = []
+
+    async def _fake_fetch(source: str, symbol: str, limit: int, days: int):
+        calls.append((source, symbol))
+        if source == "bocha" and symbol == "600519":
+            return (
+                [
+                    {
+                        "symbol": "600519",
+                        "title": "茅台 最新消息",
+                        "source": "财联社",
+                        "provider": "bocha",
+                        "publishedAt": "2026-03-07",
+                        "url": "https://example.com/600519",
+                    }
+                ],
+                [],
+            )
+        if source == "brave" and symbol == "AAPL":
+            return (
+                [
+                    {
+                        "symbol": "AAPL",
+                        "title": "Apple latest news",
+                        "source": "Reuters",
+                        "provider": "brave",
+                        "publishedAt": "2026-03-07",
+                        "url": "https://example.com/aapl",
+                    }
+                ],
+                [],
+            )
+        return [], [f"{symbol}: no results"]
+
+    monkeypatch.setattr(tool, "_fetch_provider_news", _fake_fetch)
+    payload = json.loads(_run(tool.execute(symbols=["600519", "AAPL"], limit=2)))
+
+    assert payload["providerBySymbol"]["600519"] == "bocha"
+    assert payload["providerBySymbol"]["AAPL"] == "brave"
+    assert ("bocha", "600519") in calls
+    assert ("brave", "AAPL") in calls
+
+
+def test_market_chip_distribution_local_estimate(monkeypatch) -> None:
+    tool = MarketChipDistributionTool()
+
+    async def _fake_fetch(symbol: str, lookback_days: int):
+        assert symbol == "600519"
+        assert lookback_days == 90
+        return (
+            [
+                "2026-03-03,100,101,102,99,1000,101000,3.0,1.0,1.0,5.0",
+                "2026-03-04,101,102,103,100,1200,122400,3.0,1.0,1.0,8.0",
+                "2026-03-05,102,104,105,101,1500,156000,4.0,2.0,2.0,12.0",
+            ]
+            * 10,
+            None,
+        )
+
+    monkeypatch.setattr(tool, "_fetch_kline", _fake_fetch)
+    payload = json.loads(_run(tool.execute(symbol="600519", lookbackDays=90)))
+
+    assert payload["symbol"] == "600519"
+    assert payload["source"] == "eastmoney-kline-local-cyq"
+    assert 0.0 <= payload["profitRatio"] <= 1.0
+    assert payload["cost90Low"] <= payload["cost90High"]
+    assert payload["barsUsed"] >= 20
+
+
+def test_market_fundamentals_eastmoney(monkeypatch) -> None:
+    tool = MarketFundamentalsTool()
+
+    async def _fake_fetch(symbol: str):
+        assert symbol == "600519"
+        return (
+            {
+                "symbol": "600519",
+                "name": "贵州茅台",
+                "marketCap": 1755682841430.0,
+                "floatMarketCap": 1755682841430.0,
+                "sharesOutstanding": 1252270215.0,
+                "floatShares": 1252270215.0,
+                "trailingPE": 20.37,
+                "priceToBook": 6.83,
+                "currency": "CNY",
+                "provider": "eastmoney",
+            },
+            None,
+        )
+
+    monkeypatch.setattr(tool, "_fetch_eastmoney", _fake_fetch)
+    payload = json.loads(_run(tool.execute(symbols=["600519"])))
+
+    assert payload["items"][0]["symbol"] == "600519"
+    assert payload["items"][0]["provider"] == "eastmoney"
+    assert payload["items"][0]["trailingPE"] == 20.37
 
 
 def test_market_macro_manual_mode() -> None:
@@ -177,6 +290,81 @@ def test_market_brief_composes_outputs() -> None:
     assert "Scenario Playbook" in payload["briefMarkdown"]
 
 
+def test_market_brief_includes_chip_distribution_for_a_share(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="mock")
+    cfg.news_sources = ["mock"]
+    cfg.social_sources = ["mock"]
+    cfg.macro_source = "manual"
+    tool = MarketBriefTool(config=cfg)
+
+    async def _fake_snapshot(*args, **kwargs):
+        return json.dumps(
+            {
+                "asOf": "2026-03-07T00:00:00Z",
+                "source": "mock",
+                "symbols": ["600519"],
+                "quotes": [
+                    {
+                        "symbol": "600519",
+                        "price": 1402.0,
+                        "changePct": 1.5,
+                        "volume": 1000,
+                        "avgVolume": 900,
+                        "flowRatio": 1.1,
+                        "flowHint": "inflow",
+                        "momentum": "up",
+                        "currency": "CNY",
+                        "marketState": "REGULAR",
+                    }
+                ],
+                "warnings": [],
+            }
+        )
+
+    async def _fake_chips(*args, **kwargs):
+        return json.dumps(
+            {
+                "symbol": "600519",
+                "source": "eastmoney-kline-local-cyq",
+                "profitRatio": 0.68,
+                "avgCost": 1320.0,
+                "cost90Low": 1200.0,
+                "cost90High": 1380.0,
+                "concentration90": 0.86,
+                "cost70Low": 1260.0,
+                "cost70High": 1360.0,
+                "concentration70": 0.92,
+            }
+        )
+
+    async def _fake_fundamentals(*args, **kwargs):
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "symbol": "600519",
+                        "provider": "eastmoney",
+                        "trailingPE": 20.37,
+                        "priceToBook": 6.83,
+                        "marketCap": 1755682841430.0,
+                    }
+                ],
+                "warnings": [],
+            }
+        )
+
+    monkeypatch.setattr(tool._snapshot, "execute", _fake_snapshot)
+    monkeypatch.setattr(tool._chips, "execute", _fake_chips)
+    monkeypatch.setattr(tool._fundamentals, "execute", _fake_fundamentals)
+    payload = json.loads(_run(tool.execute(symbols=["600519"], headline="白酒板块回暖")))
+
+    assert "chips" in payload
+    assert "fundamentals" in payload
+    assert "600519" in payload["chips"]["perSymbol"]
+    assert "Chips: profit=0.68" in payload["briefMarkdown"]
+    assert "Fundamentals: PE=20.37 | PB=6.83" in payload["briefMarkdown"]
+
+
 def test_agent_loop_registers_market_tools_by_default(tmp_path) -> None:
     loop = AgentLoop(
         bus=MessageBus(),
@@ -188,6 +376,8 @@ def test_agent_loop_registers_market_tools_by_default(tmp_path) -> None:
     assert "market_event_extract" in loop.tools.tool_names
     assert "market_source_plan" in loop.tools.tool_names
     assert "market_signal" in loop.tools.tool_names
+    assert "market_chip_distribution" in loop.tools.tool_names
+    assert "market_fundamentals" in loop.tools.tool_names
     assert "market_news" in loop.tools.tool_names
     assert "market_social_sentiment" in loop.tools.tool_names
     assert "market_macro" in loop.tools.tool_names
@@ -206,6 +396,8 @@ def test_agent_loop_skips_market_tools_when_disabled(tmp_path) -> None:
     assert "market_event_extract" not in loop.tools.tool_names
     assert "market_source_plan" not in loop.tools.tool_names
     assert "market_signal" not in loop.tools.tool_names
+    assert "market_chip_distribution" not in loop.tools.tool_names
+    assert "market_fundamentals" not in loop.tools.tool_names
     assert "market_news" not in loop.tools.tool_names
     assert "market_social_sentiment" not in loop.tools.tool_names
     assert "market_macro" not in loop.tools.tool_names

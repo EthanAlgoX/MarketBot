@@ -77,6 +77,8 @@ def test_system_prompt_includes_market_analysis_playbook(tmp_path) -> None:
     assert "`risk-checklist`" in prompt
     assert "`stock-data-sourcing`" in prompt
     assert "`market_source_plan`" in prompt
+    assert "`market_chip_distribution`" in prompt
+    assert "`market_fundamentals`" in prompt
     assert "`market_brief`" in prompt
     assert "`market_signal`" in prompt
 

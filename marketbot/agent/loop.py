@@ -20,7 +20,9 @@ from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFile
 from marketbot.agent.tools.message import MessageTool
 from marketbot.agent.tools.market import (
     MarketBriefTool,
+    MarketChipDistributionTool,
     MarketEventExtractTool,
+    MarketFundamentalsTool,
     MarketMacroTool,
     MarketNewsTool,
     MarketSocialSentimentTool,
@@ -144,6 +146,8 @@ class AgentLoop:
             self.tools.register(MarketEventExtractTool())
             self.tools.register(MarketSourcePlanTool())
             self.tools.register(MarketSignalTool(config=self.market_config))
+            self.tools.register(MarketChipDistributionTool(config=self.market_config))
+            self.tools.register(MarketFundamentalsTool(config=self.market_config))
             self.tools.register(MarketNewsTool(config=self.market_config))
             self.tools.register(MarketSocialSentimentTool(config=self.market_config))
             self.tools.register(MarketMacroTool(config=self.market_config))

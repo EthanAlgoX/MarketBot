@@ -104,6 +104,8 @@ When the user asks for analysis of a specific asset or trade setup, prefer this 
 1. Gather evidence with market tools:
    - `market_source_plan` when source routing, A/H/US coverage, or fallback choice matters
    - `market_snapshot` for price, momentum, and flow hints
+   - `market_chip_distribution` for A-share chip structure, average cost, and trapped/profitable supply
+   - `market_fundamentals` for valuation, market cap, and profile basics
    - `market_news` and `market_social_sentiment` for narrative and crowd context
    - `market_macro` for regime and macro risk
    - `market_event_extract` when a headline or catalyst is driving the move

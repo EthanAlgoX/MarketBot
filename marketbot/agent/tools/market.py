@@ -92,6 +92,39 @@ def _eastmoney_secid(symbol: str) -> str | None:
     return f"{market}.{code}"
 
 
+def _weighted_price_band(points: list[tuple[float, float]], lower_q: float, upper_q: float) -> tuple[float, float]:
+    """Return weighted quantile price band for normalized (price, weight) pairs."""
+    if not points:
+        return 0.0, 0.0
+    ordered = sorted(points, key=lambda item: item[0])
+    total = sum(weight for _, weight in ordered) or 1.0
+    lower_target = total * lower_q
+    upper_target = total * upper_q
+    cumulative = 0.0
+    lower_price = ordered[0][0]
+    upper_price = ordered[-1][0]
+    for price, weight in ordered:
+        cumulative += weight
+        if cumulative >= lower_target:
+            lower_price = price
+            break
+    cumulative = 0.0
+    for price, weight in ordered:
+        cumulative += weight
+        if cumulative >= upper_target:
+            upper_price = price
+            break
+    return float(lower_price), float(upper_price)
+
+
+def _band_concentration(low: float, high: float, avg_cost: float) -> float:
+    """Approximate concentration from band width relative to average cost."""
+    if avg_cost <= 0:
+        return 0.0
+    width_ratio = max(0.0, (high - low) / avg_cost)
+    return _clamp(1.0 - width_ratio, 0.0, 1.0)
+
+
 class MarketSnapshotTool(Tool):
     """Fetch a lightweight market snapshot for a set of symbols."""
 
@@ -584,15 +617,15 @@ class MarketSourcePlanTool(Tool):
             current_tools = ["market_snapshot (partial only; no OHLCV history yet)"]
             return providers, why, current_tools, ["ohlcv_history connector"]
         if task == "chips":
-            return ["akshare"], "Chip distribution is strongest on A-share specific providers.", [], ["a_share_chip_distribution connector"]
+            return ["eastmoney-kline-local-cyq", "akshare"], "Chip distribution works best for A-share names with turnover-aware local estimation.", ["market_chip_distribution (current)"], []
         if task == "fundamentals":
-            return ["efinance", "yfinance"], "Company base info and board mapping are strongest on efinance for China names.", [], ["fundamentals/profile connector"]
+            return ["eastmoney", "yahoo"], "Use Eastmoney for A-share valuation basics and Yahoo quote fields for global symbols.", ["market_fundamentals (current)"], []
         if task == "breadth":
             providers = ["efinance", "akshare", "tushare"] if market in {"a-share", "mixed"} else ["yfinance"]
             why = "China breadth and sector ranking are better served by Eastmoney-family or Tushare data."
             return providers, why, [], ["china_market_breadth connector"]
         providers, why = MarketSourcePlanTool._news_chain(market)
-        return providers, why, ["market_news (current)"], ["cross_market_news_search connector"]
+        return providers, why, ["market_news (current cross-market search)"], []
 
     async def execute(
         self,
@@ -768,6 +801,316 @@ class MarketSignalTool(Tool):
         return json.dumps(result, ensure_ascii=False)
 
 
+class MarketChipDistributionTool(Tool):
+    """Estimate A-share chip distribution from Eastmoney daily kline + turnover data."""
+
+    name = "market_chip_distribution"
+    description = (
+        "Estimate A-share chip distribution using Eastmoney daily kline history and turnover. "
+        "Returns profit ratio, average cost, and 70/90 cost bands."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "symbol": {"type": "string", "description": "A-share symbol, e.g. 600519 or SZ000001"},
+            "lookbackDays": {
+                "type": "integer",
+                "description": "Number of daily bars to use for estimation",
+                "minimum": 20,
+                "maximum": 180,
+                "default": 90,
+            },
+        },
+        "required": ["symbol"],
+    }
+
+    def __init__(self, config: MarketToolsConfig | None = None):
+        self._config = config
+        self._timeout = float(config.request_timeout_s) if config else 12.0
+        self._ut = "fa5fd1943c7b386f172d6893dbfba10b"
+
+    async def _fetch_kline(self, symbol: str, lookback_days: int) -> tuple[list[str], str | None]:
+        secid = _eastmoney_secid(symbol)
+        if not secid:
+            return [], "unsupported symbol for chip distribution"
+        params = {
+            "secid": secid,
+            "ut": self._ut,
+            "fields1": "f1,f2,f3,f4,f5,f6",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+            "klt": "101",
+            "fqt": "1",
+            "end": "20500101",
+            "lmt": str(lookback_days),
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=True) as client:
+                response = await client.get(
+                    "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+                    params=params,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except Exception as e:
+            return [], str(e)
+        return list(payload.get("data", {}).get("klines", []) or []), None
+
+    @staticmethod
+    def _parse_bar(row: str) -> dict[str, float | str] | None:
+        parts = [part.strip() for part in str(row).split(",")]
+        if len(parts) < 11:
+            return None
+        try:
+            volume = float(parts[5] or 0.0)
+            amount = float(parts[6] or 0.0)
+            turnover_pct = float(parts[10] or 0.0)
+            return {
+                "date": parts[0],
+                "open": float(parts[1] or 0.0),
+                "close": float(parts[2] or 0.0),
+                "high": float(parts[3] or 0.0),
+                "low": float(parts[4] or 0.0),
+                "volume": volume,
+                "amount": amount,
+                "turnoverPct": turnover_pct,
+            }
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _estimate_distribution(bars: list[dict[str, float | str]]) -> dict[str, Any]:
+        points: list[tuple[float, float]] = []
+        if not bars:
+            return {
+                "currentPrice": None,
+                "profitRatio": 0.0,
+                "avgCost": None,
+                "cost90Low": None,
+                "cost90High": None,
+                "concentration90": 0.0,
+                "cost70Low": None,
+                "cost70High": None,
+                "concentration70": 0.0,
+            }
+
+        first_close = float(bars[0]["close"])
+        points.append((first_close, 1.0))
+
+        for bar in bars[1:]:
+            turnover = _clamp(float(bar["turnoverPct"]) / 100.0, 0.0, 0.95)
+            if turnover <= 0:
+                continue
+            typical = float(bar["amount"]) / float(bar["volume"]) if float(bar["volume"]) > 0 and float(bar["amount"]) > 0 else (
+                float(bar["open"]) + float(bar["high"]) + float(bar["low"]) + float(bar["close"])
+            ) / 4.0
+            points = [(price, weight * (1.0 - turnover)) for price, weight in points if weight * (1.0 - turnover) > 1e-6]
+            points.append((typical, turnover))
+
+        total = sum(weight for _, weight in points) or 1.0
+        normalized = [(price, weight / total) for price, weight in points]
+        current_price = float(bars[-1]["close"])
+        avg_cost = sum(price * weight for price, weight in normalized)
+        profit_ratio = sum(weight for price, weight in normalized if price <= current_price)
+        cost90_low, cost90_high = _weighted_price_band(normalized, 0.05, 0.95)
+        cost70_low, cost70_high = _weighted_price_band(normalized, 0.15, 0.85)
+        return {
+            "currentPrice": round(current_price, 4),
+            "profitRatio": round(_clamp(profit_ratio, 0.0, 1.0), 4),
+            "avgCost": round(avg_cost, 4),
+            "cost90Low": round(cost90_low, 4),
+            "cost90High": round(cost90_high, 4),
+            "concentration90": round(_band_concentration(cost90_low, cost90_high, avg_cost), 4),
+            "cost70Low": round(cost70_low, 4),
+            "cost70High": round(cost70_high, 4),
+            "concentration70": round(_band_concentration(cost70_low, cost70_high, avg_cost), 4),
+        }
+
+    async def execute(self, symbol: str, lookbackDays: int = 90, **kwargs: Any) -> str:
+        clean_symbol = str(symbol or "").strip().upper()
+        if not _is_a_share_symbol(clean_symbol):
+            return json.dumps(
+                {
+                    "error": "chip distribution currently supports A-share symbols only",
+                    "symbol": clean_symbol,
+                },
+                ensure_ascii=False,
+            )
+
+        lookback = int(_clamp(float(lookbackDays), 20.0, 180.0))
+        klines, err = await self._fetch_kline(clean_symbol, lookback)
+        if err:
+            return json.dumps({"error": err, "symbol": clean_symbol}, ensure_ascii=False)
+
+        bars = [bar for row in klines if (bar := self._parse_bar(row))]
+        if len(bars) < 20:
+            return json.dumps({"error": "insufficient kline history for chip estimation", "symbol": clean_symbol}, ensure_ascii=False)
+
+        stats = self._estimate_distribution(bars)
+        result = {
+            "asOf": _utc_now_iso(),
+            "symbol": _normalize_a_share_symbol(clean_symbol),
+            "source": "eastmoney-kline-local-cyq",
+            "method": "turnover_decay_v1",
+            "lookbackDays": lookback,
+            "barsUsed": len(bars),
+            **stats,
+            "warnings": [
+                "Chip distribution is an approximation derived from daily kline and turnover, not broker-level positions."
+            ],
+        }
+        return json.dumps(result, ensure_ascii=False)
+
+
+class MarketFundamentalsTool(Tool):
+    """Fetch lightweight valuation and profile fields for A-share and global symbols."""
+
+    name = "market_fundamentals"
+    description = (
+        "Get lightweight fundamentals and valuation fields such as market cap, PE, PB, "
+        "shares outstanding, and long name. Uses Eastmoney for A-share and Yahoo quote for global symbols."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "symbols": {
+                "type": "array",
+                "description": "Tickers to inspect",
+                "items": {"type": "string"},
+            }
+        },
+        "required": ["symbols"],
+    }
+
+    def __init__(self, config: MarketToolsConfig | None = None):
+        self._config = config
+        self._timeout = float(config.request_timeout_s) if config else 12.0
+        self._ut = "fa5fd1943c7b386f172d6893dbfba10b"
+
+    @staticmethod
+    def _scaled_hundred(value: Any) -> float | None:
+        if value in (None, "", "-"):
+            return None
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        if abs(number) >= 100:
+            return round(number / 100.0, 4)
+        return round(number, 4)
+
+    async def _fetch_eastmoney(self, symbol: str) -> tuple[dict[str, Any] | None, str | None]:
+        secid = _eastmoney_secid(symbol)
+        if not secid:
+            return None, "unsupported symbol for eastmoney fundamentals"
+        params = {
+            "secid": secid,
+            "ut": self._ut,
+            "invt": "2",
+            "fltt": "1",
+            "fields": "f57,f58,f84,f85,f116,f117,f162,f167",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=True) as client:
+                response = await client.get(
+                    "https://push2.eastmoney.com/api/qt/stock/get",
+                    params=params,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except Exception as e:
+            return None, str(e)
+
+        data = payload.get("data") or {}
+        if not data:
+            return None, "empty eastmoney fundamentals payload"
+        return {
+            "symbol": str(data.get("f57") or _normalize_a_share_symbol(symbol)).upper(),
+            "name": data.get("f58"),
+            "marketCap": data.get("f116"),
+            "floatMarketCap": data.get("f117"),
+            "sharesOutstanding": data.get("f84"),
+            "floatShares": data.get("f85"),
+            "trailingPE": self._scaled_hundred(data.get("f162")),
+            "priceToBook": self._scaled_hundred(data.get("f167")),
+            "currency": "CNY",
+            "provider": "eastmoney",
+        }, None
+
+    async def _fetch_yahoo(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        warnings: list[str] = []
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get(
+                    "https://query1.finance.yahoo.com/v7/finance/quote",
+                    params={"symbols": ",".join(symbols)},
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except Exception as e:
+            return [], [str(e)]
+
+        results = payload.get("quoteResponse", {}).get("result", []) or []
+        rows: list[dict[str, Any]] = []
+        by_symbol = {str(row.get("symbol", "")).upper(): row for row in results if isinstance(row, dict)}
+        for symbol in symbols:
+            raw = by_symbol.get(symbol)
+            if not raw:
+                warnings.append(f"{symbol}: missing yahoo fundamentals")
+                continue
+            rows.append(
+                {
+                    "symbol": symbol,
+                    "name": raw.get("longName") or raw.get("shortName") or symbol,
+                    "marketCap": raw.get("marketCap"),
+                    "floatMarketCap": raw.get("marketCap"),
+                    "sharesOutstanding": raw.get("sharesOutstanding"),
+                    "floatShares": raw.get("sharesOutstanding"),
+                    "trailingPE": raw.get("trailingPE"),
+                    "priceToBook": raw.get("priceToBook"),
+                    "currency": raw.get("currency"),
+                    "provider": "yahoo",
+                }
+            )
+        return rows, warnings
+
+    async def execute(self, symbols: list[str], **kwargs: Any) -> str:
+        clean_symbols = MarketSnapshotTool._normalize_symbols(symbols)
+        if not clean_symbols:
+            return json.dumps({"error": "no valid symbols"}, ensure_ascii=False)
+
+        a_share_symbols = [symbol for symbol in clean_symbols if _is_a_share_symbol(symbol)]
+        global_symbols = [symbol for symbol in clean_symbols if symbol not in a_share_symbols]
+        rows: list[dict[str, Any]] = []
+        warnings: list[str] = []
+
+        for symbol in a_share_symbols:
+            item, err = await self._fetch_eastmoney(symbol)
+            if err:
+                warnings.append(f"{symbol}: {err}")
+                continue
+            if item:
+                rows.append(item)
+
+        if global_symbols:
+            yahoo_rows, yahoo_warnings = await self._fetch_yahoo(global_symbols)
+            rows.extend(yahoo_rows)
+            warnings.extend(yahoo_warnings)
+
+        if not rows:
+            return json.dumps({"error": "no fundamentals available", "warnings": warnings}, ensure_ascii=False)
+
+        return json.dumps(
+            {
+                "asOf": _utc_now_iso(),
+                "items": rows,
+                "warnings": warnings,
+            },
+            ensure_ascii=False,
+        )
+
+
 class MarketNewsTool(Tool):
     """Fetch market-related headlines for symbols."""
 
@@ -793,6 +1136,13 @@ class MarketNewsTool(Tool):
         self._timeout = float(config.request_timeout_s) if config else 12.0
         self._defaults = (config.default_symbols if config else []) or ["SPY", "QQQ", "BTC-USD"]
         self._sources = [s.lower() for s in ((config.news_sources if config else None) or ["google"])]
+        self._news_max_age_days = int(config.news_max_age_days) if config else 3
+        self._api_keys = {
+            "bocha": (config.bocha_api_key if config else "") or "",
+            "tavily": (config.tavily_api_key if config else "") or "",
+            "brave": (config.brave_api_key if config else "") or "",
+            "serpapi": (config.serpapi_api_key if config else "") or "",
+        }
 
     @staticmethod
     def _mock_items(symbol: str, limit: int) -> list[dict[str, Any]]:
@@ -810,9 +1160,73 @@ class MarketNewsTool(Tool):
             )
         return items
 
-    async def _fetch_google_rss(self, symbol: str, limit: int) -> tuple[list[dict[str, Any]], list[str]]:
+    @staticmethod
+    def _symbol_market(symbol: str) -> str:
+        text = str(symbol or "").strip().upper()
+        if _is_a_share_symbol(text):
+            return "a-share"
+        if text.startswith("HK") or text.endswith(".HK") or (text.isdigit() and len(text) == 5):
+            return "hong-kong"
+        if re.fullmatch(r"[A-Z]{1,6}(?:-[A-Z]{2,6})?(?:\.[A-Z]{1,3})?", text):
+            return "us"
+        return "mixed"
+
+    def _search_days(self) -> int:
+        weekday = datetime.now().weekday()
+        if weekday == 0:
+            return min(3, self._news_max_age_days)
+        if weekday >= 5:
+            return min(2, self._news_max_age_days)
+        return min(1, self._news_max_age_days)
+
+    def _build_query(self, symbol: str, source_hint: str | None = None) -> str:
+        market = self._symbol_market(symbol)
+        if market == "a-share":
+            base = f"{symbol} 股票 最新消息"
+        elif market == "hong-kong":
+            base = f"{symbol} 港股 最新消息"
+        else:
+            base = f"{symbol} stock latest news"
+        if source_hint:
+            return f"{base} {source_hint}"
+        return base
+
+    def _resolve_sources_for_symbol(self, symbol: str) -> list[str]:
+        explicit = [s for s in self._sources if s != "auto"]
+        if "mock" in explicit:
+            return ["mock"]
+        if explicit:
+            return explicit
+
+        market = self._symbol_market(symbol)
+        if market == "a-share":
+            preferred = ["bocha", "tavily", "serpapi", "google"]
+        elif market == "hong-kong":
+            preferred = ["bocha", "brave", "tavily", "serpapi", "google"]
+        else:
+            preferred = ["brave", "tavily", "serpapi", "google"]
+        return preferred
+
+    def _source_enabled(self, source: str) -> bool:
+        if source in {"mock", "google", "reuters", "bloomberg", "cls"}:
+            return True
+        return bool(self._api_keys.get(source))
+
+    @staticmethod
+    def _freshness_bucket(days: int) -> tuple[str, str, str]:
+        if days <= 1:
+            return "oneDay", "pd", "qdr:d"
+        if days <= 7:
+            return "oneWeek", "pw", "qdr:w"
+        if days <= 30:
+            return "oneMonth", "pm", "qdr:m"
+        return "oneYear", "py", "qdr:y"
+
+    async def _fetch_google_rss(
+        self, symbol: str, limit: int, source_hint: str | None = None
+    ) -> tuple[list[dict[str, Any]], list[str]]:
         warnings: list[str] = []
-        query = f"{symbol} stock market"
+        query = self._build_query(symbol, source_hint=source_hint)
         params = {
             "q": query,
             "hl": "en-US",
@@ -850,11 +1264,172 @@ class MarketNewsTool(Tool):
                     "symbol": symbol,
                     "title": title,
                     "source": source_name or "google-news",
+                    "provider": "google",
                     "publishedAt": pub_date or _utc_now_iso(),
                     "url": link,
                 }
             )
         return items, warnings
+
+    async def _fetch_tavily(self, symbol: str, query: str, limit: int, days: int) -> tuple[list[dict[str, Any]], list[str]]:
+        api_key = self._api_keys["tavily"]
+        if not api_key:
+            return [], [f"{symbol}: missing tavily api key"]
+        payload = {
+            "api_key": api_key,
+            "query": query,
+            "search_depth": "advanced",
+            "max_results": limit,
+            "include_answer": False,
+            "include_raw_content": False,
+            "days": days,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.post("https://api.tavily.com/search", json=payload)
+                response.raise_for_status()
+                data = response.json()
+        except Exception as e:
+            return [], [f"{symbol}: tavily search failed ({e})"]
+
+        items = [
+            {
+                "symbol": symbol,
+                "title": row.get("title", ""),
+                "source": row.get("url", ""),
+                "provider": "tavily",
+                "publishedAt": row.get("published_date") or _utc_now_iso(),
+                "url": row.get("url", ""),
+                "snippet": str(row.get("content", ""))[:500],
+            }
+            for row in data.get("results", [])[:limit]
+            if row.get("title")
+        ]
+        return items, []
+
+    async def _fetch_bocha(self, symbol: str, query: str, limit: int, days: int) -> tuple[list[dict[str, Any]], list[str]]:
+        api_key = self._api_keys["bocha"]
+        if not api_key:
+            return [], [f"{symbol}: missing bocha api key"]
+        freshness, _, _ = self._freshness_bucket(days)
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        payload = {"query": query, "freshness": freshness, "summary": True, "count": min(limit, 50)}
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.post("https://api.bocha.cn/v1/web-search", headers=headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+        except Exception as e:
+            return [], [f"{symbol}: bocha search failed ({e})"]
+
+        value_list = data.get("data", {}).get("webPages", {}).get("value", [])
+        items = [
+            {
+                "symbol": symbol,
+                "title": row.get("name", ""),
+                "source": row.get("siteName") or row.get("url", ""),
+                "provider": "bocha",
+                "publishedAt": row.get("datePublished") or _utc_now_iso(),
+                "url": row.get("url", ""),
+                "snippet": str(row.get("summary") or row.get("snippet") or "")[:500],
+            }
+            for row in value_list[:limit]
+            if row.get("name")
+        ]
+        return items, []
+
+    async def _fetch_brave(self, symbol: str, query: str, limit: int, days: int) -> tuple[list[dict[str, Any]], list[str]]:
+        api_key = self._api_keys["brave"]
+        if not api_key:
+            return [], [f"{symbol}: missing brave api key"]
+        _, freshness, _ = self._freshness_bucket(days)
+        headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
+        params = {
+            "q": query,
+            "count": min(limit, 20),
+            "freshness": freshness,
+            "search_lang": "en",
+            "country": "US",
+            "safesearch": "moderate",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get("https://api.search.brave.com/res/v1/web/search", headers=headers, params=params)
+                response.raise_for_status()
+                data = response.json()
+        except Exception as e:
+            return [], [f"{symbol}: brave search failed ({e})"]
+
+        items = [
+            {
+                "symbol": symbol,
+                "title": row.get("title", ""),
+                "source": row.get("meta_url", {}).get("hostname") or row.get("url", ""),
+                "provider": "brave",
+                "publishedAt": row.get("age") or row.get("page_age") or _utc_now_iso(),
+                "url": row.get("url", ""),
+                "snippet": str(row.get("description", ""))[:500],
+            }
+            for row in data.get("web", {}).get("results", [])[:limit]
+            if row.get("title")
+        ]
+        return items, []
+
+    async def _fetch_serpapi(self, symbol: str, query: str, limit: int, days: int) -> tuple[list[dict[str, Any]], list[str]]:
+        api_key = self._api_keys["serpapi"]
+        if not api_key:
+            return [], [f"{symbol}: missing serpapi api key"]
+        _, _, tbs = self._freshness_bucket(days)
+        params = {
+            "engine": "google",
+            "q": query,
+            "api_key": api_key,
+            "tbs": tbs,
+            "num": limit,
+            "hl": "zh-cn" if self._symbol_market(symbol) in {"a-share", "hong-kong"} else "en",
+            "gl": "cn" if self._symbol_market(symbol) in {"a-share", "hong-kong"} else "us",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get("https://serpapi.com/search.json", params=params)
+                response.raise_for_status()
+                data = response.json()
+        except Exception as e:
+            return [], [f"{symbol}: serpapi search failed ({e})"]
+
+        items = [
+            {
+                "symbol": symbol,
+                "title": row.get("title", ""),
+                "source": row.get("source") or row.get("displayed_link") or row.get("link", ""),
+                "provider": "serpapi",
+                "publishedAt": row.get("date") or _utc_now_iso(),
+                "url": row.get("link", ""),
+                "snippet": str(row.get("snippet", ""))[:500],
+            }
+            for row in data.get("organic_results", [])[:limit]
+            if row.get("title")
+        ]
+        return items, []
+
+    async def _fetch_provider_news(
+        self, source: str, symbol: str, limit: int, days: int
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        query_hint = source if source in {"reuters", "bloomberg", "cls"} else None
+        query = self._build_query(symbol, source_hint=query_hint)
+        if source == "mock":
+            return self._mock_items(symbol, limit), []
+        if source in {"google", "reuters", "bloomberg", "cls"}:
+            return await self._fetch_google_rss(symbol, limit, source_hint=query_hint)
+        if source == "bocha":
+            return await self._fetch_bocha(symbol, query, limit, days)
+        if source == "tavily":
+            return await self._fetch_tavily(symbol, query, limit, days)
+        if source == "brave":
+            return await self._fetch_brave(symbol, query, limit, days)
+        if source == "serpapi":
+            return await self._fetch_serpapi(symbol, query, limit, days)
+        return [], [f"{symbol}: unsupported news source '{source}'"]
 
     async def execute(self, symbols: list[str] | None = None, limit: int = 6, **kwargs: Any) -> str:
         symbols_in = symbols or self._defaults
@@ -865,14 +1440,29 @@ class MarketNewsTool(Tool):
         limit = int(_clamp(float(limit), 1.0, 20.0))
         all_items: list[dict[str, Any]] = []
         warnings: list[str] = []
+        provider_by_symbol: dict[str, str] = {}
+        search_days = self._search_days()
 
         for symbol in clean_symbols:
-            if "mock" in self._sources:
-                all_items.extend(self._mock_items(symbol, limit))
-                continue
-            items, item_warnings = await self._fetch_google_rss(symbol, limit)
-            all_items.extend(items)
-            warnings.extend(item_warnings)
+            resolved_sources = self._resolve_sources_for_symbol(symbol)
+            symbol_items: list[dict[str, Any]] = []
+            for source in resolved_sources:
+                if not self._source_enabled(source):
+                    warnings.append(f"{symbol}: source {source} unavailable")
+                    continue
+                items, item_warnings = await self._fetch_provider_news(source, symbol, limit, search_days)
+                warnings.extend(item_warnings)
+                if items:
+                    symbol_items = items
+                    provider_by_symbol[symbol] = source
+                    break
+
+            if not symbol_items:
+                symbol_items = self._mock_items(symbol, limit)
+                provider_by_symbol[symbol] = "mock"
+                warnings.append(f"{symbol}: news source fallback: mock")
+
+            all_items.extend(symbol_items)
 
         deduped: list[dict[str, Any]] = []
         seen: set[str] = set()
@@ -887,6 +1477,8 @@ class MarketNewsTool(Tool):
             {
                 "asOf": _utc_now_iso(),
                 "sources": self._sources,
+                "searchDays": search_days,
+                "providerBySymbol": provider_by_symbol,
                 "items": deduped[: max(1, len(clean_symbols) * limit)],
                 "warnings": warnings,
             },
@@ -1219,6 +1811,8 @@ class MarketBriefTool(Tool):
             "includeNews": {"type": "boolean", "default": True},
             "includeMacro": {"type": "boolean", "default": True},
             "includeSocial": {"type": "boolean", "default": True},
+            "includeChips": {"type": "boolean", "default": True},
+            "includeFundamentals": {"type": "boolean", "default": True},
         },
     }
 
@@ -1227,6 +1821,8 @@ class MarketBriefTool(Tool):
         self._snapshot = MarketSnapshotTool(config=config)
         self._event = MarketEventExtractTool()
         self._signal = MarketSignalTool(config=config)
+        self._chips = MarketChipDistributionTool(config=config)
+        self._fundamentals = MarketFundamentalsTool(config=config)
         self._news = MarketNewsTool(config=config)
         self._social = MarketSocialSentimentTool(config=config)
         self._macro = MarketMacroTool(config=config)
@@ -1257,6 +1853,8 @@ class MarketBriefTool(Tool):
         includeNews: bool = True,
         includeMacro: bool = True,
         includeSocial: bool = True,
+        includeChips: bool = True,
+        includeFundamentals: bool = True,
         **kwargs: Any,
     ) -> str:
         snapshot = json.loads(await self._snapshot.execute(symbols=symbols, includeMacro=includeMacro))
@@ -1282,6 +1880,29 @@ class MarketBriefTool(Tool):
             for item in social.get("perSymbol", [])
             if isinstance(item, dict)
         }
+        chips_by_symbol: dict[str, dict[str, Any]] = {}
+        chip_warnings: list[str] = []
+        if includeChips:
+            for row in quotes:
+                symbol = str(row.get("symbol", "")).upper()
+                if not _is_a_share_symbol(symbol):
+                    continue
+                chip_payload = json.loads(await self._chips.execute(symbol=symbol))
+                if chip_payload.get("error"):
+                    chip_warnings.append(f"{symbol}: {chip_payload['error']}")
+                    continue
+                chips_by_symbol[symbol] = chip_payload
+        fundamentals = {"items": [], "warnings": []}
+        fundamentals_by_symbol: dict[str, dict[str, Any]] = {}
+        if includeFundamentals and quotes:
+            fundamentals = json.loads(
+                await self._fundamentals.execute(
+                    symbols=[str(row.get("symbol", "")).upper() for row in quotes if str(row.get("symbol", "")).strip()]
+                )
+            )
+            for item in fundamentals.get("items", []):
+                if isinstance(item, dict) and item.get("symbol"):
+                    fundamentals_by_symbol[str(item["symbol"]).upper()] = item
 
         event_sentiment = float((event or {}).get("sentimentScore", 0.0))
         macro_risk = float(macro.get("macroRisk", 0.5))
@@ -1295,6 +1916,16 @@ class MarketBriefTool(Tool):
                 evidence.append(f"event={event.get('eventType')}")
             if includeSocial:
                 evidence.append(f"social={social_by_symbol.get(symbol, 0.0):.2f}")
+            chip = chips_by_symbol.get(symbol)
+            if chip:
+                evidence.append(f"chipProfit={float(chip.get('profitRatio', 0.0)):.2f}")
+                evidence.append(f"avgCost={float(chip.get('avgCost', 0.0)):.2f}")
+            fundamentals_row = fundamentals_by_symbol.get(symbol)
+            if fundamentals_row:
+                if fundamentals_row.get("trailingPE") is not None:
+                    evidence.append(f"pe={float(fundamentals_row['trailingPE']):.2f}")
+                if fundamentals_row.get("priceToBook") is not None:
+                    evidence.append(f"pb={float(fundamentals_row['priceToBook']):.2f}")
             sig = json.loads(
                 await self._signal.execute(
                     symbol=symbol,
@@ -1340,6 +1971,21 @@ class MarketBriefTool(Tool):
             lines.append(
                 f"- {row['symbol']}: {str(row['action']).upper()} | confidence={float(row['confidence']):.2f} | score={float(row['score']):.2f}"
             )
+            chip = chips_by_symbol.get(row["symbol"])
+            if chip:
+                lines.append(
+                    f"  - Chips: profit={float(chip.get('profitRatio', 0.0)):.2f} | avgCost={float(chip.get('avgCost', 0.0)):.2f} | 90% band={float(chip.get('cost90Low', 0.0)):.2f}-{float(chip.get('cost90High', 0.0)):.2f}"
+                )
+            fundamentals_row = fundamentals_by_symbol.get(row["symbol"])
+            if fundamentals_row:
+                pe = fundamentals_row.get("trailingPE")
+                pb = fundamentals_row.get("priceToBook")
+                market_cap = fundamentals_row.get("marketCap")
+                lines.append(
+                    f"  - Fundamentals: PE={float(pe):.2f} | PB={float(pb):.2f} | MktCap={float(market_cap):.0f}"
+                    if pe is not None and pb is not None and market_cap is not None
+                    else f"  - Fundamentals: {fundamentals_row.get('provider', 'unknown')} profile loaded"
+                )
         lines += [
             "",
             "### Scenario Playbook",
@@ -1362,6 +2008,8 @@ class MarketBriefTool(Tool):
             "event": event,
             "news": news,
             "social": social,
+            "chips": {"perSymbol": chips_by_symbol, "warnings": chip_warnings},
+            "fundamentals": fundamentals,
             "macro": macro,
             "marketRoute": market_route,
             "signals": actions,

@@ -334,6 +334,11 @@ class MarketToolsConfig(Base):
     snapshot_max_symbols: int = Field(12, ge=1, le=100)
     quote_source: Literal["yahoo", "eastmoney", "auto", "mock"] = "yahoo"
     news_sources: list[str] = Field(default_factory=lambda: ["reuters", "bloomberg", "cls"])
+    news_max_age_days: int = Field(3, ge=1, le=30)
+    bocha_api_key: str = ""
+    tavily_api_key: str = ""
+    brave_api_key: str = ""
+    serpapi_api_key: str = ""
     social_sources: list[str] = Field(default_factory=lambda: ["x", "reddit"])
     social_lookback_hours: int = Field(24, ge=1, le=168)
     social_post_limit: int = Field(30, ge=1, le=200)
