@@ -82,6 +82,55 @@ marketbot agent
 > [!TIP]
 > Visit [OpenRouter](https://openrouter.ai/keys) to get an API key that works with almost any model.
 
+## 💹 Core Financial Skills
+
+MarketBot comes pre-loaded with a suite of **Finance-First skills** designed for quantitative research, algorithmic-style market surveillance, and portfolio analysis. Because MarketBot treats skills as composable, tool-calling pipelines (`SKILL.md`), it achieves complex analytical workflows natively.
+
+### 🔭 Market Opportunity Discovery (`/discover`)
+
+Scans the broader market to automatically discover potential investment opportunities by synthesizing market data, events, sentiment, and sector momentum.
+
+- **Pipeline**: Market Scan → Event Matching → Sentiment Shift Tracking → Fund Flow Detection → Sector Momentum.
+- **Scoring Engine**: Leverages a weighted scoring mechanism (Event Impact 0.3 + Sentiment 0.3 + Volume 0.2 + Sector Momentum 0.2) to filter high-probability setups.
+- **Categorization**: Classifies opportunities into Macro, Industry, Company, or Sentiment driven.
+
+### 📈 Market Monitor (`/monitor`)
+
+Real-time surveillance tracking price movements, macro indicators, sector rotations, and news to generate actionable alerts.
+
+- **Surveillance Modules**: Tracks Macro Indicators (S&P, VIX, US10Y), Market Movers (Top Gainers/Losers, Volume Anomalies), Sector Rotation, Technical Signals (RSI, Breakouts), and Earnings impact.
+- **Alert Generation**: Triggers real-time alerts upon high-risk threshold breaches (e.g., sudden VIX spikes or flash crashes) and produces daily synthesized AI summaries.
+
+### 📊 Portfolio Analyzer
+
+A comprehensive toolkit mapping expected returns, executing scenario stress tests, and optimizing asset weights.
+
+- **Key Metrics**: Calculates Expected Return (CAGR), Volatility, Sharpe Ratio, Max Drawdown, and Beta.
+- **Risk Decomposition**: Uncovers Concentration Risk and computes Correlation Matrices between holdings.
+- **Stress Testing**: Simulates portfolio performance under localized "Market Crashes" or "Rate Hikes".
+- **Optimization Strategy**: Re-weights portfolios using Mean-Variance or Max Sharpe methodologies for higher risk-adjusted returns.
+
+### 📰 News Intelligence (`/news`)
+
+Extracts, deduplicates, and assesses the global financial news flow to determine market impact.
+
+- **Deep Extraction**: Recognizes entities and classifies events (e.g., Earnings, M&A, Regulation).
+- **Blast Radius Analysis**: Traces the impact across Primary Ticker -> Sector -> Broader Market, specifying a Short or Long-term horizon.
+- **Trend Detection**: Clusters related articles and tracks emerging topics while generating early-warning Risk Alerts.
+
+### 🎭 Sentiment Analysis (`/sentiment`)
+
+Quantifies subjective sentiment signals from financial media and forums.
+
+- **Weighted Sources**: News (0.5) vs. Social Media (0.3) vs. Retail Forums (0.2).
+- **Trend Velocity**: Doesn't just track absolute sentiment scores, but tracks the $t$ vs $t-1$ velocity to determine if sentiment is rapidly rising, falling, or stabilizing.
+
+### 📉 Stock Watch (`/watch`)
+
+Schedules automated summaries for specific tickers.
+
+- Utilizes the builtin `cron` skill to automate daily tracking of Prices, Technical Support/Resistance, and Catalysts.
+
 ## 💬 Chat Apps
 
 Connect marketbot to your favorite chat platform.
@@ -992,7 +1041,7 @@ marketbot/
 │   ├── skills.py   #    Skills loader
 │   ├── subagent.py #    Background task execution
 │   └── tools/      #    Built-in tools (incl. spawn)
-├── skills/         # 🎯 Bundled skills (github, weather, tmux...)
+├── skills/         # 🎯 Bundled skills (market-discovery, portfolio-analyzer, sentiment-analysis...)
 ├── channels/       # 📱 Chat channel integrations
 ├── bus/            # 🚌 Message routing
 ├── cron/           # ⏰ Scheduled tasks
