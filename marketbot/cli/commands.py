@@ -8,6 +8,7 @@ import signal
 import sys
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 # Force UTF-8 encoding for Windows console
 if sys.platform == "win32":
@@ -115,6 +116,8 @@ def _print_agent_response(response: str, render_markdown: bool) -> None:
     """Render assistant response with consistent terminal styling."""
     content = response or ""
     body = Markdown(content) if render_markdown else Text(content)
+    console.print(f"[cyan]{__logo__} marketbot[/cyan]")
+    console.print(body)
     console.print()
 
 
@@ -130,18 +133,163 @@ def _parse_symbol_csv(symbols: str | None) -> list[str]:
     return result
 
 
-def _default_market_report_path(workspace: Path) -> Path:
+def _resolve_market_timezone(timezone_name: str) -> ZoneInfo:
+    """Resolve an IANA timezone, falling back to UTC when unavailable."""
+    try:
+        return ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo("UTC")
+
+
+def _infer_market_report_session(now: datetime) -> str:
+    """Map a timestamp to a report session label."""
+    if now.weekday() >= 5:
+        return "close"
+    current = (now.hour * 60) + now.minute
+    if current < 9 * 60 + 30:
+        return "premarket"
+    if current < 16 * 60:
+        return "intraday"
+    return "close"
+
+
+def _default_market_report_path(workspace: Path, session: str, timezone_name: str) -> Path:
     """Build a timestamped report path under workspace/reports."""
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return workspace / "reports" / f"market_brief_{stamp}.md"
+    tz = _resolve_market_timezone(timezone_name)
+    stamp = datetime.now(tz).strftime("%Y%m%d_%H%M%S")
+    return workspace / "reports" / f"market_report_{session}_{stamp}.md"
 
 
-def _build_market_heartbeat_template(symbols: list[str]) -> str:
+def _render_market_report_document(
+    payload: dict,
+    *,
+    symbols: list[str],
+    headline: str,
+    session: str,
+    timezone_name: str,
+) -> str:
+    """Render a standardized market report document for saved reports."""
+    market_state = str(payload.get("marketState", "unknown")).upper()
+    sentiment_index = float(payload.get("marketSentimentIndex", 0.0))
+    macro = payload.get("macro", {}) or {}
+    macro_regime = str(macro.get("regime", "unknown"))
+    macro_risk = float(macro.get("macroRisk", 0.5))
+    social = payload.get("social", {}) or {}
+    social_overall = float(social.get("overallSentiment", 0.0))
+    signals = payload.get("signals", []) or []
+    scenarios = payload.get("scenarios", {}) or {}
+    event = payload.get("event") or {}
+    news = payload.get("news", {}) or {}
+    snapshot = payload.get("snapshot", {}) or {}
+
+    lines = [
+        "# Market Report",
+        "",
+        f"- Session: {session}",
+        f"- Timezone: {timezone_name}",
+        f"- Generated At: {payload.get('asOf', datetime.utcnow().isoformat() + 'Z')}",
+        f"- Symbols: {', '.join(symbols)}",
+        f"- Market State: {market_state}",
+        f"- Market Sentiment Index: {sentiment_index:.2f}",
+        f"- Macro Regime: {macro_regime} (risk={macro_risk:.2f})",
+        f"- Social Sentiment: {social_overall:.2f}",
+    ]
+
+    if headline.strip():
+        lines.append(f"- Trigger Headline: {headline.strip()}")
+
+    lines += [
+        "",
+        "## Summary",
+        "",
+        f"This {session} report reads the tape as {market_state.lower()} with macro regime `{macro_regime}` and sentiment index `{sentiment_index:.2f}`.",
+        "",
+        "## Signals",
+    ]
+
+    if signals:
+        for signal_row in signals:
+            symbol = str(signal_row.get("symbol", "")).upper()
+            action = str(signal_row.get("action", "watch")).upper()
+            confidence = float(signal_row.get("confidence", 0.0))
+            score = float(signal_row.get("score", 0.0))
+            signal_card = str(signal_row.get("signalCard", "")).strip()
+            lines.append(f"### {symbol}")
+            lines.append(f"- Action: {action}")
+            lines.append(f"- Confidence: {confidence:.2f}")
+            lines.append(f"- Score: {score:.2f}")
+            if signal_card:
+                lines += ["", signal_card, ""]
+    else:
+        lines += ["", "- No signal output generated.", ""]
+
+    lines += [
+        "## Scenario Playbook",
+        "",
+        f"- Aggressive: {'; '.join(scenarios.get('aggressive', ['No plan']))}",
+        f"- Neutral: {'; '.join(scenarios.get('neutral', ['No plan']))}",
+        f"- Defensive: {'; '.join(scenarios.get('defensive', ['No plan']))}",
+    ]
+
+    if event:
+        lines += [
+            "",
+            "## Event Impact",
+            "",
+            f"- Event Type: {event.get('eventType', 'unknown')}",
+            f"- Sentiment: {event.get('sentimentLabel', 'neutral')} ({float(event.get('sentimentScore', 0.0)):.2f})",
+        ]
+        impacted = event.get("impactedAssets", []) or []
+        if impacted:
+            lines.append(f"- Impacted Assets: {', '.join(str(item) for item in impacted)}")
+
+    news_items = news.get("items", []) or []
+    if news_items:
+        lines += ["", "## News Flow", ""]
+        for item in news_items[:6]:
+            title = str(item.get("title", "")).strip()
+            symbol = str(item.get("symbol", "")).upper()
+            source = str(item.get("source", "unknown"))
+            published_at = str(item.get("publishedAt", ""))
+            lines.append(f"- {symbol}: {title} [{source}, {published_at}]")
+
+    social_rows = social.get("perSymbol", []) or []
+    if social_rows:
+        lines += ["", "## Social Pulse", ""]
+        for item in social_rows:
+            symbol = str(item.get("symbol", "")).upper()
+            sentiment = float(item.get("sentiment", 0.0))
+            confidence = float(item.get("confidence", 0.0))
+            mentions = int(item.get("mentions", 0))
+            lines.append(
+                f"- {symbol}: sentiment={sentiment:.2f}, confidence={confidence:.2f}, mentions={mentions}"
+            )
+
+    warnings: list[str] = []
+    for section in (snapshot, news, social, macro):
+        warnings.extend(str(item) for item in (section.get("warnings", []) or []))
+    if warnings:
+        lines += ["", "## Warnings", ""]
+        for warning in warnings:
+            lines.append(f"- {warning}")
+
+    brief_markdown = str(payload.get("briefMarkdown", "")).strip()
+    if brief_markdown:
+        lines += ["", "## Tool Output", "", brief_markdown]
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _build_market_heartbeat_template(symbols: list[str], timezone: str = "America/New_York") -> str:
     """Create a heartbeat template for recurring market reports."""
     joined = ", ".join(symbols) if symbols else "SPY, QQQ, IWM, GLD, BTC-USD"
     return f"""# Market Report Tasks
 
 You are responsible for recurring market monitoring.
+
+<!-- marketbot:timezone {timezone} -->
+<!-- marketbot:weekdays mon,tue,wed,thu,fri -->
+<!-- marketbot:windows 09:20-09:40,11:55-12:10,15:55-16:10 -->
 
 Active symbols: {joined}
 
@@ -157,9 +305,6 @@ When you run:
 2. Summarize the market state, top signals, macro regime, and scenario playbook.
 3. Keep the report concise and actionable.
 """
-    console.print(f"[cyan]{__logo__} marketbot[/cyan]")
-    console.print(body)
-    console.print()
 
 
 def _is_exit_command(command: str) -> bool:
@@ -698,6 +843,8 @@ def market_report(
     symbols: str = typer.Option("", "--symbols", "-s", help="Comma-separated symbols, e.g. NVDA,SPY,GLD"),
     headline: str = typer.Option("", "--headline", "-h", help="Optional key headline"),
     body: str = typer.Option("", "--body", help="Optional headline detail/body"),
+    timezone: str = typer.Option("America/New_York", "--timezone", help="Timezone for report session labeling"),
+    session: str = typer.Option("auto", "--session", help="Report session: auto, premarket, intraday, close"),
     json_output: bool = typer.Option(False, "--json", help="Print raw JSON instead of markdown brief"),
     save: bool = typer.Option(False, "--save", help="Save markdown report to workspace/reports"),
 ):
@@ -722,11 +869,26 @@ def market_report(
 
     payload = asyncio.run(run_once())
     brief_markdown = payload.get("briefMarkdown", "")
+    normalized_session = session.strip().lower() or "auto"
+    if normalized_session not in {"auto", "premarket", "intraday", "close"}:
+        raise typer.BadParameter("session must be one of: auto, premarket, intraday, close")
+    resolved_session = (
+        _infer_market_report_session(datetime.now(_resolve_market_timezone(timezone)))
+        if normalized_session == "auto"
+        else normalized_session
+    )
+    report_markdown = _render_market_report_document(
+        payload,
+        symbols=selected_symbols,
+        headline=headline,
+        session=resolved_session,
+        timezone_name=timezone,
+    )
 
-    if save and brief_markdown:
-        report_path = _default_market_report_path(config.workspace_path)
+    if save and report_markdown:
+        report_path = _default_market_report_path(config.workspace_path, resolved_session, timezone)
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(brief_markdown, encoding="utf-8")
+        report_path.write_text(report_markdown, encoding="utf-8")
         console.print(f"[green]✓[/green] Saved report to {report_path}")
 
     if json_output:
@@ -738,6 +900,7 @@ def market_report(
 @market_app.command("heartbeat-setup")
 def market_heartbeat_setup(
     symbols: str = typer.Option("", "--symbols", "-s", help="Comma-separated symbols to monitor"),
+    timezone: str = typer.Option("America/New_York", "--timezone", "-t", help="IANA timezone, e.g. America/New_York"),
     overwrite: bool = typer.Option(False, "--overwrite", help="Replace existing HEARTBEAT.md content"),
 ):
     """Create or append a heartbeat template for recurring market reports."""
@@ -745,7 +908,7 @@ def market_heartbeat_setup(
 
     config = load_config()
     heartbeat_path = config.workspace_path / "HEARTBEAT.md"
-    content = _build_market_heartbeat_template(_parse_symbol_csv(symbols))
+    content = _build_market_heartbeat_template(_parse_symbol_csv(symbols), timezone=timezone)
 
     if heartbeat_path.exists() and not overwrite:
         existing = heartbeat_path.read_text(encoding="utf-8")

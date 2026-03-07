@@ -1,4 +1,6 @@
 import asyncio
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -143,3 +145,57 @@ async def test_trigger_now_returns_none_when_decision_is_skip(tmp_path) -> None:
     )
 
     assert await service.trigger_now() is None
+
+
+def test_extract_constraints_parses_marketbot_directives() -> None:
+    content = """
+<!-- marketbot:timezone America/New_York -->
+<!-- marketbot:weekdays mon,tue,fri -->
+<!-- marketbot:windows 09:20-09:40,15:55-16:10 -->
+"""
+    constraints = HeartbeatService._extract_constraints(content)
+    assert constraints["timezone"] == "America/New_York"
+    assert constraints["weekdays"] == {0, 1, 4}
+    assert len(constraints["windows"]) == 2
+
+
+def test_within_constraints_blocks_outside_market_window() -> None:
+    content = """
+<!-- marketbot:timezone America/New_York -->
+<!-- marketbot:weekdays mon,tue,wed,thu,fri -->
+<!-- marketbot:windows 09:20-09:40 -->
+"""
+    current = datetime(2026, 3, 9, 8, 0, tzinfo=ZoneInfo("America/New_York"))
+    allowed, reason = HeartbeatService._within_constraints(content, now=current)
+    assert allowed is False
+    assert reason == "outside configured windows"
+
+
+@pytest.mark.asyncio
+async def test_trigger_now_skips_without_provider_call_when_outside_constraints(tmp_path, monkeypatch) -> None:
+    (tmp_path / "HEARTBEAT.md").write_text(
+        "<!-- marketbot:timezone America/New_York -->\n"
+        "<!-- marketbot:weekdays mon,tue,wed,thu,fri -->\n"
+        "<!-- marketbot:windows 09:20-09:40 -->\n",
+        encoding="utf-8",
+    )
+    provider = DummyProvider([
+        LLMResponse(
+            content="",
+            tool_calls=[ToolCallRequest(id="hb_1", name="heartbeat", arguments={"action": "run", "tasks": "x"})],
+        )
+    ])
+    service = HeartbeatService(
+        workspace=tmp_path,
+        provider=provider,
+        model="openai/gpt-4o-mini",
+        on_execute=lambda tasks: asyncio.sleep(0, result=tasks),
+    )
+
+    monkeypatch.setattr(
+        HeartbeatService,
+        "_within_constraints",
+        classmethod(lambda cls, content, now=None: (False, "outside configured windows")),
+    )
+    assert await service.trigger_now() is None
+    assert provider.calls == []

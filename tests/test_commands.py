@@ -1,3 +1,4 @@
+import json
 import shutil
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -156,3 +157,78 @@ def test_market_heartbeat_setup_writes_template(tmp_path):
     content = heartbeat.read_text(encoding="utf-8")
     assert "NVDA, SPY" in content
     assert "09:30 local market open" in content
+    assert "<!-- marketbot:timezone America/New_York -->" in content
+    assert "<!-- marketbot:windows 09:20-09:40,11:55-12:10,15:55-16:10 -->" in content
+
+
+def test_market_report_save_writes_standardized_document(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    payload = {
+        "asOf": "2026-03-07T01:23:45Z",
+        "briefMarkdown": "## Market Brief\n\n- NVDA: BUY",
+        "marketState": "bullish",
+        "marketSentimentIndex": 0.71,
+        "signals": [
+            {
+                "symbol": "NVDA",
+                "action": "buy",
+                "confidence": 0.82,
+                "score": 0.66,
+                "signalCard": "Action: BUY\nWhy: momentum positive\nRisk: size <= 5%",
+            }
+        ],
+        "scenarios": {
+            "aggressive": ["Press NVDA longs"],
+            "neutral": ["Scale entries"],
+            "defensive": ["Honor stop losses"],
+        },
+        "macro": {"regime": "risk-on", "macroRisk": 0.31, "warnings": []},
+        "social": {
+            "overallSentiment": 0.24,
+            "perSymbol": [{"symbol": "NVDA", "sentiment": 0.42, "confidence": 0.61, "mentions": 18}],
+            "warnings": [],
+        },
+        "news": {
+            "items": [
+                {
+                    "symbol": "NVDA",
+                    "title": "NVIDIA launches new AI chip",
+                    "source": "Reuters",
+                    "publishedAt": "2026-03-07T01:10:00Z",
+                }
+            ],
+            "warnings": [],
+        },
+        "snapshot": {"warnings": []},
+    }
+
+    with patch("marketbot.config.loader.load_config", return_value=config), \
+         patch("marketbot.agent.tools.market.MarketBriefTool.execute", new=AsyncMock(return_value=json.dumps(payload))):
+        result = runner.invoke(
+            app,
+            ["market", "report", "--symbols", "NVDA,SPY", "--session", "premarket", "--save"],
+        )
+
+    assert result.exit_code == 0
+    reports = list((tmp_path / "reports").glob("market_report_premarket_*.md"))
+    assert len(reports) == 1
+    content = reports[0].read_text(encoding="utf-8")
+    assert "# Market Report" in content
+    assert "- Session: premarket" in content
+    assert "## Signals" in content
+    assert "### NVDA" in content
+    assert "## Scenario Playbook" in content
+    assert "## News Flow" in content
+    assert "## Tool Output" in content
+
+
+def test_market_report_rejects_invalid_session(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+
+    with patch("marketbot.config.loader.load_config", return_value=config):
+        result = runner.invoke(app, ["market", "report", "--session", "overnight"])
+
+    assert result.exit_code != 0
+    assert "session must be one of" in result.stdout

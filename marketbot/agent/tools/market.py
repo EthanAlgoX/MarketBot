@@ -191,6 +191,9 @@ class MarketSnapshotTool(Tool):
             warnings: list[str] = []
         else:
             rows, warnings = await self._fetch_yahoo(normalized)
+            if not rows:
+                rows = [self._mock_quote(symbol) for symbol in normalized]
+                warnings.append("quote source fallback: mock")
 
         result: dict[str, Any] = {
             "asOf": _utc_now_iso(),
@@ -749,9 +752,11 @@ class MarketSocialSentimentTool(Tool):
 
             if "reddit" in self._sources:
                 summary, err = await self._fetch_reddit(symbol, limit)
-                summaries.append(summary)
                 if err:
+                    summary = self._mock_summary(symbol, limit)
                     warnings.append(f"{symbol}: {err}")
+                    warnings.append(f"{symbol}: social source fallback: mock")
+                summaries.append(summary)
                 continue
 
             summaries.append(self._mock_summary(symbol, limit))
