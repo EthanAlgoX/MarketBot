@@ -4,30 +4,32 @@
   <p>
     <b>The minimalist agent framework designed for quantitative research and personal automation.</b>
   </p>
+  <p>
+    <b>English | <a href="README_zh.md">中文</a></b>
+  </p>
 
 ---
 
-🐂 **marketbot** 是一个**金融优先 (Finance-First)** 的超轻量级个人 AI 助手。
+🐂 **marketbot** is a **Finance-First**, **Ultra-Lightweight** personal AI assistant framework.
 
-- ⚡️ **极简核心**: 仅约 4,000 行 Python 代码，比传统复杂框架精简 99%。
-- 📈 **金融洞察**: 内置强大的金融研究能力，自动化市场数据分析与报告合成。
-- 🔗 **多维联接**: 无缝集成 Telegram, Discord, 飞书, 微信等主流 IM 渠道。
-- 🛡️ **设计哲学**: 采用 "获取 -> 分析 -> 合成" 的确定性流程，拒绝臃肿。
+- ⚡️ **Minimalist Core**: ~4,000 lines of Python — 99% smaller than heavy-weight alternatives.
+- 📈 **Financial Insight**: Built-in capabilities for automated market research and report synthesis.
+- 🔗 **Multi-Channel**: Native support for Telegram, Discord, Feishu, WhatsApp, and more.
+- 📐 **Research-Ready**: Clean, modular code designed for transparency and easy extension.
 
----
+📏 Real-time line count: run `bash core_agent_lines.sh` to verify anytime.
 
+</div>
 
-</details>
+## 💡 Design Philosophy
 
-## 💡 设计理念
+MarketBot is built on the belief that **less is more**. While other agent frameworks grow increasingly complex, MarketBot remains focused on three pillars:
 
-MarketBot 坚信**少即是多（Less is more）**。在其他 Agent 框架变得日益庞杂臃肿时，MarketBot 始终专注三大核心支柱：
+1. **Determinism over Chaos**: Uses a "Fetch -> Analyze -> Synthesize" workflow to ensure high-quality, reproducible financial insights.
+2. **Minimalist State**: A unique "Two-Layer Memory" system using `MEMORY.md` for long-term facts and `HISTORY.md` for searchable logs. No heavy databases required by default.
+3. **Transparency**: The entire core is readable in a single afternoon. Perfect for researchers who need to know *exactly* how their agent thinks.
 
-1. **确定性优于混乱**: 采用严格的“获取 -> 分析 -> 综合”工作流，以确保高标准且可复现的金融洞察分析结果。
-2. **极简状态管理**: 独创“双层记忆”系统，使用 `MEMORY.md` 存储长效事实，使用 `HISTORY.md` 留存可搜索日志。默认完全不需要沉重的数据库依赖。
-3. **高透明度**: 整个核心代码可以在一个下午轻松读完。专为需要精确掌握 Agent 每一步思考逻辑的研究员或量化交易员准备。
-
-## 📦 安装
+## 📦 Install
 
 **Install from source** (latest features, recommended for development)
 
@@ -37,17 +39,17 @@ cd marketbot
 pip install -e .
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-**1. 初始化环境**
+**1. Initialize**
 
 ```bash
 marketbot onboard
 ```
 
-**2. 配置文件设置** (`~/.marketbot/config.json`)
+**2. Configure** (`~/.marketbot/config.json`)
 
-MarketBot 的设计理念是“开箱即用”。只需填入你的模型 API key:
+MarketBot is designed to be "plug-and-play". Just add your API key:
 
 ```json
 {
@@ -65,7 +67,7 @@ MarketBot 的设计理念是“开箱即用”。只需填入你的模型 API ke
 }
 ```
 
-**3. 启动应用**
+**3. Launch**
 
 ```bash
 marketbot agent
@@ -74,73 +76,73 @@ marketbot agent
 > [!TIP]
 > Visit [OpenRouter](https://openrouter.ai/keys) to get an API key that works with almost any model.
 
-## 💹 核心金融能力
+## 💹 Core Financial Skills
 
-MarketBot 预装了一套专为量化研究、算法级市场监控和投资组合分析设计的**金融优先核心技能池**。由于 MarketBot 将这些技能抽象为可组合的工具调用管线（`SKILL.md`），它能够原生实现复杂的分析工作流。
+MarketBot comes pre-loaded with a suite of **Finance-First skills** designed for quantitative research, algorithmic-style market surveillance, and portfolio analysis. Because MarketBot treats skills as composable, tool-calling pipelines (`SKILL.md`), it achieves complex analytical workflows natively.
 
-### 🔭 Market Opportunity Discovery 机会发现 (`/discover`)
+### 🔭 Market Opportunity Discovery (`/discover`)
 
-扫描全市场，综合市场数据、事件、情绪和板块动能，自动发现潜在投资机会。
+Scans the broader market to automatically discover potential investment opportunities by synthesizing market data, events, sentiment, and sector momentum.
 
-- **核心管线**: 市场扫描 → 事件匹配 → 情绪变化追踪 → 资金流捕捉 → 板块联动分析。
-- **评分引擎**: 基于加权模型（事件权重0.3 + 情绪0.3 + 量能0.2 + 板块动能0.2）过滤高胜率交易机会。
-- **机会分类**: 将机会自动分为宏观、行业、公司个体及情绪驱动四类。
+- **Pipeline**: Market Scan → Event Matching → Sentiment Shift Tracking → Fund Flow Detection → Sector Momentum.
+- **Scoring Engine**: Leverages a weighted scoring mechanism (Event Impact 0.3 + Sentiment 0.3 + Volume 0.2 + Sector Momentum 0.2) to filter high-probability setups.
+- **Categorization**: Classifies opportunities into Macro, Industry, Company, or Sentiment driven.
 
-### 📈 Market Monitor 市场监控 (`/monitor`)
+### 📈 Market Monitor (`/monitor`)
 
-实时监控价格异动、宏观指标、板块轮动和突发新闻，生成可行动的交易预警。
+Real-time surveillance tracking price movements, macro indicators, sector rotations, and news to generate actionable alerts.
 
-- **监控模块**: 跟进宏观指标（如S&P、VIX、美债收益率）、市场异动（涨跌幅榜、异常放量）、板块轮动、技术面信号（RSI、突破）和财报冲击。
-- **警报生成**: 一旦触发高风险阈值（例如VIX飙升或崩盘），立即生成实时警报，并在盘后生成AI结构化总结。
+- **Surveillance Modules**: Tracks Macro Indicators (S&P, VIX, US10Y), Market Movers (Top Gainers/Losers, Volume Anomalies), Sector Rotation, Technical Signals (RSI, Breakouts), and Earnings impact.
+- **Alert Generation**: Triggers real-time alerts upon high-risk threshold breaches (e.g., sudden VIX spikes or flash crashes) and produces daily synthesized AI summaries.
 
-### 📊 Portfolio Analyzer 投资组合分析
+### 📊 Portfolio Analyzer
 
-全方位映射预期收益、执行场景压力测试并优化资产配置权重的工具包。
+A comprehensive toolkit mapping expected returns, executing scenario stress tests, and optimizing asset weights.
 
-- **核心指标**: 自动测算预期收益 (CAGR)、波动率、夏普比率、最大回撤与 Beta 系数。
-- **风险拆解**: 识别集中度风险，计算持仓资产间的相关性矩阵。
-- **压力测试**: 在“大盘闪崩”或“激进加息”等假设场景下模拟组合抗压能力。
-- **配置优化**: 使用均值-方差模型或最大夏普路径，提供提升风险调整后收益的调仓建议。
+- **Key Metrics**: Calculates Expected Return (CAGR), Volatility, Sharpe Ratio, Max Drawdown, and Beta.
+- **Risk Decomposition**: Uncovers Concentration Risk and computes Correlation Matrices between holdings.
+- **Stress Testing**: Simulates portfolio performance under localized "Market Crashes" or "Rate Hikes".
+- **Optimization Strategy**: Re-weights portfolios using Mean-Variance or Max Sharpe methodologies for higher risk-adjusted returns.
 
-### 📰 News Intelligence 新闻情报 (`/news`)
+### 📰 News Intelligence (`/news`)
 
-抓取、去重并深度评估全球财经新闻流，测算其对市场的影响。
+Extracts, deduplicates, and assesses the global financial news flow to determine market impact.
 
-- **深度提取**: 精准识别文本实体，对事件（如财报、并购、监管）进行归类。
-- **爆炸半径分析**: 追踪事件对“核心个股 -> 行业板块 -> 宏观市场”的链式冲击，定义短期或长期的影响边界。
-- **趋势侦测**: 对相关通稿进行聚合聚类，发现爆发性主题并及时预警风险。
+- **Deep Extraction**: Recognizes entities and classifies events (e.g., Earnings, M&A, Regulation).
+- **Blast Radius Analysis**: Traces the impact across Primary Ticker -> Sector -> Broader Market, specifying a Short or Long-term horizon.
+- **Trend Detection**: Clusters related articles and tracks emerging topics while generating early-warning Risk Alerts.
 
-### 🎭 Sentiment Analysis 情绪分析 (`/sentiment`)
+### 🎭 Sentiment Analysis (`/sentiment`)
 
-量化金融媒体及论坛散户的非标准情绪信号。
+Quantifies subjective sentiment signals from financial media and forums.
 
-- **多源定权**: 区分新闻级信源(0.5)、社交媒体(0.3)与散户讨论社区(0.2)的权重。
-- **动能速率追踪**: 摒弃单一时间点的绝对面值，横向计算情绪 $t$ 相对 $t-1$ 期的变化速率，精准捕捉情绪升温或降温拐点。
+- **Weighted Sources**: News (0.5) vs. Social Media (0.3) vs. Retail Forums (0.2).
+- **Trend Velocity**: Doesn't just track absolute sentiment scores, but tracks the $t$ vs $t-1$ velocity to determine if sentiment is rapidly rising, falling, or stabilizing.
 
-### 📉 Stock Watch 智能盯盘 (`/watch`)
+### 📉 Stock Watch (`/watch`)
 
-为指定标的配置自动化的定时追踪与汇总。
+Schedules automated summaries for specific tickers.
 
 - Utilizes the builtin `cron` skill to automate daily tracking of Prices, Technical Support/Resistance, and Catalysts.
 
-## 💬 聊天应用
+## 💬 Chat Apps
 
-将 MarketBot 连接到你常用的聊天工具平台。
+Connect marketbot to your favorite chat platform.
 
-| Channel | 所需准备 |
+| Channel | What you need |
 |---------|---------------|
-| **Telegram** | 通过 @BotFather 获取 token |
-| **Discord** | Bot token 和 Message Content intent 权限 |
-| **WhatsApp** | 直接扫码登录 |
-| **Feishu** | 应用 ID 及应用密钥 (Secret) |
-| **Mochat** | Claw 密令 (支持全自动配置) |
-| **DingTalk** | 应用 Key 及应用密钥 (Secret) |
-| **Slack** | Bot token 以及 App 级别 token |
-| **Email** | IMAP 和 SMTP 邮箱授权账密 |
-| **QQ** | 应用 ID 及应用密钥 (Secret) |
+| **Telegram** | Bot token from @BotFather |
+| **Discord** | Bot token + Message Content intent |
+| **WhatsApp** | QR code scan |
+| **Feishu** | App ID + App Secret |
+| **Mochat** | Claw token (auto-setup available) |
+| **DingTalk** | App Key + App Secret |
+| **Slack** | Bot token + App-Level token |
+| **Email** | IMAP/SMTP credentials |
+| **QQ** | App ID + App Secret |
 
 <details>
-<summary><b>Telegram</b> (推荐使用)</summary>
+<summary><b>Telegram</b> (Recommended)</summary>
 
 **1. Create a bot**
 
@@ -148,7 +150,7 @@ MarketBot 预装了一套专为量化研究、算法级市场监控和投资组�
 - Send `/newbot`, follow prompts
 - Copy the token
 
-**2. 配置文件设置**
+**2. Configure**
 
 ```json
 {
@@ -188,7 +190,7 @@ Read https://raw.githubusercontent.com/HKUDS/MoChat/refs/heads/main/skills/marke
 
 marketbot will automatically register, configure `~/.marketbot/config.json`, and connect to Mochat.
 
-**2. Re后台挂起网关**
+**2. Restart gateway**
 
 ```bash
 marketbot gateway
@@ -358,7 +360,7 @@ marketbot channels login
 # Scan QR with WhatsApp → Settings → Linked Devices
 ```
 
-**2. 配置文件设置**
+**2. Configure**
 
 ```json
 {
@@ -402,7 +404,7 @@ Uses **WebSocket** long connection — no public IP required.
 - Get **App ID** and **App Secret** from "Credentials & Basic Info"
 - Publish the app
 
-**2. 配置文件设置**
+**2. Configure**
 
 ```json
 {
@@ -493,7 +495,7 @@ Uses **Stream Mode** — no public IP required.
 - Get **AppKey** (Client ID) and **AppSecret** (Client Secret) from "Credentials"
 - Publish the app
 
-**2. 配置文件设置**
+**2. Configure**
 
 ```json
 {
@@ -528,7 +530,7 @@ Uses **Socket Mode** — no public URL required.
 - Go to [Slack API](https://api.slack.com/apps) → **Create New App** → "From scratch"
 - Pick a name and select your workspace
 
-**2. 配置文件设置 the app**
+**2. Configure the app**
 
 - **Socket Mode**: Toggle ON → Generate an **App-Level Token** with `connections:write` scope → copy it (`xapp-...`)
 - **OAuth & Permissions**: Add bot scopes: `chat:write`, `reactions:write`, `app_mentions:read`
@@ -578,7 +580,7 @@ Give marketbot its own email account. It polls **IMAP** for incoming mail and re
 - Enable 2-Step Verification → Create an [App Password](https://myaccount.google.com/apppasswords)
 - Use this app password for both IMAP and SMTP
 
-**2. 配置文件设置**
+**2. Configure**
 
 > - `consentGranted` must be `true` to allow mailbox access. This is a safety gate — set `false` to fully disable.
 > - `allowFrom`: Add your email address. Use `["*"]` to accept emails from anyone.
@@ -614,22 +616,22 @@ marketbot gateway
 
 </details>
 
-## 🌐 多元化 Agent 社区互联
+## 🌐 Agent Social Network
 
-�� 市场精灵天生具备直接切入高密度 Agent 社群的能力。**您只需要发送一条注册密令，剩余一切均由终端打理！**
+🐂 marketbot is capable of linking to the agent social network (agent community). **Just send one message and your marketbot joins automatically!**
 
-| 挂载协议 | 入驻指引（向您的初始 bot 发送下列密令） |
+| Platform | How to Join (send this message to your bot) |
 |----------|-------------|
-| [**汇聚型世界 - Moltbook**](https://www.moltbook.com/) | `Read https://moltbook.com/skill.md and follow the instructions to join Moltbook` |
-| [**开源派对话 - ClawdChat**](https://clawdchat.ai/) | `Read https://clawdchat.ai/skill.md and follow the instructions to join ClawdChat` |
+| [**Moltbook**](https://www.moltbook.com/) | `Read https://moltbook.com/skill.md and follow the instructions to join Moltbook` |
+| [**ClawdChat**](https://clawdchat.ai/) | `Read https://clawdchat.ai/skill.md and follow the instructions to join ClawdChat` |
 
-只要把上述对应的入驻指令发送进你的 marketbot 无论是在原生命令行下亦或社交容器内，代理程序将会包办后续的一切。
+Simply send the command above to your marketbot (via CLI or any chat channel), and it will handle the rest.
 
-## ⚙️ 模型及运行环境配置
+## ⚙️ Configuration
 
-系统运行时所需的配置文件位于: `~/.marketbot/config.json`
+Config file: `~/.marketbot/config.json`
 
-### 模型支撑库 (Providers)
+### Providers
 
 > [!TIP]
 >
@@ -639,26 +641,26 @@ marketbot gateway
 > - **VolcEngine Coding Plan**: If you're on VolcEngine's coding plan, set `"apiBase": "https://ark.cn-beijing.volces.com/api/coding/v3"` in your volcengine provider config.
 > - **Alibaba Cloud Coding Plan**: If you're on the Alibaba Cloud Coding Plan (BaiLian), set `"apiBase": "https://coding.dashscope.aliyuncs.com/v1"` in your dashscope provider config.
 
-| 供应库服务商 | 服务用途 | 获取相关 Token 密钥路径 |
-|------------|----------|-------------------------|
-| `custom` | 接入任意 OpenAI API 标准兼容的端点直连通信（不经过 LiteLLM 中间件） | — |
-| `openrouter` | 全模型大语言模型聚合网关 (强烈推荐) | [openrouter.ai](https://openrouter.ai) |
-| `anthropic` | 专职调用 Claude 全系模型 | [console.anthropic.com](https://console.anthropic.com) |
-| `azure_openai` | 微软 Azure 企业级 OpenAI 服务 | [portal.azure.com](https://portal.azure.com) |
-| `openai` | 原生直连 ChatGPT 接口 | [platform.openai.com](https://platform.openai.com) |
-| `deepseek` | 深度求索引擎官方接口 | [platform.deepseek.com](https://platform.deepseek.com) |
-| `groq` | Groq LPU 加速卡大模型 + **超高速语音转文字解析** (Whisper) | [console.groq.com](https://console.groq.com) |
-| `gemini` | Google 官方 Gemini 直连大模型 | [aistudio.google.com](https://aistudio.google.com) |
-| `minimax` | 稀宇科技 Minimax 大模型直通 | [platform.minimaxi.com](https://platform.minimaxi.com) |
-| `aihubmix` | AI大模型直连代理分发网关平台 | [aihubmix.com](https://aihubmix.com) |
-| `siliconflow` | 硅基流动云端端点直通方案 | [siliconflow.cn](https://siliconflow.cn) |
-| `volcengine` | 字节跳动火山引擎企业级网关直通 | [volcengine.com](https://www.volcengine.com) |
-| `dashscope` | 阿里云百炼平台（通义千问模型系）直通网关 | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com) |
-| `moonshot` | 月之暗面 Kimi | [platform.moonshot.cn](https://platform.moonshot.cn) |
-| `zhipu` | 智谱 AI 大模型平台直通 | [open.bigmodel.cn](https://open.bigmodel.cn) |
-| `vllm` | 本地化托管或任意兼容 OpenAI 标准的本地加速服 | — |
-| `openai_codex` | 第一代基于令牌机制的 Codex (要求 OAuth 登入) | 终端执行: `marketbot provider login openai-codex` |
-| `github_copilot` | 跨域调取 GitHub Copilot 服务网络侧 | 终端执行: `marketbot provider login github-copilot` |
+| Provider | Purpose | Get API Key |
+|----------|---------|-------------|
+| `custom` | Any OpenAI-compatible endpoint (direct, no LiteLLM) | — |
+| `openrouter` | LLM (recommended, access to all models) | [openrouter.ai](https://openrouter.ai) |
+| `anthropic` | LLM (Claude direct) | [console.anthropic.com](https://console.anthropic.com) |
+| `azure_openai` | LLM (Azure OpenAI) | [portal.azure.com](https://portal.azure.com) |
+| `openai` | LLM (GPT direct) | [platform.openai.com](https://platform.openai.com) |
+| `deepseek` | LLM (DeepSeek direct) | [platform.deepseek.com](https://platform.deepseek.com) |
+| `groq` | LLM + **Voice transcription** (Whisper) | [console.groq.com](https://console.groq.com) |
+| `gemini` | LLM (Gemini direct) | [aistudio.google.com](https://aistudio.google.com) |
+| `minimax` | LLM (MiniMax direct) | [platform.minimaxi.com](https://platform.minimaxi.com) |
+| `aihubmix` | LLM (API gateway, access to all models) | [aihubmix.com](https://aihubmix.com) |
+| `siliconflow` | LLM (SiliconFlow/硅基流动) | [siliconflow.cn](https://siliconflow.cn) |
+| `volcengine` | LLM (VolcEngine/火山引擎) | [volcengine.com](https://www.volcengine.com) |
+| `dashscope` | LLM (Qwen) | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com) |
+| `moonshot` | LLM (Moonshot/Kimi) | [platform.moonshot.cn](https://platform.moonshot.cn) |
+| `zhipu` | LLM (Zhipu GLM) | [open.bigmodel.cn](https://open.bigmodel.cn) |
+| `vllm` | LLM (local, any OpenAI-compatible server) | — |
+| `openai_codex` | LLM (Codex, OAuth) | `marketbot provider login openai-codex` |
+| `github_copilot` | LLM (GitHub Copilot, OAuth) | `marketbot provider login github-copilot` |
 
 <details>
 <summary><b>OpenAI Codex (OAuth)</b></summary>
@@ -762,7 +764,7 @@ vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
 <summary><b>Adding a New Provider (Developer Guide)</b></summary>
 
 marketbot uses a **Provider Registry** (`marketbot/providers/registry.py`) as the single source of truth.
-新增某个大模型供应方接口只需要极致的 **2步** — 无需编写冗长肮脏的 if-else 链条。
+Adding a new provider only takes **2 steps** — no if-elif chains to touch.
 
 **Step 1.** Add a `ProviderSpec` entry to `PROVIDERS` in `marketbot/providers/registry.py`:
 
@@ -802,14 +804,14 @@ That's it! Environment variables, model prefixing, config matching, and `marketb
 
 </details>
 
-### MCP (模型上下文协议)
+### MCP (Model Context Protocol)
 
 > [!TIP]
-> 配置文件格式完全兼容 Claude Desktop / Cursor。您可以直接从任何 MCP 服务器的 README 中复制配置。
+> The config format is compatible with Claude Desktop / Cursor. You can copy MCP server configs directly from any MCP server's README.
 
-MarketBot 支持 [MCP](https://modelcontextprotocol.io/) — 您可以接入外部工具服务器并将其作为原生的 Agent 工具使用。
+marketbot supports [MCP](https://modelcontextprotocol.io/) — connect external tool servers and use them as native agent tools.
 
-在您的 `config.json` 中添加 MCP 服务器:
+Add MCP servers to your `config.json`:
 
 ```json
 {
@@ -830,14 +832,14 @@ MarketBot 支持 [MCP](https://modelcontextprotocol.io/) — 您可以接入外�
 }
 ```
 
-支持两种传输模式:
+Two transport modes are supported:
 
-| 模式 | 配置 | 示例 |
+| Mode | Config | Example |
 |------|--------|---------|
-| **标准输入输出 (Stdio)** | `command` + `args` | 通过 `npx` / `uvx` 运行的本地进程 |
-| **HTTP** | `url` + `headers` (可选) | 远程端点 (`https://mcp.example.com/sse`) |
+| **Stdio** | `command` + `args` | Local process via `npx` / `uvx` |
+| **HTTP** | `url` + `headers` (optional) | Remote endpoint (`https://mcp.example.com/sse`) |
 
-使用 `toolTimeout` 来覆盖缓慢服务器默认的 30 秒单次调用超时限制:
+Use `toolTimeout` to override the default 30s per-call timeout for slow servers:
 
 ```json
 {
@@ -852,23 +854,23 @@ MarketBot 支持 [MCP](https://modelcontextprotocol.io/) — 您可以接入外�
 }
 ```
 
-MCP 工具会在启动时被自动发现和注册。大模型（LLM）可以像调用内置工具一样顺畅地使用它们——无需任何额外配置。
+MCP tools are automatically discovered and registered on startup. The LLM can use them alongside built-in tools — no extra configuration needed.
 
-### 🛡️ 安全
+### Security
 
 > [!TIP]
-> 针对生产环境部署，请在配置文件中设置 `"restrictToWorkspace": true` 以将 Agent 沙盒化。
-> **源码更新 / `v0.1.4.post3` 之后版本的重要提示:** 在早期版本中，空的 `allowFrom` 意味着“允许所有人访问”。在较新版本中（包括源码编译版），**默认情况下空的 `allowFrom` 会拒绝所有访问**。若要放开权限，请设置为 `"allowFrom": ["*"]`。
+> For production deployments, set `"restrictToWorkspace": true` in your config to sandbox the agent.
+> **Change in source / post-`v0.1.4.post3`:** In `v0.1.4.post3` and earlier, an empty `allowFrom` means "allow all senders". In newer versions (including building from source), **empty `allowFrom` denies all access by default**. To allow all senders, set `"allowFrom": ["*"]`.
 
-| 选项 | 默认值 | 描述 |
+| Option | Default | Description |
 |--------|---------|-------------|
-| `tools.restrictToWorkspace` | `false` | 设为 `true` 时，限制**所有**具备高危权限的工具（如 Shell、文件读写/修改、列表浏览）仅在 Workspace（工作区）目录内运行，有效防止路径穿越和越权访问。 |
-| `tools.exec.pathAppend` | `""` | 运行 shell 命令时需要追加到 `PATH` 环境变量的额外目录（例如为 `ufw` 添加 `/usr/sbin`）。 |
-| `channels.*.allowFrom` | `[]` (全部放行) | 允许交互的用户白名单体系。如果是 `["*"]` 则完全对外开放；如果非空，则只有列表内的合法用户能够与 Agent 交互。 |
+| `tools.restrictToWorkspace` | `false` | When `true`, restricts **all** agent tools (shell, file read/write/edit, list) to the workspace directory. Prevents path traversal and out-of-scope access. |
+| `tools.exec.pathAppend` | `""` | Extra directories to append to `PATH` when running shell commands (e.g. `/usr/sbin` for `ufw`). |
+| `channels.*.allowFrom` | `[]` (allow all) | Whitelist of user IDs. Empty = allow everyone; non-empty = only listed users can interact. |
 
-## 🪟 多实例运行
+## Multiple Instances
 
-由于其极致的轻量级特性，您可以同时运行多个 marketbot 实例组网，每个实例拥有独立的工作区和配置文件。
+Run multiple marketbot instances simultaneously, each with its own workspace and configuration.
 
 ```bash
 # Instance A - Telegram bot
@@ -887,13 +889,13 @@ marketbot gateway -w ~/.marketbot/botC -c ~/.marketbot/botC/config.json -p 18793
 | `--config` | `-c` | Config file path (default: `~/.marketbot/config.json`) |
 | `--port` | `-p` | Gateway port (default: `18790`) |
 
-每一个独立的实例都拥有自己独占的:
+Each instance has its own:
 
-- 工作区目录（持久化核心词典 `MEMORY.md`、主被动交互节拍器 `HEARTBEAT.md`、Session会话文件）
-- 定时任务持久化存储库 (`workspace/cron/jobs.json`)
-- 隔离环境配置文件（当附带 `--config` 参数时）
+- Workspace directory (MEMORY.md, HEARTBEAT.md, session files)
+- Cron jobs storage (`workspace/cron/jobs.json`)
+- Configuration (if using `--config`)
 
-## ⌨️ 核心 CLI 指令参考
+## CLI Reference
 
 | Command | Description |
 |---------|-------------|
@@ -908,7 +910,7 @@ marketbot gateway -w ~/.marketbot/botC -c ~/.marketbot/botC/config.json -p 18793
 | `marketbot channels login` | Link WhatsApp (scan QR) |
 | `marketbot channels status` | Show channel status |
 
-退出交互模式: 输入 `exit`, `quit`, `/exit`, `/quit`, `:q`, 或者使用 `Ctrl+D`。
+Interactive mode exits: `exit`, `quit`, `/exit`, `/quit`, `:q`, or `Ctrl+D`.
 
 <details>
 <summary><b>Heartbeat (Periodic Tasks)</b></summary>
@@ -930,56 +932,56 @@ The agent can also manage this file itself — ask it to "add a periodic task" a
 
 </details>
 
-## 🐳 Docker 部署
+## 🐳 Docker
 
 > [!TIP]
-> 通过传入 `-v ~/.marketbot:/root/.marketbot` 标志将您本地的配置文件夹挂载到容器内部，以便于配置和核心工作流 (Workspace) 能够实现数据的长久留存而不受容器重启的影响。
+> The `-v ~/.marketbot:/root/.marketbot` flag mounts your local config directory into the container, so your config and workspace persist across container restarts.
 
-### Docker Compose (推荐编排)
+### Docker Compose
 
 ```bash
-docker compose run --rm marketbot-cli onboard   # 首次使用进行初始化操作
-vim ~/.marketbot/config.json                     # 填入或附加必需的 API Key
-docker compose up -d marketbot-gateway           # 后台挂起网关
+docker compose run --rm marketbot-cli onboard   # first-time setup
+vim ~/.marketbot/config.json                     # add API keys
+docker compose up -d marketbot-gateway           # start gateway
 ```
 
 ```bash
-docker compose run --rm marketbot-cli agent -m "Hello!"   # 运行对话式命令行交互
-docker compose logs -f marketbot-gateway                   # 持续跟踪打印系统最新日志
-docker compose down                                      # 关闭所有服务
+docker compose run --rm marketbot-cli agent -m "Hello!"   # run CLI
+docker compose logs -f marketbot-gateway                   # view logs
+docker compose down                                      # stop
 ```
 
 ### Docker
 
 ```bash
-# 开始构建镜像
+# Build the image
 docker build -t marketbot .
 
-# 初始化配置参数（仅首次运行需要）
+# Initialize config (first time only)
 docker run -v ~/.marketbot:/root/.marketbot --rm marketbot onboard
 
-# Edit config on host to 填入或附加必需的 API Key
+# Edit config on host to add API keys
 vim ~/.marketbot/config.json
 
-# 启动网关主进程 (将开启所有已启用的即时通讯监听通道，如 TG/Discord/Mochat)
+# Run gateway (connects to enabled channels, e.g. Telegram/Discord/Mochat)
 docker run -v ~/.marketbot:/root/.marketbot -p 18790:18790 marketbot gateway
 
-# 快速单列直接发号施令
+# Or run a single command
 docker run -v ~/.marketbot:/root/.marketbot --rm marketbot agent -m "Hello!"
 docker run -v ~/.marketbot:/root/.marketbot --rm marketbot status
 ```
 
-## 🐧 Linux SystemD 服务化托管
+## 🐧 Linux Service
 
-将网关系列命令固化为一个 Systemd 的用户级别服务，藉此获得开机自启崩溃自动拉起的完整后台服务生命周期属性。
+Run the gateway as a systemd user service so it starts automatically and restarts on failure.
 
-**1. 定位并寻找 marketbot 核心二进制可执行程序的路径:**
+**1. Find the marketbot binary path:**
 
 ```bash
 which marketbot   # e.g. /home/user/.local/bin/marketbot
 ```
 
-**2. 编写并植入专属服务描述文件** 位于路径 `~/.config/systemd/user/marketbot-gateway.service` (根据需要手动替换 `ExecStart` 执行路径):
+**2. Create the service file** at `~/.config/systemd/user/marketbot-gateway.service` (replace `ExecStart` path if needed):
 
 ```ini
 [Unit]
@@ -999,30 +1001,30 @@ ReadWritePaths=%h
 WantedBy=default.target
 ```
 
-**3. 正式启动并载入系统守护:**
+**3. Enable and start:**
 
 ```bash
 systemctl --user daemon-reload
 systemctl --user enable --now marketbot-gateway
 ```
 
-**日常高频操作指南:**
+**Common operations:**
 
 ```bash
-systemctl --user status marketbot-gateway        # 检查目前存活状态
-systemctl --user restart marketbot-gateway       # 应用最新的配置选项，重启引擎服务
-journalctl --user -u marketbot-gateway -f        # 直接查看追溯该守护服务所产生的日志输出流
+systemctl --user status marketbot-gateway        # check status
+systemctl --user restart marketbot-gateway       # restart after config changes
+journalctl --user -u marketbot-gateway -f        # follow logs
 ```
 
-如果您自主编辑更新了该 `.service` 描述文件本身，请在重启进程之前重新下达加载守护单元的命令：`systemctl --user daemon-reload`。
+If you edit the `.service` file itself, run `systemctl --user daemon-reload` before restarting.
 
-> **极客提示:** 默认体系之下用户级别的守护服务仅限于当前终端已登入的存续期间运作。如果要求此后台监控大网关即使是在远程 SSH 脱离的情况下也时刻长守运行不掉线，敬请打通下设的永续授权层:
+> **Note:** User services only run while you are logged in. To keep the gateway running after logout, enable lingering:
 >
 > ```bash
 > loginctl enable-linger $USER
 > ```
 
-## 📁 项层代码结构总览
+## 📁 Project Structure
 
 ```
 marketbot/
@@ -1044,19 +1046,19 @@ marketbot/
 └── cli/            # 🖥️ Commands
 ```
 
-## 🤝 开发规划与开源协同
+## 🤝 Contribute & Roadmap
 
-强烈推荐并发起各大 PR（代码合入申请）！该套架构的基因本就决定了它必定且持久地处于纯净轻量的可读代码范畴之中。 🤗
+PRs welcome! The codebase is intentionally small and readable. 🤗
 
-**Roadmap 跃进版图** — 挑选一项你力所能及的挑战并向我们 [发起 PR 申请交收](https://github.com/HKUDS/marketbot/pulls) 吧！
+**Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/marketbot/pulls)!
 
-- [ ] **多模态加持网络** — 获得对图像/语音甚至流视频的读图及聆听共情能力
-- [ ] **深度长效时序记忆** — 对于时间轴或事件强关联锚点实现永恒不遗忘
-- [ ] **超级推理决策引擎升级** — 自驱动包含着发散思维反馈再校准体系
-- [ ] **无尽的终端硬件映射集成** — 把你的电脑日历应用或闹钟甚至是车载控制流接进来
-- [ ] **终极 AI Agent 自主自进化纠错链条体系** — 在犯错边缘完成极限收敛并学习优化自省逻辑
+- [ ] **Multi-modal** — See and hear (images, voice, video)
+- [ ] **Long-term memory** — Never forget important context
+- [ ] **Better reasoning** — Multi-step planning and reflection
+- [ ] **More integrations** — Calendar and more
+- [ ] **Self-improvement** — Learn from feedback and mistakes
 
-### 我们最硬核的联合代码架构开源贡献者们
+### Contributors
 
 <a href="https://github.com/HKUDS/marketbot/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=HKUDS/marketbot&max=100&columns=12&updated=20260210" alt="Contributors" />
@@ -1068,5 +1070,5 @@ marketbot/
 </p>
 
 <p align="center">
-  <sub>marketbot 仅仅作代码逻辑教学、人工智能多模态课题验证突破研究、学术分享和最高规格技术交流研讨演示之用，不具备及绝不作任何具备任何隐晦金线暗示及导向交易承诺引导效力</sub>
+  <sub>marketbot is for educational, research, and technical exchange purposes only</sub>
 </p>
