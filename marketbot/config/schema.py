@@ -332,7 +332,7 @@ class MarketToolsConfig(Base):
     enabled: bool = True
     request_timeout_s: int = Field(12, ge=1, le=120)
     snapshot_max_symbols: int = Field(12, ge=1, le=100)
-    quote_source: Literal["yahoo", "mock"] = "yahoo"
+    quote_source: Literal["yahoo", "eastmoney", "auto", "mock"] = "yahoo"
     news_sources: list[str] = Field(default_factory=lambda: ["reuters", "bloomberg", "cls"])
     social_sources: list[str] = Field(default_factory=lambda: ["x", "reddit"])
     social_lookback_hours: int = Field(24, ge=1, le=168)

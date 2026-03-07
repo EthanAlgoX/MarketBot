@@ -75,6 +75,8 @@ def test_system_prompt_includes_market_analysis_playbook(tmp_path) -> None:
     assert "`market-report`" in prompt
     assert "`catalyst-tracker`" in prompt
     assert "`risk-checklist`" in prompt
+    assert "`stock-data-sourcing`" in prompt
+    assert "`market_source_plan`" in prompt
     assert "`market_brief`" in prompt
     assert "`market_signal`" in prompt
 
@@ -180,3 +182,18 @@ def test_metals_macro_monitor_prefers_monitor_and_catalyst_skills(tmp_path) -> N
     assert "### Skill: crypto-gold-monitor" in prompt
     assert "### Skill: catalyst-tracker" in prompt
     assert "### Skill: stock-info-explorer" not in prompt
+
+
+def test_data_source_message_auto_injects_stock_data_sourcing(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="分析 A股 和 美股 数据源选择，比较 tushare、akshare、yfinance 和新闻源回退链路。",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: stock-data-sourcing" in prompt

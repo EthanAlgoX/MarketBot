@@ -36,6 +36,15 @@ def classify_market_request(
             "earnings",
             "guidance",
             "etf",
+            "股票",
+            "个股",
+            "a股",
+            "港股",
+            "美股",
+            "财报",
+            "业绩",
+            "指数",
+            "板块",
         )
     ) or any(symbol in {"AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "META", "SPY", "QQQ", "IWM", "GLD", "SLV"} for symbol in clean_symbols)
     crypto = any(
@@ -49,12 +58,15 @@ def classify_market_request(
             "token",
             "onchain",
             "funding rate",
+            "加密",
+            "比特币",
+            "以太坊",
         )
     ) or bool(re.search(r"\b(BTC|ETH|SOL|XRP|DOGE|ADA)(?:-[A-Z]{2,4})?\b", merged_text)) or any(
         re.match(r"^(BTC|ETH|SOL|XRP|DOGE|ADA)(?:-[A-Z]{2,4})?$", symbol) for symbol in clean_symbols
     )
     metals = any(
-        token in merged_lower for token in ("gold", "silver", "xau", "xag", "precious metals", "bullion")
+        token in merged_lower for token in ("gold", "silver", "xau", "xag", "precious metals", "bullion", "黄金", "白银", "贵金属")
     ) or any(symbol in {"XAU", "XAG", "GLD", "SLV"} for symbol in clean_symbols)
     macro = any(
         token in merged_lower
@@ -69,6 +81,13 @@ def classify_market_request(
             "yield",
             "treasury",
             "dxy",
+            "宏观",
+            "美联储",
+            "非农",
+            "通胀",
+            "收益率",
+            "国债",
+            "美元指数",
         )
     )
     asset_like = ticker_like or any(

@@ -26,6 +26,7 @@ from marketbot.agent.tools.market import (
     MarketSocialSentimentTool,
     MarketSignalTool,
     MarketSnapshotTool,
+    MarketSourcePlanTool,
 )
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
@@ -141,6 +142,7 @@ class AgentLoop:
         if not self.market_config or self.market_config.enabled:
             self.tools.register(MarketSnapshotTool(config=self.market_config))
             self.tools.register(MarketEventExtractTool())
+            self.tools.register(MarketSourcePlanTool())
             self.tools.register(MarketSignalTool(config=self.market_config))
             self.tools.register(MarketNewsTool(config=self.market_config))
             self.tools.register(MarketSocialSentimentTool(config=self.market_config))

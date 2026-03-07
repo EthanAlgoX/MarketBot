@@ -10,6 +10,7 @@ from marketbot.agent.tools.market import (
     MarketSocialSentimentTool,
     MarketSignalTool,
     MarketSnapshotTool,
+    MarketSourcePlanTool,
 )
 from marketbot.bus.queue import MessageBus
 from marketbot.config.schema import MarketToolsConfig
@@ -45,6 +46,38 @@ def test_market_snapshot_mock_source() -> None:
     assert "changePct" in payload["quotes"][0]
 
 
+def test_market_snapshot_eastmoney_source(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="eastmoney", default_symbols=["600519"])
+    tool = MarketSnapshotTool(config=cfg)
+
+    async def _fake_fetch(symbols):
+        assert symbols == ["600519"]
+        return (
+            [
+                {
+                    "symbol": "600519",
+                    "name": "贵州茅台",
+                    "price": 1688.0,
+                    "changePct": 1.26,
+                    "volume": 123456,
+                    "avgVolume": None,
+                    "flowRatio": None,
+                    "flowHint": "neutral",
+                    "momentum": "up",
+                    "currency": "CNY",
+                    "marketState": "REGULAR",
+                }
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(tool, "_fetch_eastmoney", _fake_fetch)
+    payload = json.loads(_run(tool.execute(symbols=["600519"])))
+    assert payload["source"] == "eastmoney"
+    assert payload["quotes"][0]["symbol"] == "600519"
+    assert payload["quotes"][0]["currency"] == "CNY"
+
+
 def test_market_event_extract_geopolitical_case() -> None:
     tool = MarketEventExtractTool()
     payload = json.loads(
@@ -65,6 +98,17 @@ def test_market_signal_respects_min_confidence() -> None:
     )
     assert payload["action"] == "watch"
     assert payload["confidence"] < 0.90
+
+
+def test_market_source_plan_for_a_share_news_and_quote() -> None:
+    tool = MarketSourcePlanTool()
+    payload = json.loads(_run(tool.execute(symbols=["600519"], tasks=["quote", "news"])))
+
+    assert payload["market"] == "a-share"
+    assert payload["tasks"][0]["providers"][0] == "tushare"
+    assert payload["tasks"][1]["providers"][0] == "bocha"
+    assert "market_snapshot (current)" in payload["tasks"][0]["currentMarketbotTools"]
+    assert "cross_market_news_search connector" in payload["tasks"][1]["futureConnectors"]
 
 
 def test_market_signal_buy_when_inputs_are_strong() -> None:
@@ -142,6 +186,7 @@ def test_agent_loop_registers_market_tools_by_default(tmp_path) -> None:
     )
     assert "market_snapshot" in loop.tools.tool_names
     assert "market_event_extract" in loop.tools.tool_names
+    assert "market_source_plan" in loop.tools.tool_names
     assert "market_signal" in loop.tools.tool_names
     assert "market_news" in loop.tools.tool_names
     assert "market_social_sentiment" in loop.tools.tool_names
@@ -159,6 +204,7 @@ def test_agent_loop_skips_market_tools_when_disabled(tmp_path) -> None:
     )
     assert "market_snapshot" not in loop.tools.tool_names
     assert "market_event_extract" not in loop.tools.tool_names
+    assert "market_source_plan" not in loop.tools.tool_names
     assert "market_signal" not in loop.tools.tool_names
     assert "market_news" not in loop.tools.tool_names
     assert "market_social_sentiment" not in loop.tools.tool_names

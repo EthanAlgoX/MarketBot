@@ -102,6 +102,7 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
 When the user asks for analysis of a specific asset or trade setup, prefer this workflow:
 
 1. Gather evidence with market tools:
+   - `market_source_plan` when source routing, A/H/US coverage, or fallback choice matters
    - `market_snapshot` for price, momentum, and flow hints
    - `market_news` and `market_social_sentiment` for narrative and crowd context
    - `market_macro` for regime and macro risk
@@ -112,6 +113,7 @@ When the user asks for analysis of a specific asset or trade setup, prefer this 
    - `market-report` for the final structured write-up
    - `catalyst-tracker` for event calendars and drivers
    - `risk-checklist` for guardrails and position sizing
+   - `stock-data-sourcing` when source selection, fallback routing, or A/H/US coverage matters
 3. In the final answer, separate facts from assumptions and include:
    - Conclusion
    - Evidence
@@ -256,6 +258,41 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "metals",
             "precious metals",
         )
+        source_terms = (
+            "data source",
+            "datasource",
+            "provider",
+            "coverage",
+            "freshness",
+            "fallback",
+            "route",
+            "routing",
+            "ingestion",
+            "feed",
+            "行情源",
+            "数据源",
+            "新闻源",
+            "数据提供商",
+            "回退",
+            "降级",
+            "时效",
+            "覆盖",
+            "接入",
+            "tushare",
+            "akshare",
+            "efinance",
+            "yfinance",
+            "bocha",
+            "brave",
+            "tavily",
+            "serpapi",
+            "a股",
+            "港股",
+            "美股",
+            "a-share",
+            "hk stock",
+            "us stock",
+        )
 
         if route["asset_like"] and any(term in text for term in analysis_terms):
             add("market-report")
@@ -275,6 +312,9 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             add("crypto-gold-monitor")
         elif route["crypto"] and ("intermarket" in text or "gold" in text or "silver" in text):
             add("crypto-gold-monitor")
+
+        if any(term in text for term in source_terms):
+            add("stock-data-sourcing")
 
         return suggestions
 

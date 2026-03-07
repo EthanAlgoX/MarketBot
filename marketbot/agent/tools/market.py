@@ -62,6 +62,36 @@ def _lexicon_sentiment(text: str) -> float:
     return _clamp((pos - neg) / 4.0, -1.0, 1.0)
 
 
+def _is_a_share_symbol(symbol: str) -> bool:
+    """Return True for mainland China stock / ETF tickers accepted by Eastmoney."""
+    text = str(symbol or "").strip().upper()
+    if not text:
+        return False
+    if text.startswith(("SH", "SZ")) and len(text) == 8 and text[2:].isdigit():
+        return True
+    return len(text) == 6 and text.isdigit()
+
+
+def _normalize_a_share_symbol(symbol: str) -> str:
+    """Normalize mainland China symbol to a 6-digit code."""
+    text = str(symbol or "").strip().upper()
+    if text.startswith(("SH", "SZ")) and len(text) == 8 and text[2:].isdigit():
+        return text[2:]
+    return text
+
+
+def _eastmoney_secid(symbol: str) -> str | None:
+    """Convert A-share / ETF ticker into Eastmoney secid format."""
+    code = _normalize_a_share_symbol(symbol)
+    if len(code) != 6 or not code.isdigit():
+        return None
+    if code.startswith(("600", "601", "603", "605", "688", "689", "510", "511", "512", "513", "515", "518", "520", "560", "580")):
+        market = "1"
+    else:
+        market = "0"
+    return f"{market}.{code}"
+
+
 class MarketSnapshotTool(Tool):
     """Fetch a lightweight market snapshot for a set of symbols."""
 
@@ -179,6 +209,97 @@ class MarketSnapshotTool(Tool):
             )
         return rows, warnings
 
+    async def _fetch_eastmoney(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        warnings: list[str] = []
+        secid_pairs: list[tuple[str, str]] = []
+        unsupported: list[str] = []
+
+        for symbol in symbols:
+            secid = _eastmoney_secid(symbol)
+            if not secid:
+                unsupported.append(symbol)
+                continue
+            secid_pairs.append((_normalize_a_share_symbol(symbol), secid))
+
+        for symbol in unsupported:
+            warnings.append(f"{symbol}: unsupported by eastmoney quote source")
+
+        if not secid_pairs:
+            return [], warnings
+
+        params = {
+            "fltt": "2",
+            "invt": "2",
+            "fields": "f12,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18",
+            "secids": ",".join(secid for _, secid in secid_pairs),
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get("https://push2.eastmoney.com/api/qt/ulist.np/get", params=params)
+                response.raise_for_status()
+                payload = response.json()
+        except Exception as e:
+            logger.error("market_snapshot eastmoney fetch failed: {}", e)
+            return [], warnings + [f"eastmoney quote fetch failed: {e}"]
+
+        rows_raw = payload.get("data", {}).get("diff", []) or []
+        by_code = {
+            str(row.get("f12", "")).upper(): row
+            for row in rows_raw
+            if isinstance(row, dict) and str(row.get("f12", "")).strip()
+        }
+
+        rows: list[dict[str, Any]] = []
+        for code, _secid in secid_pairs:
+            raw = by_code.get(code)
+            if not raw:
+                warnings.append(f"missing eastmoney quote for {code}")
+                continue
+
+            change_pct = float(raw.get("f3") or 0.0)
+            volume = int(float(raw.get("f5") or 0.0))
+            momentum = "up" if change_pct >= 1.0 else "down" if change_pct <= -1.0 else "flat"
+            rows.append(
+                {
+                    "symbol": code,
+                    "name": raw.get("f14"),
+                    "price": raw.get("f2"),
+                    "changePct": round(change_pct, 4),
+                    "changeAmount": raw.get("f4"),
+                    "volume": volume,
+                    "avgVolume": None,
+                    "amount": raw.get("f6"),
+                    "flowRatio": None,
+                    "flowHint": "neutral",
+                    "momentum": momentum,
+                    "currency": "CNY",
+                    "marketState": "REGULAR",
+                    "open": raw.get("f17"),
+                    "high": raw.get("f15"),
+                    "low": raw.get("f16"),
+                    "preClose": raw.get("f18"),
+                }
+            )
+        return rows, warnings
+
+    async def _fetch_auto(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        cn_symbols = [symbol for symbol in symbols if _is_a_share_symbol(symbol)]
+        global_symbols = [symbol for symbol in symbols if symbol not in cn_symbols]
+
+        rows: list[dict[str, Any]] = []
+        warnings: list[str] = []
+
+        if cn_symbols:
+            em_rows, em_warnings = await self._fetch_eastmoney(cn_symbols)
+            rows.extend(em_rows)
+            warnings.extend(em_warnings)
+        if global_symbols:
+            yahoo_rows, yahoo_warnings = await self._fetch_yahoo(global_symbols)
+            rows.extend(yahoo_rows)
+            warnings.extend(yahoo_warnings)
+
+        return rows, warnings
+
     async def execute(
         self, symbols: list[str] | None = None, includeMacro: bool = False, **kwargs: Any
     ) -> str:
@@ -190,6 +311,16 @@ class MarketSnapshotTool(Tool):
         if self._source == "mock":
             rows = [self._mock_quote(symbol) for symbol in normalized]
             warnings: list[str] = []
+        elif self._source == "eastmoney":
+            rows, warnings = await self._fetch_eastmoney(normalized)
+            if not rows:
+                rows = [self._mock_quote(symbol) for symbol in normalized]
+                warnings.append("quote source fallback: mock")
+        elif self._source == "auto":
+            rows, warnings = await self._fetch_auto(normalized)
+            if not rows:
+                rows = [self._mock_quote(symbol) for symbol in normalized]
+                warnings.append("quote source fallback: mock")
         else:
             rows, warnings = await self._fetch_yahoo(normalized)
             if not rows:
@@ -345,6 +476,162 @@ class MarketEventExtractTool(Tool):
             "detectedSymbols": detected_symbols,
             "affectedAssets": affected_assets,
             "confidence": round(_clamp(confidence, 0.0, 1.0), 4),
+        }
+        return json.dumps(result, ensure_ascii=False)
+
+
+class MarketSourcePlanTool(Tool):
+    """Recommend provider routing and fallback chains for market-data tasks."""
+
+    name = "market_source_plan"
+    description = (
+        "Recommend the best market-data and news providers for symbols/tasks across "
+        "A-share, Hong Kong, and US markets, including fallback chains and integration gaps."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "symbols": {
+                "type": "array",
+                "description": "Tickers or codes to plan for, e.g. ['600519', 'AAPL', '0700.HK']",
+                "items": {"type": "string"},
+            },
+            "tasks": {
+                "type": "array",
+                "description": "Requested task types such as quote, history, chips, fundamentals, news, breadth",
+                "items": {"type": "string"},
+            },
+            "headline": {"type": "string", "description": "Optional headline or context text"},
+            "includeCurrentTools": {
+                "type": "boolean",
+                "description": "Include current marketbot tool mappings and future connector gaps",
+                "default": True,
+            },
+        },
+    }
+
+    _TASK_ALIASES = {
+        "quote": "quote",
+        "quotes": "quote",
+        "realtime": "quote",
+        "real-time": "quote",
+        "history": "history",
+        "ohlcv": "history",
+        "daily": "history",
+        "chips": "chips",
+        "chip": "chips",
+        "fundamentals": "fundamentals",
+        "fundamental": "fundamentals",
+        "profile": "fundamentals",
+        "news": "news",
+        "intel": "news",
+        "event": "news",
+        "events": "news",
+        "breadth": "breadth",
+        "sector": "breadth",
+        "indices": "breadth",
+    }
+
+    @classmethod
+    def _normalize_tasks(cls, tasks: list[str] | None) -> list[str]:
+        normalized: list[str] = []
+        for raw in tasks or []:
+            value = cls._TASK_ALIASES.get(str(raw or "").strip().lower())
+            if value and value not in normalized:
+                normalized.append(value)
+        return normalized or ["quote", "news"]
+
+    @staticmethod
+    def _market_for_symbols(symbols: list[str]) -> str:
+        clean = [str(symbol or "").strip().upper() for symbol in symbols if str(symbol or "").strip()]
+        if any(_is_a_share_symbol(symbol) for symbol in clean):
+            return "a-share"
+        if any(symbol.startswith("HK") or symbol.endswith(".HK") or (symbol.isdigit() and len(symbol) == 5) for symbol in clean):
+            return "hong-kong"
+        if any(re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z]{1,2})?", symbol) for symbol in clean):
+            return "us"
+        return "mixed"
+
+    @staticmethod
+    def _quote_chain(market: str) -> tuple[list[str], str]:
+        if market == "a-share":
+            return ["tushare", "efinance", "akshare", "pytdx", "baostock"], "Prefer Tushare when token-backed stability matters; otherwise use efinance first."
+        if market == "hong-kong":
+            return ["akshare", "yfinance"], "Akshare gives the strongest free HK path; use Yahoo as fallback."
+        if market == "us":
+            return ["yfinance"], "US symbols and indices should go straight to Yahoo-style routing for consistency."
+        return ["eastmoney-or-yahoo-auto", "mock"], "Use auto-routing across Eastmoney for CN symbols and Yahoo for global symbols."
+
+    @staticmethod
+    def _news_chain(market: str) -> tuple[list[str], str]:
+        if market == "a-share":
+            return ["bocha", "tavily", "serpapi"], "Chinese-market news should prefer Bocha, then Tavily, then SerpAPI."
+        if market == "us":
+            return ["brave", "tavily", "serpapi"], "US and global English news should prefer Brave."
+        if market == "hong-kong":
+            return ["bocha", "brave", "tavily", "serpapi"], "Hong Kong names often need both Chinese and English search fallback."
+        return ["bocha-or-brave", "tavily", "serpapi"], "Mixed watchlists need split routing by language and market."
+
+    @staticmethod
+    def _task_plan(task: str, market: str) -> tuple[list[str], str, list[str], list[str]]:
+        if task == "quote":
+            providers, why = MarketSourcePlanTool._quote_chain(market)
+            current_tools = ["market_snapshot (current)"]
+            future = ["a_share_quote connector"] if market in {"a-share", "mixed"} else []
+            return providers, why, current_tools, future
+        if task == "history":
+            providers, why = MarketSourcePlanTool._quote_chain(market)
+            current_tools = ["market_snapshot (partial only; no OHLCV history yet)"]
+            return providers, why, current_tools, ["ohlcv_history connector"]
+        if task == "chips":
+            return ["akshare"], "Chip distribution is strongest on A-share specific providers.", [], ["a_share_chip_distribution connector"]
+        if task == "fundamentals":
+            return ["efinance", "yfinance"], "Company base info and board mapping are strongest on efinance for China names.", [], ["fundamentals/profile connector"]
+        if task == "breadth":
+            providers = ["efinance", "akshare", "tushare"] if market in {"a-share", "mixed"} else ["yfinance"]
+            why = "China breadth and sector ranking are better served by Eastmoney-family or Tushare data."
+            return providers, why, [], ["china_market_breadth connector"]
+        providers, why = MarketSourcePlanTool._news_chain(market)
+        return providers, why, ["market_news (current)"], ["cross_market_news_search connector"]
+
+    async def execute(
+        self,
+        symbols: list[str] | None = None,
+        tasks: list[str] | None = None,
+        headline: str = "",
+        includeCurrentTools: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        clean_symbols = MarketSnapshotTool._normalize_symbols(symbols or [])
+        route = classify_market_request(symbols=clean_symbols, headline=headline)
+        market = self._market_for_symbols(clean_symbols) if clean_symbols else str(route.get("primary", "mixed"))
+        normalized_tasks = self._normalize_tasks(tasks)
+
+        plans: list[dict[str, Any]] = []
+        for task in normalized_tasks:
+            providers, why, current_tools, future = self._task_plan(task, market)
+            entry: dict[str, Any] = {
+                "task": task,
+                "providers": providers,
+                "why": why,
+                "freshness": "Prefer <=3 day news windows; disclose lag when using fallback or delayed sources.",
+                "fallbacks": providers[1:],
+            }
+            if includeCurrentTools:
+                entry["currentMarketbotTools"] = current_tools
+                entry["futureConnectors"] = future
+            plans.append(entry)
+
+        result = {
+            "asOf": _utc_now_iso(),
+            "symbols": clean_symbols,
+            "market": market,
+            "marketRoute": route,
+            "tasks": plans,
+            "summary": (
+                f"Use {' / '.join(plans[0]['providers']) if plans else 'market tools'} "
+                f"for {market} routing; separate current marketbot tools from future connectors."
+            ),
         }
         return json.dumps(result, ensure_ascii=False)
 
