@@ -2,7 +2,14 @@ import asyncio
 import json
 
 from marketbot.agent.loop import AgentLoop
-from marketbot.agent.tools.market import MarketEventExtractTool, MarketSignalTool, MarketSnapshotTool
+from marketbot.agent.tools.market import (
+    MarketBriefTool,
+    MarketEventExtractTool,
+    MarketMacroTool,
+    MarketNewsTool,
+    MarketSignalTool,
+    MarketSnapshotTool,
+)
 from marketbot.bus.queue import MessageBus
 from marketbot.config.schema import MarketToolsConfig
 from marketbot.providers.base import LLMProvider, LLMResponse
@@ -80,6 +87,36 @@ def test_market_signal_buy_when_inputs_are_strong() -> None:
     assert "Signal Card" in payload["signalCard"]
 
 
+def test_market_news_mock_source() -> None:
+    cfg = MarketToolsConfig()
+    cfg.news_sources = ["mock"]
+    tool = MarketNewsTool(config=cfg)
+    payload = json.loads(_run(tool.execute(symbols=["NVDA"], limit=3)))
+    assert payload["sources"] == ["mock"]
+    assert len(payload["items"]) == 3
+    assert payload["items"][0]["symbol"] == "NVDA"
+
+
+def test_market_macro_manual_mode() -> None:
+    cfg = MarketToolsConfig()
+    cfg.macro_source = "manual"
+    tool = MarketMacroTool(config=cfg)
+    payload = json.loads(_run(tool.execute(indicators=["fedFunds", "cpi"])))
+    assert payload["source"] == "manual"
+    assert 0.0 <= payload["macroRisk"] <= 1.0
+
+
+def test_market_brief_composes_outputs() -> None:
+    cfg = MarketToolsConfig(quote_source="mock")
+    cfg.news_sources = ["mock"]
+    cfg.macro_source = "manual"
+    tool = MarketBriefTool(config=cfg)
+    payload = json.loads(_run(tool.execute(symbols=["NVDA", "SPY"], headline="NVIDIA launches new AI chip")))
+    assert len(payload["signals"]) == 2
+    assert "briefMarkdown" in payload
+    assert "Scenario Playbook" in payload["briefMarkdown"]
+
+
 def test_agent_loop_registers_market_tools_by_default(tmp_path) -> None:
     loop = AgentLoop(
         bus=MessageBus(),
@@ -90,6 +127,9 @@ def test_agent_loop_registers_market_tools_by_default(tmp_path) -> None:
     assert "market_snapshot" in loop.tools.tool_names
     assert "market_event_extract" in loop.tools.tool_names
     assert "market_signal" in loop.tools.tool_names
+    assert "market_news" in loop.tools.tool_names
+    assert "market_macro" in loop.tools.tool_names
+    assert "market_brief" in loop.tools.tool_names
 
 
 def test_agent_loop_skips_market_tools_when_disabled(tmp_path) -> None:
@@ -103,3 +143,6 @@ def test_agent_loop_skips_market_tools_when_disabled(tmp_path) -> None:
     assert "market_snapshot" not in loop.tools.tool_names
     assert "market_event_extract" not in loop.tools.tool_names
     assert "market_signal" not in loop.tools.tool_names
+    assert "market_news" not in loop.tools.tool_names
+    assert "market_macro" not in loop.tools.tool_names
+    assert "market_brief" not in loop.tools.tool_names

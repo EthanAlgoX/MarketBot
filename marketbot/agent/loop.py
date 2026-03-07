@@ -18,7 +18,14 @@ from marketbot.agent.subagent import SubagentManager
 from marketbot.agent.tools.cron import CronTool
 from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from marketbot.agent.tools.message import MessageTool
-from marketbot.agent.tools.market import MarketEventExtractTool, MarketSignalTool, MarketSnapshotTool
+from marketbot.agent.tools.market import (
+    MarketBriefTool,
+    MarketEventExtractTool,
+    MarketMacroTool,
+    MarketNewsTool,
+    MarketSignalTool,
+    MarketSnapshotTool,
+)
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
 from marketbot.agent.tools.spawn import SpawnTool
@@ -134,6 +141,9 @@ class AgentLoop:
             self.tools.register(MarketSnapshotTool(config=self.market_config))
             self.tools.register(MarketEventExtractTool())
             self.tools.register(MarketSignalTool(config=self.market_config))
+            self.tools.register(MarketNewsTool(config=self.market_config))
+            self.tools.register(MarketMacroTool(config=self.market_config))
+            self.tools.register(MarketBriefTool(config=self.market_config))
         if self.cron_service:
             self.tools.register(CronTool(self.cron_service))
 

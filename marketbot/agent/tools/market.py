@@ -6,6 +6,8 @@ import json
 import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode
+from xml.etree import ElementTree
 
 import httpx
 from loguru import logger
@@ -438,5 +440,412 @@ class MarketSignalTool(Tool):
                 "minConfidence": min_conf,
                 "maxPositionPct": max_pos,
             },
+        }
+        return json.dumps(result, ensure_ascii=False)
+
+
+class MarketNewsTool(Tool):
+    """Fetch market-related headlines for symbols."""
+
+    name = "market_news"
+    description = (
+        "Fetch recent market headlines for symbols and return structured items "
+        "(title/source/time/link)."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "symbols": {
+                "type": "array",
+                "description": "Ticker symbols to query news for",
+                "items": {"type": "string"},
+            },
+            "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 6},
+        },
+    }
+
+    def __init__(self, config: MarketToolsConfig | None = None):
+        self._config = config
+        self._timeout = float(config.request_timeout_s) if config else 12.0
+        self._defaults = (config.default_symbols if config else []) or ["SPY", "QQQ", "BTC-USD"]
+        self._sources = [s.lower() for s in ((config.news_sources if config else None) or ["google"])]
+
+    @staticmethod
+    def _mock_items(symbol: str, limit: int) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        for i in range(limit):
+            direction = "up" if i % 2 == 0 else "down"
+            items.append(
+                {
+                    "symbol": symbol,
+                    "title": f"{symbol} market sentiment shifts {direction} [{i + 1}]",
+                    "source": "mock",
+                    "publishedAt": _utc_now_iso(),
+                    "url": f"https://example.com/mock/{symbol}/{i}",
+                }
+            )
+        return items
+
+    async def _fetch_google_rss(self, symbol: str, limit: int) -> tuple[list[dict[str, Any]], list[str]]:
+        warnings: list[str] = []
+        query = f"{symbol} stock market"
+        params = {
+            "q": query,
+            "hl": "en-US",
+            "gl": "US",
+            "ceid": "US:en",
+        }
+        url = f"https://news.google.com/rss/search?{urlencode(params)}"
+
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                xml_text = response.text
+        except Exception as e:
+            logger.error("market_news fetch failed for {}: {}", symbol, e)
+            return [], [f"{symbol}: {e}"]
+
+        try:
+            root = ElementTree.fromstring(xml_text)
+        except Exception as e:
+            return [], [f"{symbol}: invalid rss payload ({e})"]
+
+        items: list[dict[str, Any]] = []
+        for item in root.findall(".//item")[:limit]:
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            pub_date = (item.findtext("pubDate") or "").strip()
+            source_node = item.find("source")
+            source_name = (source_node.text or "").strip() if source_node is not None else "google-news"
+
+            if not title:
+                continue
+            items.append(
+                {
+                    "symbol": symbol,
+                    "title": title,
+                    "source": source_name or "google-news",
+                    "publishedAt": pub_date or _utc_now_iso(),
+                    "url": link,
+                }
+            )
+        return items, warnings
+
+    async def execute(self, symbols: list[str] | None = None, limit: int = 6, **kwargs: Any) -> str:
+        symbols_in = symbols or self._defaults
+        clean_symbols = MarketSnapshotTool._normalize_symbols(symbols_in)
+        if not clean_symbols:
+            return json.dumps({"error": "no valid symbols"}, ensure_ascii=False)
+
+        limit = int(_clamp(float(limit), 1.0, 20.0))
+        all_items: list[dict[str, Any]] = []
+        warnings: list[str] = []
+
+        for symbol in clean_symbols:
+            if "mock" in self._sources:
+                all_items.extend(self._mock_items(symbol, limit))
+                continue
+            items, item_warnings = await self._fetch_google_rss(symbol, limit)
+            all_items.extend(items)
+            warnings.extend(item_warnings)
+
+        deduped: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for item in all_items:
+            key = f"{item.get('symbol')}::{item.get('title')}"
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(item)
+
+        return json.dumps(
+            {
+                "asOf": _utc_now_iso(),
+                "sources": self._sources,
+                "items": deduped[: max(1, len(clean_symbols) * limit)],
+                "warnings": warnings,
+            },
+            ensure_ascii=False,
+        )
+
+
+class MarketMacroTool(Tool):
+    """Load macro indicators and estimate a macro risk score."""
+
+    name = "market_macro"
+    description = (
+        "Get macro indicators (rates, inflation, labor, yields) and compute "
+        "a macro risk score in [0,1]."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "indicators": {
+                "type": "array",
+                "description": "Indicator ids (fedFunds,cpi,unemployment,us10y,dxy)",
+                "items": {"type": "string"},
+            },
+        },
+    }
+
+    _SERIES_MAP = {
+        "fedFunds": "FEDFUNDS",
+        "cpi": "CPIAUCSL",
+        "unemployment": "UNRATE",
+        "us10y": "DGS10",
+        "dxy": "DTWEXBGS",
+    }
+
+    def __init__(self, config: MarketToolsConfig | None = None):
+        self._config = config
+        self._timeout = float(config.request_timeout_s) if config else 12.0
+        self._source = config.macro_source if config else "fred"
+        self._fred_api_key = (config.fred_api_key if config else "") or ""
+
+    @staticmethod
+    def _manual_fallback(indicators: list[str]) -> dict[str, Any]:
+        now = _utc_now_iso()
+        rows = [{"name": k, "value": None, "delta": None, "source": "manual"} for k in indicators]
+        return {
+            "asOf": now,
+            "source": "manual",
+            "indicators": rows,
+            "macroRisk": 0.5,
+            "regime": "unknown",
+            "warnings": ["macro source is manual; provide FRED api key for live values"],
+        }
+
+    async def _fetch_fred_series(self, series_id: str) -> tuple[float | None, float | None, str | None]:
+        if not self._fred_api_key:
+            return None, None, "missing FRED api key"
+
+        params = {
+            "series_id": series_id,
+            "api_key": self._fred_api_key,
+            "file_type": "json",
+            "sort_order": "desc",
+            "limit": "2",
+        }
+        url = f"https://api.stlouisfed.org/fred/series/observations?{urlencode(params)}"
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                payload = response.json()
+        except Exception as e:
+            return None, None, str(e)
+
+        observations = payload.get("observations", [])
+        values: list[float] = []
+        for row in observations:
+            raw = str(row.get("value", "."))
+            if raw == ".":
+                continue
+            try:
+                values.append(float(raw))
+            except ValueError:
+                continue
+
+        if not values:
+            return None, None, "no observations"
+
+        latest = values[0]
+        previous = values[1] if len(values) > 1 else values[0]
+        return latest, (latest - previous), None
+
+    async def execute(self, indicators: list[str] | None = None, **kwargs: Any) -> str:
+        selected = indicators or ["fedFunds", "cpi", "unemployment", "us10y", "dxy"]
+        clean = [k for k in selected if k in self._SERIES_MAP]
+        if not clean:
+            return json.dumps({"error": "no supported indicators requested"}, ensure_ascii=False)
+
+        if self._source == "manual":
+            return json.dumps(self._manual_fallback(clean), ensure_ascii=False)
+
+        rows: list[dict[str, Any]] = []
+        warnings: list[str] = []
+        by_name: dict[str, float] = {}
+
+        for name in clean:
+            series_id = self._SERIES_MAP[name]
+            latest, delta, err = await self._fetch_fred_series(series_id)
+            if err:
+                warnings.append(f"{name}: {err}")
+            if latest is not None:
+                by_name[name] = latest
+            rows.append(
+                {
+                    "name": name,
+                    "seriesId": series_id,
+                    "value": latest,
+                    "delta": round(delta, 4) if isinstance(delta, float) else None,
+                    "source": "fred",
+                }
+            )
+
+        if not by_name:
+            return json.dumps(self._manual_fallback(clean), ensure_ascii=False)
+
+        fed = by_name.get("fedFunds", 4.5)
+        cpi = by_name.get("cpi", 3.0)
+        us10y = by_name.get("us10y", 4.2)
+
+        macro_risk = _clamp(((fed / 6.0) + max((cpi - 2.0) / 4.0, 0) + (us10y / 6.0)) / 3.0, 0.0, 1.0)
+        regime = "risk-off" if macro_risk >= 0.60 else "neutral" if macro_risk >= 0.40 else "risk-on"
+
+        result = {
+            "asOf": _utc_now_iso(),
+            "source": "fred",
+            "indicators": rows,
+            "macroRisk": round(macro_risk, 4),
+            "regime": regime,
+            "warnings": warnings,
+        }
+        return json.dumps(result, ensure_ascii=False)
+
+
+class MarketBriefTool(Tool):
+    """Compose a market brief from snapshot, events, macro, and signal outputs."""
+
+    name = "market_brief"
+    description = (
+        "Generate an end-to-end market brief: key moves, event impact, "
+        "signal recommendations, and scenario playbook."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "symbols": {"type": "array", "items": {"type": "string"}},
+            "headline": {"type": "string", "description": "Optional key headline to analyze"},
+            "body": {"type": "string", "description": "Optional detail body for the headline"},
+            "includeNews": {"type": "boolean", "default": True},
+            "includeMacro": {"type": "boolean", "default": True},
+        },
+    }
+
+    def __init__(self, config: MarketToolsConfig | None = None):
+        self._config = config
+        self._snapshot = MarketSnapshotTool(config=config)
+        self._event = MarketEventExtractTool()
+        self._signal = MarketSignalTool(config=config)
+        self._news = MarketNewsTool(config=config)
+        self._macro = MarketMacroTool(config=config)
+
+    @staticmethod
+    def _scenario_recommendations(action_rows: list[dict[str, Any]], macro_risk: float) -> dict[str, list[str]]:
+        buys = [row["symbol"] for row in action_rows if row["action"] == "buy" and row["confidence"] >= 0.65]
+        sells = [row["symbol"] for row in action_rows if row["action"] in {"sell", "reduce"}]
+
+        aggressive = [f"Prioritize long setup: {', '.join(buys)}"] if buys else ["No high-confidence long setup"]
+        neutral = ["Follow watchlist signals and stagger entries", "Keep position sizing under configured cap"]
+        defensive = (
+            [f"Reduce exposure on: {', '.join(sells)}", "Increase cash/hedge ratio"]
+            if sells or macro_risk >= 0.60
+            else ["No forced de-risking trigger", "Maintain stop-loss discipline"]
+        )
+        return {
+            "aggressive": aggressive,
+            "neutral": neutral,
+            "defensive": defensive,
+        }
+
+    async def execute(
+        self,
+        symbols: list[str] | None = None,
+        headline: str = "",
+        body: str = "",
+        includeNews: bool = True,
+        includeMacro: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        snapshot = json.loads(await self._snapshot.execute(symbols=symbols, includeMacro=includeMacro))
+        quotes = snapshot.get("quotes", [])
+
+        macro = {"macroRisk": 0.5, "regime": "unknown", "warnings": []}
+        if includeMacro:
+            macro = json.loads(await self._macro.execute())
+
+        event = None
+        if headline.strip():
+            event = json.loads(await self._event.execute(headline=headline, body=body, symbols=symbols))
+
+        news = {"items": [], "warnings": []}
+        if includeNews:
+            news = json.loads(await self._news.execute(symbols=symbols, limit=4))
+
+        event_sentiment = float((event or {}).get("sentimentScore", 0.0))
+        macro_risk = float(macro.get("macroRisk", 0.5))
+
+        actions: list[dict[str, Any]] = []
+        for row in quotes:
+            symbol = str(row.get("symbol", "")).upper()
+            evidence = [f"flow={row.get('flowHint', 'neutral')}", f"momentum={row.get('momentum', 'flat')}"]
+            if event:
+                evidence.append(f"event={event.get('eventType')}")
+            sig = json.loads(
+                await self._signal.execute(
+                    symbol=symbol,
+                    priceChangePct=float(row.get("changePct") or 0.0),
+                    newsSentiment=event_sentiment,
+                    socialSentiment=0.0,
+                    macroRisk=macro_risk,
+                    evidence=evidence,
+                )
+            )
+            actions.append(
+                {
+                    "symbol": symbol,
+                    "action": sig.get("action"),
+                    "confidence": sig.get("confidence"),
+                    "score": sig.get("score"),
+                    "signalCard": sig.get("signalCard"),
+                }
+            )
+
+        score_avg = sum(float(item.get("score", 0.0)) for item in actions) / max(len(actions), 1)
+        sentiment_index = round((score_avg + 1.0) / 2.0, 4)
+        sentiment_state = "bullish" if sentiment_index >= 0.60 else "bearish" if sentiment_index <= 0.40 else "neutral"
+        scenarios = self._scenario_recommendations(actions, macro_risk)
+
+        lines = [
+            "## Market Brief",
+            f"- As Of: {_utc_now_iso()}",
+            f"- Market Sentiment Index: {sentiment_index:.2f} ({sentiment_state})",
+            f"- Macro Regime: {macro.get('regime', 'unknown')} (risk={macro_risk:.2f})",
+            "",
+            "### Signals",
+        ]
+        for row in actions:
+            lines.append(
+                f"- {row['symbol']}: {str(row['action']).upper()} | confidence={float(row['confidence']):.2f} | score={float(row['score']):.2f}"
+            )
+        lines += [
+            "",
+            "### Scenario Playbook",
+            f"- Aggressive: {'; '.join(scenarios['aggressive'])}",
+            f"- Neutral: {'; '.join(scenarios['neutral'])}",
+            f"- Defensive: {'; '.join(scenarios['defensive'])}",
+        ]
+
+        if event:
+            lines += [
+                "",
+                "### Event Impact",
+                f"- Event: {event.get('eventType')}",
+                f"- Sentiment: {event.get('sentimentLabel')} ({float(event.get('sentimentScore', 0.0)):.2f})",
+            ]
+
+        result = {
+            "asOf": _utc_now_iso(),
+            "snapshot": snapshot,
+            "event": event,
+            "news": news,
+            "macro": macro,
+            "signals": actions,
+            "marketSentimentIndex": sentiment_index,
+            "marketState": sentiment_state,
+            "scenarios": scenarios,
+            "briefMarkdown": "\n".join(lines),
         }
         return json.dumps(result, ensure_ascii=False)

@@ -44,29 +44,6 @@ MarketBot is built on the belief that **less is more**. While other agent framew
 2. **Minimalist State**: A unique "Two-Layer Memory" system using `MEMORY.md` for long-term facts and `HISTORY.md` for searchable logs. No heavy databases required by default.
 3. **Transparency**: The entire core is readable in a single afternoon. Perfect for researchers who need to know *exactly* how their agent thinks.
 
-## ✨ Core Capabilities
-
-<table align="center">
-  <tr align="center">
-    <th><p align="center">📈 24/7 Market Research</p></th>
-    <th><p align="center">🚀 Automated Execution</p></th>
-    <th><p align="center">📅 Smart Routine Management</p></th>
-    <th><p align="center">📚 Knowledge Consolidation</p></th>
-  </tr>
-  <tr>
-    <td align="center"><p align="center"><img src="case/search.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/code.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/scedule.gif" width="180" height="400"></p></td>
-    <td align="center"><p align="center"><img src="case/memory.gif" width="180" height="400"></p></td>
-  </tr>
-  <tr>
-    <td align="center">Discovery • Data • Trends</td>
-    <td align="center">Code • Deploy • Scale</td>
-    <td align="center">Schedule • Automate • Log</td>
-    <td align="center">Summarize • Facts • Reasoning</td>
-  </tr>
-</table>
-
 ## 📦 Install
 
 **Install from source** (latest features, recommended for development)
