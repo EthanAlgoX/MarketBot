@@ -1,7 +1,7 @@
 ---
 name: daily-stock-screener
 description: Screen a daily equity watchlist with valuation, trend, volume, and news sentiment filters to produce ranked candidates and a concise market brief.
-metadata: {"marketbot":{"emoji":"🧾","triggers":["screen","screener","scan","watchlist","candidates","机会筛选","股票筛选"],"output":"daily-stock-screener-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","market_fundamentals","market_brief"],"required_tools":["market_snapshot","market_news","market_fundamentals"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity"]}}
+metadata: {"marketbot":{"emoji":"🧾","triggers":["screen","screener","scan","watchlist","candidates","candidate","shortlist","rank","ranking","top ideas","watchlist brief","stock picks","机会筛选","股票筛选","候选","打分","排序"],"output":"daily-stock-screener-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","market_fundamentals","market_brief"],"required_tools":["market_snapshot","market_news","market_fundamentals"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity"]}}
 ---
 
 # Daily Stock Screener
@@ -49,6 +49,12 @@ Optional enrichment:
 
 - If the user explicitly requires exact `RSI`, `20MA`, or `50MA`, load `stock-info-explorer` and use its local Yahoo-based script.
 - If exact indicator coverage is unavailable for a symbol or market, do not invent values. Mark them as `unavailable` and continue with the remaining filters.
+
+Read [references/screening-playbook.md](references/screening-playbook.md) when you need:
+
+- the default scoring breakdown
+- explicit downgrade behavior for missing indicators
+- a reusable rejected / borderline classification pattern
 
 ## Processing pipeline
 
@@ -109,6 +115,8 @@ Interpretation:
 - `valuation_score`: PE inside range and not obviously stretched
 
 If a factor is unavailable, reduce its weight and say so.
+
+The more detailed scoring and downgrade notes live in [references/screening-playbook.md](references/screening-playbook.md).
 
 ## Pairings
 

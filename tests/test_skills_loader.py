@@ -85,6 +85,17 @@ def test_skill_trigger_matching_uses_metadata(tmp_path):
     assert "catalyst-tracker" in matched
 
 
+def test_daily_stock_screener_trigger_matching_uses_metadata(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "Screen and rank this watchlist for today's top stock candidates: AAPL, NVDA, TSLA",
+        route={"equity": True, "symbols": ["AAPL", "NVDA", "TSLA"]},
+    )
+
+    assert "daily-stock-screener" in matched
+
+
 def test_skill_compatibility_filters_mismatched_asset_classes(tmp_path):
     loader = SkillsLoader(tmp_path)
 

@@ -117,6 +117,24 @@ def test_market_analysis_message_auto_injects_market_skills(tmp_path) -> None:
     assert {item["name"] for item in routing["selected"]} >= {"market-report", "catalyst-tracker", "risk-checklist"}
 
 
+def test_watchlist_screening_message_auto_injects_daily_stock_screener(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Screen and rank my watchlist AAPL, NVDA, TSLA for today's top candidates.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: daily-stock-screener" in prompt
+    routing = builder.get_last_skill_routing()
+    assert routing is not None
+    assert any(item["name"] == "daily-stock-screener" for item in routing["selected"])
+
+
 def test_runtime_tool_availability_filters_auto_injected_skills(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)
