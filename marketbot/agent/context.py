@@ -58,12 +58,14 @@ class ContextBuilder:
             "selected": [dict(item) for item in self.last_skill_routing.get("selected", [])],
             "blocked": [dict(item) for item in self.last_skill_routing.get("blocked", [])],
             "diagnostics": [dict(item) for item in self.last_skill_routing.get("diagnostics", [])],
+            "externalSuggestions": [dict(item) for item in self.last_skill_routing.get("externalSuggestions", [])],
         }
 
     def build_system_prompt(
         self,
         skill_names: list[str] | None = None,
         skill_diagnostics: list[dict[str, Any]] | None = None,
+        external_skill_suggestions: list[dict[str, Any]] | None = None,
     ) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
         parts = [self._get_identity()]
@@ -88,6 +90,10 @@ class ContextBuilder:
         diagnostics_block = self._format_skill_diagnostics(skill_diagnostics)
         if diagnostics_block:
             parts.append(diagnostics_block)
+
+        external_suggestions_block = self._format_external_skill_suggestions(external_skill_suggestions)
+        if external_suggestions_block:
+            parts.append(external_suggestions_block)
 
         always_skills = self.skills.get_always_skills()
         if always_skills:
@@ -204,6 +210,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         routing = self._build_skill_routing(current_message, skill_names)
         resolved_skill_names = [item["name"] for item in routing["selected"]]
         skill_diagnostics = routing["diagnostics"]
+        external_skill_suggestions = routing.get("externalSuggestions", [])
         self.last_skill_routing = routing
         runtime_ctx = self._build_runtime_context(channel, chat_id)
         user_content = self._build_user_content(current_message, media)
@@ -216,7 +223,14 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             merged = [{"type": "text", "text": runtime_ctx}] + user_content
 
         return [
-            {"role": "system", "content": self.build_system_prompt(resolved_skill_names, skill_diagnostics=skill_diagnostics)},
+            {
+                "role": "system",
+                "content": self.build_system_prompt(
+                    resolved_skill_names,
+                    skill_diagnostics=skill_diagnostics,
+                    external_skill_suggestions=external_skill_suggestions,
+                ),
+            },
             *history,
             {"role": "user", "content": merged},
         ]
@@ -279,12 +293,17 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             selected_names.append(name)
             deduped_selected.append(item)
 
+        external_suggestions: list[dict[str, Any]] = []
+        if not deduped_selected and self._should_search_external_skills(current_message, diagnostics):
+            external_suggestions = self.skills.search_external_skills(current_message, limit=5)
+
         return {
             "requestText": current_message,
             "requestProfile": self.skills._build_request_profile(current_message, route=route),
             "selected": deduped_selected,
             "blocked": blocked,
             "diagnostics": diagnostics,
+            "externalSuggestions": external_suggestions,
         }
 
     @staticmethod
@@ -448,6 +467,31 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         return suggestions, diagnostics
 
     @staticmethod
+    def _should_search_external_skills(current_message: str, diagnostics: list[dict[str, Any]] | None = None) -> bool:
+        """Return True when the user likely needs a new skill rather than a normal reply."""
+        if diagnostics:
+            return False
+        text = current_message.lower()
+        discovery_terms = (
+            "skill",
+            "workflow",
+            "agent",
+            "plugin",
+            "template",
+            "library",
+            "deploy",
+            "deployment",
+            "pipeline",
+            "automation",
+            "screener",
+            "screen",
+            "scanner",
+            "monitor",
+            "generator",
+        )
+        return any(term in text for term in discovery_terms)
+
+    @staticmethod
     def _format_skill_diagnostics(skill_diagnostics: list[dict[str, Any]] | None) -> str:
         """Render per-message skill routing diagnostics into prompt metadata."""
         if not skill_diagnostics:
@@ -472,6 +516,31 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             lines.append(f"  request markets={markets}; asset_classes={asset_classes}")
             for reason in reasons:
                 lines.append(f"  reason: {reason}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_external_skill_suggestions(external_skill_suggestions: list[dict[str, Any]] | None) -> str:
+        """Render fallback external skill suggestions when no local skill fits."""
+        if not external_skill_suggestions:
+            return ""
+        lines = [
+            "# External Skill Suggestions",
+            "No suitable local skill was selected. These are curated external candidates from awesome-openclaw-skills / openclaw/skills.",
+        ]
+        for item in external_skill_suggestions[:5]:
+            name = str(item.get("name", "")).strip()
+            description = str(item.get("description", "")).strip()
+            category = str(item.get("category", "")).strip()
+            url = str(item.get("url", "")).strip()
+            if not name:
+                continue
+            title = str(item.get("title", "")).strip() or name
+            suffix = f" [{category}]" if category else ""
+            lines.append(f"- {name}: {title}{suffix}")
+            if description:
+                lines.append(f"  description: {description}")
+            if url:
+                lines.append(f"  source: {url}")
         return "\n".join(lines)
 
     def _build_user_content(self, text: str, media: list[str] | None) -> str | list[dict[str, Any]]:

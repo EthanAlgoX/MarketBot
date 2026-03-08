@@ -96,6 +96,52 @@ def test_daily_stock_screener_trigger_matching_uses_metadata(tmp_path):
     assert "daily-stock-screener" in matched
 
 
+def test_external_skill_catalog_parser_extracts_curated_entries(tmp_path):
+    loader = SkillsLoader(tmp_path)
+    sample = """
+### Market Intelligence
+- [Daily Stock Screener](https://github.com/openclaw/skills/tree/main/skills/daily-stock-screener) - Screen stock watchlists into ranked candidates.
+- [Macro Radar](https://github.com/openclaw/skills/tree/main/skills/macro-radar) - Track macro catalysts and market regime changes.
+"""
+
+    entries = loader._parse_awesome_openclaw_readme(sample)
+
+    assert entries[0]["name"] == "daily-stock-screener"
+    assert entries[0]["category"] == "Market Intelligence"
+    assert "ranked candidates" in entries[0]["description"]
+    assert entries[0]["catalog"] == "https://github.com/VoltAgent/awesome-openclaw-skills"
+    assert entries[0]["repository"] == "https://github.com/openclaw/skills"
+
+
+def test_external_skill_search_returns_ranked_matches(tmp_path, monkeypatch):
+    loader = SkillsLoader(tmp_path)
+    monkeypatch.setattr(
+        loader,
+        "_load_external_catalog_entries",
+        lambda: [
+            {
+                "name": "daily-stock-screener",
+                "title": "Daily Stock Screener",
+                "description": "Screen stock watchlists into ranked candidates.",
+                "category": "Market Intelligence",
+                "url": "https://github.com/openclaw/skills/tree/main/skills/daily-stock-screener",
+            },
+            {
+                "name": "k8s-release",
+                "title": "K8s Release",
+                "description": "Deploy Kubernetes apps with Helm and ArgoCD.",
+                "category": "DevOps",
+                "url": "https://github.com/openclaw/skills/tree/main/skills/k8s-release",
+            },
+        ],
+    )
+
+    results = loader.search_external_skills("Need a stock screener to rank my watchlist", limit=3)
+
+    assert results
+    assert results[0]["name"] == "daily-stock-screener"
+
+
 def test_skill_compatibility_filters_mismatched_asset_classes(tmp_path):
     loader = SkillsLoader(tmp_path)
 

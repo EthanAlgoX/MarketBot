@@ -25,6 +25,7 @@ marketbot 适合“既想保留 agent 灵活性，又希望金融分析有明确
 ## 为什么是 marketbot
 
 - **skill-first**：skill 仍然是最高层编排单元。skill metadata 可以声明触发条件、输出形态、风险级别、时效要求、市场覆盖、资产类别和依赖工具。
+- **外部 skill 兜底**：当本地没有合适 skill 时，marketbot 可以从 `awesome-openclaw-skills` 索引和 `openclaw/skills` 仓库里给出外部候选，而不是直接停在“没有 skill”。
 - **runtime 很薄**：runtime 主要负责消息处理、会话、并发、取消、tool 执行和渠道发送，不再承载大量金融逻辑。
 - **市场领域层更稳**：quote、news、macro 走共享的 market domain services，支持缓存、fallback、路由遥测和运行时能力画像。
 - **输出可解释**：聊天、报告、通知都可以携带能力说明和数据可靠性说明。

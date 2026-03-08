@@ -4,12 +4,18 @@ import json
 import os
 import re
 import shutil
+import time
 from pathlib import Path
+from typing import Any
+
+import httpx
 
 from marketbot.domain.market.profile import freshness_satisfies
 
 # Default builtin skills directory (relative to this file)
 BUILTIN_SKILLS_DIR = Path(__file__).parent.parent / "skills"
+_EXTERNAL_CATALOG_CACHE_TTL_S = 60 * 60 * 6
+_AWESOME_OPENCLAW_SKILLS_README = "https://raw.githubusercontent.com/VoltAgent/awesome-openclaw-skills/main/README.md"
 
 
 class SkillsLoader:
@@ -19,6 +25,8 @@ class SkillsLoader:
     Skills are markdown files (SKILL.md) that teach the agent how to use
     specific tools or perform certain tasks.
     """
+
+    _external_catalog_cache: tuple[float, list[dict[str, str]]] | None = None
 
     def __init__(self, workspace: Path, builtin_skills_dir: Path | None = None):
         self.workspace = workspace
@@ -415,6 +423,47 @@ class SkillsLoader:
             matched.append(item["name"])
         return matched
 
+    def search_external_skills(self, text: str, limit: int = 5) -> list[dict[str, str]]:
+        """Search curated external skill catalogs when local skills do not fit."""
+        entries = self._load_external_catalog_entries()
+        if not entries:
+            return []
+
+        lowered = text.lower()
+        tokens = {token for token in re.findall(r"[a-z0-9\u4e00-\u9fff]+", lowered) if len(token) >= 2}
+        ranked: list[tuple[int, dict[str, str]]] = []
+        for entry in entries:
+            haystack = " ".join(
+                [
+                    entry.get("name", "").lower(),
+                    entry.get("title", "").lower(),
+                    entry.get("description", "").lower(),
+                    entry.get("category", "").lower(),
+                ]
+            )
+            score = 0
+            if entry.get("name", "").replace("-", " ") in lowered:
+                score += 8
+            for token in tokens:
+                if token in haystack:
+                    score += 2
+            if score <= 0:
+                continue
+            ranked.append((score, entry))
+
+        ranked.sort(key=lambda item: (-item[0], item[1].get("name", "")))
+        results: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for _, entry in ranked:
+            url = entry.get("url", "")
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            results.append(dict(entry))
+            if len(results) >= limit:
+                break
+        return results
+
     def explain_skill_compatibility(
         self,
         name: str,
@@ -555,6 +604,63 @@ class SkillsLoader:
                 return self._parse_frontmatter(match.group(1))
 
         return None
+
+    @classmethod
+    def _load_external_catalog_entries(cls) -> list[dict[str, str]]:
+        """Load a cached curated external skill catalog."""
+        cached = cls._external_catalog_cache
+        now = time.time()
+        if cached and (now - cached[0]) < _EXTERNAL_CATALOG_CACHE_TTL_S:
+            return [dict(item) for item in cached[1]]
+
+        try:
+            with httpx.Client(timeout=5.0, follow_redirects=True) as client:
+                response = client.get(_AWESOME_OPENCLAW_SKILLS_README)
+                response.raise_for_status()
+        except Exception:
+            return [dict(item) for item in (cached[1] if cached else [])]
+
+        entries = cls._parse_awesome_openclaw_readme(response.text)
+        cls._external_catalog_cache = (now, entries)
+        return [dict(item) for item in entries]
+
+    @staticmethod
+    def _parse_awesome_openclaw_readme(content: str) -> list[dict[str, str]]:
+        """Parse skill entries from the awesome-openclaw-skills README."""
+        if not content.strip():
+            return []
+        entries: list[dict[str, str]] = []
+        category = ""
+        pattern = re.compile(
+            r"^- \[([^\]]+)\]\((https://github\.com/openclaw/skills/tree/main/skills/[^)]+)\)\s*-\s*(.+)$"
+        )
+        for raw_line in content.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            heading = re.match(r"^###\s+(.+?)\s*$", line)
+            if heading:
+                category = heading.group(1).strip()
+                continue
+            match = pattern.match(line)
+            if not match:
+                continue
+            description = " ".join(match.group(3).split())
+            url = match.group(2).strip()
+            slug = url.rstrip("/").split("/")[-1]
+            entries.append(
+                {
+                    "name": slug,
+                    "title": match.group(1).strip(),
+                    "description": description,
+                    "category": category,
+                    "url": url,
+                    "source": "awesome-openclaw-skills",
+                    "catalog": "https://github.com/VoltAgent/awesome-openclaw-skills",
+                    "repository": "https://github.com/openclaw/skills",
+                }
+            )
+        return entries
 
     @staticmethod
     def _parse_frontmatter(raw: str) -> dict:

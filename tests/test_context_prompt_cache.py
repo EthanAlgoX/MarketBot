@@ -135,6 +135,39 @@ def test_watchlist_screening_message_auto_injects_daily_stock_screener(tmp_path)
     assert any(item["name"] == "daily-stock-screener" for item in routing["selected"])
 
 
+def test_external_skill_suggestions_are_added_when_no_local_skill_matches(tmp_path, monkeypatch) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    monkeypatch.setattr(
+        builder.skills,
+        "search_external_skills",
+        lambda text, limit=5: [
+            {
+                "name": "k8s-release",
+                "title": "K8s Release",
+                "description": "Deploy Kubernetes apps with Helm and ArgoCD.",
+                "category": "DevOps",
+                "url": "https://github.com/openclaw/skills/tree/main/skills/k8s-release",
+            }
+        ],
+    )
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Design a Kubernetes deployment pipeline with Helm and ArgoCD.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "# External Skill Suggestions" in prompt
+    assert "k8s-release" in prompt
+    routing = builder.get_last_skill_routing()
+    assert routing is not None
+    assert routing["selected"] == []
+    assert routing["externalSuggestions"][0]["name"] == "k8s-release"
+
+
 def test_runtime_tool_availability_filters_auto_injected_skills(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

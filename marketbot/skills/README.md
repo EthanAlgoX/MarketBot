@@ -2,6 +2,11 @@
 
 This directory contains built-in skills that extend marketbot's capabilities.
 
+When no suitable local skill is selected, marketbot can also surface curated external suggestions from:
+
+- `https://github.com/openclaw/skills`
+- `https://github.com/VoltAgent/awesome-openclaw-skills`
+
 ## Skill Format
 
 Each skill is a directory containing a `SKILL.md` file with:

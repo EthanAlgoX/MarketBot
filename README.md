@@ -27,6 +27,7 @@ It keeps the agent flexible, but makes the finance layer explicit.
 ## Why marketbot
 
 - **Skill-first orchestration**. Skills remain the top-level planning unit. Each skill can declare triggers, output shape, risk level, freshness needs, markets, asset classes, and required tools.
+- **External skill fallback**. When no suitable local skill is selected, marketbot can suggest curated candidates from `openclaw/skills` via the `awesome-openclaw-skills` index instead of stopping at "no skill found".
 - **Thin runtime**. The runtime focuses on sessions, tool execution, concurrency, cancellation, and channels instead of embedding market logic in the main loop.
 - **Finance-native domain layer**. Quote, news, and macro access are backed by shared market domain services with cache, fallback telemetry, and runtime capability profiling.
 - **Explainable outputs**. Reports and chat replies can include capability notes, blocked-skill reasons, source health, and reliability summaries.
