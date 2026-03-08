@@ -1,0 +1,4 @@
+interface:
+  display_name: "Daily Stock Screener"
+  short_description: "Screen daily stock watchlists for ranked opportunities."
+  default_prompt: "Use $daily-stock-screener to rank today's watchlist candidates with trend, volume, valuation, and news sentiment filters."

@@ -23,6 +23,7 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `tmux` | Remote-control tmux sessions |
 | `clawhub` | Search and install skills from ClawHub registry |
 | `market-report` | Produce structured single-asset market analysis |
+| `daily-stock-screener` | Screen daily stock watchlists into ranked candidates |
 | `catalyst-tracker` | Build a catalyst list and event calendar |
 | `risk-checklist` | Generate trade risk and position-sizing guardrails |
 | `stock-data-sourcing` | Route A/H/US market and news providers with fallback guidance |

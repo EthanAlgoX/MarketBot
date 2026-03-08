@@ -8,6 +8,7 @@ def test_builtin_market_skills_are_discoverable(tmp_path):
 
     names = {item["name"] for item in loader.list_skills(filter_unavailable=False)}
 
+    assert "daily-stock-screener" in names
     assert "market-report" in names
     assert "catalyst-tracker" in names
     assert "risk-checklist" in names
@@ -57,6 +58,20 @@ def test_stock_data_sourcing_capabilities_include_tool_alignment(tmp_path):
     assert capabilities["tools"] == ["market_source_plan"]
     assert capabilities["required_tools"] == ["market_source_plan"]
     assert capabilities["markets"] == ["a-share", "hong-kong", "us", "mixed"]
+
+
+def test_daily_stock_screener_capabilities_are_parsed(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    capabilities = loader.get_skill_capabilities("daily-stock-screener")
+
+    assert "screener" in capabilities["triggers"]
+    assert capabilities["output"] == "daily-stock-screener-report"
+    assert capabilities["risk"] == "medium"
+    assert capabilities["freshness"] == "market-live"
+    assert capabilities["required_tools"] == ["market_snapshot", "market_news", "market_fundamentals"]
+    assert capabilities["markets"] == ["a-share", "hong-kong", "us", "mixed"]
+    assert capabilities["asset_classes"] == ["equity"]
 
 
 def test_skill_trigger_matching_uses_metadata(tmp_path):

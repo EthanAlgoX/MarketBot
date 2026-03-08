@@ -152,6 +152,7 @@ Out of the box, the built-in skills focus on a few high-value finance workflows:
 | Skill | What it does |
 | --- | --- |
 | `market-report` | Multi-signal market brief generation for symbols or watchlists |
+| `daily-stock-screener` | Daily watchlist screening with valuation, trend, volume, and sentiment filters |
 | `market-monitor` | Ongoing watch/monitor style analysis |
 | `market-discovery` | Idea generation and market scanning |
 | `news-intelligence` | News/event extraction and impact analysis |

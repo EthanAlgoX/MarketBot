@@ -150,6 +150,7 @@ marketbot market heartbeat-setup
 | Skill | 作用 |
 | --- | --- |
 | `market-report` | 对标的或 watchlist 生成市场简报 |
+| `daily-stock-screener` | 对每日股票列表做估值、趋势、量能和情绪筛选排序 |
 | `market-monitor` | 做持续监控和观察 |
 | `market-discovery` | 做机会扫描和主题发现 |
 | `news-intelligence` | 做新闻事件提取与冲击分析 |
