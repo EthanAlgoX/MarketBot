@@ -133,7 +133,7 @@ class SymbolCache:
 
     def get_news(self, symbol: str, max_age_days: int = 3) -> list | None:
         """Get cached news for symbol."""
-        return self.market_cache.get("news", symbol, max_age_days)
+        return self.market_cache.get("news", symbol)
 
     def set_news(self, symbol: str, news: list) -> None:
         """Cache news for symbol."""
