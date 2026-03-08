@@ -701,3 +701,44 @@ def test_agent_loop_respects_metadata_only_explainability_delivery(tmp_path, mon
     assert result.content == "Telegram analysis with metadata delivery."
     assert result.metadata["explainability"]["delivery"] == "metadata"
     assert result.metadata["explainability"]["inline_footer"] == "_Capability & Data_: Skills: market-report | Reliability: ok"
+
+
+def test_agent_loop_appends_external_skill_install_suggestions(tmp_path, monkeypatch) -> None:
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+    )
+    loop.provider.chat = AsyncMock(return_value=LLMResponse(content="Here is a deployment plan.", tool_calls=[]))
+    monkeypatch.setattr(
+        loop.context.skills,
+        "search_external_skills",
+        lambda text, limit=5: [
+            {
+                "name": "k8s-release",
+                "title": "K8s Release",
+                "description": "Deploy Kubernetes apps with Helm and ArgoCD.",
+                "category": "DevOps",
+                "url": "https://github.com/openclaw/skills/tree/main/skills/k8s-release",
+            }
+        ],
+    )
+
+    result = _run(
+        loop._process_message(
+            InboundMessage(
+                channel="cli",
+                sender_id="user",
+                chat_id="direct",
+                content="Design a Kubernetes deployment pipeline with Helm and ArgoCD.",
+            )
+        )
+    )
+
+    assert result is not None
+    assert "## External Skill Suggestions" in result.content
+    assert "`k8s-release`" in result.content
+    assert "`marketbot skills install k8s-release`" in result.content
+    assert result.metadata["skill_install_suggestions"][0]["name"] == "k8s-release"
+    assert result.metadata["skill_install_suggestions"][0]["install_command"] == "marketbot skills install k8s-release"

@@ -300,6 +300,51 @@ class AgentLoop:
             "details": details,
         }
 
+    def _build_external_skill_install_suggestions(self) -> list[dict[str, str]]:
+        """Convert routed external skill suggestions into install-ready suggestions."""
+        routing = self.processor.get_last_skill_routing() or {}
+        suggestions = routing.get("externalSuggestions", []) or []
+        results: list[dict[str, str]] = []
+        for item in suggestions[:3]:
+            name = str(item.get("name", "")).strip()
+            if not name:
+                continue
+            results.append(
+                {
+                    "name": name,
+                    "title": str(item.get("title", "")).strip(),
+                    "description": str(item.get("description", "")).strip(),
+                    "category": str(item.get("category", "")).strip(),
+                    "url": str(item.get("url", "")).strip(),
+                    "install_command": f"marketbot skills install {name}",
+                }
+            )
+        return results
+
+    @staticmethod
+    def _append_external_skill_suggestions(
+        final_content: str | None,
+        suggestions: list[dict[str, str]] | None,
+    ) -> str | None:
+        """Append install-ready external skill suggestions to the final reply."""
+        if not final_content or not suggestions:
+            return final_content
+        lines = ["## External Skill Suggestions"]
+        for item in suggestions[:3]:
+            name = item.get("name", "").strip()
+            command = item.get("install_command", "").strip()
+            description = item.get("description", "").strip()
+            if not name or not command:
+                continue
+            line = f"- `{name}`: install with `{command}`"
+            if description:
+                line += f" — {description}"
+            lines.append(line)
+        block = "\n".join(lines)
+        if block in final_content:
+            return final_content
+        return f"{final_content.rstrip()}\n\n{block}"
+
     async def _run_agent_loop(
         self,
         initial_messages: list[dict],
@@ -485,6 +530,8 @@ class AgentLoop:
             final_content, _, all_msgs = await self._run_agent_loop(messages)
             explainability = self._build_chat_explainability(all_msgs, channel=channel)
             final_content = self._append_chat_explainability(final_content, explainability)
+            external_skill_suggestions = self._build_external_skill_install_suggestions()
+            final_content = self._append_external_skill_suggestions(final_content, external_skill_suggestions)
             self._save_turn(session, all_msgs, 1 + len(history))
             self.sessions.save(session)
             metadata = dict(msg.metadata or {})
@@ -492,6 +539,8 @@ class AgentLoop:
                 metadata["skill_routing"] = skill_routing
             if explainability:
                 metadata["explainability"] = explainability
+            if external_skill_suggestions:
+                metadata["skill_install_suggestions"] = external_skill_suggestions
             return OutboundMessage(channel=channel, chat_id=chat_id,
                                   content=final_content or "Background task completed.", metadata=metadata)
 
@@ -541,6 +590,8 @@ class AgentLoop:
         explainability = self._build_chat_explainability(all_msgs, channel=msg.channel)
         if msg.channel == "cli":
             final_content = self._append_chat_explainability(final_content, explainability)
+        external_skill_suggestions = self._build_external_skill_install_suggestions()
+        final_content = self._append_external_skill_suggestions(final_content, external_skill_suggestions)
 
         self._save_turn(session, all_msgs, 1 + len(history))
         self.sessions.save(session)
@@ -555,6 +606,8 @@ class AgentLoop:
             metadata["skill_routing"] = skill_routing
         if explainability:
             metadata["explainability"] = explainability
+        if external_skill_suggestions:
+            metadata["skill_install_suggestions"] = external_skill_suggestions
         return OutboundMessage(
             channel=msg.channel, chat_id=msg.chat_id, content=final_content,
             metadata=metadata,
