@@ -14,7 +14,7 @@
 
 ## What It Is
 
-marketbot is designed for people who want an AI assistant that can both chat and do structured market work:
+marketbot is an AI assistant designed specifically for financial analysis, featuring **27+ built-in financial skills**. It bridges the gap between flexible agent chat and structured market research:
 
 - generate a market brief for a set of symbols
 - monitor watchlists and recurring report tasks
