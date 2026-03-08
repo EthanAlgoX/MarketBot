@@ -1,55 +1,97 @@
 <div align="center">
-  <img src="marketbot_logo.png" alt="marketbot" width="500">
-  <h1>marketbot: Finance-First, Ultra-Lightweight AI Assistant</h1>
-  <p>
-    <b>The minimalist agent framework designed for quantitative research and personal automation.</b>
-  </p>
-  <p>
-    <b>English | <a href="README_zh.md">中文</a></b>
-  </p>
-
----
-
-🐂 **marketbot** is a **Finance-First**, **Ultra-Lightweight** personal AI assistant framework.
-
-- ⚡️ **Minimalist Core**: ~4,000 lines of Python — 99% smaller than heavy-weight alternatives.
-- 📈 **Financial Insight**: Built-in capabilities for automated market research and report synthesis.
-- 🔗 **Multi-Channel**: Native support for Telegram, Discord, Feishu, WhatsApp, and more.
-- 📐 **Research-Ready**: Clean, modular code designed for transparency and easy extension.
-
-📏 Real-time line count: run `bash core_agent_lines.sh` to verify anytime.
-
+  <img src="marketbot_logo.png" alt="marketbot" width="420">
+  <h1>marketbot</h1>
+  <p><strong>Skill-first finance analysis assistant with a lightweight agent runtime.</strong></p>
+  <p><strong>English | <a href="README_zh.md">中文</a></strong></p>
 </div>
 
-## 💡 Design Philosophy
+`marketbot` evolved from the minimalist general-purpose assistant `nanobot`, but its center of gravity is now financial analysis:
 
-MarketBot is built on the belief that **less is more**. While other agent frameworks grow increasingly complex, MarketBot remains focused on three pillars:
+- skill-driven market research instead of a generic prompt wrapper
+- finance-native quote/news/macro services instead of tool-specific scraping logic
+- explainable output with skill routing, data reliability, source health, and route trace
+- chat-first delivery across Telegram, Slack, Discord, Feishu, DingTalk, Email, WhatsApp, QQ, Mochat, and optional Matrix
 
-1. **Determinism over Chaos**: Uses a "Fetch -> Analyze -> Synthesize" workflow to ensure high-quality, reproducible financial insights.
-2. **Minimalist State**: A unique "Layered Memory" system (L0/L1/L2) inspired by OpenViking. Uses `.abstract` (~100 tokens), `.overview` (~2k tokens), and `MEMORY.md` for long-term facts with recursive retrieval. No heavy databases required by default.
-3. **Transparency**: The entire core is readable in a single afternoon. Perfect for researchers who need to know *exactly* how their agent thinks.
+## What It Is
 
-## 📦 Install
+marketbot is designed for people who want an AI assistant that can both chat and do structured market work:
 
-**Install from source** (latest features, recommended for development)
+- generate a market brief for a set of symbols
+- monitor watchlists and recurring report tasks
+- route requests to the right skills based on market, asset class, freshness, and available tools
+- send reports to chat channels with channel-aware formatting
+- stay hackable enough that you can read the core code in an afternoon
+
+It keeps the agent flexible, but makes the finance layer explicit.
+
+## Why marketbot
+
+- **Skill-first orchestration**. Skills remain the top-level planning unit. Each skill can declare triggers, output shape, risk level, freshness needs, markets, asset classes, and required tools.
+- **Thin runtime**. The runtime focuses on sessions, tool execution, concurrency, cancellation, and channels instead of embedding market logic in the main loop.
+- **Finance-native domain layer**. Quote, news, and macro access are backed by shared market domain services with cache, fallback telemetry, and runtime capability profiling.
+- **Explainable outputs**. Reports and chat replies can include capability notes, blocked-skill reasons, source health, and reliability summaries.
+- **Good operational fit**. The same analysis stack can power CLI usage, scheduled reports, and outbound notifications.
+
+## Architecture
+
+The project is split into four layers:
+
+1. **Runtime**
+   - `marketbot/agent/loop.py`
+   - `marketbot/agent/processor.py`
+   - `marketbot/runtime/bootstrap.py`
+   - Handles message ingress, per-session concurrency, session persistence, tool registration, and final outbound messages.
+
+2. **Skills**
+   - `marketbot/skills/*/SKILL.md`
+   - Encodes higher-level analysis behavior.
+   - Skill metadata drives selection using request triggers, market coverage, asset classes, freshness, and runtime tool availability.
+
+3. **Market domain**
+   - `marketbot/domain/market/services.py`
+   - `marketbot/domain/market/profile.py`
+   - Provides normalized market data access, source fallback, route trace, cache, and runtime market capability profiles.
+
+4. **Reporting and delivery**
+   - `marketbot/market_reporting.py`
+   - `marketbot/channels/*`
+   - Turns structured analysis into chat replies, saved reports, and notifications with channel-aware explainability.
+
+## Install
+
+From source:
 
 ```bash
-git clone https://github.com/HKUDS/marketbot.git
-cd marketbot
+git clone https://github.com/EthanAlgoX/MarketBot.git
+cd MarketBot
 pip install -e .
 ```
 
-## 🚀 Quick Start
+If you need Matrix support:
 
-**1. Initialize**
+```bash
+pip install -e ".[matrix]"
+```
+
+For development:
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Quick Start
+
+### 1. Initialize workspace and config
 
 ```bash
 marketbot onboard
 ```
 
-**2. Configure** (`~/.marketbot/config.json`)
+This creates the default workspace and `~/.marketbot/config.json`.
 
-MarketBot is designed to be "plug-and-play". Just add your API key:
+### 2. Add a model provider
+
+Minimal example:
 
 ```json
 {
@@ -60,1070 +102,168 @@ MarketBot is designed to be "plug-and-play". Just add your API key:
   },
   "agents": {
     "defaults": {
-      "model": "anthropic/claude-3-5-sonnet",
-      "provider": "openrouter"
+      "provider": "openrouter",
+      "model": "anthropic/claude-opus-4-1"
     }
+  },
+  "tools": {
+    "market": {
+      "quoteSource": "yahoo",
+      "newsSources": ["reuters", "bloomberg", "cls"],
+      "macroSource": "fred",
+      "cacheTtlS": 60
+    }
+  },
+  "channels": {
+    "explainabilityMode": "auto",
+    "explainabilityDelivery": "auto"
   }
 }
 ```
 
-**3. Launch**
+### 3. Use it directly
 
 ```bash
 marketbot agent
 ```
 
-> [!TIP]
-> Visit [OpenRouter](https://openrouter.ai/keys) to get an API key that works with almost any model.
+### 4. Generate a market brief
 
-## 🤖 Deploy with GitHub Actions (Recommended)
-
-> 5 minutes to deploy, zero cost, no server required.
-
-### 1. Fork This Repository
-
-Click the `Fork` button in the top right (and star us ⭐ if you like!)
-
-### 2. Configure Secrets
-
-Go to `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
-
-**Required: LLM Provider (at least one)**
-
-| Secret Name | Description | Required |
-|------------|-------------|:--------:|
-| `OPENROUTER_API_KEY` | [OpenRouter](https://openrouter.ai/keys) API Key (recommended, access to all models) | Optional |
-| `ANTHROPIC_API_KEY` | [Anthropic Claude](https://console.anthropic.com/) API Key | Optional |
-| `OPENAI_API_KEY` | [OpenAI](https://platform.openai.com/) API Key | Optional |
-| `DEEPSEEK_API_KEY` | [DeepSeek](https://platform.deepseek.com/) API Key | Optional |
-| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/) API Key | Optional |
-| `AIHUBMIX_KEY` | [AIHubMix](https://aihubmix.com/?aff=CfMq) API Key | Optional |
-| `SILICONFLOW_API_KEY` | [SiliconFlow](https://siliconflow.cn/) API Key | Optional |
-
-**Optional: Chat Channel Configuration**
-
-| Secret Name | Description |
-|------------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token (from @BotFather) |
-| `TELEGRAM_CHAT_ID` | Telegram Chat ID |
-| `DISCORD_BOT_TOKEN` | Discord Bot Token |
-| `DISCORD_CHANNEL_ID` | Discord Channel ID |
-| `FEISHU_APP_ID` | Feishu App ID |
-| `FEISHU_APP_SECRET` | Feishu App Secret |
-| `SLACK_BOT_TOKEN` | Slack Bot Token |
-| `SLACK_APP_TOKEN` | Slack App-Level Token |
-| `DINGTALK_CLIENT_ID` | DingTalk App Key |
-| `DINGTALK_CLIENT_SECRET` | DingTalk App Secret |
-| `EMAIL_SMTP_HOST` | SMTP Server (e.g., smtp.gmail.com) |
-| `EMAIL_SMTP_PORT` | SMTP Port (e.g., 587) |
-| `EMAIL_USERNAME` | Email username |
-| `EMAIL_PASSWORD` | Email password or app password |
-| `EMAIL_FROM` | Sender email address |
-| `EMAIL_TO` | Recipient email (comma-separated) |
-
-### 3. Enable Actions
-
-Go to `Actions` tab → `I understand my workflows, go ahead and enable them`
-
-### 4. Run Workflow
-
-`Actions` → `MarketBot Gateway` → `Run workflow` → `Run workflow`
-
-> By default, the workflow runs on schedule (configurable in `.github/workflows/gateway.yml`). You can also trigger it manually.
-
-## 💹 Core Financial Skills
-
-MarketBot comes pre-loaded with a suite of **Finance-First skills** designed for quantitative research, algorithmic-style market surveillance, and portfolio analysis. Because MarketBot treats skills as composable, tool-calling pipelines (`SKILL.md`), it achieves complex analytical workflows natively.
-
-### 🔭 Market Opportunity Discovery (`/discover`)
-
-Scans the broader market to automatically discover potential investment opportunities by synthesizing market data, events, sentiment, and sector momentum.
-
-- **Pipeline**: Market Scan → Event Matching → Sentiment Shift Tracking → Fund Flow Detection → Sector Momentum.
-- **Scoring Engine**: Leverages a weighted scoring mechanism (Event Impact 0.3 + Sentiment 0.3 + Volume 0.2 + Sector Momentum 0.2) to filter high-probability setups.
-- **Categorization**: Classifies opportunities into Macro, Industry, Company, or Sentiment driven.
-
-### 📈 Market Monitor (`/monitor`)
-
-Real-time surveillance tracking price movements, macro indicators, sector rotations, and news to generate actionable alerts.
-
-- **Surveillance Modules**: Tracks Macro Indicators (S&P, VIX, US10Y), Market Movers (Top Gainers/Losers, Volume Anomalies), Sector Rotation, Technical Signals (RSI, Breakouts), and Earnings impact.
-- **Alert Generation**: Triggers real-time alerts upon high-risk threshold breaches (e.g., sudden VIX spikes or flash crashes) and produces daily synthesized AI summaries.
-
-### 📊 Portfolio Analyzer
-
-A comprehensive toolkit mapping expected returns, executing scenario stress tests, and optimizing asset weights.
-
-- **Key Metrics**: Calculates Expected Return (CAGR), Volatility, Sharpe Ratio, Max Drawdown, and Beta.
-- **Risk Decomposition**: Uncovers Concentration Risk and computes Correlation Matrices between holdings.
-- **Stress Testing**: Simulates portfolio performance under localized "Market Crashes" or "Rate Hikes".
-- **Optimization Strategy**: Re-weights portfolios using Mean-Variance or Max Sharpe methodologies for higher risk-adjusted returns.
-
-### 📰 News Intelligence (`/news`)
-
-Extracts, deduplicates, and assesses the global financial news flow to determine market impact.
-
-- **Deep Extraction**: Recognizes entities and classifies events (e.g., Earnings, M&A, Regulation).
-- **Blast Radius Analysis**: Traces the impact across Primary Ticker -> Sector -> Broader Market, specifying a Short or Long-term horizon.
-- **Trend Detection**: Clusters related articles and tracks emerging topics while generating early-warning Risk Alerts.
-
-### 🎭 Sentiment Analysis (`/sentiment`)
-
-Quantifies subjective sentiment signals from financial media and forums.
-
-- **Weighted Sources**: News (0.5) vs. Social Media (0.3) vs. Retail Forums (0.2).
-- **Trend Velocity**: Doesn't just track absolute sentiment scores, but tracks the $t$ vs $t-1$ velocity to determine if sentiment is rapidly rising, falling, or stabilizing.
-
-### 📉 Stock Watch (`/watch`)
-
-Schedules automated summaries for specific tickers.
-
-- Utilizes the builtin `cron` skill to automate daily tracking of Prices, Technical Support/Resistance, and Catalysts.
-
-## 💬 Chat Apps
-
-Connect marketbot to your favorite chat platform.
-
-| Channel | What you need |
-|---------|---------------|
-| **Telegram** | Bot token from @BotFather |
-| **Discord** | Bot token + Message Content intent |
-| **WhatsApp** | QR code scan |
-| **Feishu** | App ID + App Secret |
-| **Mochat** | Claw token (auto-setup available) |
-| **DingTalk** | App Key + App Secret |
-| **Slack** | Bot token + App-Level token |
-| **Email** | IMAP/SMTP credentials |
-| **QQ** | App ID + App Secret |
-
-<details>
-<summary><b>Telegram</b> (Recommended)</summary>
-
-**1. Create a bot**
-
-- Open Telegram, search `@BotFather`
-- Send `/newbot`, follow prompts
-- Copy the token
-
-**2. Configure**
-
-```json
-{
-  "channels": {
-    "telegram": {
-      "enabled": true,
-      "token": "YOUR_BOT_TOKEN",
-      "allowFrom": ["YOUR_USER_ID"]
-    }
-  }
-}
+```bash
+marketbot market report --symbols NVDA,SPY --save
 ```
 
-> You can find your **User ID** in Telegram settings. It is shown as `@yourUserId`.
-> Copy this value **without the `@` symbol** and paste it into the config file.
+Useful options:
 
-**3. Run**
+- `--json`: return raw structured payload
+- `--session auto|premarket|intraday|close`
+- `--notify --notify-channel telegram --chat-id 10001`
+
+### 5. Create a recurring report heartbeat
+
+```bash
+marketbot market heartbeat-setup
+```
+
+## Core Finance Capabilities
+
+Out of the box, the built-in skills focus on a few high-value finance workflows:
+
+| Skill | What it does |
+| --- | --- |
+| `market-report` | Multi-signal market brief generation for symbols or watchlists |
+| `market-monitor` | Ongoing watch/monitor style analysis |
+| `market-discovery` | Idea generation and market scanning |
+| `news-intelligence` | News/event extraction and impact analysis |
+| `sentiment-analysis` | News and social sentiment synthesis |
+| `portfolio-analyzer` | Portfolio-level review and risk framing |
+| `stock-data-sourcing` | Market-specific data sourcing and routing guidance |
+| `risk-checklist` | Risk framing around current setups |
+| `catalyst-tracker` | Catalyst-oriented research support |
+
+Under those skills, the market toolchain includes:
+
+- `market_snapshot`
+- `market_news`
+- `market_macro`
+- `market_signal`
+- `market_brief`
+- `market_source_plan`
+- `market_event_extract`
+- `market_social_sentiment`
+- `market_fundamentals`
+- `market_chip_distribution`
+
+## Explainability and Reliability
+
+One of the main design goals is to make financial outputs inspectable.
+
+marketbot can expose:
+
+- **skill routing**: which skills were selected and which were blocked
+- **blocked reasons**: missing tools, market mismatch, asset-class mismatch, freshness mismatch
+- **data reliability**: aggregate status for snapshot/news/macro
+- **source health**: per-provider status such as `ok`, `cached`, `fallback`, or `error`
+- **route trace**: how the system routed and downgraded data access
+
+These notes appear in:
+
+- chat replies
+- saved market reports
+- notification summaries
+- outbound metadata for channels
+
+Explainability behavior is configurable per channel with:
+
+- `channels.explainabilityMode`
+- `channels.explainabilityOverrides`
+- `channels.explainabilityDelivery`
+- `channels.explainabilityDeliveryOverrides`
+
+## Channels
+
+marketbot supports:
+
+| Channel | Notes |
+| --- | --- |
+| Telegram | Full bot support via `python-telegram-bot` |
+| Slack | Socket mode |
+| Discord | REST + gateway flow |
+| Feishu | Text, rich post, and card-style output |
+| DingTalk | Stream mode |
+| Email | IMAP + SMTP |
+| WhatsApp | Bridge-based integration |
+| QQ | Bot integration |
+| Mochat | Socket.IO + HTTP |
+| Matrix | Optional extra dependency |
+
+To run as a long-lived multi-channel bot:
 
 ```bash
 marketbot gateway
 ```
 
-</details>
-
-<details>
-<summary><b>Mochat (Claw IM)</b></summary>
-
-Uses **Socket.IO WebSocket** by default, with HTTP polling fallback.
-
-**1. Ask marketbot to set up Mochat for you**
-
-Simply send this message to marketbot (replace `xxx@xxx` with your real email):
-
-```
-Read https://raw.githubusercontent.com/HKUDS/MoChat/refs/heads/main/skills/marketbot/skill.md and register on MoChat. My Email account is xxx@xxx Bind me as your owner and DM me on MoChat.
-```
-
-marketbot will automatically register, configure `~/.marketbot/config.json`, and connect to Mochat.
-
-**2. Restart gateway**
+To inspect current setup:
 
 ```bash
-marketbot gateway
+marketbot status
+marketbot channels --help
+marketbot provider --help
 ```
 
-That's it — marketbot handles the rest!
+## Development
 
-<br>
+### Run tests
 
-<details>
-<summary>Manual configuration (advanced)</summary>
-
-If you prefer to configure manually, add the following to `~/.marketbot/config.json`:
-
-> Keep `claw_token` private. It should only be sent in `X-Claw-Token` header to your Mochat API endpoint.
-
-```json
-{
-  "channels": {
-    "mochat": {
-      "enabled": true,
-      "base_url": "https://mochat.io",
-      "socket_url": "https://mochat.io",
-      "socket_path": "/socket.io",
-      "claw_token": "claw_xxx",
-      "agent_user_id": "6982abcdef",
-      "sessions": ["*"],
-      "panels": ["*"],
-      "reply_delay_mode": "non-mention",
-      "reply_delay_ms": 120000
-    }
-  }
-}
-```
-
-</details>
-
-</details>
-
-<details>
-<summary><b>Discord</b></summary>
-
-**1. Create a bot**
-
-- Go to <https://discord.com/developers/applications>
-- Create an application → Bot → Add Bot
-- Copy the bot token
-
-**2. Enable intents**
-
-- In the Bot settings, enable **MESSAGE CONTENT INTENT**
-- (Optional) Enable **SERVER MEMBERS INTENT** if you plan to use allow lists based on member data
-
-**3. Get your User ID**
-
-- Discord Settings → Advanced → enable **Developer Mode**
-- Right-click your avatar → **Copy User ID**
-
-**4. Configure**
-
-```json
-{
-  "channels": {
-    "discord": {
-      "enabled": true,
-      "token": "YOUR_BOT_TOKEN",
-      "allowFrom": ["YOUR_USER_ID"],
-      "groupPolicy": "mention"
-    }
-  }
-}
-```
-
-> `groupPolicy` controls how the bot responds in group channels:
->
-> - `"mention"` (default) — Only respond when @mentioned
-> - `"open"` — Respond to all messages
-> DMs always respond when the sender is in `allowFrom`.
-
-**5. Invite the bot**
-
-- OAuth2 → URL Generator
-- Scopes: `bot`
-- Bot Permissions: `Send Messages`, `Read Message History`
-- Open the generated invite URL and add the bot to your server
-
-**6. Run**
+Use the project test command below. `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` is intentional.
 
 ```bash
-marketbot gateway
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin
 ```
 
-</details>
-
-<details>
-<summary><b>Matrix (Element)</b></summary>
-
-Install Matrix dependencies first:
-
-```bash
-pip install marketbot-ai[matrix]
-```
-
-**1. Create/choose a Matrix account**
-
-- Create or reuse a Matrix account on your homeserver (for example `matrix.org`).
-- Confirm you can log in with Element.
-
-**2. Get credentials**
-
-- You need:
-  - `userId` (example: `@marketbot:matrix.org`)
-  - `accessToken`
-  - `deviceId` (recommended so sync tokens can be restored across restarts)
-- You can obtain these from your homeserver login API (`/_matrix/client/v3/login`) or from your client's advanced session settings.
-
-**3. Configure**
-
-```json
-{
-  "channels": {
-    "matrix": {
-      "enabled": true,
-      "homeserver": "https://matrix.org",
-      "userId": "@marketbot:matrix.org",
-      "accessToken": "syt_xxx",
-      "deviceId": "MARKETBOT01",
-      "e2eeEnabled": true,
-      "allowFrom": ["@your_user:matrix.org"],
-      "groupPolicy": "open",
-      "groupAllowFrom": [],
-      "allowRoomMentions": false,
-      "maxMediaBytes": 20971520
-    }
-  }
-}
-```
-
-> Keep a persistent `matrix-store` and stable `deviceId` — encrypted session state is lost if these change across restarts.
-
-| Option | Description |
-|--------|-------------|
-| `allowFrom` | User IDs allowed to interact. Empty = all senders. |
-| `groupPolicy` | `open` (default), `mention`, or `allowlist`. |
-| `groupAllowFrom` | Room allowlist (used when policy is `allowlist`). |
-| `allowRoomMentions` | Accept `@room` mentions in mention mode. |
-| `e2eeEnabled` | E2EE support (default `true`). Set `false` for plaintext-only. |
-| `maxMediaBytes` | Max attachment size (default `20MB`). Set `0` to block all media. |
-
-**4. Run**
-
-```bash
-marketbot gateway
-```
-
-</details>
-
-<details>
-<summary><b>WhatsApp</b></summary>
-
-Requires **Node.js ≥18**.
-
-**1. Link device**
-
-```bash
-marketbot channels login
-# Scan QR with WhatsApp → Settings → Linked Devices
-```
-
-**2. Configure**
-
-```json
-{
-  "channels": {
-    "whatsapp": {
-      "enabled": true,
-      "allowFrom": ["+1234567890"]
-    }
-  }
-}
-```
-
-**3. Run** (two terminals)
-
-```bash
-# Terminal 1
-marketbot channels login
-
-# Terminal 2
-marketbot gateway
-```
-
-> WhatsApp bridge updates are not applied automatically for existing installations.
-> If you upgrade marketbot and need the latest WhatsApp bridge, run:
-> `rm -rf ~/.marketbot/bridge && marketbot channels login`
-
-</details>
-
-<details>
-<summary><b>Feishu (飞书)</b></summary>
-
-Uses **WebSocket** long connection — no public IP required.
-
-**1. Create a Feishu bot**
-
-- Visit [Feishu Open Platform](https://open.feishu.cn/app)
-- Create a new app → Enable **Bot** capability
-- **Permissions**: Add `im:message` (send messages) and `im:message.p2p_msg:readonly` (receive messages)
-- **Events**: Add `im.message.receive_v1` (receive messages)
-  - Select **Long Connection** mode (requires running marketbot first to establish connection)
-- Get **App ID** and **App Secret** from "Credentials & Basic Info"
-- Publish the app
-
-**2. Configure**
-
-```json
-{
-  "channels": {
-    "feishu": {
-      "enabled": true,
-      "appId": "cli_xxx",
-      "appSecret": "xxx",
-      "encryptKey": "",
-      "verificationToken": "",
-      "allowFrom": ["ou_YOUR_OPEN_ID"]
-    }
-  }
-}
-```
-
-> `encryptKey` and `verificationToken` are optional for Long Connection mode.
-> `allowFrom`: Add your open_id (find it in marketbot logs when you message the bot). Use `["*"]` to allow all users.
-
-**3. Run**
-
-```bash
-marketbot gateway
-```
-
-> [!TIP]
-> Feishu uses WebSocket to receive messages — no webhook or public IP needed!
-
-</details>
-
-<details>
-<summary><b>QQ (QQ单聊)</b></summary>
-
-Uses **botpy SDK** with WebSocket — no public IP required. Currently supports **private messages only**.
-
-**1. Register & create bot**
-
-- Visit [QQ Open Platform](https://q.qq.com) → Register as a developer (personal or enterprise)
-- Create a new bot application
-- Go to **开发设置 (Developer Settings)** → copy **AppID** and **AppSecret**
-
-**2. Set up sandbox for testing**
-
-- In the bot management console, find **沙箱配置 (Sandbox Config)**
-- Under **在消息列表配置**, click **添加成员** and add your own QQ number
-- Once added, scan the bot's QR code with mobile QQ → open the bot profile → tap "发消息" to start chatting
-
-**3. Configure**
-
-> - `allowFrom`: Add your openid (find it in marketbot logs when you message the bot). Use `["*"]` for public access.
-> - For production: submit a review in the bot console and publish. See [QQ Bot Docs](https://bot.q.qq.com/wiki/) for the full publishing flow.
-
-```json
-{
-  "channels": {
-    "qq": {
-      "enabled": true,
-      "appId": "YOUR_APP_ID",
-      "secret": "YOUR_APP_SECRET",
-      "allowFrom": ["YOUR_OPENID"]
-    }
-  }
-}
-```
-
-**4. Run**
-
-```bash
-marketbot gateway
-```
-
-Now send a message to the bot from QQ — it should respond!
-
-</details>
-
-<details>
-<summary><b>DingTalk (钉钉)</b></summary>
-
-Uses **Stream Mode** — no public IP required.
-
-**1. Create a DingTalk bot**
-
-- Visit [DingTalk Open Platform](https://open-dev.dingtalk.com/)
-- Create a new app -> Add **Robot** capability
-- **Configuration**:
-  - Toggle **Stream Mode** ON
-- **Permissions**: Add necessary permissions for sending messages
-- Get **AppKey** (Client ID) and **AppSecret** (Client Secret) from "Credentials"
-- Publish the app
-
-**2. Configure**
-
-```json
-{
-  "channels": {
-    "dingtalk": {
-      "enabled": true,
-      "clientId": "YOUR_APP_KEY",
-      "clientSecret": "YOUR_APP_SECRET",
-      "allowFrom": ["YOUR_STAFF_ID"]
-    }
-  }
-}
-```
-
-> `allowFrom`: Add your staff ID. Use `["*"]` to allow all users.
-
-**3. Run**
-
-```bash
-marketbot gateway
-```
-
-</details>
-
-<details>
-<summary><b>Slack</b></summary>
-
-Uses **Socket Mode** — no public URL required.
-
-**1. Create a Slack app**
-
-- Go to [Slack API](https://api.slack.com/apps) → **Create New App** → "From scratch"
-- Pick a name and select your workspace
-
-**2. Configure the app**
-
-- **Socket Mode**: Toggle ON → Generate an **App-Level Token** with `connections:write` scope → copy it (`xapp-...`)
-- **OAuth & Permissions**: Add bot scopes: `chat:write`, `reactions:write`, `app_mentions:read`
-- **Event Subscriptions**: Toggle ON → Subscribe to bot events: `message.im`, `message.channels`, `app_mention` → Save Changes
-- **App Home**: Scroll to **Show Tabs** → Enable **Messages Tab** → Check **"Allow users to send Slash commands and messages from the messages tab"**
-- **Install App**: Click **Install to Workspace** → Authorize → copy the **Bot Token** (`xoxb-...`)
-
-**3. Configure marketbot**
-
-```json
-{
-  "channels": {
-    "slack": {
-      "enabled": true,
-      "botToken": "xoxb-...",
-      "appToken": "xapp-...",
-      "allowFrom": ["YOUR_SLACK_USER_ID"],
-      "groupPolicy": "mention"
-    }
-  }
-}
-```
-
-**4. Run**
-
-```bash
-marketbot gateway
-```
-
-DM the bot directly or @mention it in a channel — it should respond!
-
-> [!TIP]
->
-> - `groupPolicy`: `"mention"` (default — respond only when @mentioned), `"open"` (respond to all channel messages), or `"allowlist"` (restrict to specific channels).
-> - DM policy defaults to open. Set `"dm": {"enabled": false}` to disable DMs.
-
-</details>
-
-<details>
-<summary><b>Email</b></summary>
-
-Give marketbot its own email account. It polls **IMAP** for incoming mail and replies via **SMTP** — like a personal email assistant.
-
-**1. Get credentials (Gmail example)**
-
-- Create a dedicated Gmail account for your bot (e.g. `my-marketbot@gmail.com`)
-- Enable 2-Step Verification → Create an [App Password](https://myaccount.google.com/apppasswords)
-- Use this app password for both IMAP and SMTP
-
-**2. Configure**
-
-> - `consentGranted` must be `true` to allow mailbox access. This is a safety gate — set `false` to fully disable.
-> - `allowFrom`: Add your email address. Use `["*"]` to accept emails from anyone.
-> - `smtpUseTls` and `smtpUseSsl` default to `true` / `false` respectively, which is correct for Gmail (port 587 + STARTTLS). No need to set them explicitly.
-> - Set `"autoReplyEnabled": false` if you only want to read/analyze emails without sending automatic replies.
-
-```json
-{
-  "channels": {
-    "email": {
-      "enabled": true,
-      "consentGranted": true,
-      "imapHost": "imap.gmail.com",
-      "imapPort": 993,
-      "imapUsername": "my-marketbot@gmail.com",
-      "imapPassword": "your-app-password",
-      "smtpHost": "smtp.gmail.com",
-      "smtpPort": 587,
-      "smtpUsername": "my-marketbot@gmail.com",
-      "smtpPassword": "your-app-password",
-      "fromAddress": "my-marketbot@gmail.com",
-      "allowFrom": ["your-real-email@gmail.com"]
-    }
-  }
-}
-```
-
-**3. Run**
-
-```bash
-marketbot gateway
-```
-
-</details>
-
-## 🌐 Agent Social Network
-
-🐂 marketbot is capable of linking to the agent social network (agent community). **Just send one message and your marketbot joins automatically!**
-
-| Platform | How to Join (send this message to your bot) |
-|----------|-------------|
-| [**Moltbook**](https://www.moltbook.com/) | `Read https://moltbook.com/skill.md and follow the instructions to join Moltbook` |
-| [**ClawdChat**](https://clawdchat.ai/) | `Read https://clawdchat.ai/skill.md and follow the instructions to join ClawdChat` |
-
-Simply send the command above to your marketbot (via CLI or any chat channel), and it will handle the rest.
-
-## ⚙️ Configuration
-
-Config file: `~/.marketbot/config.json`
-
-### Providers
-
-> [!TIP]
->
-> - **Groq** provides free voice transcription via Whisper. If configured, Telegram voice messages will be automatically transcribed.
-> - **Zhipu Coding Plan**: If you're on Zhipu's coding plan, set `"apiBase": "https://open.bigmodel.cn/api/coding/paas/v4"` in your zhipu provider config.
-> - **MiniMax (Mainland China)**: If your API key is from MiniMax's mainland China platform (minimaxi.com), set `"apiBase": "https://api.minimaxi.com/v1"` in your minimax provider config.
-> - **VolcEngine Coding Plan**: If you're on VolcEngine's coding plan, set `"apiBase": "https://ark.cn-beijing.volces.com/api/coding/v3"` in your volcengine provider config.
-> - **Alibaba Cloud Coding Plan**: If you're on the Alibaba Cloud Coding Plan (BaiLian), set `"apiBase": "https://coding.dashscope.aliyuncs.com/v1"` in your dashscope provider config.
-
-| Provider | Purpose | Get API Key |
-|----------|---------|-------------|
-| `custom` | Any OpenAI-compatible endpoint (direct, no LiteLLM) | — |
-| `openrouter` | LLM (recommended, access to all models) | [openrouter.ai](https://openrouter.ai) |
-| `anthropic` | LLM (Claude direct) | [console.anthropic.com](https://console.anthropic.com) |
-| `azure_openai` | LLM (Azure OpenAI) | [portal.azure.com](https://portal.azure.com) |
-| `openai` | LLM (GPT direct) | [platform.openai.com](https://platform.openai.com) |
-| `deepseek` | LLM (DeepSeek direct) | [platform.deepseek.com](https://platform.deepseek.com) |
-| `groq` | LLM + **Voice transcription** (Whisper) | [console.groq.com](https://console.groq.com) |
-| `gemini` | LLM (Gemini direct) | [aistudio.google.com](https://aistudio.google.com) |
-| `minimax` | LLM (MiniMax direct) | [platform.minimaxi.com](https://platform.minimaxi.com) |
-| `aihubmix` | LLM (API gateway, access to all models) | [aihubmix.com](https://aihubmix.com) |
-| `siliconflow` | LLM (SiliconFlow/硅基流动) | [siliconflow.cn](https://siliconflow.cn) |
-| `volcengine` | LLM (VolcEngine/火山引擎) | [volcengine.com](https://www.volcengine.com) |
-| `dashscope` | LLM (Qwen) | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com) |
-| `moonshot` | LLM (Moonshot/Kimi) | [platform.moonshot.cn](https://platform.moonshot.cn) |
-| `zhipu` | LLM (Zhipu GLM) | [open.bigmodel.cn](https://open.bigmodel.cn) |
-| `vllm` | LLM (local, any OpenAI-compatible server) | — |
-| `openai_codex` | LLM (Codex, OAuth) | `marketbot provider login openai-codex` |
-| `github_copilot` | LLM (GitHub Copilot, OAuth) | `marketbot provider login github-copilot` |
-
-<details>
-<summary><b>OpenAI Codex (OAuth)</b></summary>
-
-Codex uses OAuth instead of API keys. Requires a ChatGPT Plus or Pro account.
-
-**1. Login:**
-
-```bash
-marketbot provider login openai-codex
-```
-
-**2. Set model** (merge into `~/.marketbot/config.json`):
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": "openai-codex/gpt-5.1-codex"
-    }
-  }
-}
-```
-
-**3. Chat:**
-
-```bash
-marketbot agent -m "Hello!"
-```
-
-> Docker users: use `docker run -it` for interactive OAuth login.
-
-</details>
-
-<details>
-<summary><b>Custom Provider (Any OpenAI-compatible API)</b></summary>
-
-Connects directly to any OpenAI-compatible endpoint — LM Studio, llama.cpp, Together AI, Fireworks, Azure OpenAI, or any self-hosted server. Bypasses LiteLLM; model name is passed as-is.
-
-```json
-{
-  "providers": {
-    "custom": {
-      "apiKey": "your-api-key",
-      "apiBase": "https://api.your-provider.com/v1"
-    }
-  },
-  "agents": {
-    "defaults": {
-      "model": "your-model-name"
-    }
-  }
-}
-```
-
-> For local servers that don't require a key, set `apiKey` to any non-empty string (e.g. `"no-key"`).
-
-</details>
-
-<details>
-<summary><b>vLLM (local / OpenAI-compatible)</b></summary>
-
-Run your own model with vLLM or any OpenAI-compatible server, then add to config:
-
-**1. Start the server** (example):
-
-```bash
-vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
-```
-
-**2. Add to config** (partial — merge into `~/.marketbot/config.json`):
-
-*Provider (key can be any non-empty string for local):*
-
-```json
-{
-  "providers": {
-    "vllm": {
-      "apiKey": "dummy",
-      "apiBase": "http://localhost:8000/v1"
-    }
-  }
-}
-```
-
-*Model:*
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": "meta-llama/Llama-3.1-8B-Instruct"
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>Adding a New Provider (Developer Guide)</b></summary>
-
-marketbot uses a **Provider Registry** (`marketbot/providers/registry.py`) as the single source of truth.
-Adding a new provider only takes **2 steps** — no if-elif chains to touch.
-
-**Step 1.** Add a `ProviderSpec` entry to `PROVIDERS` in `marketbot/providers/registry.py`:
-
-```python
-ProviderSpec(
-    name="myprovider",                   # config field name
-    keywords=("myprovider", "mymodel"),  # model-name keywords for auto-matching
-    env_key="MYPROVIDER_API_KEY",        # env var for LiteLLM
-    display_name="My Provider",          # shown in `marketbot status`
-    litellm_prefix="myprovider",         # auto-prefix: model → myprovider/model
-    skip_prefixes=("myprovider/",),      # don't double-prefix
-)
-```
-
-**Step 2.** Add a field to `ProvidersConfig` in `marketbot/config/schema.py`:
-
-```python
-class ProvidersConfig(BaseModel):
-    ...
-    myprovider: ProviderConfig = ProviderConfig()
-```
-
-That's it! Environment variables, model prefixing, config matching, and `marketbot status` display will all work automatically.
-
-**Common `ProviderSpec` options:**
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `litellm_prefix` | Auto-prefix model names for LiteLLM | `"dashscope"` → `dashscope/qwen-max` |
-| `skip_prefixes` | Don't prefix if model already starts with these | `("dashscope/", "openrouter/")` |
-| `env_extras` | Additional env vars to set | `(("ZHIPUAI_API_KEY", "{api_key}"),)` |
-| `model_overrides` | Per-model parameter overrides | `(("kimi-k2.5", {"temperature": 1.0}),)` |
-| `is_gateway` | Can route any model (like OpenRouter) | `True` |
-| `detect_by_key_prefix` | Detect gateway by API key prefix | `"sk-or-"` |
-| `detect_by_base_keyword` | Detect gateway by API base URL | `"openrouter"` |
-| `strip_model_prefix` | Strip existing prefix before re-prefixing | `True` (for AiHubMix) |
-
-</details>
-
-### MCP (Model Context Protocol)
-
-> [!TIP]
-> The config format is compatible with Claude Desktop / Cursor. You can copy MCP server configs directly from any MCP server's README.
-
-marketbot supports [MCP](https://modelcontextprotocol.io/) — connect external tool servers and use them as native agent tools.
-
-Add MCP servers to your `config.json`:
-
-```json
-{
-  "tools": {
-    "mcpServers": {
-      "filesystem": {
-        "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]
-      },
-      "my-remote-mcp": {
-        "url": "https://example.com/mcp/",
-        "headers": {
-          "Authorization": "Bearer xxxxx"
-        }
-      }
-    }
-  }
-}
-```
-
-Two transport modes are supported:
-
-| Mode | Config | Example |
-|------|--------|---------|
-| **Stdio** | `command` + `args` | Local process via `npx` / `uvx` |
-| **HTTP** | `url` + `headers` (optional) | Remote endpoint (`https://mcp.example.com/sse`) |
-
-Use `toolTimeout` to override the default 30s per-call timeout for slow servers:
-
-```json
-{
-  "tools": {
-    "mcpServers": {
-      "my-slow-server": {
-        "url": "https://example.com/mcp/",
-        "toolTimeout": 120
-      }
-    }
-  }
-}
-```
-
-MCP tools are automatically discovered and registered on startup. The LLM can use them alongside built-in tools — no extra configuration needed.
-
-### Security
-
-> [!TIP]
-> For production deployments, set `"restrictToWorkspace": true` in your config to sandbox the agent.
-> **Change in source / post-`v0.1.4.post3`:** In `v0.1.4.post3` and earlier, an empty `allowFrom` means "allow all senders". In newer versions (including building from source), **empty `allowFrom` denies all access by default**. To allow all senders, set `"allowFrom": ["*"]`.
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `tools.restrictToWorkspace` | `false` | When `true`, restricts **all** agent tools (shell, file read/write/edit, list) to the workspace directory. Prevents path traversal and out-of-scope access. |
-| `tools.exec.pathAppend` | `""` | Extra directories to append to `PATH` when running shell commands (e.g. `/usr/sbin` for `ufw`). |
-| `channels.*.allowFrom` | `[]` (allow all) | Whitelist of user IDs. Empty = allow everyone; non-empty = only listed users can interact. |
-
-## Multiple Instances
-
-Run multiple marketbot instances simultaneously, each with its own workspace and configuration.
-
-```bash
-# Instance A - Telegram bot
-marketbot gateway -w ~/.marketbot/botA -p 18791
-
-# Instance B - Discord bot
-marketbot gateway -w ~/.marketbot/botB -p 18792
-
-# Instance C - Using custom config file
-marketbot gateway -w ~/.marketbot/botC -c ~/.marketbot/botC/config.json -p 18793
-```
-
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--workspace` | `-w` | Workspace directory (default: `~/.marketbot/workspace`) |
-| `--config` | `-c` | Config file path (default: `~/.marketbot/config.json`) |
-| `--port` | `-p` | Gateway port (default: `18790`) |
-
-Each instance has its own:
-
-- Workspace directory (MEMORY.md, HEARTBEAT.md, session files)
-- Cron jobs storage (`workspace/cron/jobs.json`)
-- Configuration (if using `--config`)
-
-## CLI Reference
-
-| Command | Description |
-|---------|-------------|
-| `marketbot onboard` | Initialize config & workspace |
-| `marketbot agent -m "..."` | Chat with the agent |
-| `marketbot agent` | Interactive chat mode |
-| `marketbot agent --no-markdown` | Show plain-text replies |
-| `marketbot agent --logs` | Show runtime logs during chat |
-| `marketbot gateway` | Start the gateway |
-| `marketbot status` | Show status |
-| `marketbot provider login openai-codex` | OAuth login for providers |
-| `marketbot channels login` | Link WhatsApp (scan QR) |
-| `marketbot channels status` | Show channel status |
-
-Interactive mode exits: `exit`, `quit`, `/exit`, `/quit`, `:q`, or `Ctrl+D`.
-
-<details>
-<summary><b>Heartbeat (Periodic Tasks)</b></summary>
-
-The gateway wakes up every 30 minutes and checks `HEARTBEAT.md` in your workspace (`~/.marketbot/workspace/HEARTBEAT.md`). If the file has tasks, the agent executes them and delivers results to your most recently active chat channel.
-
-**Setup:** edit `~/.marketbot/workspace/HEARTBEAT.md` (created automatically by `marketbot onboard`):
-
-```markdown
-## Periodic Tasks
-
-- [ ] Check weather forecast and send a summary
-- [ ] Scan inbox for urgent emails
-```
-
-The agent can also manage this file itself — ask it to "add a periodic task" and it will update `HEARTBEAT.md` for you.
-
-> **Note:** The gateway must be running (`marketbot gateway`) and you must have chatted with the bot at least once so it knows which channel to deliver to.
-
-</details>
-
-## 🐳 Docker
-
-> [!TIP]
-> The `-v ~/.marketbot:/root/.marketbot` flag mounts your local config directory into the container, so your config and workspace persist across container restarts.
-
-### Docker Compose
-
-```bash
-docker compose run --rm marketbot-cli onboard   # first-time setup
-vim ~/.marketbot/config.json                     # add API keys
-docker compose up -d marketbot-gateway           # start gateway
-```
-
-```bash
-docker compose run --rm marketbot-cli agent -m "Hello!"   # run CLI
-docker compose logs -f marketbot-gateway                   # view logs
-docker compose down                                      # stop
-```
-
-### Docker
-
-```bash
-# Build the image
-docker build -t marketbot .
-
-# Initialize config (first time only)
-docker run -v ~/.marketbot:/root/.marketbot --rm marketbot onboard
-
-# Edit config on host to add API keys
-vim ~/.marketbot/config.json
-
-# Run gateway (connects to enabled channels, e.g. Telegram/Discord/Mochat)
-docker run -v ~/.marketbot:/root/.marketbot -p 18790:18790 marketbot gateway
-
-# Or run a single command
-docker run -v ~/.marketbot:/root/.marketbot --rm marketbot agent -m "Hello!"
-docker run -v ~/.marketbot:/root/.marketbot --rm marketbot status
-```
-
-## 🐧 Linux Service
-
-Run the gateway as a systemd user service so it starts automatically and restarts on failure.
-
-**1. Find the marketbot binary path:**
-
-```bash
-which marketbot   # e.g. /home/user/.local/bin/marketbot
-```
-
-**2. Create the service file** at `~/.config/systemd/user/marketbot-gateway.service` (replace `ExecStart` path if needed):
-
-```ini
-[Unit]
-Description=Marketbot Gateway
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=%h/.local/bin/marketbot gateway
-Restart=always
-RestartSec=10
-NoNewPrivileges=yes
-ProtectSystem=strict
-ReadWritePaths=%h
-
-[Install]
-WantedBy=default.target
-```
-
-**3. Enable and start:**
-
-```bash
-systemctl --user daemon-reload
-systemctl --user enable --now marketbot-gateway
-```
-
-**Common operations:**
-
-```bash
-systemctl --user status marketbot-gateway        # check status
-systemctl --user restart marketbot-gateway       # restart after config changes
-journalctl --user -u marketbot-gateway -f        # follow logs
-```
-
-If you edit the `.service` file itself, run `systemctl --user daemon-reload` before restarting.
-
-> **Note:** User services only run while you are logged in. To keep the gateway running after logout, enable lingering:
->
-> ```bash
-> loginctl enable-linger $USER
-> ```
-
-## 📁 Project Structure
-
-```
-marketbot/
-├── agent/          # 🧠 Core agent logic
-│   ├── loop.py     #    Agent loop (LLM ↔ tool execution)
-│   ├── context.py  #    Prompt builder
-│   ├── memory.py   #    Persistent memory
-│   ├── skills.py   #    Skills loader
-│   ├── subagent.py #    Background task execution
-│   └── tools/      #    Built-in tools (incl. spawn)
-├── skills/         # 🎯 Bundled skills (market-discovery, portfolio-analyzer, sentiment-analysis...)
-├── channels/       # 📱 Chat channel integrations
-├── bus/            # 🚌 Message routing
-├── cron/           # ⏰ Scheduled tasks
-├── heartbeat/      # 💓 Proactive wake-up
-├── providers/      # 🐂 LLM providers (OpenRouter, etc.)
-├── session/        # 💬 Conversation sessions
-├── config/         # ⚙️ Configuration
-└── cli/            # 🖥️ Commands
-```
-
-## 🤝 Contribute & Roadmap
-
-PRs welcome! The codebase is intentionally small and readable. 🤗
-
-**Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/marketbot/pulls)!
-
-- [ ] **Multi-modal** — See and hear (images, voice, video)
-- [ ] **Long-term memory** — Never forget important context
-- [ ] **Better reasoning** — Multi-step planning and reflection
-- [ ] **More integrations** — Calendar and more
-- [ ] **Self-improvement** — Learn from feedback and mistakes
-
-### Contributors
-
-<a href="https://github.com/HKUDS/marketbot/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=HKUDS/marketbot&max=100&columns=12&updated=20260210" alt="Contributors" />
-</a>
-
-<p align="center">
-  <em> Thanks for visiting ✨ marketbot!</em><br><br>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.marketbot&style=for-the-badge&color=00d4ff" alt="Views">
-</p>
-
-<p align="center">
-  <sub>marketbot is for educational, research, and technical exchange purposes only</sub>
-</p>
+### Useful directories
+
+| Path | Purpose |
+| --- | --- |
+| `marketbot/agent/` | runtime loop, context, session processing |
+| `marketbot/runtime/` | tool bootstrap and runtime wiring |
+| `marketbot/domain/market/` | market services, plugins, runtime capability profile |
+| `marketbot/skills/` | built-in skills and skill metadata |
+| `marketbot/channels/` | chat adapters |
+| `marketbot/cache/` | market cache |
+| `marketbot/market_reporting.py` | report rendering and explainability output |
+| `tests/` | regression coverage |
+
+### Adding a new finance capability
+
+Typical path:
+
+1. add or update a skill in `marketbot/skills/<name>/SKILL.md`
+2. declare metadata for triggers, output, risk, freshness, markets, asset classes, and required tools
+3. extend market-domain services if you need new normalized data access
+4. expose or adapt a tool if the skill needs a new atomic capability
+5. add routing, contract, and report tests
+
+## License
+
+MIT

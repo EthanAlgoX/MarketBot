@@ -137,7 +137,7 @@ class EmailChannel(BaseChannel):
         email_msg["From"] = self.config.from_address or self.config.smtp_username or self.config.imap_username
         email_msg["To"] = to_addr
         email_msg["Subject"] = subject
-        email_msg.set_content(msg.content or "")
+        email_msg.set_content(self.render_outbound_content(msg) or "")
 
         in_reply_to = self._last_message_id_by_chat.get(to_addr)
         if in_reply_to:

@@ -17,7 +17,7 @@ from marketbot.agent.tools.market import (
     MarketSourcePlanTool,
 )
 from marketbot.bus.queue import MessageBus
-from marketbot.config.schema import MarketToolsConfig
+from marketbot.config.schema import ChannelsConfig, MarketToolsConfig
 from marketbot.domain.market.services import MarketSnapshotService
 from marketbot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
@@ -544,6 +544,8 @@ def test_agent_loop_appends_chat_explainability_footer_for_market_brief(tmp_path
     assert "## Capability & Data Notes" in result.content
     assert "Skills used:" in result.content
     assert "Data reliability: ok" in result.content
+    assert result.metadata["explainability"]["delivery"] == "inline"
+    assert "## Capability & Data Notes" in result.metadata["explainability"]["inline_footer"]
 
 
 def test_agent_loop_uses_compact_chat_explainability_for_telegram(tmp_path, monkeypatch) -> None:
@@ -575,6 +577,127 @@ def test_agent_loop_uses_compact_chat_explainability_for_telegram(tmp_path, monk
     )
 
     assert result is not None
-    assert "## Capability & Data Notes" not in result.content
-    assert "_Capability & Data_: Skills:" in result.content
-    assert "Reliability: ok" in result.content
+    assert result.content == "Telegram analysis."
+    assert result.metadata["explainability"]["delivery"] == "inline"
+    assert result.metadata["explainability"]["mode"] == "auto"
+    assert result.metadata["explainability"]["inline_footer"] == "_Capability & Data_: Skills: market-report | Reliability: ok"
+
+
+def test_agent_loop_respects_global_explainability_off(tmp_path, monkeypatch) -> None:
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+        channels_config=ChannelsConfig(explainability_mode="off"),
+    )
+    tool_call = ToolCallRequest(
+        id="call1",
+        name="market_brief",
+        arguments={"symbols": ["NVDA"]},
+    )
+    responses = iter([
+        LLMResponse(content="", tool_calls=[tool_call]),
+        LLMResponse(content="No footer, please.", tool_calls=[]),
+    ])
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+
+    payload = {
+        "briefMarkdown": "## Market Brief\n\n- NVDA: BUY",
+        "dataReliability": {"overallStatus": "ok"},
+    }
+    monkeypatch.setattr(loop.tools.get("market_brief"), "execute", AsyncMock(return_value=json.dumps(payload)))
+
+    result = _run(loop._process_message(InboundMessage(channel="cli", sender_id="user", chat_id="direct", content="Analyze NVDA swing setup.")))
+
+    assert result is not None
+    assert result.content == "No footer, please."
+    assert result.metadata["explainability"]["mode"] == "off"
+
+
+def test_agent_loop_respects_channel_explainability_override(tmp_path, monkeypatch) -> None:
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+        channels_config=ChannelsConfig(
+            explainability_mode="off",
+            explainability_overrides={"telegram": "full"},
+        ),
+    )
+    tool_call = ToolCallRequest(
+        id="call1",
+        name="market_brief",
+        arguments={"symbols": ["NVDA"]},
+    )
+    responses = iter([
+        LLMResponse(content="", tool_calls=[tool_call]),
+        LLMResponse(content="Telegram analysis with override.", tool_calls=[]),
+    ])
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+
+    payload = {
+        "briefMarkdown": "## Market Brief\n\n- NVDA: BUY",
+        "dataReliability": {"overallStatus": "ok"},
+    }
+    monkeypatch.setattr(loop.tools.get("market_brief"), "execute", AsyncMock(return_value=json.dumps(payload)))
+
+    result = _run(
+        loop._process_message(
+            InboundMessage(
+                channel="telegram",
+                sender_id="user",
+                chat_id="10001",
+                content="Analyze NVDA swing setup.",
+            )
+        )
+    )
+
+    assert result is not None
+    assert result.content == "Telegram analysis with override."
+    assert result.metadata["explainability"]["mode"] == "full"
+    assert "## Capability & Data Notes" in result.metadata["explainability"]["inline_footer"]
+    assert "_Capability & Data_:" not in result.metadata["explainability"]["inline_footer"]
+
+
+def test_agent_loop_respects_metadata_only_explainability_delivery(tmp_path, monkeypatch) -> None:
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+        channels_config=ChannelsConfig(explainability_delivery="metadata"),
+    )
+    tool_call = ToolCallRequest(
+        id="call1",
+        name="market_brief",
+        arguments={"symbols": ["NVDA"]},
+    )
+    responses = iter([
+        LLMResponse(content="", tool_calls=[tool_call]),
+        LLMResponse(content="Telegram analysis with metadata delivery.", tool_calls=[]),
+    ])
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+
+    payload = {
+        "briefMarkdown": "## Market Brief\n\n- NVDA: BUY",
+        "dataReliability": {"overallStatus": "ok"},
+    }
+    monkeypatch.setattr(loop.tools.get("market_brief"), "execute", AsyncMock(return_value=json.dumps(payload)))
+
+    result = _run(
+        loop._process_message(
+            InboundMessage(
+                channel="telegram",
+                sender_id="user",
+                chat_id="10001",
+                content="Analyze NVDA swing setup.",
+            )
+        )
+    )
+
+    assert result is not None
+    assert result.content == "Telegram analysis with metadata delivery."
+    assert result.metadata["explainability"]["delivery"] == "metadata"
+    assert result.metadata["explainability"]["inline_footer"] == "_Capability & Data_: Skills: market-report | Reliability: ok"

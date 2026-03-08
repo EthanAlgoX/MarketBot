@@ -58,6 +58,24 @@ class BaseChannel(ABC):
         """
         pass
 
+    def render_outbound_content(self, msg: OutboundMessage) -> str:
+        """Compose final text content, optionally inlining explainability notes."""
+        text = msg.content or ""
+        if not text:
+            return text
+        meta = msg.metadata or {}
+        if meta.get("_progress"):
+            return text
+        explainability = meta.get("explainability")
+        if not isinstance(explainability, dict):
+            return text
+        if str(explainability.get("delivery", "")).strip().lower() != "inline":
+            return text
+        footer = str(explainability.get("inline_footer", "")).strip()
+        if not footer or footer in text:
+            return text
+        return f"{text.rstrip()}\n\n{footer}"
+
     def is_allowed(self, sender_id: str) -> bool:
         """Check if *sender_id* is permitted.  Empty list → deny all; ``"*"`` → allow all."""
         allow_list = getattr(self.config, "allow_from", [])

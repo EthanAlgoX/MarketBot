@@ -231,3 +231,32 @@ def test_render_chat_explainability_footer_is_channel_aware() -> None:
 
     assert "## Capability & Data Notes" in generic
     assert telegram == "_Capability & Data_: Skills: market-report, catalyst-tracker | Reliability: ok"
+
+
+def test_render_chat_explainability_footer_respects_explicit_mode() -> None:
+    payload = {"dataReliability": {"overallStatus": "ok", "components": {}}}
+    skill_routing = {"selected": [{"name": "market-report"}, {"name": "catalyst-tracker"}], "blocked": []}
+
+    full = render_chat_explainability_footer_for_channel(
+        payload,
+        skill_routing=skill_routing,
+        channel="telegram",
+        mode="full",
+    )
+    summary = render_chat_explainability_footer_for_channel(
+        payload,
+        skill_routing=skill_routing,
+        channel="cli",
+        mode="summary",
+    )
+    disabled = render_chat_explainability_footer_for_channel(
+        payload,
+        skill_routing=skill_routing,
+        channel="cli",
+        mode="off",
+    )
+
+    assert "## Capability & Data Notes" in full
+    assert "Skills used: market-report, catalyst-tracker" in full
+    assert summary == "_Capability & Data_: Skills: market-report, catalyst-tracker | Reliability: ok"
+    assert disabled == ""

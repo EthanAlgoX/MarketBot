@@ -310,10 +310,17 @@ def render_chat_explainability_footer_for_channel(
     *,
     skill_routing: dict | None = None,
     channel: str = "generic",
+    mode: str = "auto",
 ) -> str:
     """Render channel-aware explainability notes for chat replies."""
+    resolved_mode = (mode or "auto").strip().lower()
     channel_key = channel.strip().lower()
-    if channel_key in {"telegram", "slack", "whatsapp", "qq", "dingtalk", "feishu", "mochat"}:
+    if resolved_mode == "off":
+        return ""
+    if resolved_mode == "summary" or (
+        resolved_mode == "auto"
+        and channel_key in {"telegram", "slack", "whatsapp", "qq", "dingtalk", "feishu", "mochat"}
+    ):
         summary = render_analysis_explainability_summary(payload, skill_routing=skill_routing)
         return f"_Capability & Data_: {summary}" if summary else ""
 

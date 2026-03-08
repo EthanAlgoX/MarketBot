@@ -301,7 +301,8 @@ class MochatChannel(BaseChannel):
             logger.warning("Mochat claw_token missing, skip send")
             return
 
-        parts = ([msg.content.strip()] if msg.content and msg.content.strip() else [])
+        text = self.render_outbound_content(msg)
+        parts = ([text.strip()] if text and text.strip() else [])
         if msg.media:
             parts.extend(m for m in msg.media if isinstance(m, str) and m.strip())
         content = "\n".join(parts).strip()

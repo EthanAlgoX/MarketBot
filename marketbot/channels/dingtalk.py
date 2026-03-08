@@ -401,8 +401,9 @@ class DingTalkChannel(BaseChannel):
         if not token:
             return
 
-        if msg.content and msg.content.strip():
-            await self._send_markdown_text(token, msg.chat_id, msg.content.strip())
+        text = self.render_outbound_content(msg)
+        if text and text.strip():
+            await self._send_markdown_text(token, msg.chat_id, text.strip())
 
         for media_ref in msg.media or []:
             ok = await self._send_media_ref(token, msg.chat_id, media_ref)

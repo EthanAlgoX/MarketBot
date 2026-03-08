@@ -21,7 +21,11 @@ from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.bus.queue import MessageBus
 from marketbot.domain.market import MarketDomainPlugin, build_market_runtime_profile
-from marketbot.market_reporting import render_chat_explainability_footer_for_channel
+from marketbot.market_reporting import (
+    render_analysis_explainability,
+    render_analysis_explainability_summary,
+    render_chat_explainability_footer_for_channel,
+)
 from marketbot.providers.base import LLMProvider
 from marketbot.runtime.bootstrap import ToolBootstrapContext, register_core_tools
 from marketbot.session.manager import Session, SessionManager
@@ -238,24 +242,63 @@ class AgentLoop:
                 return payload
         return {}
 
-    def _append_chat_explainability(
-        self,
-        final_content: str | None,
-        messages: list[dict],
-        *,
-        channel: str,
-    ) -> str | None:
-        """Append a standardized explainability footer for market-analysis replies."""
-        if not final_content:
+    def _append_chat_explainability(self, final_content: str | None, explainability: dict[str, Any] | None) -> str | None:
+        """Append explainability footer for inline-only entrypoints like CLI/system."""
+        if not final_content or not isinstance(explainability, dict):
             return final_content
-        skill_routing = self.processor.get_last_skill_routing()
-        payload = self._extract_market_brief_payload(messages)
-        footer = render_chat_explainability_footer_for_channel(payload, skill_routing=skill_routing, channel=channel)
-        if not footer:
+        if str(explainability.get("delivery", "")).strip().lower() != "inline":
             return final_content
-        if footer in final_content:
+        footer = str(explainability.get("inline_footer", "")).strip()
+        if not footer or footer in final_content:
             return final_content
         return f"{final_content.rstrip()}\n\n{footer}"
+
+    def _resolve_explainability_mode(self, channel: str) -> str:
+        """Resolve explainability policy for the current outbound channel."""
+        if self.channels_config is None:
+            return "auto"
+        channel_key = channel.strip().lower()
+        if channel_key and channel_key in self.channels_config.explainability_overrides:
+            return str(self.channels_config.explainability_overrides[channel_key]).strip().lower()
+        return str(self.channels_config.explainability_mode).strip().lower()
+
+    def _resolve_explainability_delivery(self, channel: str) -> str:
+        """Resolve whether explainability is rendered inline or kept in metadata."""
+        if self.channels_config is None:
+            return "inline"
+        channel_key = channel.strip().lower()
+        if channel_key and channel_key in self.channels_config.explainability_delivery_overrides:
+            resolved = str(self.channels_config.explainability_delivery_overrides[channel_key]).strip().lower()
+        else:
+            resolved = str(self.channels_config.explainability_delivery).strip().lower()
+        if resolved == "auto":
+            return "inline"
+        return resolved or "inline"
+
+    def _build_chat_explainability(self, messages: list[dict], *, channel: str) -> dict[str, Any] | None:
+        """Build a structured explainability bundle for the current reply."""
+        skill_routing = self.processor.get_last_skill_routing()
+        payload = self._extract_market_brief_payload(messages)
+        mode = self._resolve_explainability_mode(channel)
+        delivery = self._resolve_explainability_delivery(channel)
+        inline_footer = render_chat_explainability_footer_for_channel(
+            payload,
+            skill_routing=skill_routing,
+            channel=channel,
+            mode=mode,
+        )
+        summary = render_analysis_explainability_summary(payload, skill_routing=skill_routing)
+        details = render_analysis_explainability(payload, skill_routing=skill_routing)
+        if not any((inline_footer, summary, details)):
+            return None
+        return {
+            "channel": channel,
+            "mode": mode,
+            "delivery": delivery,
+            "inline_footer": inline_footer,
+            "summary": summary,
+            "details": details,
+        }
 
     async def _run_agent_loop(
         self,
@@ -440,11 +483,15 @@ class AgentLoop:
                 chat_id=chat_id,
             )
             final_content, _, all_msgs = await self._run_agent_loop(messages)
+            explainability = self._build_chat_explainability(all_msgs, channel=channel)
+            final_content = self._append_chat_explainability(final_content, explainability)
             self._save_turn(session, all_msgs, 1 + len(history))
             self.sessions.save(session)
             metadata = dict(msg.metadata or {})
             if skill_routing := self.processor.get_last_skill_routing():
                 metadata["skill_routing"] = skill_routing
+            if explainability:
+                metadata["explainability"] = explainability
             return OutboundMessage(channel=channel, chat_id=chat_id,
                                   content=final_content or "Background task completed.", metadata=metadata)
 
@@ -491,7 +538,9 @@ class AgentLoop:
 
         if final_content is None:
             final_content = "I've completed processing but have no response to give."
-        final_content = self._append_chat_explainability(final_content, all_msgs, channel=msg.channel)
+        explainability = self._build_chat_explainability(all_msgs, channel=msg.channel)
+        if msg.channel == "cli":
+            final_content = self._append_chat_explainability(final_content, explainability)
 
         self._save_turn(session, all_msgs, 1 + len(history))
         self.sessions.save(session)
@@ -504,6 +553,8 @@ class AgentLoop:
         metadata = dict(msg.metadata or {})
         if skill_routing := self.processor.get_last_skill_routing():
             metadata["skill_routing"] = skill_routing
+        if explainability:
+            metadata["explainability"] = explainability
         return OutboundMessage(
             channel=msg.channel, chat_id=msg.chat_id, content=final_content,
             metadata=metadata,

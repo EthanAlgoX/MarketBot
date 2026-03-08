@@ -84,10 +84,11 @@ class WhatsAppChannel(BaseChannel):
             return
 
         try:
+            text = self.render_outbound_content(msg)
             payload = {
                 "type": "send",
                 "to": msg.chat_id,
-                "text": msg.content
+                "text": text
             }
             await self._ws.send(json.dumps(payload, ensure_ascii=False))
         except Exception as e:

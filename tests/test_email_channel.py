@@ -169,6 +169,112 @@ async def test_send_uses_smtp_and_reply_subject(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_send_inlines_explainability_footer_when_delivery_is_inline(monkeypatch) -> None:
+    class FakeSMTP:
+        def __init__(self, _host: str, _port: int, timeout: int = 30) -> None:
+            self.sent_messages: list[EmailMessage] = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def starttls(self, context=None):
+            return None
+
+        def login(self, _user: str, _pw: str):
+            return None
+
+        def send_message(self, msg: EmailMessage):
+            self.sent_messages.append(msg)
+
+    fake_instances: list[FakeSMTP] = []
+
+    def _smtp_factory(host: str, port: int, timeout: int = 30):
+        instance = FakeSMTP(host, port, timeout=timeout)
+        fake_instances.append(instance)
+        return instance
+
+    monkeypatch.setattr("marketbot.channels.email.smtplib.SMTP", _smtp_factory)
+
+    channel = EmailChannel(_make_config(), MessageBus())
+    await channel.send(
+        OutboundMessage(
+            channel="email",
+            chat_id="alice@example.com",
+            content="Core analysis.",
+            metadata={
+                "explainability": {
+                    "delivery": "inline",
+                    "inline_footer": "## Capability & Data Notes\n- Data reliability: ok",
+                }
+            },
+        )
+    )
+
+    sent = fake_instances[0].sent_messages[0]
+    body = sent.get_body(preferencelist=("plain",))
+    assert body is not None
+    text = body.get_content()
+    assert "Core analysis." in text
+    assert "## Capability & Data Notes" in text
+
+
+@pytest.mark.asyncio
+async def test_send_keeps_explainability_in_metadata_when_delivery_is_metadata(monkeypatch) -> None:
+    class FakeSMTP:
+        def __init__(self, _host: str, _port: int, timeout: int = 30) -> None:
+            self.sent_messages: list[EmailMessage] = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def starttls(self, context=None):
+            return None
+
+        def login(self, _user: str, _pw: str):
+            return None
+
+        def send_message(self, msg: EmailMessage):
+            self.sent_messages.append(msg)
+
+    fake_instances: list[FakeSMTP] = []
+
+    def _smtp_factory(host: str, port: int, timeout: int = 30):
+        instance = FakeSMTP(host, port, timeout=timeout)
+        fake_instances.append(instance)
+        return instance
+
+    monkeypatch.setattr("marketbot.channels.email.smtplib.SMTP", _smtp_factory)
+
+    channel = EmailChannel(_make_config(), MessageBus())
+    await channel.send(
+        OutboundMessage(
+            channel="email",
+            chat_id="alice@example.com",
+            content="Core analysis.",
+            metadata={
+                "explainability": {
+                    "delivery": "metadata",
+                    "inline_footer": "## Capability & Data Notes\n- Data reliability: ok",
+                }
+            },
+        )
+    )
+
+    sent = fake_instances[0].sent_messages[0]
+    body = sent.get_body(preferencelist=("plain",))
+    assert body is not None
+    text = body.get_content()
+    assert "Core analysis." in text
+    assert "## Capability & Data Notes" not in text
+
+
+@pytest.mark.asyncio
 async def test_send_skips_reply_when_auto_reply_disabled(monkeypatch) -> None:
     """When auto_reply_enabled=False, replies should be skipped but proactive sends allowed."""
     class FakeSMTP:

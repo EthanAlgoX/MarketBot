@@ -809,12 +809,13 @@ class FeishuChannel(BaseChannel):
                             receive_id_type, msg.chat_id, media_type, json.dumps({"file_key": key}, ensure_ascii=False),
                         )
 
-            if msg.content and msg.content.strip():
-                fmt = self._detect_msg_format(msg.content)
+            text = self.render_outbound_content(msg)
+            if text and text.strip():
+                fmt = self._detect_msg_format(text)
 
                 if fmt == "text":
                     # Short plain text – send as simple text message
-                    text_body = json.dumps({"text": msg.content.strip()}, ensure_ascii=False)
+                    text_body = json.dumps({"text": text.strip()}, ensure_ascii=False)
                     await loop.run_in_executor(
                         None, self._send_message_sync,
                         receive_id_type, msg.chat_id, "text", text_body,
@@ -822,7 +823,7 @@ class FeishuChannel(BaseChannel):
 
                 elif fmt == "post":
                     # Medium content with links – send as rich-text post
-                    post_body = self._markdown_to_post(msg.content)
+                    post_body = self._markdown_to_post(text)
                     await loop.run_in_executor(
                         None, self._send_message_sync,
                         receive_id_type, msg.chat_id, "post", post_body,
@@ -830,7 +831,7 @@ class FeishuChannel(BaseChannel):
 
                 else:
                     # Complex / long content – send as interactive card
-                    elements = self._build_card_elements(msg.content)
+                    elements = self._build_card_elements(text)
                     for chunk in self._split_elements_by_table_limit(elements):
                         card = {"config": {"wide_screen_mode": True}, "elements": chunk}
                         await loop.run_in_executor(

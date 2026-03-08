@@ -107,7 +107,7 @@ class QQChannel(BaseChannel):
             await self._client.api.post_c2c_message(
                 openid=msg.chat_id,
                 msg_type=0,
-                content=msg.content,
+                content=self.render_outbound_content(msg),
                 msg_id=msg_id,
                 msg_seq=self._msg_seq,  # 添加序列号避免去重
             )
@@ -136,4 +136,3 @@ class QQChannel(BaseChannel):
             )
         except Exception:
             logger.exception("Error handling QQ message")
-

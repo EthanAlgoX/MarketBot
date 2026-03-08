@@ -85,10 +85,11 @@ class SlackChannel(BaseChannel):
             use_thread = thread_ts and channel_type != "im"
             thread_ts_param = thread_ts if use_thread else None
 
-            if msg.content:
+            text = self.render_outbound_content(msg)
+            if text:
                 await self._web_client.chat_postMessage(
                     channel=msg.chat_id,
-                    text=self._to_mrkdwn(msg.content),
+                    text=self._to_mrkdwn(text),
                     thread_ts=thread_ts_param,
                 )
 
@@ -277,4 +278,3 @@ class SlackChannel(BaseChannel):
             if parts:
                 rows.append(" · ".join(parts))
         return "\n".join(rows)
-

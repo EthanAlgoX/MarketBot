@@ -95,7 +95,8 @@ class DiscordChannel(BaseChannel):
                     failed_media.append(Path(media_path).name)
 
             # Send text content
-            chunks = split_message(msg.content or "", MAX_MESSAGE_LEN)
+            text = self.render_outbound_content(msg)
+            chunks = split_message(text or "", MAX_MESSAGE_LEN)
             if not chunks and failed_media and not sent_media:
                 chunks = split_message(
                     "\n".join(f"[attachment: {name} - send failed]" for name in failed_media),

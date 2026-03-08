@@ -352,7 +352,7 @@ class MatrixChannel(BaseChannel):
         """Send outbound content; clear typing for non-progress messages."""
         if not self.client:
             return
-        text = msg.content or ""
+        text = self.render_outbound_content(msg)
         candidates = self._collect_outbound_media_candidates(msg.media)
         relates_to = self._build_thread_relates_to(msg.metadata)
         is_progress = bool((msg.metadata or {}).get("_progress"))

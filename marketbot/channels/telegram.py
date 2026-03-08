@@ -317,10 +317,11 @@ class TelegramChannel(BaseChannel):
                 )
 
         # Send text content
-        if msg.content and msg.content != "[empty message]":
+        text_content = self.render_outbound_content(msg)
+        if text_content and text_content != "[empty message]":
             is_progress = msg.metadata.get("_progress", False)
 
-            for chunk in split_message(msg.content, TELEGRAM_MAX_MESSAGE_LEN):
+            for chunk in split_message(text_content, TELEGRAM_MAX_MESSAGE_LEN):
                 # Final response: simulate streaming via draft, then persist
                 if not is_progress:
                     await self._send_with_streaming(chat_id, chunk, reply_params)
