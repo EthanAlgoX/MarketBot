@@ -1,7 +1,7 @@
 ---
 name: news-intelligence
 description: A comprehensive skill for extracting, analyzing, and synthesizing financial news to uncover market impacts, trends, and risks.
-metadata: {"marketbot":{"emoji":"📰"}}
+metadata: {"marketbot":{"emoji":"📰","triggers":["news","headline","impact","media"],"output":"news-intelligence-report","risk":"medium","freshness":"news-live","tools":["market_news","market_event_extract","market_macro"],"required_tools":["market_news"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["equity","crypto","commodity","macro","etf"]}}
 ---
 
 # News Intelligence

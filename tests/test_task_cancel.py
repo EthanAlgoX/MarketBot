@@ -104,7 +104,7 @@ class TestDispatch:
         assert out.content == "hi"
 
     @pytest.mark.asyncio
-    async def test_processing_lock_serializes(self):
+    async def test_same_session_serializes(self):
         from marketbot.bus.events import InboundMessage, OutboundMessage
 
         loop, bus = _make_loop()
@@ -124,6 +124,38 @@ class TestDispatch:
         t2 = asyncio.create_task(loop._dispatch(msg2))
         await asyncio.gather(t1, t2)
         assert order == ["start-a", "end-a", "start-b", "end-b"]
+
+    @pytest.mark.asyncio
+    async def test_different_sessions_can_run_in_parallel(self):
+        from marketbot.bus.events import InboundMessage, OutboundMessage
+
+        loop, bus = _make_loop()
+        order = []
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        async def mock_process(m, **kwargs):
+            order.append(f"start-{m.content}")
+            if m.content == "a":
+                started.set()
+                await release.wait()
+            else:
+                await started.wait()
+            order.append(f"end-{m.content}")
+            return OutboundMessage(channel="test", chat_id=m.chat_id, content=m.content)
+
+        loop._process_message = mock_process
+        msg1 = InboundMessage(channel="test", sender_id="u1", chat_id="c1", content="a")
+        msg2 = InboundMessage(channel="test", sender_id="u2", chat_id="c2", content="b")
+
+        t1 = asyncio.create_task(loop._dispatch(msg1))
+        await started.wait()
+        t2 = asyncio.create_task(loop._dispatch(msg2))
+        await asyncio.sleep(0.02)
+        release.set()
+        await asyncio.gather(t1, t2)
+
+        assert order[:3] == ["start-a", "start-b", "end-b"] or order[:3] == ["start-a", "start-b", "end-a"]
 
 
 class TestSubagentCancellation:

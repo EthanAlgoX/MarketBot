@@ -25,13 +25,46 @@ class ContextBuilder:
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)
         self.memory_layer = "L1"
+        self.available_tools: set[str] | None = None
+        self.market_runtime_profile: dict[str, dict[str, list[str]]] | None = None
+        self.last_skill_routing: dict[str, Any] | None = None
 
     def set_memory_layer(self, layer: str) -> None:
         """Set the memory layer to use (L0/L1/L2)."""
         if layer in ("L0", "L1", "L2"):
             self.memory_layer = layer
 
-    def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
+    def set_available_tools(self, tool_names: list[str] | set[str] | None) -> None:
+        """Set runtime-available tools for skill compatibility filtering."""
+        if tool_names is None:
+            self.available_tools = None
+            return
+        self.available_tools = {str(name).strip() for name in tool_names if str(name).strip()}
+
+    def set_market_runtime_profile(self, profile: dict[str, dict[str, list[str]]] | None) -> None:
+        """Set market-domain runtime capabilities for market-aware skill filtering."""
+        self.market_runtime_profile = profile
+
+    def get_last_skill_routing(self) -> dict[str, Any] | None:
+        """Return the last structured skill-routing result built for a message."""
+        if not self.last_skill_routing:
+            return None
+        return {
+            "requestText": self.last_skill_routing.get("requestText", ""),
+            "requestProfile": {
+                "markets": list(self.last_skill_routing.get("requestProfile", {}).get("markets", [])),
+                "asset_classes": list(self.last_skill_routing.get("requestProfile", {}).get("asset_classes", [])),
+            },
+            "selected": [dict(item) for item in self.last_skill_routing.get("selected", [])],
+            "blocked": [dict(item) for item in self.last_skill_routing.get("blocked", [])],
+            "diagnostics": [dict(item) for item in self.last_skill_routing.get("diagnostics", [])],
+        }
+
+    def build_system_prompt(
+        self,
+        skill_names: list[str] | None = None,
+        skill_diagnostics: list[dict[str, Any]] | None = None,
+    ) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
         parts = [self._get_identity()]
 
@@ -52,13 +85,17 @@ class ContextBuilder:
             if selected_content:
                 parts.append(f"# Selected Skills\n\n{selected_content}")
 
+        diagnostics_block = self._format_skill_diagnostics(skill_diagnostics)
+        if diagnostics_block:
+            parts.append(diagnostics_block)
+
         always_skills = self.skills.get_always_skills()
         if always_skills:
             always_content = self.skills.load_skills_for_context(always_skills)
             if always_content:
                 parts.append(f"# Active Skills\n\n{always_content}")
 
-        skills_summary = self.skills.build_skills_summary()
+        skills_summary = self.skills.build_skills_summary(available_tools=self.available_tools)
         if skills_summary:
             parts.append(f"""# Skills
 
@@ -164,7 +201,10 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         chat_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build the complete message list for an LLM call."""
-        resolved_skill_names = self._resolve_skill_names(current_message, skill_names)
+        routing = self._build_skill_routing(current_message, skill_names)
+        resolved_skill_names = [item["name"] for item in routing["selected"]]
+        skill_diagnostics = routing["diagnostics"]
+        self.last_skill_routing = routing
         runtime_ctx = self._build_runtime_context(channel, chat_id)
         user_content = self._build_user_content(current_message, media)
 
@@ -176,18 +216,76 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             merged = [{"type": "text", "text": runtime_ctx}] + user_content
 
         return [
-            {"role": "system", "content": self.build_system_prompt(resolved_skill_names)},
+            {"role": "system", "content": self.build_system_prompt(resolved_skill_names, skill_diagnostics=skill_diagnostics)},
             *history,
             {"role": "user", "content": merged},
         ]
 
-    def _resolve_skill_names(self, current_message: str, skill_names: list[str] | None = None) -> list[str]:
-        """Resolve explicit and auto-detected skills for the current message."""
+    def _build_skill_routing(
+        self,
+        current_message: str,
+        skill_names: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Resolve explicit and auto-detected skills plus structured routing diagnostics."""
         resolved = self._normalize_skill_names(skill_names)
-        for name in self._suggest_skills_for_message(current_message):
+        route = classify_market_request(text=current_message)
+        diagnostics: list[dict[str, Any]] = []
+        selected: list[dict[str, Any]] = []
+        blocked: list[dict[str, Any]] = []
+
+        for name in resolved:
+            info = {
+                **self.skills.explain_skill_compatibility(
+                    name,
+                    current_message,
+                    route=route,
+                    available_tools=self.available_tools,
+                    runtime_profile=self.market_runtime_profile,
+                ),
+                "status": "selected",
+                "source": "explicit",
+            }
+            diagnostics.append(info)
+            selected.append(info)
+
+        suggested, suggested_diagnostics = self._suggest_skills_for_message(current_message, route=route)
+        for item in suggested_diagnostics:
+            diagnostics.append(item)
+            if item.get("status") == "selected":
+                selected.append(item)
+            elif item.get("status") == "blocked":
+                blocked.append(item)
+        for name in suggested:
             if name not in resolved:
-                resolved.append(name)
-        return resolved
+                info = next((item for item in selected if item.get("name") == name), None)
+                if info is None:
+                    info = {
+                        "name": name,
+                        "compatible": True,
+                        "reasons": ["requirements satisfied"],
+                        "requestProfile": self.skills._build_request_profile(current_message, route=route),
+                        "status": "selected",
+                        "source": "auto",
+                    }
+                    diagnostics.append(info)
+                    selected.append(info)
+
+        selected_names = []
+        deduped_selected: list[dict[str, Any]] = []
+        for item in selected:
+            name = str(item.get("name", "")).strip()
+            if not name or name in selected_names:
+                continue
+            selected_names.append(name)
+            deduped_selected.append(item)
+
+        return {
+            "requestText": current_message,
+            "requestProfile": self.skills._build_request_profile(current_message, route=route),
+            "selected": deduped_selected,
+            "blocked": blocked,
+            "diagnostics": diagnostics,
+        }
 
     @staticmethod
     def _normalize_skill_names(skill_names: list[str] | None) -> list[str]:
@@ -203,16 +301,22 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                 seen.add(name)
         return result
 
-    def _suggest_skills_for_message(self, current_message: str) -> list[str]:
+    def _suggest_skills_for_message(
+        self,
+        current_message: str,
+        route: dict[str, object] | None = None,
+    ) -> tuple[list[str], list[dict[str, Any]]]:
         """Suggest built-in skills from common market-analysis intents."""
         text = current_message.lower()
         suggestions: list[str] = []
+        diagnostics: list[dict[str, Any]] = []
+        candidates: list[str] = []
 
-        def add(name: str) -> None:
-            if self.skills.load_skill(name) and name not in suggestions:
-                suggestions.append(name)
+        def consider(name: str) -> None:
+            if self.skills.load_skill(name) and name not in candidates:
+                candidates.append(name)
 
-        route = classify_market_request(text=current_message)
+        route = route or classify_market_request(text=current_message)
 
         analysis_terms = (
             "analyze",
@@ -304,28 +408,71 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         )
 
         if route["asset_like"] and any(term in text for term in analysis_terms):
-            add("market-report")
+            consider("market-report")
 
         if (route["asset_like"] or route["macro"]) and any(term in text for term in catalyst_terms):
-            add("catalyst-tracker")
+            consider("catalyst-tracker")
 
         if route["asset_like"] and any(term in text for term in risk_terms):
-            add("risk-checklist")
+            consider("risk-checklist")
 
         if route["equity"] and (any(term in text for term in chart_terms) or any(term in text for term in analysis_terms)):
-            add("stock-info-explorer")
+            consider("stock-info-explorer")
         elif route["crypto"] and any(term in text for term in chart_terms):
-            add("stock-info-explorer")
+            consider("stock-info-explorer")
 
         if route["metals"] or any(term in text for term in monitor_terms):
-            add("crypto-gold-monitor")
+            consider("crypto-gold-monitor")
         elif route["crypto"] and ("intermarket" in text or "gold" in text or "silver" in text):
-            add("crypto-gold-monitor")
+            consider("crypto-gold-monitor")
 
         if any(term in text for term in source_terms):
-            add("stock-data-sourcing")
+            consider("stock-data-sourcing")
 
-        return suggestions
+        for name in self.skills.find_trigger_candidates(current_message, available_tools=self.available_tools):
+            consider(name)
+
+        for name in candidates:
+            info = self.skills.explain_skill_compatibility(
+                name,
+                current_message,
+                route=route,
+                available_tools=self.available_tools,
+                runtime_profile=self.market_runtime_profile,
+            )
+            status = "selected" if info["compatible"] else "blocked"
+            diagnostics.append({**info, "status": status, "source": "auto"})
+            if info["compatible"] and name not in suggestions:
+                suggestions.append(name)
+
+        return suggestions, diagnostics
+
+    @staticmethod
+    def _format_skill_diagnostics(skill_diagnostics: list[dict[str, Any]] | None) -> str:
+        """Render per-message skill routing diagnostics into prompt metadata."""
+        if not skill_diagnostics:
+            return ""
+        lines = [
+            "# Skill Routing Diagnostics",
+            "This block is runtime metadata about why candidate skills were selected or blocked.",
+        ]
+        for item in skill_diagnostics:
+            name = str(item.get("name", "")).strip()
+            if not name:
+                continue
+            status = str(item.get("status", "unknown"))
+            source = str(item.get("source", "auto"))
+            reasons = [str(reason) for reason in item.get("reasons", []) if str(reason).strip()]
+            request_profile = item.get("requestProfile") or {}
+            markets = ", ".join(str(entry) for entry in request_profile.get("markets", []) if str(entry).strip()) or "unspecified"
+            asset_classes = (
+                ", ".join(str(entry) for entry in request_profile.get("asset_classes", []) if str(entry).strip()) or "unspecified"
+            )
+            lines.append(f"- {name}: {status} ({source})")
+            lines.append(f"  request markets={markets}; asset_classes={asset_classes}")
+            for reason in reasons:
+                lines.append(f"  reason: {reason}")
+        return "\n".join(lines)
 
     def _build_user_content(self, text: str, media: list[str] | None) -> str | list[dict[str, Any]]:
         """Build user message content with optional base64-encoded images."""

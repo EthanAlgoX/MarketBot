@@ -1,7 +1,7 @@
 ---
 name: market-monitor
 description: A comprehensive, real-time market surveillance skill that tracks price movements, macro indicators, sector rotations, earnings, and news to generate actionable alerts and AI summaries.
-metadata: {"marketbot":{"emoji":"📈"}}
+metadata: {"marketbot":{"emoji":"📈","triggers":["monitor","market summary","overview","surveillance"],"output":"market-monitor-report","risk":"medium","freshness":"intraday-live","tools":["market_snapshot","market_news","market_macro","market_brief"],"required_tools":["market_snapshot","market_macro"],"markets":["global","mixed"],"asset_classes":["equity","crypto","commodity","macro","etf"]}}
 ---
 
 # Market Monitor

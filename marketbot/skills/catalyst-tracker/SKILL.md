@@ -1,7 +1,7 @@
 ---
 name: catalyst-tracker
 description: Build a catalyst list and event calendar for an asset.
-metadata: {"marketbot":{"emoji":"🗓️"}}
+metadata: {"marketbot":{"emoji":"🗓️","triggers":["catalyst","event","calendar","news driver"],"output":"catalyst-tracker","risk":"medium","freshness":"event-live","tools":["market_news","market_event_extract","market_macro"],"required_tools":["market_news","market_event_extract"],"markets":["a-share","hong-kong","us","global"],"asset_classes":["equity","crypto","commodity","macro","etf"]}}
 ---
 
 # Catalyst Tracker

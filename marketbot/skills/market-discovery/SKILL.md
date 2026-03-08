@@ -1,7 +1,7 @@
 ---
 name: market-discovery
 description: Automatically discover potential investment opportunities by synthesizing market data, events, sentiment, and sector momentum.
-metadata: {"marketbot":{"emoji":"🔭"}}
+metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","theme","rotation"],"output":"market-opportunity-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment"],"required_tools":["market_snapshot","market_news"],"markets":["global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
 ---
 
 # Market Opportunity Discovery

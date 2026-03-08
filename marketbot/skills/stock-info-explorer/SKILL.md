@@ -1,7 +1,7 @@
 ---
 name: stock-info-explorer
 description: Yahoo Finance powered local charting and indicator analysis for stocks, ETFs, crypto, and FX.
-metadata: {"marketbot":{"emoji":"📈","requires":{"bins":["uv"]}}}
+metadata: {"marketbot":{"emoji":"📈","requires":{"bins":["uv"]},"triggers":["chart","rsi","macd","bollinger","vwap","atr"],"output":"technical-chart-report","risk":"medium","freshness":"market-live","tools":["market_snapshot"],"required_tools":["market_snapshot"],"markets":["a-share","hong-kong","us","global"],"asset_classes":["equity","crypto","commodity","etf","forex"]}}
 ---
 
 # Stock Information Explorer

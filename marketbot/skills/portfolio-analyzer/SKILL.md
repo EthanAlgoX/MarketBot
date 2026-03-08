@@ -1,7 +1,7 @@
 ---
 name: portfolio-analyzer
 description: A comprehensive skill for analyzing, stress-testing, and optimizing a user's investment portfolio across risks, performance, and diversification.
-metadata: {"marketbot":{"emoji":"📊"}}
+metadata: {"marketbot":{"emoji":"📊","triggers":["portfolio","allocation","diversification","stress test"],"output":"portfolio-analysis-report","risk":"high","freshness":"end-of-day","tools":["market_snapshot","market_macro","market_news"],"required_tools":["market_snapshot"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["portfolio"]}}
 ---
 
 # Portfolio Analyzer

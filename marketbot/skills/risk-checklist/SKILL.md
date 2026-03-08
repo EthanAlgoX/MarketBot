@@ -1,7 +1,7 @@
 ---
 name: risk-checklist
 description: Generate a trade risk checklist and position-sizing guidance.
-metadata: {"marketbot":{"emoji":"🛡️"}}
+metadata: {"marketbot":{"emoji":"🛡️","triggers":["risk","position size","stop loss","invalidation"],"output":"risk-checklist","risk":"high","freshness":"market-live","tools":["market_snapshot","market_macro","market_news","market_signal"],"required_tools":["market_snapshot","market_signal"],"markets":["a-share","hong-kong","us","global"],"asset_classes":["equity","crypto","commodity","etf"]}}
 ---
 
 # Risk Checklist

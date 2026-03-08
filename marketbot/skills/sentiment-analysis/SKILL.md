@@ -1,7 +1,7 @@
 ---
 name: sentiment-analysis
 description: Extract and quantify market sentiment signals from news, social media, and forums for a specific asset or sector.
-metadata: {"marketbot":{"emoji":"🎭"}}
+metadata: {"marketbot":{"emoji":"🎭","triggers":["sentiment","crowd","social","forum"],"output":"sentiment-report","risk":"medium","freshness":"news-live","tools":["market_news","market_social_sentiment"],"required_tools":["market_social_sentiment"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
 ---
 
 # Sentiment Analysis

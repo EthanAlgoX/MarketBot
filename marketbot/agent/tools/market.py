@@ -6,6 +6,7 @@ import json
 import math
 import re
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 from xml.etree import ElementTree
@@ -14,6 +15,7 @@ import httpx
 from loguru import logger
 
 from marketbot.agent.tools.base import Tool
+from marketbot.domain.market.services import MarketMacroService, MarketNewsService, MarketSnapshotService
 from marketbot.market_routing import classify_market_request
 
 if TYPE_CHECKING:
@@ -149,12 +151,13 @@ class MarketSnapshotTool(Tool):
         },
     }
 
-    def __init__(self, config: MarketToolsConfig | None = None):
+    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
         self._config = config
         self._timeout = float(config.request_timeout_s) if config else 12.0
         self._max_symbols = int(config.snapshot_max_symbols) if config else 12
         self._source = config.quote_source if config else "yahoo"
         self._defaults = (config.default_symbols if config else []) or ["SPY", "QQQ", "BTC-USD"]
+        self._service = MarketSnapshotService(config=config, workspace=workspace)
 
     @staticmethod
     def _normalize_symbols(symbols: list[str]) -> list[str]:
@@ -194,144 +197,13 @@ class MarketSnapshotTool(Tool):
         }
 
     async def _fetch_yahoo(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
-        warnings: list[str] = []
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.get(
-                    "https://query1.finance.yahoo.com/v7/finance/quote",
-                    params={"symbols": ",".join(symbols)},
-                )
-                response.raise_for_status()
-                payload = response.json()
-        except Exception as e:
-            logger.error("market_snapshot yahoo fetch failed: {}", e)
-            return [], [f"quote fetch failed: {e}"]
-
-        raw_rows = payload.get("quoteResponse", {}).get("result", [])
-        by_symbol = {
-            str(row.get("symbol", "")).upper(): row for row in raw_rows if isinstance(row, dict)
-        }
-
-        rows: list[dict[str, Any]] = []
-        for symbol in symbols:
-            raw = by_symbol.get(symbol)
-            if not raw:
-                warnings.append(f"missing quote for {symbol}")
-                continue
-
-            volume = int(raw.get("regularMarketVolume") or 0)
-            avg_volume = int(raw.get("averageDailyVolume3Month") or 0)
-            flow_ratio = (volume / avg_volume) if avg_volume > 0 else 0.0
-            flow_hint = "inflow" if flow_ratio >= 1.25 else "outflow" if flow_ratio <= 0.80 else "neutral"
-            change_pct = float(raw.get("regularMarketChangePercent") or 0.0)
-            momentum = "up" if change_pct >= 1.0 else "down" if change_pct <= -1.0 else "flat"
-
-            rows.append(
-                {
-                    "symbol": symbol,
-                    "price": raw.get("regularMarketPrice"),
-                    "changePct": round(change_pct, 4),
-                    "volume": volume,
-                    "avgVolume": avg_volume,
-                    "flowRatio": round(flow_ratio, 3),
-                    "flowHint": flow_hint,
-                    "momentum": momentum,
-                    "currency": raw.get("currency"),
-                    "marketState": raw.get("marketState"),
-                }
-            )
-        return rows, warnings
+        return await self._service.fetch_yahoo(symbols)
 
     async def _fetch_eastmoney(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
-        warnings: list[str] = []
-        secid_pairs: list[tuple[str, str]] = []
-        unsupported: list[str] = []
-
-        for symbol in symbols:
-            secid = _eastmoney_secid(symbol)
-            if not secid:
-                unsupported.append(symbol)
-                continue
-            secid_pairs.append((_normalize_a_share_symbol(symbol), secid))
-
-        for symbol in unsupported:
-            warnings.append(f"{symbol}: unsupported by eastmoney quote source")
-
-        if not secid_pairs:
-            return [], warnings
-
-        params = {
-            "fltt": "2",
-            "invt": "2",
-            "fields": "f12,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18",
-            "secids": ",".join(secid for _, secid in secid_pairs),
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.get("https://push2.eastmoney.com/api/qt/ulist.np/get", params=params)
-                response.raise_for_status()
-                payload = response.json()
-        except Exception as e:
-            logger.error("market_snapshot eastmoney fetch failed: {}", e)
-            return [], warnings + [f"eastmoney quote fetch failed: {e}"]
-
-        rows_raw = payload.get("data", {}).get("diff", []) or []
-        by_code = {
-            str(row.get("f12", "")).upper(): row
-            for row in rows_raw
-            if isinstance(row, dict) and str(row.get("f12", "")).strip()
-        }
-
-        rows: list[dict[str, Any]] = []
-        for code, _secid in secid_pairs:
-            raw = by_code.get(code)
-            if not raw:
-                warnings.append(f"missing eastmoney quote for {code}")
-                continue
-
-            change_pct = float(raw.get("f3") or 0.0)
-            volume = int(float(raw.get("f5") or 0.0))
-            momentum = "up" if change_pct >= 1.0 else "down" if change_pct <= -1.0 else "flat"
-            rows.append(
-                {
-                    "symbol": code,
-                    "name": raw.get("f14"),
-                    "price": raw.get("f2"),
-                    "changePct": round(change_pct, 4),
-                    "changeAmount": raw.get("f4"),
-                    "volume": volume,
-                    "avgVolume": None,
-                    "amount": raw.get("f6"),
-                    "flowRatio": None,
-                    "flowHint": "neutral",
-                    "momentum": momentum,
-                    "currency": "CNY",
-                    "marketState": "REGULAR",
-                    "open": raw.get("f17"),
-                    "high": raw.get("f15"),
-                    "low": raw.get("f16"),
-                    "preClose": raw.get("f18"),
-                }
-            )
-        return rows, warnings
+        return await self._service.fetch_eastmoney(symbols)
 
     async def _fetch_auto(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
-        cn_symbols = [symbol for symbol in symbols if _is_a_share_symbol(symbol)]
-        global_symbols = [symbol for symbol in symbols if symbol not in cn_symbols]
-
-        rows: list[dict[str, Any]] = []
-        warnings: list[str] = []
-
-        if cn_symbols:
-            em_rows, em_warnings = await self._fetch_eastmoney(cn_symbols)
-            rows.extend(em_rows)
-            warnings.extend(em_warnings)
-        if global_symbols:
-            yahoo_rows, yahoo_warnings = await self._fetch_yahoo(global_symbols)
-            rows.extend(yahoo_rows)
-            warnings.extend(yahoo_warnings)
-
-        return rows, warnings
+        return await self._service.fetch_auto(symbols)
 
     async def execute(
         self, symbols: list[str] | None = None, includeMacro: bool = False, **kwargs: Any
@@ -341,24 +213,51 @@ class MarketSnapshotTool(Tool):
         if not normalized:
             return json.dumps({"error": "no valid symbols provided"}, ensure_ascii=False)
 
+        self._service.reset_health()
         if self._source == "mock":
             rows = [self._mock_quote(symbol) for symbol in normalized]
             warnings: list[str] = []
+            self._service.record_health(
+                "mock",
+                reason="Deterministic mock quote source selected.",
+                provider_chain=["mock"],
+            )
         elif self._source == "eastmoney":
             rows, warnings = await self._fetch_eastmoney(normalized)
             if not rows:
                 rows = [self._mock_quote(symbol) for symbol in normalized]
                 warnings.append("quote source fallback: mock")
+                self._service.record_health(
+                    "mock",
+                    fallback=True,
+                    warnings=warnings,
+                    reason="Eastmoney returned no usable quotes; falling back to mock.",
+                    provider_chain=["eastmoney", "mock"],
+                )
         elif self._source == "auto":
             rows, warnings = await self._fetch_auto(normalized)
             if not rows:
                 rows = [self._mock_quote(symbol) for symbol in normalized]
                 warnings.append("quote source fallback: mock")
+                self._service.record_health(
+                    "mock",
+                    fallback=True,
+                    warnings=warnings,
+                    reason="Auto quote routing returned no usable quotes; falling back to mock.",
+                    provider_chain=["eastmoney", "yahoo", "mock"],
+                )
         else:
             rows, warnings = await self._fetch_yahoo(normalized)
             if not rows:
                 rows = [self._mock_quote(symbol) for symbol in normalized]
                 warnings.append("quote source fallback: mock")
+                self._service.record_health(
+                    "mock",
+                    fallback=True,
+                    warnings=warnings,
+                    reason="Yahoo returned no usable quotes; falling back to mock.",
+                    provider_chain=["yahoo", "mock"],
+                )
 
         result: dict[str, Any] = {
             "asOf": _utc_now_iso(),
@@ -366,6 +265,8 @@ class MarketSnapshotTool(Tool):
             "symbols": normalized,
             "quotes": rows,
             "warnings": warnings,
+            "sourceHealth": self._service.health_snapshot(),
+            "routeTrace": self._service.route_trace(),
         }
         if includeMacro:
             result["macro"] = {
@@ -627,6 +528,17 @@ class MarketSourcePlanTool(Tool):
         providers, why = MarketSourcePlanTool._news_chain(market)
         return providers, why, ["market_news (current cross-market search)"], []
 
+    @staticmethod
+    def _skill_hints(task: str) -> list[str]:
+        """Map routing tasks to the most relevant skill hints."""
+        if task in {"quote", "history", "breadth"}:
+            return ["stock-data-sourcing", "stock-info-explorer"]
+        if task == "chips":
+            return ["stock-data-sourcing", "market-report"]
+        if task == "fundamentals":
+            return ["stock-data-sourcing", "market-report", "risk-checklist"]
+        return ["stock-data-sourcing", "catalyst-tracker", "news-intelligence"]
+
     async def execute(
         self,
         symbols: list[str] | None = None,
@@ -649,6 +561,12 @@ class MarketSourcePlanTool(Tool):
                 "why": why,
                 "freshness": "Prefer <=3 day news windows; disclose lag when using fallback or delayed sources.",
                 "fallbacks": providers[1:],
+                "recommendedSkills": self._skill_hints(task),
+                "routingTelemetry": {
+                    "skill": "stock-data-sourcing",
+                    "tool": self.name,
+                    "primaryProvider": providers[0] if providers else None,
+                },
             }
             if includeCurrentTools:
                 entry["currentMarketbotTools"] = current_tools
@@ -661,6 +579,12 @@ class MarketSourcePlanTool(Tool):
             "market": market,
             "marketRoute": route,
             "tasks": plans,
+            "recommendedSkills": ["stock-data-sourcing"],
+            "routingTelemetry": {
+                "skill": "stock-data-sourcing",
+                "tool": self.name,
+                "taskCount": len(plans),
+            },
             "summary": (
                 f"Use {' / '.join(plans[0]['providers']) if plans else 'market tools'} "
                 f"for {market} routing; separate current marketbot tools from future connectors."
@@ -1131,7 +1055,7 @@ class MarketNewsTool(Tool):
         },
     }
 
-    def __init__(self, config: MarketToolsConfig | None = None):
+    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
         self._config = config
         self._timeout = float(config.request_timeout_s) if config else 12.0
         self._defaults = (config.default_symbols if config else []) or ["SPY", "QQQ", "BTC-USD"]
@@ -1143,293 +1067,53 @@ class MarketNewsTool(Tool):
             "brave": (config.brave_api_key if config else "") or "",
             "serpapi": (config.serpapi_api_key if config else "") or "",
         }
+        self._service = MarketNewsService(config=config, workspace=workspace)
 
     @staticmethod
     def _mock_items(symbol: str, limit: int) -> list[dict[str, Any]]:
-        items: list[dict[str, Any]] = []
-        for i in range(limit):
-            direction = "up" if i % 2 == 0 else "down"
-            items.append(
-                {
-                    "symbol": symbol,
-                    "title": f"{symbol} market sentiment shifts {direction} [{i + 1}]",
-                    "source": "mock",
-                    "publishedAt": _utc_now_iso(),
-                    "url": f"https://example.com/mock/{symbol}/{i}",
-                }
-            )
-        return items
+        return MarketNewsService.mock_items(symbol, limit)
 
     @staticmethod
     def _symbol_market(symbol: str) -> str:
-        text = str(symbol or "").strip().upper()
-        if _is_a_share_symbol(text):
-            return "a-share"
-        if text.startswith("HK") or text.endswith(".HK") or (text.isdigit() and len(text) == 5):
-            return "hong-kong"
-        if re.fullmatch(r"[A-Z]{1,6}(?:-[A-Z]{2,6})?(?:\.[A-Z]{1,3})?", text):
-            return "us"
-        return "mixed"
+        return MarketNewsService.symbol_market(symbol)
 
     def _search_days(self) -> int:
-        weekday = datetime.now().weekday()
-        if weekday == 0:
-            return min(3, self._news_max_age_days)
-        if weekday >= 5:
-            return min(2, self._news_max_age_days)
-        return min(1, self._news_max_age_days)
+        return self._service.search_days()
 
     def _build_query(self, symbol: str, source_hint: str | None = None) -> str:
-        market = self._symbol_market(symbol)
-        if market == "a-share":
-            base = f"{symbol} 股票 最新消息"
-        elif market == "hong-kong":
-            base = f"{symbol} 港股 最新消息"
-        else:
-            base = f"{symbol} stock latest news"
-        if source_hint:
-            return f"{base} {source_hint}"
-        return base
+        return self._service.build_query(symbol, source_hint=source_hint)
 
     def _resolve_sources_for_symbol(self, symbol: str) -> list[str]:
-        explicit = [s for s in self._sources if s != "auto"]
-        if "mock" in explicit:
-            return ["mock"]
-        if explicit:
-            return explicit
-
-        market = self._symbol_market(symbol)
-        if market == "a-share":
-            preferred = ["bocha", "tavily", "serpapi", "google"]
-        elif market == "hong-kong":
-            preferred = ["bocha", "brave", "tavily", "serpapi", "google"]
-        else:
-            preferred = ["brave", "tavily", "serpapi", "google"]
-        return preferred
+        return self._service.resolve_sources_for_symbol(symbol)
 
     def _source_enabled(self, source: str) -> bool:
-        if source in {"mock", "google", "reuters", "bloomberg", "cls"}:
-            return True
-        return bool(self._api_keys.get(source))
+        return self._service.source_enabled(source)
 
     @staticmethod
     def _freshness_bucket(days: int) -> tuple[str, str, str]:
-        if days <= 1:
-            return "oneDay", "pd", "qdr:d"
-        if days <= 7:
-            return "oneWeek", "pw", "qdr:w"
-        if days <= 30:
-            return "oneMonth", "pm", "qdr:m"
-        return "oneYear", "py", "qdr:y"
+        return MarketNewsService.freshness_bucket(days)
 
     async def _fetch_google_rss(
         self, symbol: str, limit: int, source_hint: str | None = None
     ) -> tuple[list[dict[str, Any]], list[str]]:
-        warnings: list[str] = []
-        query = self._build_query(symbol, source_hint=source_hint)
-        params = {
-            "q": query,
-            "hl": "en-US",
-            "gl": "US",
-            "ceid": "US:en",
-        }
-        url = f"https://news.google.com/rss/search?{urlencode(params)}"
-
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                xml_text = response.text
-        except Exception as e:
-            logger.error("market_news fetch failed for {}: {}", symbol, e)
-            return [], [f"{symbol}: {e}"]
-
-        try:
-            root = ElementTree.fromstring(xml_text)
-        except Exception as e:
-            return [], [f"{symbol}: invalid rss payload ({e})"]
-
-        items: list[dict[str, Any]] = []
-        for item in root.findall(".//item")[:limit]:
-            title = (item.findtext("title") or "").strip()
-            link = (item.findtext("link") or "").strip()
-            pub_date = (item.findtext("pubDate") or "").strip()
-            source_node = item.find("source")
-            source_name = (source_node.text or "").strip() if source_node is not None else "google-news"
-
-            if not title:
-                continue
-            items.append(
-                {
-                    "symbol": symbol,
-                    "title": title,
-                    "source": source_name or "google-news",
-                    "provider": "google",
-                    "publishedAt": pub_date or _utc_now_iso(),
-                    "url": link,
-                }
-            )
-        return items, warnings
+        return await self._service.fetch_google_rss(symbol, limit, source_hint=source_hint)
 
     async def _fetch_tavily(self, symbol: str, query: str, limit: int, days: int) -> tuple[list[dict[str, Any]], list[str]]:
-        api_key = self._api_keys["tavily"]
-        if not api_key:
-            return [], [f"{symbol}: missing tavily api key"]
-        payload = {
-            "api_key": api_key,
-            "query": query,
-            "search_depth": "advanced",
-            "max_results": limit,
-            "include_answer": False,
-            "include_raw_content": False,
-            "days": days,
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.post("https://api.tavily.com/search", json=payload)
-                response.raise_for_status()
-                data = response.json()
-        except Exception as e:
-            return [], [f"{symbol}: tavily search failed ({e})"]
-
-        items = [
-            {
-                "symbol": symbol,
-                "title": row.get("title", ""),
-                "source": row.get("url", ""),
-                "provider": "tavily",
-                "publishedAt": row.get("published_date") or _utc_now_iso(),
-                "url": row.get("url", ""),
-                "snippet": str(row.get("content", ""))[:500],
-            }
-            for row in data.get("results", [])[:limit]
-            if row.get("title")
-        ]
-        return items, []
+        return await self._service.fetch_tavily(symbol, query, limit, days)
 
     async def _fetch_bocha(self, symbol: str, query: str, limit: int, days: int) -> tuple[list[dict[str, Any]], list[str]]:
-        api_key = self._api_keys["bocha"]
-        if not api_key:
-            return [], [f"{symbol}: missing bocha api key"]
-        freshness, _, _ = self._freshness_bucket(days)
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        payload = {"query": query, "freshness": freshness, "summary": True, "count": min(limit, 50)}
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.post("https://api.bocha.cn/v1/web-search", headers=headers, json=payload)
-                response.raise_for_status()
-                data = response.json()
-        except Exception as e:
-            return [], [f"{symbol}: bocha search failed ({e})"]
-
-        value_list = data.get("data", {}).get("webPages", {}).get("value", [])
-        items = [
-            {
-                "symbol": symbol,
-                "title": row.get("name", ""),
-                "source": row.get("siteName") or row.get("url", ""),
-                "provider": "bocha",
-                "publishedAt": row.get("datePublished") or _utc_now_iso(),
-                "url": row.get("url", ""),
-                "snippet": str(row.get("summary") or row.get("snippet") or "")[:500],
-            }
-            for row in value_list[:limit]
-            if row.get("name")
-        ]
-        return items, []
+        return await self._service.fetch_bocha(symbol, query, limit, days)
 
     async def _fetch_brave(self, symbol: str, query: str, limit: int, days: int) -> tuple[list[dict[str, Any]], list[str]]:
-        api_key = self._api_keys["brave"]
-        if not api_key:
-            return [], [f"{symbol}: missing brave api key"]
-        _, freshness, _ = self._freshness_bucket(days)
-        headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
-        params = {
-            "q": query,
-            "count": min(limit, 20),
-            "freshness": freshness,
-            "search_lang": "en",
-            "country": "US",
-            "safesearch": "moderate",
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.get("https://api.search.brave.com/res/v1/web/search", headers=headers, params=params)
-                response.raise_for_status()
-                data = response.json()
-        except Exception as e:
-            return [], [f"{symbol}: brave search failed ({e})"]
-
-        items = [
-            {
-                "symbol": symbol,
-                "title": row.get("title", ""),
-                "source": row.get("meta_url", {}).get("hostname") or row.get("url", ""),
-                "provider": "brave",
-                "publishedAt": row.get("age") or row.get("page_age") or _utc_now_iso(),
-                "url": row.get("url", ""),
-                "snippet": str(row.get("description", ""))[:500],
-            }
-            for row in data.get("web", {}).get("results", [])[:limit]
-            if row.get("title")
-        ]
-        return items, []
+        return await self._service.fetch_brave(symbol, query, limit, days)
 
     async def _fetch_serpapi(self, symbol: str, query: str, limit: int, days: int) -> tuple[list[dict[str, Any]], list[str]]:
-        api_key = self._api_keys["serpapi"]
-        if not api_key:
-            return [], [f"{symbol}: missing serpapi api key"]
-        _, _, tbs = self._freshness_bucket(days)
-        params = {
-            "engine": "google",
-            "q": query,
-            "api_key": api_key,
-            "tbs": tbs,
-            "num": limit,
-            "hl": "zh-cn" if self._symbol_market(symbol) in {"a-share", "hong-kong"} else "en",
-            "gl": "cn" if self._symbol_market(symbol) in {"a-share", "hong-kong"} else "us",
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.get("https://serpapi.com/search.json", params=params)
-                response.raise_for_status()
-                data = response.json()
-        except Exception as e:
-            return [], [f"{symbol}: serpapi search failed ({e})"]
-
-        items = [
-            {
-                "symbol": symbol,
-                "title": row.get("title", ""),
-                "source": row.get("source") or row.get("displayed_link") or row.get("link", ""),
-                "provider": "serpapi",
-                "publishedAt": row.get("date") or _utc_now_iso(),
-                "url": row.get("link", ""),
-                "snippet": str(row.get("snippet", ""))[:500],
-            }
-            for row in data.get("organic_results", [])[:limit]
-            if row.get("title")
-        ]
-        return items, []
+        return await self._service.fetch_serpapi(symbol, query, limit, days)
 
     async def _fetch_provider_news(
         self, source: str, symbol: str, limit: int, days: int
     ) -> tuple[list[dict[str, Any]], list[str]]:
-        query_hint = source if source in {"reuters", "bloomberg", "cls"} else None
-        query = self._build_query(symbol, source_hint=query_hint)
-        if source == "mock":
-            return self._mock_items(symbol, limit), []
-        if source in {"google", "reuters", "bloomberg", "cls"}:
-            return await self._fetch_google_rss(symbol, limit, source_hint=query_hint)
-        if source == "bocha":
-            return await self._fetch_bocha(symbol, query, limit, days)
-        if source == "tavily":
-            return await self._fetch_tavily(symbol, query, limit, days)
-        if source == "brave":
-            return await self._fetch_brave(symbol, query, limit, days)
-        if source == "serpapi":
-            return await self._fetch_serpapi(symbol, query, limit, days)
-        return [], [f"{symbol}: unsupported news source '{source}'"]
+        return await self._service.fetch_provider_news(source, symbol, limit, days)
 
     async def execute(self, symbols: list[str] | None = None, limit: int = 6, **kwargs: Any) -> str:
         symbols_in = symbols or self._defaults
@@ -1437,6 +1121,7 @@ class MarketNewsTool(Tool):
         if not clean_symbols:
             return json.dumps({"error": "no valid symbols"}, ensure_ascii=False)
 
+        self._service.reset_health()
         limit = int(_clamp(float(limit), 1.0, 20.0))
         all_items: list[dict[str, Any]] = []
         warnings: list[str] = []
@@ -1461,6 +1146,7 @@ class MarketNewsTool(Tool):
                 symbol_items = self._mock_items(symbol, limit)
                 provider_by_symbol[symbol] = "mock"
                 warnings.append(f"{symbol}: news source fallback: mock")
+                self._service.record_health("mock", fallback=True, warnings=warnings)
 
             all_items.extend(symbol_items)
 
@@ -1481,6 +1167,8 @@ class MarketNewsTool(Tool):
                 "providerBySymbol": provider_by_symbol,
                 "items": deduped[: max(1, len(clean_symbols) * limit)],
                 "warnings": warnings,
+                "sourceHealth": self._service.health_snapshot(),
+                "routeTrace": self._service.route_trace(),
             },
             ensure_ascii=False,
         )
@@ -1678,70 +1366,21 @@ class MarketMacroTool(Tool):
         },
     }
 
-    _SERIES_MAP = {
-        "fedFunds": "FEDFUNDS",
-        "cpi": "CPIAUCSL",
-        "unemployment": "UNRATE",
-        "us10y": "DGS10",
-        "dxy": "DTWEXBGS",
-    }
+    _SERIES_MAP = MarketMacroService.SERIES_MAP
 
-    def __init__(self, config: MarketToolsConfig | None = None):
+    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
         self._config = config
         self._timeout = float(config.request_timeout_s) if config else 12.0
         self._source = config.macro_source if config else "fred"
         self._fred_api_key = (config.fred_api_key if config else "") or ""
+        self._service = MarketMacroService(config=config, workspace=workspace)
 
     @staticmethod
     def _manual_fallback(indicators: list[str]) -> dict[str, Any]:
-        now = _utc_now_iso()
-        rows = [{"name": k, "value": None, "delta": None, "source": "manual"} for k in indicators]
-        return {
-            "asOf": now,
-            "source": "manual",
-            "indicators": rows,
-            "macroRisk": 0.5,
-            "regime": "unknown",
-            "warnings": ["macro source is manual; provide FRED api key for live values"],
-        }
+        return MarketMacroService.manual_fallback(indicators)
 
     async def _fetch_fred_series(self, series_id: str) -> tuple[float | None, float | None, str | None]:
-        if not self._fred_api_key:
-            return None, None, "missing FRED api key"
-
-        params = {
-            "series_id": series_id,
-            "api_key": self._fred_api_key,
-            "file_type": "json",
-            "sort_order": "desc",
-            "limit": "2",
-        }
-        url = f"https://api.stlouisfed.org/fred/series/observations?{urlencode(params)}"
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                payload = response.json()
-        except Exception as e:
-            return None, None, str(e)
-
-        observations = payload.get("observations", [])
-        values: list[float] = []
-        for row in observations:
-            raw = str(row.get("value", "."))
-            if raw == ".":
-                continue
-            try:
-                values.append(float(raw))
-            except ValueError:
-                continue
-
-        if not values:
-            return None, None, "no observations"
-
-        latest = values[0]
-        previous = values[1] if len(values) > 1 else values[0]
-        return latest, (latest - previous), None
+        return await self._service.fetch_fred_series(series_id)
 
     async def execute(self, indicators: list[str] | None = None, **kwargs: Any) -> str:
         selected = indicators or ["fedFunds", "cpi", "unemployment", "us10y", "dxy"]
@@ -1749,8 +1388,17 @@ class MarketMacroTool(Tool):
         if not clean:
             return json.dumps({"error": "no supported indicators requested"}, ensure_ascii=False)
 
+        self._service.reset_health()
         if self._source == "manual":
-            return json.dumps(self._manual_fallback(clean), ensure_ascii=False)
+            self._service.record_health(
+                "manual",
+                reason="Manual macro fallback mode is active.",
+                provider_chain=["manual"],
+            )
+            payload = self._manual_fallback(clean)
+            payload["sourceHealth"] = self._service.health_snapshot()
+            payload["routeTrace"] = self._service.route_trace()
+            return json.dumps(payload, ensure_ascii=False)
 
         rows: list[dict[str, Any]] = []
         warnings: list[str] = []
@@ -1774,7 +1422,10 @@ class MarketMacroTool(Tool):
             )
 
         if not by_name:
-            return json.dumps(self._manual_fallback(clean), ensure_ascii=False)
+            payload = self._manual_fallback(clean)
+            payload["sourceHealth"] = self._service.health_snapshot()
+            payload["routeTrace"] = self._service.route_trace()
+            return json.dumps(payload, ensure_ascii=False)
 
         fed = by_name.get("fedFunds", 4.5)
         cpi = by_name.get("cpi", 3.0)
@@ -1790,6 +1441,8 @@ class MarketMacroTool(Tool):
             "macroRisk": round(macro_risk, 4),
             "regime": regime,
             "warnings": warnings,
+            "sourceHealth": self._service.health_snapshot(),
+            "routeTrace": self._service.route_trace(),
         }
         return json.dumps(result, ensure_ascii=False)
 
@@ -1816,16 +1469,16 @@ class MarketBriefTool(Tool):
         },
     }
 
-    def __init__(self, config: MarketToolsConfig | None = None):
+    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
         self._config = config
-        self._snapshot = MarketSnapshotTool(config=config)
+        self._snapshot = MarketSnapshotTool(config=config, workspace=workspace)
         self._event = MarketEventExtractTool()
         self._signal = MarketSignalTool(config=config)
         self._chips = MarketChipDistributionTool(config=config)
         self._fundamentals = MarketFundamentalsTool(config=config)
-        self._news = MarketNewsTool(config=config)
+        self._news = MarketNewsTool(config=config, workspace=workspace)
         self._social = MarketSocialSentimentTool(config=config)
-        self._macro = MarketMacroTool(config=config)
+        self._macro = MarketMacroTool(config=config, workspace=workspace)
 
     @staticmethod
     def _scenario_recommendations(action_rows: list[dict[str, Any]], macro_risk: float) -> dict[str, list[str]]:
@@ -1844,6 +1497,111 @@ class MarketBriefTool(Tool):
             "neutral": neutral,
             "defensive": defensive,
         }
+
+    @staticmethod
+    def _component_reliability(component: str, payload: dict[str, Any], enabled: bool) -> dict[str, Any]:
+        """Normalize service observability fields for brief-level reporting."""
+        if not enabled:
+            return {
+                "component": component,
+                "enabled": False,
+                "warnings": [],
+                "sourceHealth": {},
+                "routeTrace": [],
+                "status": "disabled",
+            }
+
+        source_health = payload.get("sourceHealth") if isinstance(payload.get("sourceHealth"), dict) else {}
+        route_trace = payload.get("routeTrace") if isinstance(payload.get("routeTrace"), list) else []
+        warnings = [str(item) for item in payload.get("warnings", []) if str(item).strip()]
+        statuses = [str(state.get("status", "unknown")) for state in source_health.values() if isinstance(state, dict)]
+        overall_status = "ok"
+        if any(status == "error" for status in statuses):
+            overall_status = "error"
+        elif any(status == "fallback" for status in statuses):
+            overall_status = "fallback"
+        elif any(status == "degraded" for status in statuses):
+            overall_status = "degraded"
+        elif any(status == "cached" for status in statuses):
+            overall_status = "cached"
+
+        return {
+            "component": component,
+            "enabled": True,
+            "warnings": warnings,
+            "sourceHealth": source_health,
+            "routeTrace": route_trace,
+            "status": overall_status,
+        }
+
+    @classmethod
+    def _build_data_reliability(
+        cls,
+        snapshot: dict[str, Any],
+        news: dict[str, Any],
+        macro: dict[str, Any],
+        *,
+        include_news: bool,
+        include_macro: bool,
+    ) -> dict[str, Any]:
+        """Collect component-level reliability details for the final brief."""
+        components = {
+            "snapshot": cls._component_reliability("snapshot", snapshot, enabled=True),
+            "news": cls._component_reliability("news", news, enabled=include_news),
+            "macro": cls._component_reliability("macro", macro, enabled=include_macro),
+        }
+        issues: list[str] = []
+        for component, details in components.items():
+            if not details["enabled"]:
+                continue
+            if details["status"] in {"fallback", "degraded", "error"}:
+                issues.append(f"{component}:{details['status']}")
+        overall_status = "ok"
+        if any(details["status"] == "error" for details in components.values()):
+            overall_status = "error"
+        elif any(details["status"] == "fallback" for details in components.values()):
+            overall_status = "fallback"
+        elif any(details["status"] == "degraded" for details in components.values()):
+            overall_status = "degraded"
+        elif any(details["status"] == "cached" for details in components.values()):
+            overall_status = "cached"
+
+        return {
+            "overallStatus": overall_status,
+            "issues": issues,
+            "components": components,
+        }
+
+    @staticmethod
+    def _reliability_markdown_lines(data_reliability: dict[str, Any]) -> list[str]:
+        """Render a compact reliability section for the markdown brief."""
+        lines = [
+            "",
+            "### Data Reliability",
+            f"- Overall: {data_reliability.get('overallStatus', 'unknown')}",
+        ]
+        for name, component in data_reliability.get("components", {}).items():
+            if not component.get("enabled"):
+                lines.append(f"- {name}: disabled")
+                continue
+            source_health = component.get("sourceHealth", {})
+            source_bits = [
+                f"{source}={state.get('status', 'unknown')}"
+                for source, state in source_health.items()
+                if isinstance(state, dict)
+            ]
+            selected_reason = ""
+            for trace in component.get("routeTrace", []):
+                if isinstance(trace, dict) and trace.get("selected") and trace.get("reason"):
+                    selected_reason = str(trace["reason"])
+                    break
+            detail = ", ".join(source_bits) if source_bits else component.get("status", "unknown")
+            warnings = component.get("warnings", [])
+            suffix = f" | warnings={len(warnings)}" if warnings else ""
+            lines.append(f"- {name}: {detail}{suffix}")
+            if selected_reason:
+                lines.append(f"  - reason: {selected_reason}")
+        return lines
 
     async def execute(
         self,
@@ -1956,6 +1714,13 @@ class MarketBriefTool(Tool):
             headline=headline,
             body=body,
         )
+        data_reliability = self._build_data_reliability(
+            snapshot,
+            news,
+            macro,
+            include_news=includeNews,
+            include_macro=includeMacro,
+        )
 
         lines = [
             "## Market Brief",
@@ -2001,6 +1766,7 @@ class MarketBriefTool(Tool):
                 f"- Event: {event.get('eventType')}",
                 f"- Sentiment: {event.get('sentimentLabel')} ({float(event.get('sentimentScore', 0.0)):.2f})",
             ]
+        lines += self._reliability_markdown_lines(data_reliability)
 
         result = {
             "asOf": _utc_now_iso(),
@@ -2016,6 +1782,7 @@ class MarketBriefTool(Tool):
             "marketSentimentIndex": sentiment_index,
             "marketState": sentiment_state,
             "scenarios": scenarios,
+            "dataReliability": data_reliability,
             "briefMarkdown": "\n".join(lines),
         }
         return json.dumps(result, ensure_ascii=False)

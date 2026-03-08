@@ -1,7 +1,7 @@
 ---
 name: stock-watch
 description: Automatically monitor specific stocks and provide daily summaries of price, news, and technical indicators.
-metadata: {"marketbot":{"emoji":"📈"}}
+metadata: {"marketbot":{"emoji":"📈","triggers":["watchlist","watch","daily summary","decision dashboard"],"output":"stock-watch-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","market_fundamentals"],"required_tools":["market_snapshot","market_news"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"]}}
 ---
 
 # Stock Watch

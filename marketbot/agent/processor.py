@@ -30,6 +30,8 @@ class MessageProcessor:
     - Memory consolidation triggers
     """
 
+    _TOOL_RESULT_MAX_CHARS = 500
+
     def __init__(
         self,
         context: ContextBuilder,
@@ -179,13 +181,20 @@ class MessageProcessor:
     ) -> list[dict[str, Any]]:
         """Build messages for LLM from session and current input."""
         history = session.get_history(max_messages=self.memory_window)
-        return self.context.build_messages(
+        messages = self.context.build_messages(
             history=history,
             current_message=current_message,
             media=media,
             channel=channel,
             chat_id=chat_id,
         )
+        if routing := self.context.get_last_skill_routing():
+            session.metadata["last_skill_routing"] = routing
+        return messages
+
+    def get_last_skill_routing(self) -> dict[str, Any] | None:
+        """Expose structured skill-routing metadata for downstream renderers."""
+        return self.context.get_last_skill_routing()
 
     def save_session(self, session: "Session", messages: list[dict], skip: int) -> None:
         """Save new messages to session."""
@@ -195,8 +204,8 @@ class MessageProcessor:
             role, content = entry.get("role"), entry.get("content")
             if role == "assistant" and not content and not entry.get("tool_calls"):
                 continue
-            if role == "tool" and isinstance(content, str) and len(content) > 500:
-                entry["content"] = content[:500] + "\n... (truncated)"
+            if role == "tool" and isinstance(content, str) and len(content) > self._TOOL_RESULT_MAX_CHARS:
+                entry["content"] = content[:self._TOOL_RESULT_MAX_CHARS] + "\n... (truncated)"
             elif role == "user":
                 if isinstance(content, str) and content.startswith(self.context._RUNTIME_CONTEXT_TAG):
                     parts = content.split("\n\n", 1)
@@ -204,6 +213,25 @@ class MessageProcessor:
                         entry["content"] = parts[1]
                     else:
                         continue
+                if isinstance(content, list):
+                    filtered = []
+                    for c in content:
+                        if (
+                            c.get("type") == "text"
+                            and isinstance(c.get("text"), str)
+                            and c["text"].startswith(self.context._RUNTIME_CONTEXT_TAG)
+                        ):
+                            continue
+                        if (
+                            c.get("type") == "image_url"
+                            and c.get("image_url", {}).get("url", "").startswith("data:image/")
+                        ):
+                            filtered.append({"type": "text", "text": "[image]"})
+                        else:
+                            filtered.append(c)
+                    if not filtered:
+                        continue
+                    entry["content"] = filtered
             entry.setdefault("timestamp", datetime.now().isoformat())
             session.messages.append(entry)
         session.updated_at = datetime.now()

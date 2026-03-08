@@ -2,6 +2,7 @@ import asyncio
 import json
 
 from marketbot.agent.loop import AgentLoop
+from marketbot.bus.events import InboundMessage
 from marketbot.agent.tools.market import (
     MarketBriefTool,
     MarketChipDistributionTool,
@@ -16,6 +17,7 @@ from marketbot.agent.tools.market import (
 )
 from marketbot.bus.queue import MessageBus
 from marketbot.config.schema import MarketToolsConfig
+from marketbot.domain.market.services import MarketSnapshotService
 from marketbot.providers.base import LLMProvider, LLMResponse
 
 
@@ -46,6 +48,8 @@ def test_market_snapshot_mock_source() -> None:
     assert payload["source"] == "mock"
     assert payload["quotes"][0]["symbol"] == "NVDA"
     assert "changePct" in payload["quotes"][0]
+    assert payload["sourceHealth"]["mock"]["status"] == "ok"
+    assert payload["routeTrace"][0]["source"] == "mock"
 
 
 def test_market_snapshot_eastmoney_source(monkeypatch) -> None:
@@ -118,6 +122,9 @@ def test_market_source_plan_for_a_share_news_and_quote() -> None:
     assert payload["tasks"][1]["futureConnectors"] == []
     assert payload["tasks"][2]["futureConnectors"] == []
     assert payload["tasks"][3]["futureConnectors"] == []
+    assert payload["recommendedSkills"] == ["stock-data-sourcing"]
+    assert payload["tasks"][0]["routingTelemetry"]["tool"] == "market_source_plan"
+    assert "stock-data-sourcing" in payload["tasks"][0]["recommendedSkills"]
 
 
 def test_market_signal_buy_when_inputs_are_strong() -> None:
@@ -149,6 +156,44 @@ def test_market_news_mock_source() -> None:
     assert payload["sources"] == ["mock"]
     assert len(payload["items"]) == 3
     assert payload["items"][0]["symbol"] == "NVDA"
+    assert payload["sourceHealth"]["mock"]["status"] == "ok"
+    assert payload["sourceHealth"]["mock"]["providerChain"] == ["mock"]
+
+
+def test_market_snapshot_service_uses_cache(tmp_path, monkeypatch) -> None:
+    cfg = MarketToolsConfig()
+    service = MarketSnapshotService(config=cfg, workspace=tmp_path)
+    calls: list[tuple[str, ...]] = []
+
+    async def _fake_fetch(symbols: list[str]):
+        calls.append(tuple(symbols))
+        return (
+            [
+                {
+                    "symbol": "NVDA",
+                    "price": 1.0,
+                    "changePct": 0.0,
+                    "volume": 1,
+                    "avgVolume": 1,
+                    "flowRatio": 1.0,
+                    "flowHint": "neutral",
+                    "momentum": "flat",
+                    "currency": "USD",
+                    "marketState": "REGULAR",
+                }
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(service, "_fetch_yahoo_uncached", _fake_fetch)
+
+    first_rows, _ = _run(service.fetch_yahoo(["NVDA"]))
+    second_rows, _ = _run(service.fetch_yahoo(["NVDA"]))
+
+    assert len(calls) == 1
+    assert first_rows == second_rows
+    assert service.health_snapshot()["yahoo"]["cached"] is True
+    assert service.route_trace()[-1]["status"] == "cached"
 
 
 def test_market_news_auto_routes_by_market(monkeypatch) -> None:
@@ -262,6 +307,8 @@ def test_market_macro_manual_mode() -> None:
     payload = json.loads(_run(tool.execute(indicators=["fedFunds", "cpi"])))
     assert payload["source"] == "manual"
     assert 0.0 <= payload["macroRisk"] <= 1.0
+    assert payload["sourceHealth"]["manual"]["status"] == "ok"
+    assert payload["routeTrace"][0]["reason"] == "Manual macro fallback mode is active."
 
 
 def test_market_social_sentiment_mock_source() -> None:
@@ -285,9 +332,14 @@ def test_market_brief_composes_outputs() -> None:
     assert len(payload["signals"]) == 2
     assert "social" in payload
     assert payload["marketRoute"]["primary"] == "equity"
+    assert payload["dataReliability"]["overallStatus"] == "ok"
+    assert payload["dataReliability"]["components"]["snapshot"]["status"] == "ok"
     assert "briefMarkdown" in payload
     assert "Market Focus: equity" in payload["briefMarkdown"]
     assert "Scenario Playbook" in payload["briefMarkdown"]
+    assert "Data Reliability" in payload["briefMarkdown"]
+    assert "snapshot: mock=ok" in payload["briefMarkdown"]
+    assert "macro: manual=ok" in payload["briefMarkdown"]
 
 
 def test_market_brief_includes_chip_distribution_for_a_share(monkeypatch) -> None:
@@ -363,6 +415,7 @@ def test_market_brief_includes_chip_distribution_for_a_share(monkeypatch) -> Non
     assert "600519" in payload["chips"]["perSymbol"]
     assert "Chips: profit=0.68" in payload["briefMarkdown"]
     assert "Fundamentals: PE=20.37 | PB=6.83" in payload["briefMarkdown"]
+    assert payload["dataReliability"]["components"]["news"]["status"] == "ok"
 
 
 def test_agent_loop_registers_market_tools_by_default(tmp_path) -> None:
@@ -382,6 +435,7 @@ def test_agent_loop_registers_market_tools_by_default(tmp_path) -> None:
     assert "market_social_sentiment" in loop.tools.tool_names
     assert "market_macro" in loop.tools.tool_names
     assert "market_brief" in loop.tools.tool_names
+    assert set(loop.context.available_tools or set()).issuperset({"market_snapshot", "market_signal", "market_brief"})
 
 
 def test_agent_loop_skips_market_tools_when_disabled(tmp_path) -> None:
@@ -402,3 +456,57 @@ def test_agent_loop_skips_market_tools_when_disabled(tmp_path) -> None:
     assert "market_social_sentiment" not in loop.tools.tool_names
     assert "market_macro" not in loop.tools.tool_names
     assert "market_brief" not in loop.tools.tool_names
+    assert "market_snapshot" not in (loop.context.available_tools or set())
+
+
+def test_agent_loop_sets_market_runtime_profile_from_config(tmp_path) -> None:
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+        market_config=MarketToolsConfig(quote_source="eastmoney"),
+    )
+
+    assert loop.context.market_runtime_profile is not None
+    assert loop.context.market_runtime_profile["tool_markets"]["market_snapshot"] == ["a-share"]
+
+
+def test_agent_loop_exposes_last_skill_routing(tmp_path) -> None:
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+    )
+    session = loop.sessions.get_or_create("cli:direct")
+
+    loop.processor.build_messages(
+        session=session,
+        current_message="Analyze NVDA swing setup, include catalysts and risk checklist.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    routing = loop.get_last_skill_routing()
+    assert routing is not None
+    assert routing["requestProfile"]["markets"] == ["us"]
+    assert {item["name"] for item in routing["selected"]} >= {"market-report", "catalyst-tracker", "risk-checklist"}
+
+
+def test_agent_loop_attaches_skill_routing_to_response_and_session(tmp_path) -> None:
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+    )
+    msg = InboundMessage(channel="cli", sender_id="user", chat_id="direct", content="Analyze NVDA swing setup.")
+
+    response = _run(loop._process_message(msg))
+
+    assert response is not None
+    assert "skill_routing" in response.metadata
+    assert response.metadata["skill_routing"]["requestProfile"]["markets"] == ["us"]
+    session = loop.sessions.get_or_create("cli:direct")
+    assert session.metadata["last_skill_routing"]["requestProfile"]["markets"] == ["us"]

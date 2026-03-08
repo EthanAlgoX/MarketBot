@@ -1,6 +1,7 @@
 ---
 name: stock-data-sourcing
 description: Select and combine market data and news providers for A-share, Hong Kong, and US stock analysis. Use when Codex needs to choose between efinance, akshare, tushare, pytdx, baostock, yfinance, Tavily, Bocha, Brave, or SerpAPI; explain provider tradeoffs; design fallback chains; or plan data ingestion for cross-market watchlists and reports.
+metadata: {"marketbot":{"emoji":"🧭","triggers":["data source","provider","coverage","fallback","routing","行情源","数据源"],"output":"source-plan","risk":"low","freshness":"reference","tools":["market_source_plan"],"required_tools":["market_source_plan"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"]}}
 ---
 
 # Stock Data Sourcing

@@ -7,6 +7,8 @@ from pathlib import Path
 import datetime as datetime_module
 
 from marketbot.agent.context import ContextBuilder
+from marketbot.config.schema import MarketToolsConfig
+from marketbot.domain.market import build_market_runtime_profile
 
 
 class _FakeDatetime(real_datetime):
@@ -109,6 +111,57 @@ def test_market_analysis_message_auto_injects_market_skills(tmp_path) -> None:
     assert "### Skill: market-report" in prompt
     assert "### Skill: catalyst-tracker" in prompt
     assert "### Skill: risk-checklist" in prompt
+    routing = builder.get_last_skill_routing()
+    assert routing is not None
+    assert routing["requestProfile"]["markets"] == ["us"]
+    assert {item["name"] for item in routing["selected"]} >= {"market-report", "catalyst-tracker", "risk-checklist"}
+
+
+def test_runtime_tool_availability_filters_auto_injected_skills(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"market_snapshot"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Analyze NVDA swing setup, include catalysts and risk checklist.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: market-report" not in prompt
+    assert "### Skill: risk-checklist" not in prompt
+    assert "### Skill: catalyst-tracker" not in prompt
+    assert "# Skill Routing Diagnostics" in prompt
+    assert "- market-report: blocked (auto)" in prompt
+    assert "reason: missing tools: market_signal" in prompt
+    assert "Tool: market_signal" in prompt
+    assert "Tool: market_news" in prompt
+    routing = builder.get_last_skill_routing()
+    assert routing is not None
+    assert any(item["name"] == "market-report" for item in routing["blocked"])
+    assert any("missing tools: market_signal" in reason for item in routing["blocked"] for reason in item["reasons"])
+
+
+def test_runtime_market_profile_filters_us_analysis_when_quotes_are_a_share_only(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"market_snapshot", "market_signal", "market_news", "market_macro", "market_event_extract"})
+    builder.set_market_runtime_profile(build_market_runtime_profile(MarketToolsConfig(quote_source="eastmoney")))
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Analyze AAPL swing setup, include catalysts and risk checklist.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: market-report" not in prompt
+    assert "### Skill: risk-checklist" not in prompt
+    assert "### Skill: catalyst-tracker" in prompt
+    assert "runtime market coverage mismatch: market_snapshot supports a-share; request=us" in prompt
 
 
 def test_chart_and_monitor_messages_auto_inject_tool_skills(tmp_path) -> None:
@@ -149,6 +202,7 @@ def test_equity_analysis_prefers_equity_skills_without_monitor_skill(tmp_path) -
     assert "### Skill: risk-checklist" in prompt
     assert "### Skill: stock-info-explorer" in prompt
     assert "### Skill: crypto-gold-monitor" not in prompt
+    assert "### Skill: portfolio-analyzer" not in prompt
 
 
 def test_crypto_analysis_uses_chart_and_risk_skills_without_metals_monitor(tmp_path) -> None:
@@ -199,3 +253,76 @@ def test_data_source_message_auto_injects_stock_data_sourcing(tmp_path) -> None:
 
     prompt = messages[0]["content"]
     assert "### Skill: stock-data-sourcing" in prompt
+
+
+def test_metadata_driven_monitor_and_portfolio_skills_are_injected(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    monitor_messages = builder.build_messages(
+        history=[],
+        current_message="Give me a market summary and surveillance overview for today.",
+        channel="cli",
+        chat_id="direct",
+    )
+    portfolio_messages = builder.build_messages(
+        history=[],
+        current_message="Analyze my portfolio allocation and diversification risk.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    assert "### Skill: market-monitor" in monitor_messages[0]["content"]
+    assert "### Skill: portfolio-analyzer" in portfolio_messages[0]["content"]
+
+
+def test_runtime_tool_availability_allows_monitor_when_required_tools_exist(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"market_snapshot", "market_macro", "market_brief"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Give me a market summary and surveillance overview for today.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    assert "### Skill: market-monitor" in messages[0]["content"]
+
+
+def test_runtime_market_profile_filters_us_news_skill_when_provider_is_cn_only(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"market_news", "market_event_extract", "market_macro"})
+    cfg = MarketToolsConfig()
+    cfg.news_sources = ["bocha"]
+    cfg.bocha_api_key = "bocha-key"
+    builder.set_market_runtime_profile(build_market_runtime_profile(cfg))
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Analyze AAPL headline impact and media narrative.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: news-intelligence" not in prompt
+    assert "runtime market coverage mismatch: market_news supports a-share, hong-kong, mixed; request=us" in prompt
+
+
+def test_source_routing_message_uses_structured_skill_metadata(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="分析 A股 600519 和 美股 NVDA 的数据源覆盖与 fallback 路由。",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: stock-data-sourcing" in prompt
+    assert "### Skill: portfolio-analyzer" not in prompt
