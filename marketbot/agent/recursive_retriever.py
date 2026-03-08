@@ -215,7 +215,7 @@ class RecursiveRetriever:
         """Find in both memory and history."""
         results = await self.find(query, provider, model)
 
-        history = self.store.read_history(max_lines=50)
+        history = self.store.layered.read_history(max_lines=50)
         if history:
             score = self._keyword_score(query, history)
             results.append(RetrievalResult(

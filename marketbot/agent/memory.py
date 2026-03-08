@@ -68,6 +68,10 @@ class MemoryStore:
         with open(self.history_file, "a", encoding="utf-8") as f:
             f.write(entry.rstrip() + "\n\n")
 
+    def read_history(self, max_lines: int = 100) -> str:
+        """Read history from layered store (for backward compatibility)."""
+        return self.layered.read_history(max_lines)
+
     def get_memory_context(self) -> str:
         long_term = self.read_long_term()
         return f"## Long-term Memory\n{long_term}" if long_term else ""
