@@ -1,0 +1,14 @@
+# Cache databases
+*.db
+test_cache.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+dist/
+node_modules/

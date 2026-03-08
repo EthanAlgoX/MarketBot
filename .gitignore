@@ -104,3 +104,7 @@ coverage.xml
 *,cover
 .hypothesis/
 .pytest_cache/
+
+# claw-screener
+claw-screener/node_modules/
+claw-screener/*.db
