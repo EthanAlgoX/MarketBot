@@ -21,6 +21,7 @@ from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.bus.queue import MessageBus
 from marketbot.domain.market import MarketDomainPlugin, build_market_runtime_profile
+from marketbot.market_reporting import render_chat_explainability_footer_for_channel
 from marketbot.providers.base import LLMProvider
 from marketbot.runtime.bootstrap import ToolBootstrapContext, register_core_tools
 from marketbot.session.manager import Session, SessionManager
@@ -219,6 +220,42 @@ class AgentLoop:
                 return tc.name
             return f'{tc.name}("{val[:40]}…")' if len(val) > 40 else f'{tc.name}("{val}")'
         return ", ".join(_fmt(tc) for tc in tool_calls)
+
+    @staticmethod
+    def _extract_market_brief_payload(messages: list[dict]) -> dict[str, Any]:
+        """Extract the latest structured market brief payload from tool results, if present."""
+        for message in reversed(messages):
+            if message.get("role") != "tool" or message.get("name") != "market_brief":
+                continue
+            content = message.get("content")
+            if not isinstance(content, str):
+                continue
+            try:
+                payload = json.loads(content)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                return payload
+        return {}
+
+    def _append_chat_explainability(
+        self,
+        final_content: str | None,
+        messages: list[dict],
+        *,
+        channel: str,
+    ) -> str | None:
+        """Append a standardized explainability footer for market-analysis replies."""
+        if not final_content:
+            return final_content
+        skill_routing = self.processor.get_last_skill_routing()
+        payload = self._extract_market_brief_payload(messages)
+        footer = render_chat_explainability_footer_for_channel(payload, skill_routing=skill_routing, channel=channel)
+        if not footer:
+            return final_content
+        if footer in final_content:
+            return final_content
+        return f"{final_content.rstrip()}\n\n{footer}"
 
     async def _run_agent_loop(
         self,
@@ -454,6 +491,7 @@ class AgentLoop:
 
         if final_content is None:
             final_content = "I've completed processing but have no response to give."
+        final_content = self._append_chat_explainability(final_content, all_msgs, channel=msg.channel)
 
         self._save_turn(session, all_msgs, 1 + len(history))
         self.sessions.save(session)

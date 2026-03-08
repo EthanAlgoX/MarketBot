@@ -1,5 +1,6 @@
 import asyncio
 import json
+from unittest.mock import AsyncMock
 
 from marketbot.agent.loop import AgentLoop
 from marketbot.bus.events import InboundMessage
@@ -18,7 +19,7 @@ from marketbot.agent.tools.market import (
 from marketbot.bus.queue import MessageBus
 from marketbot.config.schema import MarketToolsConfig
 from marketbot.domain.market.services import MarketSnapshotService
-from marketbot.providers.base import LLMProvider, LLMResponse
+from marketbot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
 
 class _DummyProvider(LLMProvider):
@@ -510,3 +511,70 @@ def test_agent_loop_attaches_skill_routing_to_response_and_session(tmp_path) -> 
     assert response.metadata["skill_routing"]["requestProfile"]["markets"] == ["us"]
     session = loop.sessions.get_or_create("cli:direct")
     assert session.metadata["last_skill_routing"]["requestProfile"]["markets"] == ["us"]
+
+
+def test_agent_loop_appends_chat_explainability_footer_for_market_brief(tmp_path, monkeypatch) -> None:
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+    )
+    tool_call = ToolCallRequest(
+        id="call1",
+        name="market_brief",
+        arguments={"symbols": ["NVDA"]},
+    )
+    responses = iter([
+        LLMResponse(content="", tool_calls=[tool_call]),
+        LLMResponse(content="Here is the analysis.", tool_calls=[]),
+    ])
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+
+    payload = {
+        "briefMarkdown": "## Market Brief\n\n- NVDA: BUY",
+        "dataReliability": {"overallStatus": "ok"},
+    }
+    monkeypatch.setattr(loop.tools.get("market_brief"), "execute", AsyncMock(return_value=json.dumps(payload)))
+
+    result = _run(loop._process_message(InboundMessage(channel="cli", sender_id="user", chat_id="direct", content="Analyze NVDA swing setup.")))
+
+    assert result is not None
+    assert result.content.startswith("Here is the analysis.")
+    assert "## Capability & Data Notes" in result.content
+    assert "Skills used:" in result.content
+    assert "Data reliability: ok" in result.content
+
+
+def test_agent_loop_uses_compact_chat_explainability_for_telegram(tmp_path, monkeypatch) -> None:
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+    )
+    tool_call = ToolCallRequest(
+        id="call1",
+        name="market_brief",
+        arguments={"symbols": ["NVDA"]},
+    )
+    responses = iter([
+        LLMResponse(content="", tool_calls=[tool_call]),
+        LLMResponse(content="Telegram analysis.", tool_calls=[]),
+    ])
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+
+    payload = {
+        "briefMarkdown": "## Market Brief\n\n- NVDA: BUY",
+        "dataReliability": {"overallStatus": "ok"},
+    }
+    monkeypatch.setattr(loop.tools.get("market_brief"), "execute", AsyncMock(return_value=json.dumps(payload)))
+
+    result = _run(
+        loop._process_message(InboundMessage(channel="telegram", sender_id="user", chat_id="10001", content="Analyze NVDA swing setup."))
+    )
+
+    assert result is not None
+    assert "## Capability & Data Notes" not in result.content
+    assert "_Capability & Data_: Skills:" in result.content
+    assert "Reliability: ok" in result.content

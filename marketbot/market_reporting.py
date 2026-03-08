@@ -61,6 +61,7 @@ def render_market_report_document(
     headline: str,
     session: str,
     timezone_name: str,
+    skill_routing: dict | None = None,
 ) -> str:
     """Render a standardized market report document for saved or delivered reports."""
     market_state = str(payload.get("marketState", "unknown")).upper()
@@ -170,6 +171,10 @@ def render_market_report_document(
         for warning in warnings:
             lines.append(f"- {warning}")
 
+    explainability = render_analysis_explainability(payload, skill_routing=skill_routing)
+    if explainability:
+        lines += ["", "## Capability & Data Notes", "", explainability]
+
     brief_markdown = str(payload.get("briefMarkdown", "")).strip()
     if brief_markdown:
         lines += ["", "## Tool Output", "", brief_markdown]
@@ -185,6 +190,7 @@ def render_market_report_notification(
     timezone_name: str,
     report_path: Path,
     channel: str = "generic",
+    skill_routing: dict | None = None,
 ) -> str:
     """Render a short channel-friendly notification for a saved market report."""
     market_state = str(payload.get("marketState", "unknown")).upper()
@@ -221,6 +227,9 @@ def render_market_report_notification(
         f"Market Sentiment Index: {sentiment_index:.2f}",
         f"Macro Regime: {macro_regime} (risk={macro_risk:.2f})",
     ]
+    explainability_summary = render_analysis_explainability_summary(payload, skill_routing=skill_routing)
+    if explainability_summary:
+        lines.append(explainability_summary)
     if top_lines:
         lines += ["", "Top signals:"] + top_lines
     lines += [
@@ -228,6 +237,109 @@ def render_market_report_notification(
         f"Attachment: {report_path.name}",
     ]
     return "\n".join(lines)
+
+
+def render_analysis_explainability(payload: dict, *, skill_routing: dict | None = None) -> str:
+    """Render standardized capability and data coverage notes for reports."""
+    lines: list[str] = []
+    routing = skill_routing or payload.get("skillRouting") or {}
+    selected = routing.get("selected", []) or []
+    blocked = routing.get("blocked", []) or []
+    request_profile = routing.get("requestProfile", {}) or {}
+    data_reliability = payload.get("dataReliability", {}) or {}
+
+    if selected or blocked:
+        markets = ", ".join(str(item) for item in request_profile.get("markets", []) if str(item).strip()) or "unspecified"
+        asset_classes = (
+            ", ".join(str(item) for item in request_profile.get("asset_classes", []) if str(item).strip()) or "unspecified"
+        )
+        lines.append(f"- Skill Routing Request: markets={markets}; asset_classes={asset_classes}")
+        if selected:
+            lines.append(f"- Selected Skills: {', '.join(str(item.get('name', '')) for item in selected if item.get('name'))}")
+        if blocked:
+            for item in blocked[:3]:
+                name = str(item.get("name", "")).strip()
+                reasons = [str(reason) for reason in item.get("reasons", []) if str(reason).strip()]
+                if name and reasons:
+                    lines.append(f"- Blocked Skill: {name} | {'; '.join(reasons[:2])}")
+
+    overall_status = str(data_reliability.get("overallStatus", "")).strip()
+    components = data_reliability.get("components", {}) or {}
+    if overall_status:
+        lines.append(f"- Data Reliability: {overall_status}")
+        for name in ("snapshot", "news", "macro"):
+            component = components.get(name) or {}
+            if not component:
+                continue
+            status = str(component.get("status", "unknown"))
+            source_health = component.get("sourceHealth", {}) or {}
+            details = ", ".join(
+                f"{source}={state.get('status', 'unknown')}"
+                for source, state in source_health.items()
+                if isinstance(state, dict)
+            )
+            if details:
+                lines.append(f"- {name.title()} Coverage: {details}")
+            else:
+                lines.append(f"- {name.title()} Coverage: {status}")
+
+    return "\n".join(lines).strip()
+
+
+def render_analysis_explainability_summary(payload: dict, *, skill_routing: dict | None = None) -> str:
+    """Render a single-line explainability summary for notifications."""
+    bits: list[str] = []
+    routing = skill_routing or payload.get("skillRouting") or {}
+    selected = [str(item.get("name", "")).strip() for item in (routing.get("selected", []) or []) if str(item.get("name", "")).strip()]
+    if selected:
+        bits.append(f"Skills: {', '.join(selected[:3])}")
+    data_reliability = payload.get("dataReliability", {}) or {}
+    overall_status = str(data_reliability.get("overallStatus", "")).strip()
+    if overall_status:
+        bits.append(f"Reliability: {overall_status}")
+    return " | ".join(bits)
+
+
+def render_chat_explainability_footer(payload: dict, *, skill_routing: dict | None = None) -> str:
+    """Render a concise explainability footer suitable for chat replies."""
+    return render_chat_explainability_footer_for_channel(payload, skill_routing=skill_routing, channel="generic")
+
+
+def render_chat_explainability_footer_for_channel(
+    payload: dict,
+    *,
+    skill_routing: dict | None = None,
+    channel: str = "generic",
+) -> str:
+    """Render channel-aware explainability notes for chat replies."""
+    channel_key = channel.strip().lower()
+    if channel_key in {"telegram", "slack", "whatsapp", "qq", "dingtalk", "feishu", "mochat"}:
+        summary = render_analysis_explainability_summary(payload, skill_routing=skill_routing)
+        return f"_Capability & Data_: {summary}" if summary else ""
+
+    lines: list[str] = []
+    routing = skill_routing or payload.get("skillRouting") or {}
+    selected = [str(item.get("name", "")).strip() for item in (routing.get("selected", []) or []) if str(item.get("name", "")).strip()]
+    blocked = routing.get("blocked", []) or []
+    data_reliability = payload.get("dataReliability", {}) or {}
+
+    if selected:
+        lines.append(f"- Skills used: {', '.join(selected[:3])}")
+    if blocked:
+        blocked_row = blocked[0]
+        name = str(blocked_row.get("name", "")).strip()
+        reasons = [str(reason) for reason in blocked_row.get("reasons", []) if str(reason).strip()]
+        if name and reasons:
+            lines.append(f"- Blocked skill: {name} ({'; '.join(reasons[:1])})")
+
+    overall_status = str(data_reliability.get("overallStatus", "")).strip()
+    if overall_status:
+        lines.append(f"- Data reliability: {overall_status}")
+
+    if not lines:
+        return ""
+
+    return "## Capability & Data Notes\n" + "\n".join(lines)
 
 
 def extract_market_heartbeat_spec(content: str, now: datetime | None = None) -> dict[str, object] | None:

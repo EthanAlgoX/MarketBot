@@ -6,6 +6,10 @@ from pathlib import Path
 from marketbot.market_reporting import (
     extract_market_heartbeat_spec,
     infer_market_report_session,
+    render_analysis_explainability,
+    render_analysis_explainability_summary,
+    render_chat_explainability_footer,
+    render_chat_explainability_footer_for_channel,
     render_market_report_notification,
     render_market_report_document,
 )
@@ -136,3 +140,94 @@ def test_render_market_report_document_includes_market_focus() -> None:
     )
 
     assert "- Market Focus: crypto" in doc
+
+
+def test_render_market_report_document_includes_explainability_notes() -> None:
+    payload = {
+        "asOf": "2026-03-07T01:23:45Z",
+        "marketState": "bullish",
+        "marketSentimentIndex": 0.67,
+        "marketRoute": {"primary": "equity"},
+        "macro": {"regime": "risk-on", "macroRisk": 0.31, "warnings": []},
+        "social": {"overallSentiment": 0.22, "perSymbol": [], "warnings": []},
+        "signals": [],
+        "scenarios": {},
+        "snapshot": {"warnings": []},
+        "news": {"items": [], "warnings": []},
+        "dataReliability": {
+            "overallStatus": "fallback",
+            "components": {
+                "snapshot": {"status": "ok", "sourceHealth": {"mock": {"status": "ok"}}},
+                "news": {"status": "fallback", "sourceHealth": {"mock": {"status": "fallback"}}},
+                "macro": {"status": "ok", "sourceHealth": {"manual": {"status": "ok"}}},
+            },
+        },
+    }
+    skill_routing = {
+        "requestProfile": {"markets": ["us"], "asset_classes": ["equity"]},
+        "selected": [{"name": "market-report"}],
+        "blocked": [{"name": "risk-checklist", "reasons": ["missing tools: market_signal"]}],
+    }
+
+    doc = render_market_report_document(
+        payload,
+        symbols=["NVDA"],
+        headline="",
+        session="intraday",
+        timezone_name="America/New_York",
+        skill_routing=skill_routing,
+    )
+
+    assert "## Capability & Data Notes" in doc
+    assert "Selected Skills: market-report" in doc
+    assert "Blocked Skill: risk-checklist | missing tools: market_signal" in doc
+    assert "Data Reliability: fallback" in doc
+    assert "News Coverage: mock=fallback" in doc
+
+
+def test_render_market_report_notification_includes_explainability_summary() -> None:
+    payload = {
+        "marketState": "bullish",
+        "marketSentimentIndex": 0.68,
+        "marketRoute": {"primary": "equity"},
+        "macro": {"regime": "risk-on", "macroRisk": 0.29},
+        "signals": [{"symbol": "NVDA", "action": "buy", "confidence": 0.84}],
+        "dataReliability": {"overallStatus": "ok"},
+    }
+    skill_routing = {"selected": [{"name": "market-report"}, {"name": "catalyst-tracker"}]}
+
+    text = render_market_report_notification(
+        payload,
+        symbols=["NVDA"],
+        session="premarket",
+        timezone_name="America/New_York",
+        report_path=Path("/tmp/market_report_premarket.md"),
+        skill_routing=skill_routing,
+    )
+
+    assert "Skills: market-report, catalyst-tracker | Reliability: ok" in text
+
+
+def test_render_analysis_explainability_helpers_are_stable() -> None:
+    payload = {"dataReliability": {"overallStatus": "ok", "components": {}}}
+    skill_routing = {"selected": [{"name": "market-report"}], "blocked": []}
+
+    block = render_analysis_explainability(payload, skill_routing=skill_routing)
+    summary = render_analysis_explainability_summary(payload, skill_routing=skill_routing)
+    footer = render_chat_explainability_footer(payload, skill_routing=skill_routing)
+
+    assert "Selected Skills: market-report" in block
+    assert summary == "Skills: market-report | Reliability: ok"
+    assert "## Capability & Data Notes" in footer
+    assert "Skills used: market-report" in footer
+
+
+def test_render_chat_explainability_footer_is_channel_aware() -> None:
+    payload = {"dataReliability": {"overallStatus": "ok", "components": {}}}
+    skill_routing = {"selected": [{"name": "market-report"}, {"name": "catalyst-tracker"}], "blocked": []}
+
+    generic = render_chat_explainability_footer_for_channel(payload, skill_routing=skill_routing, channel="cli")
+    telegram = render_chat_explainability_footer_for_channel(payload, skill_routing=skill_routing, channel="telegram")
+
+    assert "## Capability & Data Notes" in generic
+    assert telegram == "_Capability & Data_: Skills: market-report, catalyst-tracker | Reliability: ok"

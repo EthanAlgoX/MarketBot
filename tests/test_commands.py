@@ -203,6 +203,14 @@ def test_market_report_save_writes_standardized_document(tmp_path):
             "warnings": [],
         },
         "snapshot": {"warnings": []},
+        "dataReliability": {
+            "overallStatus": "ok",
+            "components": {
+                "snapshot": {"status": "ok", "sourceHealth": {"mock": {"status": "ok"}}},
+                "news": {"status": "ok", "sourceHealth": {"mock": {"status": "ok"}}},
+                "macro": {"status": "ok", "sourceHealth": {"manual": {"status": "ok"}}},
+            },
+        },
     }
 
     with patch("marketbot.config.loader.load_config", return_value=config), \
@@ -222,6 +230,8 @@ def test_market_report_save_writes_standardized_document(tmp_path):
     assert "### NVDA" in content
     assert "## Scenario Playbook" in content
     assert "## News Flow" in content
+    assert "## Capability & Data Notes" in content
+    assert "Data Reliability: ok" in content
     assert "## Tool Output" in content
 
 
@@ -247,6 +257,7 @@ def test_market_report_notify_sends_to_explicit_channel(tmp_path):
         "marketSentimentIndex": 0.72,
         "signals": [{"symbol": "NVDA", "action": "buy", "confidence": 0.81}],
         "macro": {"regime": "risk-on", "macroRisk": 0.22},
+        "dataReliability": {"overallStatus": "ok"},
     }
     send_mock = AsyncMock()
 
@@ -277,6 +288,7 @@ def test_market_report_notify_sends_to_explicit_channel(tmp_path):
     assert args[1] == "telegram"
     assert args[2] == "10001"
     assert "Market Report Alert" in args[3]
+    assert "Reliability: ok" in args[3]
     assert args[4] == [str(reports[0])]
 
 
