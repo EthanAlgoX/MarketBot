@@ -33,6 +33,7 @@ from rich.table import Table
 from rich.text import Text
 
 from marketbot import __logo__, __version__
+from marketbot.agent.skills import SkillsLoader
 from marketbot.config.schema import Config
 from marketbot.market_reporting import (
     default_market_report_path,
@@ -1029,6 +1030,87 @@ def market_heartbeat_setup(
         heartbeat_path.write_text(content, encoding="utf-8")
 
     console.print(f"[green]✓[/green] Updated {heartbeat_path}")
+
+
+# ============================================================================
+# Skills Commands
+# ============================================================================
+
+
+skills_app = typer.Typer(help="Search and install skills")
+app.add_typer(skills_app, name="skills")
+
+
+@skills_app.command("search")
+def skills_search(
+    query: str = typer.Argument(..., help="What kind of skill you want"),
+    limit: int = typer.Option(5, "--limit", min=1, max=20, help="Maximum results"),
+):
+    """Search local skills first, then curated external skill catalogs."""
+    from marketbot.config.loader import load_config
+
+    config = load_config()
+    loader = SkillsLoader(config.workspace_path)
+
+    local_results = loader.search_local_skills(query, limit=limit)
+    if local_results:
+        table = Table(title="Local Skills")
+        table.add_column("Skill", style="cyan")
+        table.add_column("Source", style="green")
+        table.add_column("Description", style="yellow")
+        for item in local_results:
+            table.add_row(item["name"], item.get("source", "local"), item.get("description", ""))
+        console.print(table)
+        return
+
+    external_results = loader.search_external_skills(query, limit=limit)
+    if not external_results:
+        console.print("[yellow]No local or curated external skills matched.[/yellow]")
+        raise typer.Exit(0)
+
+    table = Table(title="External Skill Suggestions")
+    table.add_column("Skill", style="cyan")
+    table.add_column("Category", style="green")
+    table.add_column("Description", style="yellow")
+    table.add_column("Install", style="magenta")
+    for item in external_results:
+        table.add_row(
+            item["name"],
+            item.get("category", ""),
+            item.get("description", ""),
+            f"marketbot skills install {item['name']}",
+        )
+    console.print(table)
+    for item in external_results:
+        console.print(f"[dim]Install: marketbot skills install {item['name']}[/dim]")
+    console.print("[dim]Catalogs: awesome-openclaw-skills -> openclaw/skills[/dim]")
+
+
+@skills_app.command("install")
+def skills_install(
+    identifier: str = typer.Argument(..., help="Curated skill slug or openclaw GitHub skill URL"),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing workspace skill"),
+):
+    """Install a curated external skill into workspace/skills."""
+    from marketbot.config.loader import load_config
+
+    config = load_config()
+    loader = SkillsLoader(config.workspace_path)
+    try:
+        installed = loader.install_external_skill(identifier, force=force)
+    except FileExistsError as exc:
+        console.print(f"[yellow]{exc}[/yellow]")
+        console.print("[dim]Use --force to replace the existing workspace skill.[/dim]")
+        raise typer.Exit(1) from exc
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        console.print(f"[red]Failed to install skill: {exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    console.print(f"[green]✓[/green] Installed skill to {installed}")
+    console.print("[dim]Start a new agent session to load the new skill.[/dim]")
 
 
 # ============================================================================

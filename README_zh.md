@@ -229,7 +229,19 @@ marketbot gateway
 marketbot status
 marketbot channels --help
 marketbot provider --help
+marketbot skills --help
 ```
+
+## Skill 搜索与安装
+
+可以直接用 CLI 先搜本地 skill，不够再回退到外部 curated skill 目录：
+
+```bash
+marketbot skills search "kubernetes deployment"
+marketbot skills install k8s-release
+```
+
+安装后的外部 skill 会写入 `workspace/skills/`，下一次新会话会自动作为 workspace skill 加载。
 
 ## 开发
 

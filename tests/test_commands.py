@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from typer.testing import CliRunner
 
+from marketbot.agent.skills import SkillsLoader
 from marketbot.cli.commands import app
 from marketbot.config.schema import Config
 from marketbot.providers.litellm_provider import LiteLLMProvider
@@ -321,3 +322,59 @@ def test_market_report_notify_requires_chat_id_for_explicit_channel(tmp_path):
 
     assert result.exit_code != 0
     assert "chat-id is required" in result.stdout
+
+
+def test_skills_search_prefers_local_matches(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+
+    with patch("marketbot.config.loader.load_config", return_value=config), \
+         patch.object(SkillsLoader, "search_local_skills", return_value=[{"name": "market-report", "source": "builtin", "description": "Produce structured single-asset market analysis"}]), \
+         patch.object(SkillsLoader, "search_external_skills", return_value=[]):
+        result = runner.invoke(app, ["skills", "search", "market analysis"])
+
+    assert result.exit_code == 0
+    assert "Local Skills" in result.stdout
+    assert "market-report" in result.stdout
+    assert "External Skill Suggestions" not in result.stdout
+
+
+def test_skills_search_falls_back_to_external_catalog(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+
+    with patch("marketbot.config.loader.load_config", return_value=config), \
+         patch.object(SkillsLoader, "search_local_skills", return_value=[]), \
+         patch.object(
+             SkillsLoader,
+             "search_external_skills",
+             return_value=[
+                 {
+                     "name": "k8s-release",
+                     "category": "DevOps",
+                     "description": "Deploy Kubernetes apps with Helm and ArgoCD.",
+                     "url": "https://github.com/openclaw/skills/tree/main/skills/k8s-release",
+                 }
+             ],
+         ):
+        result = runner.invoke(app, ["skills", "search", "kubernetes deployment"])
+
+    assert result.exit_code == 0
+    assert "External Skill Suggestions" in result.stdout
+    assert "k8s-release" in result.stdout
+    assert "marketbot skills install k8s-release" in result.stdout
+
+
+def test_skills_install_installs_to_workspace(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    installed_path = tmp_path / "skills" / "daily-stock-screener"
+
+    with patch("marketbot.config.loader.load_config", return_value=config), \
+         patch.object(SkillsLoader, "install_external_skill", return_value=installed_path) as install_mock:
+        result = runner.invoke(app, ["skills", "install", "daily-stock-screener"])
+
+    assert result.exit_code == 0
+    install_mock.assert_called_once_with("daily-stock-screener", force=False)
+    assert "Installed skill to" in result.stdout
+    assert "Start a new agent session" in result.stdout

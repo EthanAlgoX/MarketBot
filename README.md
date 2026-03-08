@@ -231,7 +231,19 @@ To inspect current setup:
 marketbot status
 marketbot channels --help
 marketbot provider --help
+marketbot skills --help
 ```
+
+## Skill Search and Install
+
+Use the CLI to search local skills first and fall back to curated external catalogs when needed:
+
+```bash
+marketbot skills search "kubernetes deployment"
+marketbot skills install k8s-release
+```
+
+Installed external skills are written to `workspace/skills/` and loaded as workspace skills in the next session.
 
 ## Development
 

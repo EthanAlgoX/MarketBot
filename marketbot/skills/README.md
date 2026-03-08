@@ -7,6 +7,13 @@ When no suitable local skill is selected, marketbot can also surface curated ext
 - `https://github.com/openclaw/skills`
 - `https://github.com/VoltAgent/awesome-openclaw-skills`
 
+You can also search and install them with:
+
+```bash
+marketbot skills search "your query"
+marketbot skills install <slug>
+```
+
 ## Skill Format
 
 Each skill is a directory containing a `SKILL.md` file with:

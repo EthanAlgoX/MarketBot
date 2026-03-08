@@ -142,6 +142,32 @@ def test_external_skill_search_returns_ranked_matches(tmp_path, monkeypatch):
     assert results[0]["name"] == "daily-stock-screener"
 
 
+def test_external_skill_slug_resolution_supports_slug_and_url(tmp_path, monkeypatch):
+    loader = SkillsLoader(tmp_path)
+    monkeypatch.setattr(
+        loader,
+        "_load_external_catalog_entries",
+        lambda: [
+            {
+                "name": "daily-stock-screener",
+                "title": "Daily Stock Screener",
+                "description": "Screen stock watchlists into ranked candidates.",
+                "category": "Market Intelligence",
+                "url": "https://github.com/openclaw/skills/tree/main/skills/daily-stock-screener",
+            }
+        ],
+    )
+
+    assert loader._resolve_external_skill_slug("daily-stock-screener") == "daily-stock-screener"
+    assert (
+        loader._resolve_external_skill_slug(
+            "https://github.com/openclaw/skills/tree/main/skills/daily-stock-screener"
+        )
+        == "daily-stock-screener"
+    )
+    assert loader._resolve_external_skill_slug("unknown-skill") is None
+
+
 def test_skill_compatibility_filters_mismatched_asset_classes(tmp_path):
     loader = SkillsLoader(tmp_path)
 

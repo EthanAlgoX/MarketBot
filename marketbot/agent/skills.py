@@ -16,6 +16,7 @@ from marketbot.domain.market.profile import freshness_satisfies
 BUILTIN_SKILLS_DIR = Path(__file__).parent.parent / "skills"
 _EXTERNAL_CATALOG_CACHE_TTL_S = 60 * 60 * 6
 _AWESOME_OPENCLAW_SKILLS_README = "https://raw.githubusercontent.com/VoltAgent/awesome-openclaw-skills/main/README.md"
+_OPENCLAW_SKILLS_CONTENTS_API = "https://api.github.com/repos/openclaw/skills/contents"
 
 
 class SkillsLoader:
@@ -423,6 +424,33 @@ class SkillsLoader:
             matched.append(item["name"])
         return matched
 
+    def search_local_skills(
+        self,
+        text: str,
+        *,
+        limit: int = 5,
+        available_tools: set[str] | None = None,
+    ) -> list[dict[str, str]]:
+        """Search local/workspace skills by name and description."""
+        lowered = text.lower()
+        tokens = {token for token in re.findall(r"[a-z0-9\u4e00-\u9fff]+", lowered) if len(token) >= 2}
+        ranked: list[tuple[int, dict[str, str]]] = []
+        for item in self.list_skills(filter_unavailable=False, available_tools=available_tools):
+            description = self._get_skill_description(item["name"])
+            haystack = f"{item['name']} {description}".lower()
+            score = 0
+            if item["name"].replace("-", " ") in lowered:
+                score += 8
+            for token in tokens:
+                if token in haystack:
+                    score += 2
+            if score <= 0:
+                continue
+            ranked.append((score, {**item, "description": description}))
+
+        ranked.sort(key=lambda row: (-row[0], row[1]["name"]))
+        return [entry for _, entry in ranked[:limit]]
+
     def search_external_skills(self, text: str, limit: int = 5) -> list[dict[str, str]]:
         """Search curated external skill catalogs when local skills do not fit."""
         entries = self._load_external_catalog_entries()
@@ -463,6 +491,31 @@ class SkillsLoader:
             if len(results) >= limit:
                 break
         return results
+
+    def install_external_skill(self, identifier: str, *, force: bool = False) -> Path:
+        """Install a curated external skill into the workspace skills directory."""
+        slug = self._resolve_external_skill_slug(identifier)
+        if not slug:
+            raise ValueError(f"Unsupported external skill identifier: {identifier}")
+
+        target_dir = self.workspace_skills / slug
+        if target_dir.exists():
+            if not force:
+                raise FileExistsError(f"Skill already exists: {target_dir}")
+            shutil.rmtree(target_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            self._download_github_skill_tree(f"skills/{slug}", target_dir)
+        except Exception:
+            if target_dir.exists():
+                shutil.rmtree(target_dir, ignore_errors=True)
+            raise
+
+        if not (target_dir / "SKILL.md").exists():
+            shutil.rmtree(target_dir, ignore_errors=True)
+            raise ValueError(f"Installed skill is missing SKILL.md: {slug}")
+        return target_dir
 
     def explain_skill_compatibility(
         self,
@@ -623,6 +676,62 @@ class SkillsLoader:
         entries = cls._parse_awesome_openclaw_readme(response.text)
         cls._external_catalog_cache = (now, entries)
         return [dict(item) for item in entries]
+
+    def _resolve_external_skill_slug(self, identifier: str) -> str | None:
+        """Resolve a skill slug from a curated slug or openclaw GitHub URL."""
+        raw = str(identifier or "").strip()
+        if not raw:
+            return None
+        url_match = re.match(
+            r"^https://github\.com/openclaw/skills/tree/main/skills/([a-z0-9][a-z0-9\-]*)/?$",
+            raw,
+            re.IGNORECASE,
+        )
+        if url_match:
+            return url_match.group(1).lower()
+
+        slug = raw.strip().lower()
+        if re.fullmatch(r"[a-z0-9][a-z0-9\-]*", slug):
+            catalog_names = {item.get("name", "").lower() for item in self._load_external_catalog_entries()}
+            if slug in catalog_names:
+                return slug
+        return None
+
+    def _download_github_skill_tree(self, repo_path: str, target_dir: Path) -> None:
+        """Download a skill folder recursively from the openclaw/skills repository."""
+        headers = {"Accept": "application/vnd.github+json", "User-Agent": "marketbot"}
+        with httpx.Client(timeout=10.0, follow_redirects=True, headers=headers) as client:
+            self._download_github_skill_tree_with_client(client, repo_path, target_dir)
+
+    def _download_github_skill_tree_with_client(self, client: httpx.Client, repo_path: str, target_dir: Path) -> None:
+        """Recursive helper used for external skill installation."""
+        response = client.get(f"{_OPENCLAW_SKILLS_CONTENTS_API}/{repo_path}")
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, list):
+            raise ValueError(f"Unexpected GitHub contents payload for {repo_path}")
+
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            item_type = str(item.get("type", ""))
+            name = str(item.get("name", "")).strip()
+            if not name:
+                continue
+            destination = target_dir / name
+            if item_type == "dir":
+                destination.mkdir(parents=True, exist_ok=True)
+                self._download_github_skill_tree_with_client(client, str(item.get("path", "")), destination)
+                continue
+            if item_type != "file":
+                continue
+            download_url = str(item.get("download_url", "")).strip()
+            if not download_url:
+                continue
+            file_response = client.get(download_url)
+            file_response.raise_for_status()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(file_response.content)
 
     @staticmethod
     def _parse_awesome_openclaw_readme(content: str) -> list[dict[str, str]]:
