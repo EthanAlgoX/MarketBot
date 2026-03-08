@@ -12,9 +12,12 @@ if TYPE_CHECKING:
     from marketbot.agent.context import ContextBuilder
     from marketbot.agent.memory import MemoryStore
     from marketbot.agent.tools.registry import ToolRegistry
-    from marketbot.bus.events import InboundMessage, OutboundMessage
+    from marketbot.bus.events import InboundMessage
     from marketbot.bus.queue import MessageBus
+    from marketbot.providers.base import LLMProvider
     from marketbot.session.manager import Session, SessionManager
+
+from marketbot.bus.events import OutboundMessage
 
 
 class MessageProcessor:
@@ -36,6 +39,8 @@ class MessageProcessor:
         sessions: SessionManager,
         workspace: Path,
         memory_window: int,
+        provider: "LLMProvider | None" = None,
+        model: str = "unknown",
         memory_layer: str = "L1",
         layered_consolidation: bool = False,
     ):
@@ -46,6 +51,8 @@ class MessageProcessor:
         self.sessions = sessions
         self.workspace = workspace
         self.memory_window = memory_window
+        self.provider = provider
+        self.model = model
         self.memory_layer = memory_layer
         self.layered_consolidation = layered_consolidation
         
@@ -151,10 +158,12 @@ class MessageProcessor:
 
     async def _consolidate_memory(self, session: "Session", archive_all: bool = False) -> bool:
         """Delegate to MemoryStore.consolidate()."""
+        if not self.provider:
+            return False
         return await self.memory_store.consolidate(
             session, 
-            provider=None,  # Will be set by MemoryStore
-            model="unknown",
+            provider=self.provider,
+            model=self.model,
             archive_all=archive_all,
             memory_window=self.memory_window,
             layered=self.layered_consolidation,
