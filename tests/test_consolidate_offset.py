@@ -128,6 +128,22 @@ class TestSessionImmutableHistory:
         history2 = session.get_history(max_messages=10)
         assert history1 == history2
 
+    def test_get_history_can_limit_by_recent_turns(self) -> None:
+        """Test get_history can keep only the most recent user turns."""
+        session = Session(key="test:turn-window")
+        for i in range(5):
+            session.add_message("user", f"user{i}")
+            session.add_message("assistant", f"assistant{i}")
+
+        history = session.get_history(max_messages=20, max_turns=2)
+
+        assert [item["content"] for item in history] == [
+            "user3",
+            "assistant3",
+            "user4",
+            "assistant4",
+        ]
+
     def test_messages_list_never_modified(self) -> None:
         """Test that messages list is never modified after creation."""
         session = create_session_with_messages("test:immutable", 5)

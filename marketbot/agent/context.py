@@ -66,6 +66,11 @@ class ContextBuilder:
         skill_names: list[str] | None = None,
         skill_diagnostics: list[dict[str, Any]] | None = None,
         external_skill_suggestions: list[dict[str, Any]] | None = None,
+        *,
+        include_market_playbook: bool = True,
+        include_skills_summary: bool = True,
+        selected_skill_char_budget: int | None = None,
+        active_skill_char_budget: int | None = 400,
     ) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
         parts = [self._get_identity()]
@@ -79,11 +84,15 @@ class ContextBuilder:
             layer_label = {"L0": "Abstract", "L1": "Overview", "L2": "Details"}.get(self.memory_layer, "Details")
             parts.append(f"# Memory ({layer_label})\n\n{memory}")
 
-        parts.append(self._market_analysis_playbook())
+        if include_market_playbook:
+            parts.append(self._market_analysis_playbook())
 
         selected_skills = self._normalize_skill_names(skill_names)
         if selected_skills:
-            selected_content = self.skills.load_skills_for_context(selected_skills)
+            selected_content = self.skills.load_skills_for_context(
+                selected_skills,
+                max_chars_per_skill=selected_skill_char_budget,
+            )
             if selected_content:
                 parts.append(f"# Selected Skills\n\n{selected_content}")
 
@@ -97,11 +106,14 @@ class ContextBuilder:
 
         always_skills = self.skills.get_always_skills()
         if always_skills:
-            always_content = self.skills.load_skills_for_context(always_skills)
+            always_content = self.skills.load_skills_for_context(
+                always_skills,
+                max_chars_per_skill=active_skill_char_budget,
+            )
             if always_content:
                 parts.append(f"# Active Skills\n\n{always_content}")
 
-        skills_summary = self.skills.build_skills_summary(available_tools=self.available_tools)
+        skills_summary = self.skills.build_skills_summary(available_tools=self.available_tools) if include_skills_summary else ""
         if skills_summary:
             parts.append(f"""# Skills
 
@@ -133,6 +145,7 @@ Your workspace is at: {workspace_path}
 
 ## marketbot Guidelines
 - State intent before tool calls, but NEVER predict or claim results before receiving them.
+- When multiple independent read-only tools are needed, batch them into the same assistant turn instead of calling one tool per turn.
 - Before modifying a file, read it first. Do not assume files or directories exist.
 - After writing or editing a file, re-read it if accuracy matters.
 - If a tool call fails, analyze the error before retrying with a different approach.
@@ -152,6 +165,7 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
 When the user asks for analysis of a specific asset or trade setup, prefer this workflow:
 
 1. Gather evidence with market tools:
+   - If multiple evidence inputs are independent, request them in one tool-calling turn so you can synthesize with fewer loops
    - `market_source_plan` when source routing, A/H/US coverage, or fallback choice matters
    - `market_snapshot` for price, momentum, and flow hints
    - `market_chip_distribution` for A-share chip structure, average cost, and trapped/profitable supply
@@ -212,6 +226,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         skill_diagnostics = routing["diagnostics"]
         external_skill_suggestions = routing.get("externalSuggestions", [])
         self.last_skill_routing = routing
+        request_profile = routing.get("requestProfile", {})
         runtime_ctx = self._build_runtime_context(channel, chat_id)
         user_content = self._build_user_content(current_message, media)
 
@@ -229,6 +244,14 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                     resolved_skill_names,
                     skill_diagnostics=skill_diagnostics,
                     external_skill_suggestions=external_skill_suggestions,
+                    include_market_playbook=bool(
+                        request_profile.get("markets")
+                        or request_profile.get("asset_classes")
+                        or resolved_skill_names
+                    ),
+                    include_skills_summary=not resolved_skill_names,
+                    selected_skill_char_budget=1200,
+                    active_skill_char_budget=400,
                 ),
             },
             *history,

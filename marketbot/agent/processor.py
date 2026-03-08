@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from loguru import logger
 
@@ -53,10 +53,12 @@ class MessageProcessor:
         self.sessions = sessions
         self.workspace = workspace
         self.memory_window = memory_window
+        self.history_turn_window = max(4, min(8, max(1, memory_window // 4)))
         self.provider = provider
         self.model = model
         self.memory_layer = memory_layer
         self.layered_consolidation = layered_consolidation
+        self.consolidate_delegate: Callable[["Session", bool], Awaitable[bool]] | None = None
         
         self._consolidating: set[str] = set()
         self._consolidation_tasks: set[asyncio.Task] = set()
@@ -160,6 +162,8 @@ class MessageProcessor:
 
     async def _consolidate_memory(self, session: "Session", archive_all: bool = False) -> bool:
         """Delegate to MemoryStore.consolidate()."""
+        if self.consolidate_delegate is not None:
+            return await self.consolidate_delegate(session, archive_all)
         if not self.provider:
             return False
         return await self.memory_store.consolidate(
@@ -180,7 +184,7 @@ class MessageProcessor:
         chat_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build messages for LLM from session and current input."""
-        history = session.get_history(max_messages=self.memory_window)
+        history = self.get_recent_history(session)
         messages = self.context.build_messages(
             history=history,
             current_message=current_message,
@@ -191,6 +195,13 @@ class MessageProcessor:
         if routing := self.context.get_last_skill_routing():
             session.metadata["last_skill_routing"] = routing
         return messages
+
+    def get_recent_history(self, session: "Session") -> list[dict[str, Any]]:
+        """Return a bounded history window tuned for token efficiency."""
+        return session.get_history(
+            max_messages=self.memory_window,
+            max_turns=self.history_turn_window,
+        )
 
     def get_last_skill_routing(self) -> dict[str, Any] | None:
         """Expose structured skill-routing metadata for downstream renderers."""

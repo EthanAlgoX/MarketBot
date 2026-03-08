@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM python:3.12-slim-bookworm
 
 # Install Node.js 20 for the WhatsApp bridge
 RUN apt-get update && \
@@ -11,6 +11,8 @@ RUN apt-get update && \
     apt-get purge -y gnupg && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 

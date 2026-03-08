@@ -95,12 +95,18 @@ class SkillsLoader:
 
         return None
 
-    def load_skills_for_context(self, skill_names: list[str]) -> str:
+    def load_skills_for_context(
+        self,
+        skill_names: list[str],
+        *,
+        max_chars_per_skill: int | None = None,
+    ) -> str:
         """
         Load specific skills for inclusion in agent context.
 
         Args:
             skill_names: List of skill names to load.
+            max_chars_per_skill: Optional per-skill preview limit.
 
         Returns:
             Formatted skills content.
@@ -110,6 +116,11 @@ class SkillsLoader:
             content = self.load_skill(name)
             if content:
                 content = self._strip_frontmatter(content)
+                if max_chars_per_skill and max_chars_per_skill > 0 and len(content) > max_chars_per_skill:
+                    content = (
+                        content[:max_chars_per_skill].rstrip()
+                        + "\n\n[Skill preview truncated. Read SKILL.md for full instructions.]"
+                    )
                 parts.append(f"### Skill: {name}\n\n{content}")
 
         return "\n\n---\n\n".join(parts) if parts else ""

@@ -85,6 +85,22 @@ def test_system_prompt_includes_market_analysis_playbook(tmp_path) -> None:
     assert "`market_signal`" in prompt
 
 
+def test_non_market_message_omits_market_playbook_from_runtime_prompt(tmp_path, monkeypatch) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    monkeypatch.setattr(builder.skills, "search_external_skills", lambda text, limit=5: [])
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Draft a release note for the desktop app login fix.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "# Market Analysis Playbook" not in prompt
+
+
 def test_explicit_skill_names_are_loaded_into_system_prompt(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)
@@ -115,6 +131,7 @@ def test_market_analysis_message_auto_injects_market_skills(tmp_path) -> None:
     assert routing is not None
     assert routing["requestProfile"]["markets"] == ["us"]
     assert {item["name"] for item in routing["selected"]} >= {"market-report", "catalyst-tracker", "risk-checklist"}
+    assert "\n# Skills\n" not in prompt
 
 
 def test_watchlist_screening_message_auto_injects_daily_stock_screener(tmp_path) -> None:

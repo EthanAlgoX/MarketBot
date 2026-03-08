@@ -48,6 +48,10 @@ class AgentLoop:
     """
 
     _TOOL_RESULT_MAX_CHARS = 500
+    _TOOL_RESULT_PROMPT_MAX_CHARS = 1400
+    _PARALLEL_SAFE_TOOL_PREFIXES = ("market_",)
+    _PARALLEL_SAFE_TOOLS = {"read_file", "list_dir", "web_search", "web_fetch"}
+    _PARALLEL_UNSAFE_TOOLS = {"write_file", "edit_file", "exec", "message", "spawn", "cron"}
 
     def __init__(
         self,
@@ -123,6 +127,12 @@ class AgentLoop:
             model=self.model,
             memory_layer=self.memory_layer,
             layered_consolidation=self.layered_consolidation,
+        )
+        self.processor.consolidate_delegate = (
+            lambda session, archive_all=False: self._consolidate_memory(
+                session,
+                archive_all=archive_all,
+            )
         )
 
         self._running = False
@@ -345,16 +355,181 @@ class AgentLoop:
             return final_content
         return f"{final_content.rstrip()}\n\n{block}"
 
+    @classmethod
+    def _compress_tool_result(cls, tool_name: str, result: str) -> str:
+        """Trim low-value tool output before feeding it back into the next LLM call."""
+        if not isinstance(result, str):
+            result = json.dumps(result, ensure_ascii=False)
+
+        if len(result) <= cls._TOOL_RESULT_PROMPT_MAX_CHARS:
+            return result
+
+        if tool_name == "market_brief":
+            # Preserve the structured market brief payload for explainability rendering.
+            return result
+
+        stripped = result.strip()
+        if stripped.startswith("{") or stripped.startswith("["):
+            try:
+                payload = json.loads(stripped)
+            except Exception:
+                payload = None
+            if isinstance(payload, dict):
+                summary: dict[str, Any] = {"keys": list(payload.keys())[:12]}
+                for key in (
+                    "symbol",
+                    "symbols",
+                    "provider",
+                    "activeSymbol",
+                    "headline",
+                    "summary",
+                    "conclusion",
+                    "confidence",
+                    "warnings",
+                    "error",
+                ):
+                    if key not in payload:
+                        continue
+                    value = payload[key]
+                    if isinstance(value, (str, int, float, bool)) or value is None:
+                        summary[key] = value
+                    elif isinstance(value, list):
+                        summary[key] = {
+                            "count": len(value),
+                            "sample": value[:3],
+                        }
+                    elif isinstance(value, dict):
+                        summary[key] = {k: value[k] for k in list(value.keys())[:8]}
+                compact = {
+                    "_truncated": True,
+                    "_tool": tool_name,
+                    "_original_chars": len(result),
+                    "summary": summary,
+                }
+                return json.dumps(compact, ensure_ascii=False)
+
+        line_count = result.count("\n") + 1
+        head = result[: cls._TOOL_RESULT_PROMPT_MAX_CHARS].rstrip()
+        return (
+            f"{head}\n\n"
+            f"[tool output truncated for context efficiency: {len(result)} chars across {line_count} lines]"
+        )
+
+    @staticmethod
+    def _merge_usage(total: dict[str, int], usage: dict[str, int] | None) -> dict[str, int]:
+        """Merge one provider usage block into the running totals."""
+        if not usage:
+            return total
+        total["calls"] = total.get("calls", 0) + 1
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            value = usage.get(key)
+            if isinstance(value, int):
+                total[key] = total.get(key, 0) + value
+        return total
+
+    @staticmethod
+    def _tool_cache_key(tool_call: Any) -> str:
+        """Build a stable cache key for a tool call."""
+        arguments = tool_call.arguments
+        try:
+            raw = json.dumps(arguments, ensure_ascii=False, sort_keys=True)
+        except TypeError:
+            raw = json.dumps(arguments, ensure_ascii=False, sort_keys=True, default=str)
+        return f"{tool_call.name}:{raw}"
+
+    @staticmethod
+    def _build_cached_tool_result(tool_name: str, previous_result: str) -> str:
+        """Return a compact reminder instead of duplicating the same tool output."""
+        preview = previous_result[:280]
+        payload = {
+            "cached": True,
+            "tool": tool_name,
+            "note": "Identical tool call already executed earlier in this run. Reuse the previous result.",
+            "preview": preview,
+        }
+        return json.dumps(payload, ensure_ascii=False)
+
+    @classmethod
+    def _is_parallel_safe_tool(cls, tool_name: str) -> bool:
+        """Return True when the tool is safe to execute concurrently."""
+        if tool_name in cls._PARALLEL_UNSAFE_TOOLS:
+            return False
+        if tool_name in cls._PARALLEL_SAFE_TOOLS:
+            return True
+        return any(tool_name.startswith(prefix) for prefix in cls._PARALLEL_SAFE_TOOL_PREFIXES)
+
+    async def _execute_tool_calls(self, tool_calls: list) -> list[tuple[Any, str]]:
+        """Execute a batch of tool calls, parallelizing only read-only calls."""
+        results: list[tuple[Any, str] | None] = [None] * len(tool_calls)
+        parallel_batch: list[tuple[int, Any]] = []
+        parallel_pending: dict[str, tuple[int, Any]] = {}
+        parallel_duplicates: dict[str, list[tuple[int, Any]]] = {}
+        cache: dict[str, str] = {}
+
+        async def _run_single(index: int, tool_call: Any) -> tuple[int, str, str]:
+            args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
+            logger.info("Tool call: {}({})", tool_call.name, args_str[:200])
+            result = await self.tools.execute(tool_call.name, tool_call.arguments)
+            compressed = self._compress_tool_result(tool_call.name, result)
+            return index, self._tool_cache_key(tool_call), compressed
+
+        async def _flush_parallel_batch() -> None:
+            nonlocal parallel_batch, parallel_pending, parallel_duplicates
+            if not parallel_batch:
+                return
+            executed = await asyncio.gather(*(_run_single(idx, tc) for idx, tc in parallel_batch))
+            for idx, cache_key, result in executed:
+                cache[cache_key] = result
+                results[idx] = (tool_calls[idx], result)
+                for dup_idx, dup_call in parallel_duplicates.get(cache_key, []):
+                    results[dup_idx] = (
+                        dup_call,
+                        self._build_cached_tool_result(dup_call.name, result),
+                    )
+            parallel_batch = []
+            parallel_pending = {}
+            parallel_duplicates = {}
+
+        for index, tool_call in enumerate(tool_calls):
+            cache_key = self._tool_cache_key(tool_call)
+            if cache_key in cache:
+                results[index] = (
+                    tool_call,
+                    self._build_cached_tool_result(tool_call.name, cache[cache_key]),
+                )
+                continue
+
+            if self._is_parallel_safe_tool(tool_call.name):
+                if cache_key in parallel_pending:
+                    parallel_duplicates.setdefault(cache_key, []).append((index, tool_call))
+                    continue
+                parallel_batch.append((index, tool_call))
+                parallel_pending[cache_key] = (index, tool_call)
+                continue
+
+            await _flush_parallel_batch()
+            idx, cache_key, result = await _run_single(index, tool_call)
+            cache[cache_key] = result
+            results[idx] = (tool_calls[idx], result)
+
+        await _flush_parallel_batch()
+        ordered_results: list[tuple[Any, str]] = []
+        for item in results:
+            if item is not None:
+                ordered_results.append(item)
+        return ordered_results
+
     async def _run_agent_loop(
         self,
         initial_messages: list[dict],
         on_progress: Callable[..., Awaitable[None]] | None = None,
-    ) -> tuple[str | None, list[str], list[dict]]:
-        """Run the agent iteration loop. Returns (final_content, tools_used, messages)."""
+    ) -> tuple[str | None, list[str], list[dict], dict[str, int]]:
+        """Run the agent iteration loop. Returns (final_content, tools_used, messages, usage)."""
         messages = initial_messages
         iteration = 0
         final_content = None
         tools_used: list[str] = []
+        usage_totals: dict[str, int] = {}
 
         while iteration < self.max_iterations:
             iteration += 1
@@ -367,6 +542,15 @@ class AgentLoop:
                 max_tokens=self.max_tokens,
                 reasoning_effort=self.reasoning_effort,
             )
+            usage_totals = self._merge_usage(usage_totals, response.usage)
+            if response.usage:
+                logger.info(
+                    "LLM usage iteration={} prompt={} completion={} total={}",
+                    iteration,
+                    response.usage.get("prompt_tokens", 0),
+                    response.usage.get("completion_tokens", 0),
+                    response.usage.get("total_tokens", 0),
+                )
 
             if response.has_tool_calls:
                 if on_progress:
@@ -401,11 +585,11 @@ class AgentLoop:
                     thinking_blocks=response.thinking_blocks,
                 )
 
-                for tool_call in response.tool_calls:
+                if len(response.tool_calls) > 1:
+                    logger.info("Executing {} tool calls (parallel where safe)", len(response.tool_calls))
+
+                for tool_call, result in await self._execute_tool_calls(response.tool_calls):
                     tools_used.append(tool_call.name)
-                    args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
-                    logger.info("Tool call: {}({})", tool_call.name, args_str[:200])
-                    result = await self.tools.execute(tool_call.name, tool_call.arguments)
                     messages = self.context.add_tool_result(
                         messages, tool_call.id, tool_call.name, result
                     )
@@ -431,7 +615,7 @@ class AgentLoop:
                 "without completing the task. You can try breaking the task into smaller steps."
             )
 
-        return final_content, tools_used, messages
+        return final_content, tools_used, messages, usage_totals
 
     async def run(self) -> None:
         """Run the agent loop, dispatching messages as tasks to stay responsive to /stop."""
@@ -520,21 +704,25 @@ class AgentLoop:
             key = f"{channel}:{chat_id}"
             session = self.processor.get_session(key)
             self._set_tool_context(channel, chat_id, msg.metadata.get("message_id"))
-            history = session.get_history(max_messages=self.memory_window)
+            history = self.processor.get_recent_history(session)
             messages = self.processor.build_messages(
                 session=session,
                 current_message=msg.content,
                 channel=channel,
                 chat_id=chat_id,
             )
-            final_content, _, all_msgs = await self._run_agent_loop(messages)
+            final_content, _, all_msgs, usage = await self._run_agent_loop(messages)
             explainability = self._build_chat_explainability(all_msgs, channel=channel)
             final_content = self._append_chat_explainability(final_content, explainability)
             external_skill_suggestions = self._build_external_skill_install_suggestions()
             final_content = self._append_external_skill_suggestions(final_content, external_skill_suggestions)
+            if usage:
+                session.metadata["last_usage"] = usage
             self._save_turn(session, all_msgs, 1 + len(history))
             self.sessions.save(session)
             metadata = dict(msg.metadata or {})
+            if usage:
+                metadata["usage"] = usage
             if skill_routing := self.processor.get_last_skill_routing():
                 metadata["skill_routing"] = skill_routing
             if explainability:
@@ -564,7 +752,7 @@ class AgentLoop:
             if isinstance(message_tool, MessageTool):
                 message_tool.start_turn()
 
-        history = session.get_history(max_messages=self.memory_window)
+        history = self.processor.get_recent_history(session)
         initial_messages = self.processor.build_messages(
             session=session,
             current_message=msg.content,
@@ -581,7 +769,7 @@ class AgentLoop:
                 channel=msg.channel, chat_id=msg.chat_id, content=content, metadata=meta,
             ))
 
-        final_content, _, all_msgs = await self._run_agent_loop(
+        final_content, _, all_msgs, usage = await self._run_agent_loop(
             initial_messages, on_progress=on_progress or _bus_progress,
         )
 
@@ -593,6 +781,8 @@ class AgentLoop:
         external_skill_suggestions = self._build_external_skill_install_suggestions()
         final_content = self._append_external_skill_suggestions(final_content, external_skill_suggestions)
 
+        if usage:
+            session.metadata["last_usage"] = usage
         self._save_turn(session, all_msgs, 1 + len(history))
         self.sessions.save(session)
 
@@ -602,6 +792,8 @@ class AgentLoop:
         preview = final_content[:120] + "..." if len(final_content) > 120 else final_content
         logger.info("Response to {}:{}: {}", msg.channel, msg.sender_id, preview)
         metadata = dict(msg.metadata or {})
+        if usage:
+            metadata["usage"] = usage
         if skill_routing := self.processor.get_last_skill_routing():
             metadata["skill_routing"] = skill_routing
         if explainability:
@@ -659,8 +851,17 @@ class AgentLoop:
         session.updated_at = datetime.now()
 
     async def _consolidate_memory(self, session, archive_all: bool = False) -> bool:
-        """Delegate to MemoryStore.consolidate(). Returns True on success."""
-        return await self.processor._consolidate_memory(session, archive_all=archive_all)
+        """Run consolidation using the loop's active provider/model configuration."""
+        if not self.provider:
+            return False
+        return await self.memory_store.consolidate(
+            session,
+            provider=self.provider,
+            model=self.model,
+            archive_all=archive_all,
+            memory_window=self.memory_window,
+            layered=self.layered_consolidation,
+        )
 
     async def process_direct(
         self,
