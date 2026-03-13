@@ -334,13 +334,20 @@ class MarketRiskConfig(Base):
     max_daily_signals: int = Field(20, ge=1, le=500)
 
 
+class MarketPolicyConfig(Base):
+    """Policy backend configuration for market decision tools."""
+
+    mode: Literal["heuristic", "rl_hybrid", "rl"] = "heuristic"
+    rollout_log_path: str = "rl/market_signal.jsonl"
+
+
 class MarketToolsConfig(Base):
     """Market analysis tool configuration."""
 
     enabled: bool = True
     request_timeout_s: int = Field(12, ge=1, le=120)
     snapshot_max_symbols: int = Field(12, ge=1, le=100)
-    quote_source: Literal["yahoo", "eastmoney", "auto", "mock"] = "yahoo"
+    quote_source: Literal["yahoo", "yfinance", "tradingview", "eastmoney", "auto", "mock"] = "yahoo"
     news_sources: list[str] = Field(default_factory=lambda: ["reuters", "bloomberg", "cls"])
     news_max_age_days: int = Field(3, ge=1, le=30)
     bocha_api_key: str = ""
@@ -358,6 +365,7 @@ class MarketToolsConfig(Base):
     cache_ttl_s: int = Field(60, ge=0, le=3600)
     weights: MarketSignalWeightsConfig = Field(default_factory=MarketSignalWeightsConfig)
     risk: MarketRiskConfig = Field(default_factory=MarketRiskConfig)
+    policy: MarketPolicyConfig = Field(default_factory=MarketPolicyConfig)
 
 
 class MCPServerConfig(Base):

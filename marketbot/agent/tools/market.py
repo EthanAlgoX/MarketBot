@@ -17,6 +17,9 @@ from loguru import logger
 from marketbot.agent.tools.base import Tool
 from marketbot.domain.market.services import MarketMacroService, MarketNewsService, MarketSnapshotService
 from marketbot.market_routing import classify_market_request
+from marketbot.rl.policy import HeuristicMarketSignalPolicy
+from marketbot.rl.recorder import MarketSignalRolloutRecorder
+from marketbot.rl.types import MarketSignalFeatures
 
 if TYPE_CHECKING:
     from marketbot.config.schema import MarketToolsConfig
@@ -199,6 +202,14 @@ class MarketSnapshotTool(Tool):
     async def _fetch_yahoo(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_yahoo(symbols)
 
+    async def _fetch_yfinance(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        rows, warnings = await self._fetch_yahoo(symbols)
+        return [{**row, "provider": "yfinance"} for row in rows], warnings
+
+    async def _fetch_tradingview(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        rows, warnings = await self._fetch_yahoo(symbols)
+        return [{**row, "provider": "tradingview"} for row in rows], warnings
+
     async def _fetch_eastmoney(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_eastmoney(symbols)
 
@@ -245,6 +256,30 @@ class MarketSnapshotTool(Tool):
                     warnings=warnings,
                     reason="Auto quote routing returned no usable quotes; falling back to mock.",
                     provider_chain=["eastmoney", "yahoo", "mock"],
+                )
+        elif self._source == "yfinance":
+            rows, warnings = await self._fetch_yfinance(normalized)
+            if not rows:
+                rows = [self._mock_quote(symbol) for symbol in normalized]
+                warnings.append("quote source fallback: mock")
+                self._service.record_health(
+                    "mock",
+                    fallback=True,
+                    warnings=warnings,
+                    reason="YFinance alias returned no usable quotes; falling back to mock.",
+                    provider_chain=["yfinance", "mock"],
+                )
+        elif self._source == "tradingview":
+            rows, warnings = await self._fetch_tradingview(normalized)
+            if not rows:
+                rows = [self._mock_quote(symbol) for symbol in normalized]
+                warnings.append("quote source fallback: mock")
+                self._service.record_health(
+                    "mock",
+                    fallback=True,
+                    warnings=warnings,
+                    reason="TradingView alias returned no usable quotes; falling back to mock.",
+                    provider_chain=["tradingview", "mock"],
                 )
         else:
             rows, warnings = await self._fetch_yahoo(normalized)
@@ -618,8 +653,12 @@ class MarketSignalTool(Tool):
         "required": ["symbol"],
     }
 
-    def __init__(self, config: MarketToolsConfig | None = None):
+    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
         self._config = config
+        policy_cfg = getattr(config, "policy", None)
+        self._policy_mode = getattr(policy_cfg, "mode", "heuristic") or "heuristic"
+        rollout_log_path = getattr(policy_cfg, "rollout_log_path", "rl/market_signal.jsonl")
+        self._recorder = MarketSignalRolloutRecorder(workspace=workspace, relative_path=rollout_log_path)
 
     def _risk_cfg(self) -> tuple[float, float, float]:
         if not self._config:
@@ -641,15 +680,15 @@ class MarketSignalTool(Tool):
             w.macro_regime / total,
         )
 
-    @staticmethod
-    def _action_from_score(score: float) -> str:
-        if score >= 0.35:
-            return "buy"
-        if score <= -0.35:
-            return "sell"
-        if score <= -0.15:
-            return "reduce"
-        return "watch"
+    def _policy(self) -> HeuristicMarketSignalPolicy:
+        min_conf, max_pos, stop_loss = self._risk_cfg()
+        return HeuristicMarketSignalPolicy(
+            min_confidence=min_conf,
+            max_position_pct=max_pos,
+            stop_loss_pct=stop_loss,
+            weights=self._weights(),
+            mode=self._policy_mode,
+        )
 
     async def execute(
         self,
@@ -664,35 +703,24 @@ class MarketSignalTool(Tool):
         symbol = symbol.strip().upper()
         if not symbol:
             return json.dumps({"error": "symbol is required"}, ensure_ascii=False)
-
-        min_conf, max_pos, stop_loss = self._risk_cfg()
-        wm, wn, ws, wr = self._weights()
-
-        momentum = _clamp((priceChangePct or 0.0) / 5.0, -1.0, 1.0)
-        news = _clamp(newsSentiment or 0.0, -1.0, 1.0)
-        social = _clamp(socialSentiment or 0.0, -1.0, 1.0)
-        macro_penalty = _clamp(macroRisk or 0.0, 0.0, 1.0)
-
-        score = (wm * momentum) + (wn * news) + (ws * social) - (wr * macro_penalty)
-        score = _clamp(score, -1.0, 1.0)
-        action = self._action_from_score(score)
-
-        evidence_count = len(evidence or [])
-        confidence = 0.45 + abs(score) * 0.40 + min(evidence_count, 4) * 0.03
-        confidence = _clamp(confidence, 0.05, 0.95)
-
-        if confidence < min_conf:
-            action = "watch"
-
-        position_pct = 0.0 if action == "watch" else round(max_pos * confidence, 4)
-        risk_level = "high" if macro_penalty >= 0.65 else "medium" if macro_penalty >= 0.35 else "low"
-
-        rationale = [
-            f"momentum={momentum:.2f}",
-            f"news={news:.2f}",
-            f"social={social:.2f}",
-            f"macroRisk={macro_penalty:.2f}",
-        ]
+        min_conf, max_pos, _ = self._risk_cfg()
+        features = MarketSignalFeatures(
+            symbol=symbol,
+            price_change_pct=float(priceChangePct or 0.0),
+            news_sentiment=float(newsSentiment or 0.0),
+            social_sentiment=float(socialSentiment or 0.0),
+            macro_risk=float(macroRisk or 0.0),
+            evidence=list(evidence or []),
+        )
+        decision = self._policy().decide(features)
+        structured_action = decision.action.to_dict()
+        action = structured_action["action"]
+        confidence = float(structured_action["confidence"])
+        position_pct = float(structured_action["position_pct"])
+        stop_loss = float(structured_action["stop_loss_pct"])
+        risk_level = decision.risk_level
+        rationale = list(decision.rationale)
+        evidence_count = len(features.evidence)
 
         card = (
             f"### Signal Card | {symbol}\n"
@@ -709,19 +737,29 @@ class MarketSignalTool(Tool):
             "asOf": _utc_now_iso(),
             "symbol": symbol,
             "action": action,
-            "score": round(score, 4),
+            "score": decision.score,
             "confidence": round(confidence, 4),
             "riskLevel": risk_level,
             "positionPct": position_pct,
             "stopLossPct": stop_loss,
             "rationale": rationale,
-            "evidence": evidence or [],
+            "evidence": features.evidence,
+            "structuredAction": structured_action,
             "signalCard": card,
+            "policy": {
+                "requestedMode": decision.policy_mode,
+                "effectiveMode": str(decision.diagnostics.get("effectiveMode", "heuristic")),
+                "name": decision.policy_name,
+                "diagnostics": decision.diagnostics,
+            },
             "constraints": {
                 "minConfidence": min_conf,
                 "maxPositionPct": max_pos,
             },
         }
+        recorded_path = self._recorder.record(features=features, decision=decision, rendered_result=result)
+        if recorded_path is not None:
+            result["rolloutLog"] = str(recorded_path)
         return json.dumps(result, ensure_ascii=False)
 
 
@@ -999,6 +1037,10 @@ class MarketFundamentalsTool(Tool):
             )
         return rows, warnings
 
+    async def _fetch_yfinance(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        rows, warnings = await self._fetch_yahoo(symbols)
+        return [{**row, "provider": "yfinance"} for row in rows], warnings
+
     async def execute(self, symbols: list[str], **kwargs: Any) -> str:
         clean_symbols = MarketSnapshotTool._normalize_symbols(symbols)
         if not clean_symbols:
@@ -1018,9 +1060,12 @@ class MarketFundamentalsTool(Tool):
                 rows.append(item)
 
         if global_symbols:
-            yahoo_rows, yahoo_warnings = await self._fetch_yahoo(global_symbols)
-            rows.extend(yahoo_rows)
-            warnings.extend(yahoo_warnings)
+            if getattr(self._config, "quote_source", "yahoo") == "yfinance":
+                global_rows, global_warnings = await self._fetch_yfinance(global_symbols)
+            else:
+                global_rows, global_warnings = await self._fetch_yahoo(global_symbols)
+            rows.extend(global_rows)
+            warnings.extend(global_warnings)
 
         if not rows:
             return json.dumps({"error": "no fundamentals available", "warnings": warnings}, ensure_ascii=False)
@@ -1473,7 +1518,7 @@ class MarketBriefTool(Tool):
         self._config = config
         self._snapshot = MarketSnapshotTool(config=config, workspace=workspace)
         self._event = MarketEventExtractTool()
-        self._signal = MarketSignalTool(config=config)
+        self._signal = MarketSignalTool(config=config, workspace=workspace)
         self._chips = MarketChipDistributionTool(config=config)
         self._fundamentals = MarketFundamentalsTool(config=config)
         self._news = MarketNewsTool(config=config, workspace=workspace)

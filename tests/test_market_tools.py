@@ -18,6 +18,7 @@ from marketbot.agent.tools.market import (
 )
 from marketbot.bus.queue import MessageBus
 from marketbot.config.schema import ChannelsConfig, MarketToolsConfig
+from marketbot.domain.market import build_market_runtime_profile
 from marketbot.domain.market.services import MarketSnapshotService
 from marketbot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
@@ -36,6 +37,7 @@ def test_market_tools_config_defaults() -> None:
     assert cfg.quote_source == "yahoo"
     assert "SPY" in cfg.default_symbols
     assert cfg.risk.min_confidence > 0
+    assert cfg.policy.mode == "heuristic"
 
 
 def _run(coro):
@@ -83,6 +85,67 @@ def test_market_snapshot_eastmoney_source(monkeypatch) -> None:
     assert payload["source"] == "eastmoney"
     assert payload["quotes"][0]["symbol"] == "600519"
     assert payload["quotes"][0]["currency"] == "CNY"
+
+
+def test_market_snapshot_yfinance_source(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="yfinance", default_symbols=["NVDA"])
+    tool = MarketSnapshotTool(config=cfg)
+
+    async def _fake_fetch(symbols):
+        assert symbols == ["NVDA"]
+        return (
+            [
+                {
+                    "symbol": "NVDA",
+                    "price": 901.25,
+                    "changePct": 2.16,
+                    "volume": 12345678,
+                    "avgVolume": 9988776,
+                    "flowRatio": 1.236,
+                    "flowHint": "neutral",
+                    "momentum": "up",
+                    "currency": "USD",
+                    "marketState": "REGULAR",
+                }
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(tool, "_fetch_yfinance", _fake_fetch)
+    payload = json.loads(_run(tool.execute(symbols=["NVDA"])))
+    assert payload["source"] == "yfinance"
+    assert payload["quotes"][0]["symbol"] == "NVDA"
+    assert payload["quotes"][0]["currency"] == "USD"
+
+
+def test_market_snapshot_tradingview_source(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="tradingview", default_symbols=["AAPL"])
+    tool = MarketSnapshotTool(config=cfg)
+
+    async def _fake_fetch(symbols):
+        assert symbols == ["AAPL"]
+        return (
+            [
+                {
+                    "symbol": "AAPL",
+                    "price": 233.4,
+                    "changePct": 0.84,
+                    "volume": 4567890,
+                    "avgVolume": None,
+                    "flowRatio": None,
+                    "flowHint": "neutral",
+                    "momentum": "flat",
+                    "currency": "USD",
+                    "marketState": "REGULAR",
+                }
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(tool, "_fetch_tradingview", _fake_fetch)
+    payload = json.loads(_run(tool.execute(symbols=["AAPL"])))
+    assert payload["source"] == "tradingview"
+    assert payload["quotes"][0]["symbol"] == "AAPL"
 
 
 def test_market_event_extract_geopolitical_case() -> None:
@@ -147,6 +210,44 @@ def test_market_signal_buy_when_inputs_are_strong() -> None:
     assert payload["action"] == "buy"
     assert payload["positionPct"] > 0
     assert "Signal Card" in payload["signalCard"]
+    assert payload["structuredAction"]["action"] == "buy"
+    assert payload["structuredAction"]["take_profit_pct"] == 0.06
+    assert payload["policy"]["effectiveMode"] == "heuristic"
+
+
+def test_market_signal_records_rollout_and_falls_back_when_rl_mode_requested(tmp_path) -> None:
+    cfg = MarketToolsConfig()
+    cfg.policy.mode = "rl_hybrid"
+    cfg.policy.rollout_log_path = "rl/test_market_signal.jsonl"
+    cfg.risk.min_confidence = 0.50
+    tool = MarketSignalTool(config=cfg, workspace=tmp_path)
+
+    payload = json.loads(
+        _run(
+            tool.execute(
+                symbol="NVDA",
+                priceChangePct=3.2,
+                newsSentiment=0.6,
+                socialSentiment=0.5,
+                macroRisk=0.2,
+                evidence=["snapshot=strong", "news=positive", "macro=stable"],
+            )
+        )
+    )
+
+    assert payload["policy"]["requestedMode"] == "rl_hybrid"
+    assert payload["policy"]["effectiveMode"] == "heuristic"
+    assert payload["policy"]["diagnostics"]["fallbackUsed"] is True
+    assert payload["structuredAction"]["evidence_keys"] == ["snapshot", "news", "macro"]
+    assert payload["rolloutLog"].endswith("rl/test_market_signal.jsonl")
+
+    log_path = tmp_path / "rl" / "test_market_signal.jsonl"
+    lines = log_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    event = json.loads(lines[0])
+    assert event["event"] == "market_signal_decision"
+    assert event["features"]["symbol"] == "NVDA"
+    assert event["decision"]["structured_action"]["action"] == payload["action"]
 
 
 def test_market_news_mock_source() -> None:
@@ -299,6 +400,40 @@ def test_market_fundamentals_eastmoney(monkeypatch) -> None:
     assert payload["items"][0]["symbol"] == "600519"
     assert payload["items"][0]["provider"] == "eastmoney"
     assert payload["items"][0]["trailingPE"] == 20.37
+
+
+def test_market_fundamentals_prefers_yfinance_for_global_symbols(monkeypatch) -> None:
+    tool = MarketFundamentalsTool(config=MarketToolsConfig(quote_source="yfinance"))
+
+    async def _fake_yfinance(symbols: list[str]):
+        assert symbols == ["AAPL"]
+        return (
+            [
+                {
+                    "symbol": "AAPL",
+                    "name": "Apple Inc.",
+                    "marketCap": 100.0,
+                    "floatMarketCap": 100.0,
+                    "sharesOutstanding": 10.0,
+                    "floatShares": 9.0,
+                    "trailingPE": 30.0,
+                    "priceToBook": 20.0,
+                    "currency": "USD",
+                    "provider": "yfinance",
+                }
+            ],
+            [],
+        )
+
+    async def _fail_yahoo(symbols: list[str]):
+        raise AssertionError("yahoo fallback should not run when yfinance succeeds")
+
+    monkeypatch.setattr(tool, "_fetch_yfinance", _fake_yfinance)
+    monkeypatch.setattr(tool, "_fetch_yahoo", _fail_yahoo)
+    payload = json.loads(_run(tool.execute(symbols=["AAPL"])))
+
+    assert payload["items"][0]["symbol"] == "AAPL"
+    assert payload["items"][0]["provider"] == "yfinance"
 
 
 def test_market_macro_manual_mode() -> None:
@@ -471,6 +606,14 @@ def test_agent_loop_sets_market_runtime_profile_from_config(tmp_path) -> None:
 
     assert loop.context.market_runtime_profile is not None
     assert loop.context.market_runtime_profile["tool_markets"]["market_snapshot"] == ["a-share"]
+
+
+def test_market_runtime_profile_supports_yfinance_and_tradingview() -> None:
+    yfinance_profile = build_market_runtime_profile(MarketToolsConfig(quote_source="yfinance"))
+    tradingview_profile = build_market_runtime_profile(MarketToolsConfig(quote_source="tradingview"))
+
+    assert yfinance_profile["tool_markets"]["market_snapshot"] == ["global", "hong-kong", "mixed", "us"]
+    assert tradingview_profile["tool_markets"]["market_snapshot"] == ["global", "hong-kong", "mixed", "us"]
 
 
 def test_agent_loop_exposes_last_skill_routing(tmp_path) -> None:

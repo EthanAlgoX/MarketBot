@@ -77,7 +77,7 @@ def freshness_satisfies(required: str | None, available: list[str] | set[str] | 
 def _quote_markets(source: str) -> set[str]:
     if source == "eastmoney":
         return {"a-share"}
-    if source == "yahoo":
+    if source in {"yahoo", "yfinance", "tradingview"}:
         return {"us", "hong-kong", "global", "mixed"}
     if source == "auto":
         return set(ALL_MARKETS)
