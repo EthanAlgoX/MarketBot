@@ -19,6 +19,7 @@ This reference condenses the reusable data-source design from `../daily_stock_an
 | Sector rankings / market breadth | `efinance` / `akshare` / `tushare` | none | Best used for A-share breadth and rotation. |
 | Chinese financial news | `Bocha` | `Tavily` -> `SerpAPI` | `Bocha` is preferred for Chinese search quality. |
 | Global / US news | `Brave` | `Tavily` -> `SerpAPI` | `Brave` is better for English/global coverage. |
+| Browser-authenticated site context | `browser_site` | native APIs first, browser lane second | Use for Xueqiu, Eastmoney, Reddit, Zhihu, or other dynamic / logged-in pages when public APIs are insufficient. |
 
 ## Runtime Routing Extracted From `daily_stock_analysis`
 
@@ -84,6 +85,7 @@ That is the most reusable part for `marketbot`: it turns raw search into a struc
 - Use `yfinance` for US stocks, US indices, and cross-market last-resort compatibility.
 - Use `Bocha` for Chinese market news.
 - Use `Brave` for US/global market news.
+- Use `browser_site` only when site-native or login-state context adds material value.
 
 ## Caveats
 

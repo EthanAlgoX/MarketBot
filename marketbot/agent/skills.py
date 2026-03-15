@@ -387,7 +387,45 @@ class SkillsLoader:
             "required_tools": self._normalize_metadata_list(meta.get("required_tools", [])),
             "markets": self._normalize_metadata_list(meta.get("markets", [])),
             "asset_classes": self._normalize_metadata_list(meta.get("asset_classes", [])),
+            "task_type": str(meta.get("task_type", "") or "").strip(),
+            "determinism": str(meta.get("determinism", "") or "").strip(),
+            "priority": int(meta.get("priority", 50) or 50),
         }
+
+    @staticmethod
+    def _skill_rank(capabilities: dict, lowered: str) -> tuple[int, int, int]:
+        """Return a sortable rank tuple for skill routing."""
+        triggers = [str(trigger).lower() for trigger in capabilities.get("triggers", []) if str(trigger).strip()]
+        matched_lengths = [len(trigger) for trigger in triggers if trigger in lowered]
+        longest_trigger = max(matched_lengths) if matched_lengths else 0
+        priority = int(capabilities.get("priority", 50) or 50)
+        determinism = str(capabilities.get("determinism", "") or "").strip().lower()
+        determinism_score = {
+            "script-backed": 3,
+            "tool-backed": 2,
+            "reference-backed": 1,
+            "prompt-only": 0,
+        }.get(determinism, 0)
+        return priority, longest_trigger, determinism_score
+
+    def sort_skill_names_for_request(self, skill_names: list[str], text: str) -> list[str]:
+        """Sort skill names by routing priority for the current request."""
+        lowered = text.lower()
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for name in skill_names:
+            if name and name not in seen:
+                deduped.append(name)
+                seen.add(name)
+        return sorted(
+            deduped,
+            key=lambda name: (
+                -self._skill_rank(self.get_skill_capabilities(name), lowered)[0],
+                -self._skill_rank(self.get_skill_capabilities(name), lowered)[1],
+                -self._skill_rank(self.get_skill_capabilities(name), lowered)[2],
+                name,
+            ),
+        )
 
     def match_skills_by_trigger(
         self,
@@ -407,7 +445,7 @@ class SkillsLoader:
             triggers = [str(trigger).lower() for trigger in capabilities.get("triggers", [])]
             if any(trigger and trigger in lowered for trigger in triggers):
                 matched.append(item["name"])
-        return matched
+        return self.sort_skill_names_for_request(matched, text)
 
     def match_skills_for_request(
         self,
@@ -433,7 +471,7 @@ class SkillsLoader:
             ):
                 continue
             matched.append(item["name"])
-        return matched
+        return self.sort_skill_names_for_request(matched, text)
 
     def search_local_skills(
         self,

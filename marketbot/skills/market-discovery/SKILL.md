@@ -1,7 +1,7 @@
 ---
 name: market-discovery
 description: Automatically discover potential investment opportunities by synthesizing market data, events, sentiment, and sector momentum.
-metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","theme","rotation"],"output":"market-opportunity-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment"],"required_tools":["market_snapshot","market_news"],"markets":["global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
+metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","theme","rotation"],"output":"market-opportunity-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","browser_site"],"required_tools":["market_snapshot","market_news"],"markets":["global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
 ---
 
 # Market Opportunity Discovery
@@ -21,6 +21,7 @@ Follow this pipeline to arrive at the final opportunity list:
 1. **Step 1: Market Scan**: Look for abnormal price movements or volume spikes across sectors. (e.g., Semiconductor +3.8%, Volume +120%).
 2. **Step 2: Event Matching**: Consult the `news` or event analysis tools to see what is driving the anomaly (e.g., "AI GPU demand").
 3. **Step 3: Sentiment Shift**: Consult the `sentiment-analysis` skill to check the trend (e.g., sentiment rising from 0.41 to 0.67).
+   - If retail attention or logged-in site heat is part of the thesis, use `browser_site` to confirm the trend with Xueqiu, Reddit, Zhihu, or Eastmoney.
 4. **Step 4: Fund Flow/Volume**: Detect capital inflows using ETF data, high volume prints, or sector volume metrics.
 5. **Step 5: Sector Momentum**: Identify if multiple assets in the same sector are moving together (e.g., NVDA, AMD, TSMC all rising).
 6. **Step 6: Opportunity Scoring**: Form a final `opportunity_score` based on the weights below.

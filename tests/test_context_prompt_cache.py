@@ -344,6 +344,171 @@ def test_metadata_driven_monitor_and_portfolio_skills_are_injected(tmp_path) -> 
     assert "### Skill: portfolio-analyzer" in portfolio_messages[0]["content"]
 
 
+def test_specialist_earnings_skill_shadows_auto_market_report(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools(
+        {"market_snapshot", "market_news", "market_event_extract", "market_fundamentals", "market_signal"}
+    )
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Analyze NVDA earnings results and guidance after the quarterly report.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: earnings-readout" in prompt
+    assert "### Skill: market-report" not in prompt
+
+
+def test_specialist_options_skill_shadows_auto_market_report(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"market_snapshot"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Show the payoff curve and breakeven for this iron condor on SPY.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: options-payoff" in prompt
+    assert "### Skill: market-report" not in prompt
+
+
+def test_browser_research_message_auto_injects_xueqiu_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Use Xueqiu hot stock discussion heat to assess this A-share setup.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: xueqiu-research" in prompt
+
+
+def test_browser_research_message_auto_injects_eastmoney_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Check Eastmoney and 股吧 live context for this A-share name.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: eastmoney-live" in prompt
+
+
+def test_browser_social_message_auto_injects_social_signal_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Check discussion heat and retail attention across forum pages for this ticker.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: social-signal-browser" in prompt
+    assert "### Skill: sentiment-analysis" not in prompt
+
+
+def test_browser_reddit_message_auto_injects_reddit_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Search Reddit and wallstreetbets discussion for this stock.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: reddit-research" in prompt
+
+
+def test_browser_youtube_message_auto_injects_transcript_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Pull the YouTube transcript from this market interview video.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: youtube-transcript-browser" in prompt
+
+
+def test_browser_github_message_auto_injects_github_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Use GitHub issue and repo context to research this project.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: github-browser-research" in prompt
+
+
+def test_browser_zhihu_message_auto_injects_zhihu_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Check Zhihu heat and narrative framing for this China theme.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: zhihu-browser-research" in prompt
+
+
+def test_browser_news_verifier_message_auto_injects_verifier_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Cross-check this headline and verify news source consistency.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: browser-news-verifier" in prompt
+
+
 def test_runtime_tool_availability_allows_monitor_when_required_tools_exist(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

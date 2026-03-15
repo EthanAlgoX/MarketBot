@@ -309,6 +309,18 @@ class WebToolsConfig(Base):
     search: WebSearchConfig = Field(default_factory=WebSearchConfig)
 
 
+class BrowserToolsConfig(Base):
+    """Browser-backed local CLI tool configuration."""
+
+    enabled: bool = False
+    command: str = "bb-browser"
+    mode: Literal["safe", "interactive", "sensitive"] = "safe"
+    timeout_s: int = Field(20, ge=1, le=120)
+    allow_sites: list[str] = Field(default_factory=list)
+    allow_adapters: list[str] = Field(default_factory=list)
+    adapter_catalog: list[str] = Field(default_factory=list)
+
+
 class ExecToolConfig(Base):
     """Shell exec tool configuration."""
 
@@ -384,6 +396,7 @@ class ToolsConfig(Base):
     """Tools configuration."""
 
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
+    browser: BrowserToolsConfig = Field(default_factory=BrowserToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
     market: MarketToolsConfig = Field(default_factory=MarketToolsConfig)
     restrict_to_workspace: bool = False  # If true, restrict all tool access to workspace directory

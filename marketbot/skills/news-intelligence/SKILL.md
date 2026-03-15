@@ -1,7 +1,7 @@
 ---
 name: news-intelligence
 description: A comprehensive skill for extracting, analyzing, and synthesizing financial news to uncover market impacts, trends, and risks.
-metadata: {"marketbot":{"emoji":"📰","triggers":["news","headline","impact","media"],"output":"news-intelligence-report","risk":"medium","freshness":"news-live","tools":["market_news","market_event_extract","market_macro"],"required_tools":["market_news"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["equity","crypto","commodity","macro","etf"]}}
+metadata: {"marketbot":{"emoji":"📰","triggers":["news","headline","impact","media"],"output":"news-intelligence-report","risk":"medium","freshness":"news-live","tools":["market_news","market_event_extract","market_macro","browser_site"],"required_tools":["market_news"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["equity","crypto","commodity","macro","etf"]}}
 ---
 
 # News Intelligence
@@ -21,6 +21,8 @@ Treat news analysis as an 11-step data refinement pipeline. Depending on the use
 ### 1-2. Collection, Deduplication & Filtering
 
 - **Fetch**: Gather news across Bloomberg, Reuters, Financial Times, X (Twitter), and company announcements for the target `topics` or `region`.
+- **Browser fallback**: If a relevant source is dynamic, login-gated, or stronger in site-native search, use `browser_site` for Xueqiu, Eastmoney, Reddit, Zhihu, or YouTube context.
+- **Verification path**: If the claim looks noisy, incomplete, or repost-driven, load `browser-news-verifier` before concluding impact.
 - **Filter**: Remove duplicate stories, PR spam, and low-credibility sources. Only pass clean text to the next phase.
 
 ### 3-4. Event & Entity Extraction

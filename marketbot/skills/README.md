@@ -27,6 +27,16 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 
 ## Available Skills
 
+### Capability Matrix
+
+| Category | Skills |
+|-------|-------------|
+| `market-analysis` | `market-report`, `market-monitor`, `market-discovery`, `news-intelligence`, `sentiment-analysis`, `macro-regime`, `sector-breadth` |
+| `event-driven` | `catalyst-tracker`, `earnings-readout`, `risk-checklist` |
+| `screening-and-watch` | `daily-stock-screener`, `stock-watch`, `portfolio-analyzer` |
+| `specialist-research` | `options-payoff`, `pair-correlation`, `stock-data-sourcing`, `stock-info-explorer`, `wechat-article-search`, `xueqiu-research`, `eastmoney-live`, `social-signal-browser`, `reddit-research`, `youtube-transcript-browser`, `github-browser-research`, `zhihu-browser-research`, `browser-news-verifier` |
+| `platform-utility` | `github`, `summarize`, `weather`, `cron`, `tmux`, `clawhub`, `find-skills` |
+
 | Skill | Description |
 |-------|-------------|
 | `github` | Interact with GitHub using the `gh` CLI |
@@ -35,6 +45,19 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `tmux` | Remote-control tmux sessions |
 | `clawhub` | Search and install skills from ClawHub registry |
 | `market-report` | Produce structured single-asset market analysis |
+| `options-payoff` | Explain option strategy payoff, breakevens, and bounded or unbounded risk |
+| `pair-correlation` | Analyze correlation, beta, rolling co-movement, and spread divergence |
+| `earnings-readout` | Summarize earnings beats, guidance changes, and price reaction drivers |
+| `sector-breadth` | Judge whether a sector or theme move is broad, narrow, expanding, or fading |
+| `macro-regime` | Classify macro backdrop into risk-on, risk-off, inflation, or policy-driven regimes |
+| `xueqiu-research` | Use browser-backed Xueqiu adapters for hot stocks, feeds, and discussion context |
+| `eastmoney-live` | Use browser-backed Eastmoney pages and headlines for A-share live context |
+| `social-signal-browser` | Use browser-backed community platforms for discussion heat and retail attention shifts |
+| `reddit-research` | Use browser-backed Reddit adapters for thread search and retail discussion context |
+| `youtube-transcript-browser` | Use browser-backed YouTube adapters for transcripts and market-video analysis |
+| `github-browser-research` | Use browser-backed GitHub adapters for repo, issue, and discussion research |
+| `zhihu-browser-research` | Use browser-backed Zhihu adapters for topic heat and Chinese narrative context |
+| `browser-news-verifier` | Use browser-backed site-native sources to verify or cross-check headlines and claims |
 | `daily-stock-screener` | Screen daily stock watchlists into ranked candidates |
 | `catalyst-tracker` | Build a catalyst list and event calendar |
 | `risk-checklist` | Generate trade risk and position-sizing guardrails |

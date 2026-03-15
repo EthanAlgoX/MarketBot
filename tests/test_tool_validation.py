@@ -1,5 +1,6 @@
 from typing import Any
 
+from marketbot.agent.tools.browser import BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.base import Tool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
@@ -256,6 +257,52 @@ def test_cast_params_bool_string_invalid() -> None:
     assert result["flag"] == "random"
     result = tool.cast_params({"flag": "maybe"})
     assert result["flag"] == "maybe"
+
+
+class _BrowserConfig:
+    enabled = True
+    command = "bb-browser"
+    mode = "safe"
+    timeout_s = 20
+    allow_sites = ["xueqiu", "eastmoney"]
+    allow_adapters = []
+
+
+class _BrowserAdapterConfig(_BrowserConfig):
+    allow_sites = []
+    allow_adapters = ["xueqiu/hot-stock"]
+
+
+async def test_browser_site_blocks_adapter_outside_allowlist() -> None:
+    tool = BrowserSiteTool(browser_config=_BrowserConfig())
+    result = await tool.execute(adapter="reddit/search", args=["ai"])
+    assert "adapter blocked by allowlist" in result
+
+
+async def test_browser_site_rejects_invalid_adapter_shape() -> None:
+    tool = BrowserSiteTool(browser_config=_BrowserConfig())
+    result = await tool.execute(adapter="xueqiu", args=["ai"])
+    assert "adapter must look like <site>/<command>" in result
+
+
+async def test_browser_site_rejects_raw_cli_flags_in_args() -> None:
+    tool = BrowserSiteTool(browser_config=_BrowserConfig())
+    result = await tool.execute(adapter="xueqiu/hot-stock", args=["--json"])
+    assert "must not include raw CLI flags" in result
+
+
+async def test_browser_page_blocks_unsafe_actions_in_safe_mode() -> None:
+    tool = BrowserPageTool(browser_config=_BrowserConfig())
+    result = await tool.execute(action="eval", target="document.title")
+    assert "blocked in safe mode" in result
+
+
+async def test_browser_site_adapter_allowlist_overrides_site_allowlist() -> None:
+    tool = BrowserSiteTool(browser_config=_BrowserAdapterConfig())
+    blocked = await tool.execute(adapter="xueqiu/stock", args=["TSLA"])
+    allowed_shape = await tool.execute(adapter="xueqiu/hot-stock", args=["--bad"])
+    assert "adapter blocked by allowlist" in blocked
+    assert "must not include raw CLI flags" in allowed_shape
 
 
 def test_cast_params_invalid_string_to_int() -> None:

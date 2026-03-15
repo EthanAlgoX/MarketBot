@@ -31,7 +31,7 @@ from marketbot.runtime.bootstrap import ToolBootstrapContext, register_core_tool
 from marketbot.session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
-    from marketbot.config.schema import ChannelsConfig, ExecToolConfig, MarketToolsConfig
+    from marketbot.config.schema import BrowserToolsConfig, ChannelsConfig, ExecToolConfig, MarketToolsConfig
     from marketbot.cron.service import CronService
 
 
@@ -66,6 +66,7 @@ class AgentLoop:
         reasoning_effort: str | None = None,
         brave_api_key: str | None = None,
         web_proxy: str | None = None,
+        browser_config: BrowserToolsConfig | None = None,
         exec_config: ExecToolConfig | None = None,
         cron_service: CronService | None = None,
         restrict_to_workspace: bool = False,
@@ -89,6 +90,7 @@ class AgentLoop:
         self.reasoning_effort = reasoning_effort
         self.brave_api_key = brave_api_key
         self.web_proxy = web_proxy
+        self.browser_config = browser_config
         self.exec_config = exec_config or ExecToolConfig()
         self.cron_service = cron_service
         self.restrict_to_workspace = restrict_to_workspace
@@ -112,6 +114,7 @@ class AgentLoop:
             reasoning_effort=reasoning_effort,
             brave_api_key=brave_api_key,
             web_proxy=web_proxy,
+            browser_config=browser_config,
             exec_config=self.exec_config,
             restrict_to_workspace=restrict_to_workspace,
         )
@@ -159,6 +162,7 @@ class AgentLoop:
             restrict_to_workspace=self.restrict_to_workspace,
             brave_api_key=self.brave_api_key,
             web_proxy=self.web_proxy,
+            browser_config=self.browser_config,
             cron_service=self.cron_service,
             market_config=self.market_config,
         )

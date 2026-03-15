@@ -1,12 +1,16 @@
 ---
 name: market-report
 description: Create a structured market analysis report with regime, levels, catalysts, and risks.
-metadata: {"marketbot":{"emoji":"📋","triggers":["analysis","outlook","trade plan","bias"],"output":"market-analysis-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_macro","market_signal","market_brief"],"required_tools":["market_snapshot","market_signal"],"markets":["a-share","hong-kong","us","global"],"asset_classes":["equity","crypto","commodity","etf"]}}
+metadata: {"marketbot":{"emoji":"📋","triggers":["analysis","outlook","trade plan","bias"],"output":"market-analysis-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_macro","market_signal","market_brief"],"required_tools":["market_snapshot","market_signal"],"markets":["a-share","hong-kong","us","global"],"asset_classes":["equity","crypto","commodity","etf"],"task_type":"orchestration","determinism":"tool-backed","priority":20}}
 ---
 
 # Market Report
 
 Produce a concise, structured market analysis report for a single asset.
+
+This skill is the default orchestrator for market analysis. When a request is
+actually about options structure, earnings interpretation, or pair
+co-movement, route to the specialist skill first and then synthesize.
 
 ## When to use
 
@@ -16,11 +20,15 @@ Produce a concise, structured market analysis report for a single asset.
 
 ## Preferred marketbot workflow
 
-1. Use `market_snapshot` for recent price, momentum, and flow hints.
-2. Use `market_news`, `market_social_sentiment`, and `market_macro` when relevant.
-3. Use `market_event_extract` if a headline or catalyst is driving the move.
-4. Use `market_signal` or `market_brief` to get a draft signal and scenario view.
-5. Write the final answer in the report format below, separating facts from assumptions.
+1. Decide whether a specialist skill should lead:
+   - `earnings-readout` for results-driven moves
+   - `options-payoff` for strategy and payoff questions
+   - `pair-correlation` for relationship or peer-linkage questions
+2. Use `market_snapshot` for recent price, momentum, and flow hints.
+3. Use `market_news`, `market_social_sentiment`, and `market_macro` when relevant.
+4. Use `market_event_extract` if a headline or catalyst is driving the move.
+5. Use `market_signal` or `market_brief` to get a draft signal and scenario view.
+6. Write the final answer in the report format below, separating facts from assumptions.
 
 ## Inputs to confirm if missing
 
@@ -73,3 +81,5 @@ If those are missing, make the narrowest safe assumption and state it explicitly
 - Call out missing or stale data explicitly.
 - Default to `watch` when evidence is weak.
 - Never imply guaranteed returns.
+- Do not redo specialist calculations inline when a narrower skill is a better
+  fit; synthesize their output instead.

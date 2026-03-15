@@ -8,6 +8,7 @@ from typing import Any
 
 from loguru import logger
 
+from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
@@ -110,6 +111,10 @@ class SubagentManager:
             ))
             tools.register(WebSearchTool(api_key=self.brave_api_key, proxy=self.web_proxy))
             tools.register(WebFetchTool(proxy=self.web_proxy))
+            if self.browser_config and getattr(self.browser_config, "enabled", False):
+                tools.register(BrowserSiteTool(browser_config=self.browser_config, workspace=self.workspace))
+                tools.register(BrowserPageTool(browser_config=self.browser_config, workspace=self.workspace))
+                tools.register(BrowserNetworkTool(browser_config=self.browser_config, workspace=self.workspace))
             
             system_prompt = self._build_subagent_prompt()
             messages: list[dict[str, Any]] = [

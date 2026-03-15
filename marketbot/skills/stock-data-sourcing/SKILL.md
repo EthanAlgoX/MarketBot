@@ -1,7 +1,7 @@
 ---
 name: stock-data-sourcing
 description: Select and combine market data and news providers for A-share, Hong Kong, and US stock analysis. Use when Codex needs to choose between efinance, akshare, tushare, pytdx, baostock, yfinance, Tavily, Bocha, Brave, or SerpAPI; explain provider tradeoffs; design fallback chains; or plan data ingestion for cross-market watchlists and reports.
-metadata: {"marketbot":{"emoji":"🧭","triggers":["data source","provider","coverage","fallback","routing","行情源","数据源"],"output":"source-plan","risk":"low","freshness":"reference","tools":["market_source_plan"],"required_tools":["market_source_plan"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"]}}
+metadata: {"marketbot":{"emoji":"🧭","triggers":["data source","provider","coverage","fallback","routing","行情源","数据源"],"output":"source-plan","risk":"low","freshness":"reference","tools":["market_source_plan","browser_site"],"required_tools":["market_source_plan"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"]}}
 ---
 
 # Stock Data Sourcing
@@ -20,6 +20,7 @@ Prefer market coverage and freshness over provider purity, and always state the 
 2. Read [references/data-sources.md](references/data-sources.md) when choosing or justifying providers.
 3. Pick a primary provider and at least one fallback.
 4. If `marketbot` already has a native tool that covers the task, use it and keep this skill as routing guidance.
+5. If authenticated browser-native context is materially better than public APIs, include a `browser-authenticated` lane using `browser_site`.
 5. In the answer, state:
    - chosen source
    - fallback chain
@@ -53,8 +54,10 @@ Prefer market coverage and freshness over provider purity, and always state the 
 
 - `A-share` and Chinese news:
   - prefer `Bocha`, then `Tavily`, then `SerpAPI`
+  - for site-native logged-in context or dynamic pages, add `browser_site` with `eastmoney/*` or `xueqiu/*`
 - `US` and global English news:
   - prefer `Brave`, then `Tavily`, then `SerpAPI`
+  - for logged-in social or dynamic discussion pages, add `browser_site`
 - Default freshness target: keep news within `3 days` unless the user asks for a longer window.
 - For catalyst work, search across these dimensions:
   - latest news
@@ -99,3 +102,4 @@ Prefer market coverage and freshness over provider purity, and always state the 
 - Separate current runtime capability from recommended future integration.
 - Prefer exact provider names over vague phrases like "some API".
 - If coverage is mixed, explicitly say which asset classes are strong and which are weak.
+- Treat `browser_site` as a high-trust local source lane, not the default first choice.

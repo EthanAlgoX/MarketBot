@@ -1,7 +1,7 @@
 ---
 name: sentiment-analysis
 description: Extract and quantify market sentiment signals from news, social media, and forums for a specific asset or sector.
-metadata: {"marketbot":{"emoji":"🎭","triggers":["sentiment","crowd","social","forum"],"output":"sentiment-report","risk":"medium","freshness":"news-live","tools":["market_news","market_social_sentiment"],"required_tools":["market_social_sentiment"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
+metadata: {"marketbot":{"emoji":"🎭","triggers":["sentiment","crowd","social","forum"],"output":"sentiment-report","risk":"medium","freshness":"news-live","tools":["market_news","market_social_sentiment","browser_site"],"required_tools":["market_social_sentiment"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
 ---
 
 # Sentiment Analysis
@@ -26,6 +26,7 @@ When conducting sentiment analysis, gather data from multiple sources and apply 
 
 1. **Data Gathering & Cleaning**:
    - Use market news and social sentiment tools to gather raw text for the target asset/sector within the specified time window (e.g., `24h`).
+   - When site-native, logged-in, or dynamic discussion pages matter, supplement with `browser_site` on Xueqiu, Reddit, Zhihu, or similar platforms.
    - Clean the text by filtering out spam, ads, and irrelevant noise.
 
 2. **Entity Extraction**:

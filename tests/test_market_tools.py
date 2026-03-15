@@ -574,6 +574,19 @@ def test_agent_loop_registers_market_tools_by_default(tmp_path) -> None:
     assert set(loop.context.available_tools or set()).issuperset({"market_snapshot", "market_signal", "market_brief"})
 
 
+def test_agent_loop_registers_browser_tools_when_enabled(tmp_path) -> None:
+    from marketbot.config.schema import BrowserToolsConfig
+
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+        browser_config=BrowserToolsConfig(enabled=True),
+    )
+    assert {"browser_site", "browser_page", "browser_network"}.issubset(loop.tools.tool_names)
+
+
 def test_agent_loop_skips_market_tools_when_disabled(tmp_path) -> None:
     loop = AgentLoop(
         bus=MessageBus(),

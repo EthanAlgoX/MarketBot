@@ -316,6 +316,8 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             selected_names.append(name)
             deduped_selected.append(item)
 
+        deduped_selected = self._prune_shadowed_skills(deduped_selected)
+
         external_suggestions: list[dict[str, Any]] = []
         if not deduped_selected and self._should_search_external_skills(current_message, diagnostics):
             external_suggestions = self.skills.search_external_skills(current_message, limit=5)
@@ -328,6 +330,41 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "diagnostics": diagnostics,
             "externalSuggestions": external_suggestions,
         }
+
+    def _prune_shadowed_skills(self, selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Drop broad auto-selected skills when a higher-priority specialist is present."""
+        if not selected:
+            return selected
+
+        by_name = {str(item.get("name", "")).strip(): item for item in selected}
+        specialist_names = {
+            name
+            for name in by_name
+            if self.skills.get_skill_capabilities(name).get("priority", 50) >= 70
+        }
+        if not specialist_names:
+            return selected
+
+        shadow_pairs = {
+            "social-signal-browser": {"sentiment-analysis"},
+            "xueqiu-research": {"sentiment-analysis"},
+            "eastmoney-live": {"news-intelligence"},
+        }
+        blocked_auto: set[str] = set()
+        for specialist, blocked in shadow_pairs.items():
+            if specialist in specialist_names:
+                blocked_auto.update(blocked)
+
+        result: list[dict[str, Any]] = []
+        for item in selected:
+            name = str(item.get("name", "")).strip()
+            source = str(item.get("source", "")).strip()
+            if name == "market-report" and source == "auto":
+                continue
+            if name in blocked_auto and source == "auto":
+                continue
+            result.append(item)
+        return result
 
     @staticmethod
     def _normalize_skill_names(skill_names: list[str] | None) -> list[str]:
@@ -413,6 +450,28 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "metals",
             "precious metals",
         )
+        browser_research_terms = (
+            "xueqiu",
+            "雪球",
+            "eastmoney",
+            "东方财富",
+            "股吧",
+            "reddit",
+            "subreddit",
+            "wallstreetbets",
+            "github repo",
+            "github issue",
+            "zhihu",
+            "知乎",
+            "verify news",
+            "cross-check headline",
+            "source verify",
+            "youtube transcript",
+            "video transcript",
+            "hot stock",
+            "discussion heat",
+            "forum heat",
+        )
         source_terms = (
             "data source",
             "datasource",
@@ -467,6 +526,24 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             consider("crypto-gold-monitor")
         elif route["crypto"] and ("intermarket" in text or "gold" in text or "silver" in text):
             consider("crypto-gold-monitor")
+
+        if any(term in text for term in browser_research_terms):
+            if "xueqiu" in text or "雪球" in text or "hot stock" in text:
+                consider("xueqiu-research")
+            if "eastmoney" in text or "东方财富" in text or "股吧" in text:
+                consider("eastmoney-live")
+            if "discussion heat" in text or "forum heat" in text or "retail attention" in text:
+                consider("social-signal-browser")
+            if "reddit" in text or "subreddit" in text or "wallstreetbets" in text:
+                consider("reddit-research")
+            if "github repo" in text or "github issue" in text or "github discussion" in text:
+                consider("github-browser-research")
+            if "zhihu" in text or "知乎" in text:
+                consider("zhihu-browser-research")
+            if "verify news" in text or "cross-check headline" in text or "source verify" in text:
+                consider("browser-news-verifier")
+            if "youtube transcript" in text or "video transcript" in text:
+                consider("youtube-transcript-browser")
 
         if any(term in text for term in source_terms):
             consider("stock-data-sourcing")

@@ -15,6 +15,19 @@ def test_builtin_market_skills_are_discoverable(tmp_path):
     assert "stock-data-sourcing" in names
     assert "stock-info-explorer" in names
     assert "crypto-gold-monitor" in names
+    assert "options-payoff" in names
+    assert "pair-correlation" in names
+    assert "earnings-readout" in names
+    assert "sector-breadth" in names
+    assert "macro-regime" in names
+    assert "xueqiu-research" in names
+    assert "eastmoney-live" in names
+    assert "social-signal-browser" in names
+    assert "reddit-research" in names
+    assert "youtube-transcript-browser" in names
+    assert "github-browser-research" in names
+    assert "zhihu-browser-research" in names
+    assert "browser-news-verifier" in names
 
 
 def test_market_report_skill_content_is_loadable(tmp_path):
@@ -36,6 +49,34 @@ def test_stock_data_sourcing_skill_content_is_loadable(tmp_path):
     assert "efinance" in content
 
 
+def test_new_specialist_skills_are_loadable(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    options_content = loader.load_skill("options-payoff")
+    correlation_content = loader.load_skill("pair-correlation")
+    earnings_content = loader.load_skill("earnings-readout")
+
+    assert options_content is not None
+    assert "# Options Payoff" in options_content
+    assert correlation_content is not None
+    assert "# Pair Correlation" in correlation_content
+    assert earnings_content is not None
+    assert "# Earnings Readout" in earnings_content
+
+
+def test_specialist_skills_sort_ahead_of_orchestrator_for_matching_request(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "Analyze NVDA earnings results and guidance after the quarterly report.",
+        route={"symbols": ["NVDA"], "equity": True},
+        available_tools={"market_snapshot", "market_news", "market_event_extract", "market_fundamentals", "market_signal"},
+    )
+
+    assert matched
+    assert matched[0] == "earnings-readout"
+
+
 def test_market_skill_capabilities_are_parsed(tmp_path):
     loader = SkillsLoader(tmp_path)
 
@@ -55,7 +96,8 @@ def test_stock_data_sourcing_capabilities_include_tool_alignment(tmp_path):
 
     capabilities = loader.get_skill_capabilities("stock-data-sourcing")
 
-    assert capabilities["tools"] == ["market_source_plan"]
+    assert "market_source_plan" in capabilities["tools"]
+    assert "browser_site" in capabilities["tools"]
     assert capabilities["required_tools"] == ["market_source_plan"]
     assert capabilities["markets"] == ["a-share", "hong-kong", "us", "mixed"]
 

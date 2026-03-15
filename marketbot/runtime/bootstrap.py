@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.cron import CronTool
 from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from marketbot.agent.tools.message import MessageTool
@@ -17,7 +18,7 @@ from marketbot.agent.tools.web import WebFetchTool, WebSearchTool
 if TYPE_CHECKING:
     from marketbot.agent.subagent import SubagentManager
     from marketbot.bus.queue import MessageBus
-    from marketbot.config.schema import ExecToolConfig, MarketToolsConfig
+    from marketbot.config.schema import BrowserToolsConfig, ExecToolConfig, MarketToolsConfig
     from marketbot.cron.service import CronService
 
 
@@ -32,6 +33,7 @@ class ToolBootstrapContext:
     restrict_to_workspace: bool
     brave_api_key: str | None = None
     web_proxy: str | None = None
+    browser_config: "BrowserToolsConfig | None" = None
     cron_service: "CronService | None" = None
     market_config: "MarketToolsConfig | None" = None
 
@@ -59,8 +61,11 @@ def register_core_tools(registry: ToolRegistry, ctx: ToolBootstrapContext) -> No
     )
     registry.register(WebSearchTool(api_key=ctx.brave_api_key, proxy=ctx.web_proxy))
     registry.register(WebFetchTool(proxy=ctx.web_proxy))
+    if ctx.browser_config and ctx.browser_config.enabled:
+        registry.register(BrowserSiteTool(browser_config=ctx.browser_config, workspace=ctx.workspace))
+        registry.register(BrowserPageTool(browser_config=ctx.browser_config, workspace=ctx.workspace))
+        registry.register(BrowserNetworkTool(browser_config=ctx.browser_config, workspace=ctx.workspace))
     registry.register(MessageTool(send_callback=ctx.bus.publish_outbound))
     registry.register(SpawnTool(manager=ctx.subagents))
     if ctx.cron_service:
         registry.register(CronTool(ctx.cron_service))
-
