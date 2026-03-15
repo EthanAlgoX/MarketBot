@@ -1647,6 +1647,26 @@ class MarketBriefTool(Tool):
                 lines.append(f"  - reason: {selected_reason}")
         return lines
 
+    @staticmethod
+    def _news_availability_markdown_lines(news: dict[str, Any]) -> list[str]:
+        """Render explicit per-symbol news availability notes when live items are missing."""
+        provider_by_symbol = news.get("providerBySymbol") if isinstance(news.get("providerBySymbol"), dict) else {}
+        if not provider_by_symbol:
+            return []
+
+        unavailable = [str(symbol).upper() for symbol, provider in provider_by_symbol.items() if str(provider) == "unavailable"]
+        if not unavailable:
+            return []
+
+        lines = [
+            "",
+            "### News Availability",
+            "- Live news items were unavailable for some symbols. No mock news was used.",
+        ]
+        for symbol in unavailable:
+            lines.append(f"- {symbol}: live news unavailable")
+        return lines
+
     async def execute(
         self,
         symbols: list[str] | None = None,
@@ -1811,6 +1831,7 @@ class MarketBriefTool(Tool):
                 f"- Sentiment: {event.get('sentimentLabel')} ({float(event.get('sentimentScore', 0.0)):.2f})",
             ]
         lines += self._reliability_markdown_lines(data_reliability)
+        lines += self._news_availability_markdown_lines(news)
 
         result = {
             "asOf": _utc_now_iso(),

@@ -719,6 +719,59 @@ def test_market_brief_composes_outputs() -> None:
     assert "macro: manual=ok" in payload["briefMarkdown"]
 
 
+def test_market_brief_calls_out_unavailable_live_news_without_mock(monkeypatch) -> None:
+    cfg = MarketToolsConfig()
+    cfg.macro_source = "manual"
+    tool = MarketBriefTool(config=cfg)
+
+    async def _fake_snapshot(*args, **kwargs):
+        return json.dumps(
+            {
+                "asOf": "2026-03-07T00:00:00Z",
+                "source": "tencent_us",
+                "symbols": ["NVDA"],
+                "quotes": [
+                    {
+                        "symbol": "NVDA",
+                        "price": 100.0,
+                        "changePct": 1.0,
+                        "volume": 1000,
+                        "avgVolume": 900,
+                        "flowRatio": 1.1,
+                        "flowHint": "inflow",
+                        "momentum": "up",
+                        "currency": "USD",
+                        "marketState": "REGULAR",
+                    }
+                ],
+                "warnings": [],
+                "sourceHealth": {"tencent_us": {"status": "ok"}},
+                "routeTrace": [],
+            }
+        )
+
+    async def _fake_news(*args, **kwargs):
+        return json.dumps(
+            {
+                "asOf": "2026-03-07T00:00:00Z",
+                "sources": ["google"],
+                "providerBySymbol": {"NVDA": "unavailable"},
+                "items": [],
+                "warnings": ["NVDA: news source returned no usable items"],
+                "sourceHealth": {"google": {"status": "degraded"}},
+                "routeTrace": [],
+            }
+        )
+
+    monkeypatch.setattr(tool._snapshot, "execute", _fake_snapshot)
+    monkeypatch.setattr(tool._news, "execute", _fake_news)
+    payload = json.loads(_run(tool.execute(symbols=["NVDA"], includeSocial=False, includeChips=False, includeFundamentals=False)))
+
+    assert "### News Availability" in payload["briefMarkdown"]
+    assert "No mock news was used" in payload["briefMarkdown"]
+    assert "- NVDA: live news unavailable" in payload["briefMarkdown"]
+
+
 def test_market_brief_includes_chip_distribution_for_a_share(monkeypatch) -> None:
     cfg = MarketToolsConfig(quote_source="mock")
     cfg.news_sources = ["mock"]
