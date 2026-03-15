@@ -46,6 +46,15 @@ Categorize each discovered opportunity into one of four buckets:
 - `Company` (e.g., Earnings beat -> Specific ticker)
 - `Sentiment` (e.g., Unusually high retail/social engagement on a theme)
 
+## Data Availability Rules
+
+- Prefer live tool output over prior knowledge when discussing current opportunities.
+- For each market section you write, confirm that this run has current tool evidence for that market.
+- If you did not fetch current evidence for a market, mark it as `unverified` instead of presenting a concrete market view.
+- If live data is unavailable for a market or symbol, say `live data unavailable` or `price unavailable`.
+- Do not invent provider-specific failures such as `Yahoo 429` unless that exact failure is present in current tool warnings or source-health output.
+- Do not present unavailable markets as actionable setups; downgrade them to watchlist candidates and explain the data gap.
+
 ## Output Format
 
 ### User-Facing Report (Markdown)

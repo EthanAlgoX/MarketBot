@@ -389,6 +389,27 @@ def test_chinese_market_opportunity_message_injects_market_discovery(tmp_path) -
     prompt = messages[0]["content"]
     assert "### Skill: market-discovery" in prompt
     assert "### Skill: stock-data-sourcing" not in prompt
+    assert "do not reuse stale provider failures" in prompt.lower()
+
+
+def test_live_market_request_drops_stale_history(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    history = [
+        {"role": "assistant", "content": "A股数据不可用 due to Yahoo 429."},
+        {"role": "user", "content": "记住这个结论。"},
+    ]
+
+    messages = builder.build_messages(
+        history=history,
+        current_message="分析今日股票市场机会，给出美股、港股、A股的方向。",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    assert len(messages) == 2
+    assert messages[1]["role"] == "user"
 
 
 def test_specialist_earnings_skill_shadows_auto_market_report(tmp_path) -> None:

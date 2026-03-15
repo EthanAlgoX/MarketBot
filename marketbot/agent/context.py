@@ -180,6 +180,8 @@ Your workspace is at: {workspace_path}
   Conclusion, Evidence, Confidence (0-1), Key Risks, and Suggested Action.
 - If confidence is low (<0.58) or evidence is weak, default to "watch" instead of forcing buy/sell.
 - Never present analysis as guaranteed returns; always include risk conditions and invalidation triggers.
+- For live market analysis, do not reuse stale provider failures or prices from earlier conversation turns. Verify with current tool output first.
+- If current tool output does not confirm a provider-specific failure, say `live data unavailable` instead of naming a provider or HTTP error.
 
 Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel."""
 
@@ -212,6 +214,10 @@ When the user asks for analysis of a specific asset or trade setup, prefer this 
    - Confidence
    - Key risks
    - Suggested action
+4. For live market requests:
+   - Treat earlier conversation turns as stale unless current tool output confirms them
+   - Do not mention provider-specific failures such as `Yahoo 429` unless they appear in current warnings or source-health data
+   - If live data is missing, explicitly say `live data unavailable`
 
 If evidence is mixed, reduce conviction and default to `watch`."""
 
@@ -255,6 +261,15 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         request_profile = routing.get("requestProfile", {})
         runtime_ctx = self._build_runtime_context(channel, chat_id)
         user_content = self._build_user_content(current_message, media)
+        prior_history = (
+            []
+            if self._should_reset_history_for_live_market_request(
+                current_message,
+                request_profile=request_profile,
+                resolved_skill_names=resolved_skill_names,
+            )
+            else history
+        )
 
         # Merge runtime context and user content into a single user message
         # to avoid consecutive same-role messages that some providers reject.
@@ -280,9 +295,65 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                     active_skill_char_budget=400,
                 ),
             },
-            *history,
+            *prior_history,
             {"role": "user", "content": merged},
         ]
+
+    @staticmethod
+    def _should_reset_history_for_live_market_request(
+        current_message: str,
+        *,
+        request_profile: dict[str, Any] | None = None,
+        resolved_skill_names: list[str] | None = None,
+    ) -> bool:
+        """Drop stale conversation history for live market scans that should rely on fresh tool output."""
+        text = str(current_message or "").lower()
+        live_terms = (
+            "today",
+            "latest",
+            "live",
+            "intraday",
+            "premarket",
+            "盘前",
+            "盘中",
+            "盘后",
+            "今日",
+            "实时",
+            "最新",
+        )
+        market_terms = (
+            "market",
+            "watchlist",
+            "opportunity",
+            "summary",
+            "monitor",
+            "机会",
+            "市场",
+            "行情",
+            "催化",
+            "热点",
+        )
+        live_request = any(term in text for term in live_terms) and any(term in text for term in market_terms)
+        if not live_request:
+            return False
+
+        profile = request_profile or {}
+        if profile.get("markets") or profile.get("asset_classes"):
+            return True
+
+        active_skills = set(resolved_skill_names or [])
+        return bool(
+            active_skills.intersection(
+                {
+                    "market-discovery",
+                    "market-monitor",
+                    "market-report",
+                    "stock-watch",
+                    "daily-stock-screener",
+                    "catalyst-tracker",
+                }
+            )
+        )
 
     def _build_skill_routing(
         self,
