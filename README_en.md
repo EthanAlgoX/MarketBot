@@ -186,65 +186,28 @@ Notes:
 
 ### 4. Start using it
 
-Open chat mode:
+The 4 commands most people need first:
 
 ```bash
 marketbot agent
-```
-
-Ask for prices:
-
-```bash
 marketbot agent -m "Give me the latest price for NVDA, 07709, and 513310"
-```
-
-Generate a holdings-driven event watchlist:
-
-```bash
 marketbot agent -m "Build a two-week catalyst watchlist for NVDA, UNH, 07709, 07747, 513310, and 518880"
-```
-
-Generate a market brief:
-
-```bash
 marketbot market report --symbols NVDA,SPY --save
 ```
 
-Useful options:
+Also useful:
 
-- `--json`: return the raw structured payload
-- `--session auto|premarket|intraday|close`
-- `--notify --notify-channel telegram --chat-id 10001`
-
-Create a recurring heartbeat template:
-
-```bash
-marketbot market heartbeat-setup
-```
+- `marketbot market report --json`: return the raw structured payload
+- `marketbot market report --session premarket|intraday|close`
+- `marketbot market report --notify --notify-channel telegram --chat-id 10001`
+- `marketbot market heartbeat-setup`: create a recurring heartbeat template
 
 ## Common Workflows
 
-### Holdings / watchlist monitoring
-
 ```bash
 marketbot agent -m "Generate today's premarket watchlist for SPY,NVDA,GOOG,TSLA,UNH,07709,513310"
-```
-
-### Catalyst and event tracking
-
-```bash
 marketbot agent -m "List the most important catalysts and risks for NVDA, UNH, and 07709 over the next two weeks"
-```
-
-### Daily screening
-
-```bash
 marketbot agent -m "Screen NVDA,TSLA,INTC,TTD,CRWV and rank today's best setups"
-```
-
-### Data-source and routing diagnostics
-
-```bash
 marketbot agent -m "Why does 07709 use this quote source? Show me the routing and reliability."
 ```
 

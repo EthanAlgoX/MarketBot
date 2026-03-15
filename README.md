@@ -186,65 +186,28 @@ marketbot onboard
 
 ### 4. 直接开始用
 
-进入聊天：
+最常用的 4 条命令：
 
 ```bash
 marketbot agent
-```
-
-一句话问价格：
-
-```bash
 marketbot agent -m "给我 NVDA、07709、513310 的最新价格"
-```
-
-根据持仓生成热点事件：
-
-```bash
 marketbot agent -m "根据我的持仓生成未来两周的热点事件监控清单：NVDA,UNH,07709,07747,513310,518880"
-```
-
-生成市场简报：
-
-```bash
 marketbot market report --symbols NVDA,SPY --save
 ```
 
-常用选项：
+补充：
 
-- `--json`：输出原始结构化结果
-- `--session auto|premarket|intraday|close`
-- `--notify --notify-channel telegram --chat-id 10001`
-
-生成周期性报告模板：
-
-```bash
-marketbot market heartbeat-setup
-```
+- `marketbot market report --json`：输出原始结构化结果
+- `marketbot market report --session premarket|intraday|close`
+- `marketbot market report --notify --notify-channel telegram --chat-id 10001`
+- `marketbot market heartbeat-setup`：生成周期性报告模板
 
 ## 常见使用场景
 
-### 持仓 / watchlist 监控
-
 ```bash
 marketbot agent -m "根据我的持仓生成今天盘前监控清单：SPY,NVDA,GOOG,TSLA,UNH,07709,513310"
-```
-
-### 热点事件 / 催化跟踪
-
-```bash
 marketbot agent -m "列出 NVDA、UNH、07709 未来两周最重要的催化和风险"
-```
-
-### 每日筛选
-
-```bash
 marketbot agent -m "筛选今天值得重点看的股票：NVDA,TSLA,INTC,TTD,CRWV"
-```
-
-### 数据源与路由诊断
-
-```bash
 marketbot agent -m "为什么 07709 走这个价格源？给我看数据路由和可靠性"
 ```
 
