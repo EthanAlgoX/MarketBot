@@ -8,6 +8,7 @@ import re
 import shutil
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from marketbot.agent.tools.base import Tool
 
@@ -29,6 +30,12 @@ class _BrowserToolBase(Tool):
         self.allow_adapters = {
             str(item).strip().lower() for item in (getattr(browser_config, "allow_adapters", []) or []) if str(item).strip()
         }
+        self.allow_domains = {
+            str(item).strip().lower() for item in (getattr(browser_config, "allow_domains", []) or []) if str(item).strip()
+        }
+        self.allow_url_prefixes = [
+            str(item).strip() for item in (getattr(browser_config, "allow_url_prefixes", []) or []) if str(item).strip()
+        ]
 
     def _ensure_available(self) -> str | None:
         if not self.enabled:
@@ -45,6 +52,45 @@ class _BrowserToolBase(Tool):
             return True
         site = normalized.split("/", 1)[0].strip()
         return site in self.allow_sites
+
+    @staticmethod
+    def _extract_http_url(value: str | None) -> str | None:
+        if not value:
+            return None
+        candidate = str(value).strip()
+        if not candidate:
+            return None
+        parsed = urlparse(candidate)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+            return None
+        return candidate
+
+    def _url_allowed(self, value: str | None) -> tuple[bool, str | None]:
+        url = self._extract_http_url(value)
+        if not url:
+            return True, None
+
+        parsed = urlparse(url)
+        host = parsed.netloc.lower()
+        if host.startswith("www."):
+            bare_host = host[4:]
+        else:
+            bare_host = host
+
+        if self.allow_url_prefixes:
+            for prefix in self.allow_url_prefixes:
+                if url.startswith(prefix):
+                    return True, None
+            return False, f"Error: url blocked by prefix allowlist: {url}"
+
+        if self.allow_domains:
+            for allowed in self.allow_domains:
+                normalized = allowed.lower()
+                if bare_host == normalized or bare_host.endswith(f".{normalized}"):
+                    return True, None
+            return False, f"Error: url blocked by domain allowlist: {url}"
+
+        return True, None
 
     async def _run(self, args: list[str]) -> str:
         command = [self.command, *args]
@@ -151,6 +197,9 @@ class BrowserPageTool(_BrowserToolBase):
         action_name = str(action or "").strip().lower()
         if not self._action_allowed(action_name):
             return f"Error: browser action blocked in {self.mode} mode: {action_name}"
+        allowed, reason = self._url_allowed(target)
+        if not allowed:
+            return reason or "Error: target blocked by url allowlist"
         command = [action_name]
         if target:
             command.append(target)
@@ -188,6 +237,9 @@ class BrowserNetworkTool(_BrowserToolBase):
         if mode_name == "fetch":
             if not url:
                 return "Error: url is required for browser_network fetch"
+            allowed, reason = self._url_allowed(url)
+            if not allowed:
+                return reason or "Error: url blocked by allowlist"
             command = ["fetch", url]
         else:
             command = ["network", "requests"]

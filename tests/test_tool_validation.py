@@ -1,9 +1,10 @@
 from typing import Any
 
-from marketbot.agent.tools.browser import BrowserPageTool, BrowserSiteTool
+from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.base import Tool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
+from marketbot.config.schema import BrowserToolsConfig
 
 
 class SampleTool(Tool):
@@ -257,6 +258,86 @@ def test_cast_params_bool_string_invalid() -> None:
     assert result["flag"] == "random"
     result = tool.cast_params({"flag": "maybe"})
     assert result["flag"] == "maybe"
+
+
+async def test_browser_page_blocks_url_outside_domain_allowlist() -> None:
+    tool = BrowserPageTool(
+        browser_config=BrowserToolsConfig(enabled=True, allow_domains=["xueqiu.com"]),
+    )
+
+    result = await tool.execute(action="open", target="https://reddit.com/r/stocks")
+
+    assert "blocked by domain allowlist" in result
+
+
+async def test_browser_page_allows_url_inside_domain_allowlist() -> None:
+    tool = BrowserPageTool(
+        browser_config=BrowserToolsConfig(enabled=True, allow_domains=["xueqiu.com"]),
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    tool._run = _async_return('{"ok":true}')  # type: ignore[method-assign]
+
+    result = await tool.execute(action="open", target="https://xueqiu.com/u/123456")
+
+    assert result == '{"ok":true}'
+
+
+async def test_browser_page_ignores_non_url_target_for_click() -> None:
+    tool = BrowserPageTool(
+        browser_config=BrowserToolsConfig(enabled=True, allow_domains=["xueqiu.com"]),
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    tool._run = _async_return('{"ok":true}')  # type: ignore[method-assign]
+
+    result = await tool.execute(action="click", target="#login-button")
+
+    assert result == '{"ok":true}'
+
+
+async def test_browser_page_blocks_url_outside_prefix_allowlist() -> None:
+    tool = BrowserPageTool(
+        browser_config=BrowserToolsConfig(
+            enabled=True,
+            allow_url_prefixes=["https://www.youtube.com/watch?v="],
+        ),
+    )
+
+    result = await tool.execute(action="open", target="https://www.youtube.com/channel/abc")
+
+    assert "blocked by prefix allowlist" in result
+
+
+async def test_browser_network_fetch_blocks_url_outside_domain_allowlist() -> None:
+    tool = BrowserNetworkTool(
+        browser_config=BrowserToolsConfig(enabled=True, mode="sensitive", allow_domains=["github.com"]),
+    )
+
+    result = await tool.execute(mode="fetch", url="https://example.com/data.json")
+
+    assert "blocked by domain allowlist" in result
+
+
+async def test_browser_network_fetch_allows_url_inside_prefix_allowlist() -> None:
+    tool = BrowserNetworkTool(
+        browser_config=BrowserToolsConfig(
+            enabled=True,
+            mode="sensitive",
+            allow_url_prefixes=["https://api.github.com/repos/"],
+        ),
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    tool._run = _async_return('{"ok":true}')  # type: ignore[method-assign]
+
+    result = await tool.execute(mode="fetch", url="https://api.github.com/repos/openai/openai-python")
+
+    assert result == '{"ok":true}'
+
+
+def _async_return(value: str):
+    async def _inner(*args: Any, **kwargs: Any) -> str:
+        return value
+
+    return _inner
 
 
 class _BrowserConfig:

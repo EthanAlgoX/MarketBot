@@ -318,6 +318,8 @@ class BrowserToolsConfig(Base):
     timeout_s: int = Field(20, ge=1, le=120)
     allow_sites: list[str] = Field(default_factory=list)
     allow_adapters: list[str] = Field(default_factory=list)
+    allow_domains: list[str] = Field(default_factory=list)
+    allow_url_prefixes: list[str] = Field(default_factory=list)
     adapter_catalog: list[str] = Field(default_factory=list)
 
 
