@@ -32,6 +32,7 @@ class SubagentManager:
         reasoning_effort: str | None = None,
         brave_api_key: str | None = None,
         web_proxy: str | None = None,
+        browser_config: Any | None = None,
         exec_config: "ExecToolConfig | None" = None,
         restrict_to_workspace: bool = False,
     ):
@@ -45,6 +46,7 @@ class SubagentManager:
         self.reasoning_effort = reasoning_effort
         self.brave_api_key = brave_api_key
         self.web_proxy = web_proxy
+        self.browser_config = browser_config
         self.exec_config = exec_config or ExecToolConfig()
         self.restrict_to_workspace = restrict_to_workspace
         self._running_tasks: dict[str, asyncio.Task[None]] = {}

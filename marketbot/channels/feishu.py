@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import re
+import ssl
 import threading
 from collections import OrderedDict
 from pathlib import Path
@@ -27,6 +28,35 @@ MSG_TYPE_MAP = {
     "file": "[file]",
     "sticker": "[sticker]",
 }
+
+
+def _build_feishu_ssl_context() -> ssl.SSLContext | None:
+    """Build an SSL context for Feishu WebSocket connections.
+
+    `MARKETBOT_SSL_CERT_FILE` points to a custom CA bundle.
+    `MARKETBOT_FEISHU_INSECURE_SSL=1` disables certificate verification as a last-resort workaround.
+    """
+    custom_ca = os.environ.get("MARKETBOT_SSL_CERT_FILE", "").strip()
+    insecure = os.environ.get("MARKETBOT_FEISHU_INSECURE_SSL", "").strip().lower() in {"1", "true", "yes", "on"}
+
+    if insecure:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+
+    if custom_ca:
+        try:
+            return ssl.create_default_context(cafile=custom_ca)
+        except Exception as e:
+            logger.warning("Failed to load MARKETBOT_SSL_CERT_FILE {}: {}", custom_ca, e)
+
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
 
 
 def _extract_share_card_content(content_json: dict, msg_type: str) -> str:
@@ -302,6 +332,15 @@ class FeishuChannel(BaseChannel):
             asyncio.set_event_loop(ws_loop)
             # Patch the module-level loop used by lark's ws Client.start()
             _lark_ws_client.loop = ws_loop
+            original_connect = _lark_ws_client.websockets.connect
+            ssl_context = _build_feishu_ssl_context()
+
+            async def _patched_connect(*args, **kwargs):
+                if ssl_context is not None and "ssl" not in kwargs:
+                    kwargs["ssl"] = ssl_context
+                return await original_connect(*args, **kwargs)
+
+            _lark_ws_client.websockets.connect = _patched_connect
             try:
                 while self._running:
                     try:
@@ -311,6 +350,7 @@ class FeishuChannel(BaseChannel):
                     if self._running:
                         time.sleep(5)
             finally:
+                _lark_ws_client.websockets.connect = original_connect
                 ws_loop.close()
 
         self._ws_thread = threading.Thread(target=run_ws, daemon=True)
