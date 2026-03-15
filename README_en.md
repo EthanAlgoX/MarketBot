@@ -167,18 +167,15 @@ marketbot agent -m "Why does 07709 use this quote source? Show me the routing an
 
 This is the part that most clearly separates `marketbot` from a generic chat agent.
 
-The system can expose:
+The main explainability fields are:
 
-- `skill routing`
-  which skills were selected
-- `blocked reasons`
-  which skills were not selected, and why
-- `data reliability`
-  aggregate status for `snapshot / news / macro`
-- `source health`
-  per-provider state such as `ok`, `cached`, `degraded`, `fallback`, or `error`
-- `route trace`
-  how data access was routed and downgraded
+| Field | Meaning |
+| --- | --- |
+| `skill routing` | which skills were selected |
+| `blocked reasons` | which skills were not selected, and why |
+| `data reliability` | aggregate status for `snapshot / news / macro` |
+| `source health` | per-provider state such as `ok`, `cached`, `degraded`, `fallback`, or `error` |
+| `route trace` | how data access was routed and downgraded |
 
 These notes can appear in:
 
@@ -187,7 +184,7 @@ These notes can appear in:
 - notification summaries
 - outbound metadata
 
-Per-channel configuration:
+Relevant configuration:
 
 - `channels.explainabilityMode`
 - `channels.explainabilityOverrides`

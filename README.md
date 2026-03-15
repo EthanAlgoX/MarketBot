@@ -167,18 +167,15 @@ marketbot agent -m "为什么 07709 走这个价格源？给我看数据路由�
 
 这是 `marketbot` 和普通聊天 agent 最不一样的一层。
 
-系统可以暴露：
+系统可以暴露的关键信息：
 
-- `skill routing`
-  这轮选中了哪些 skill
-- `blocked reasons`
-  哪些 skill 没被选中，以及为什么
-- `data reliability`
-  `snapshot / news / macro` 的总体可靠性
-- `source health`
-  每个 provider 当前是 `ok`、`cached`、`degraded`、`fallback` 还是 `error`
-- `route trace`
-  数据访问链路是如何路由和降级的
+| 字段 | 说明 |
+| --- | --- |
+| `skill routing` | 这轮选中了哪些 skill |
+| `blocked reasons` | 哪些 skill 没被选中，以及为什么 |
+| `data reliability` | `snapshot / news / macro` 的总体可靠性 |
+| `source health` | 每个 provider 当前是 `ok`、`cached`、`degraded`、`fallback` 还是 `error` |
+| `route trace` | 数据访问链路是如何路由和降级的 |
 
 这些信息会进入：
 
@@ -187,7 +184,7 @@ marketbot agent -m "为什么 07709 走这个价格源？给我看数据路由�
 - 通知摘要
 - outbound metadata
 
-按渠道可配置：
+相关配置：
 
 - `channels.explainabilityMode`
 - `channels.explainabilityOverrides`
