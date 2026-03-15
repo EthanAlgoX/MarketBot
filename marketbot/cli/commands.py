@@ -1514,6 +1514,7 @@ def gateway(
         config.gateway.heartbeat.interval_s = heartbeat_interval
 
     console.print(f"{__logo__} Starting marketbot gateway on port {port}...")
+    console.print(f"[dim]{_format_browser_runtime_summary(config)}[/dim]")
     sync_workspace_templates(config.workspace_path)
     bus = MessageBus()
     provider = _make_provider(config)
@@ -1837,7 +1838,8 @@ def agent(
         # Interactive mode — route through bus like other channels
         from marketbot.bus.events import InboundMessage
         _init_prompt_session()
-        console.print(f"{__logo__} Interactive mode (type [bold]exit[/bold] or [bold]Ctrl+C[/bold] to quit)\n")
+        console.print(f"{__logo__} Interactive mode (type [bold]exit[/bold] or [bold]Ctrl+C[/bold] to quit)")
+        console.print(f"[dim]{_format_browser_runtime_summary(config)}[/dim]\n")
 
         if ":" in session_id:
             cli_channel, cli_chat_id = session_id.split(":", 1)
@@ -3340,6 +3342,30 @@ def _build_status_payload(config: Config, config_path: Path) -> dict[str, Any]:
         payload["providers"] = providers
 
     return payload
+
+
+def _format_browser_runtime_summary(config: Config) -> str:
+    """Render a compact browser safety summary for startup logs."""
+    browser = _build_status_payload(config, Path("."))["browser"]
+    if not browser["enabled"]:
+        return "Browser: disabled"
+
+    bits = [
+        f"mode={browser['mode']}",
+        f"command={browser['command']}",
+        f"command_found={'yes' if browser['commandFound'] else 'no'}",
+        f"request_capture={'on' if browser['allowRequestCapture'] else 'off'}",
+        f"request_bodies={'on' if browser['allowRequestBodies'] else 'off'}",
+    ]
+    if browser["allowSites"]:
+        bits.append(f"sites={len(browser['allowSites'])}")
+    if browser["allowAdapters"]:
+        bits.append(f"adapters={len(browser['allowAdapters'])}")
+    if browser["allowDomains"]:
+        bits.append(f"domains={len(browser['allowDomains'])}")
+    if browser["allowUrlPrefixes"]:
+        bits.append(f"url_prefixes={len(browser['allowUrlPrefixes'])}")
+    return "Browser: " + " | ".join(bits)
 
 
 # ============================================================================

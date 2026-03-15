@@ -8,7 +8,12 @@ import pytest
 from typer.testing import CliRunner
 
 from marketbot.agent.skills import SkillsLoader
-from marketbot.cli.commands import _build_openclaw_alerts_payload, _render_openclaw_alertmanager_payload, app
+from marketbot.cli.commands import (
+    _build_openclaw_alerts_payload,
+    _format_browser_runtime_summary,
+    _render_openclaw_alertmanager_payload,
+    app,
+)
 from marketbot.config.schema import Config
 from marketbot.providers.litellm_provider import LiteLLMProvider
 from marketbot.providers.openai_codex_provider import _strip_model_prefix
@@ -2606,3 +2611,33 @@ def test_status_json_includes_browser_and_provider_state(tmp_path):
     assert payload["browser"]["allowSites"] == ["reddit"]
     assert payload["browser"]["allowDomains"] == ["reddit.com"]
     assert any(item["name"] == "openrouter" and item["configured"] is True for item in payload["providers"])
+
+
+def test_format_browser_runtime_summary_disabled():
+    config = Config()
+
+    summary = _format_browser_runtime_summary(config)
+
+    assert summary == "Browser: disabled"
+
+
+def test_format_browser_runtime_summary_enabled():
+    config = Config()
+    config.tools.browser.enabled = True
+    config.tools.browser.mode = "sensitive"
+    config.tools.browser.command = "bb-browser"
+    config.tools.browser.allow_request_capture = True
+    config.tools.browser.allow_request_bodies = False
+    config.tools.browser.allow_sites = ["reddit", "github"]
+    config.tools.browser.allow_domains = ["reddit.com"]
+
+    with patch("marketbot.cli.commands.shutil.which", return_value="/usr/local/bin/bb-browser"):
+        summary = _format_browser_runtime_summary(config)
+
+    assert "Browser: mode=sensitive" in summary
+    assert "command=bb-browser" in summary
+    assert "command_found=yes" in summary
+    assert "request_capture=on" in summary
+    assert "request_bodies=off" in summary
+    assert "sites=2" in summary
+    assert "domains=1" in summary
