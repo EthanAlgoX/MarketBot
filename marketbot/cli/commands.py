@@ -3208,13 +3208,20 @@ def channels_login():
 
 
 @app.command()
-def status():
+def status(
+    json_output: bool = typer.Option(False, "--json", help="Output machine-readable JSON status."),
+):
     """Show marketbot status."""
     from marketbot.config.loader import get_config_path, load_config
 
     config_path = get_config_path()
     config = load_config()
     workspace = config.workspace_path
+    payload = _build_status_payload(config, config_path)
+
+    if json_output:
+        console.print_json(data=payload)
+        return
 
     console.print(f"{__logo__} marketbot Status\n")
 
@@ -3270,6 +3277,69 @@ def status():
             else:
                 has_key = bool(p.api_key)
                 console.print(f"{spec.label}: {'[green]✓[/green]' if has_key else '[dim]not set[/dim]'}")
+
+
+def _build_status_payload(config: Config, config_path: Path) -> dict[str, Any]:
+    """Build machine-readable status payload for CLI and automation."""
+    workspace = config.workspace_path
+    browser_cfg = config.tools.browser
+    browser_enabled = bool(browser_cfg.enabled)
+    browser_command = str(browser_cfg.command or "bb-browser").strip() or "bb-browser"
+    browser_binary = shutil.which(browser_command) if browser_enabled else None
+
+    payload: dict[str, Any] = {
+        "config": {
+            "path": str(config_path),
+            "exists": config_path.exists(),
+        },
+        "workspace": {
+            "path": str(workspace),
+            "exists": workspace.exists(),
+        },
+        "agent": {
+            "model": config.agents.defaults.model,
+        },
+        "browser": {
+            "enabled": browser_enabled,
+            "mode": browser_cfg.mode,
+            "command": browser_command,
+            "commandFound": bool(browser_binary),
+            "allowRequestCapture": bool(browser_cfg.allow_request_capture),
+            "allowRequestBodies": bool(browser_cfg.allow_request_bodies),
+            "allowSites": list(browser_cfg.allow_sites),
+            "allowAdapters": list(browser_cfg.allow_adapters),
+            "allowDomains": list(browser_cfg.allow_domains),
+            "allowUrlPrefixes": list(browser_cfg.allow_url_prefixes),
+        },
+        "providers": [],
+    }
+
+    if config_path.exists():
+        from marketbot.providers.registry import PROVIDERS
+
+        providers: list[dict[str, Any]] = []
+        for spec in PROVIDERS:
+            p = getattr(config.providers, spec.name, None)
+            if p is None:
+                continue
+            entry: dict[str, Any] = {
+                "name": spec.name,
+                "label": spec.label,
+                "type": "oauth" if spec.is_oauth else "local" if spec.is_local else "api",
+                "configured": False,
+            }
+            if spec.is_oauth:
+                entry["configured"] = True
+            elif spec.is_local:
+                entry["configured"] = bool(p.api_base)
+                if p.api_base:
+                    entry["apiBase"] = p.api_base
+            else:
+                entry["configured"] = bool(p.api_key)
+            providers.append(entry)
+        payload["providers"] = providers
+
+    return payload
 
 
 # ============================================================================

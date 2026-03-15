@@ -5,25 +5,14 @@
   <p><strong>English | <a href="README.md">中文</a></strong></p>
 </div>
 
-`marketbot` is an agent runtime built for financial analysis. It keeps the flexibility of a chat agent, but makes the finance layer explicit and inspectable:
+`marketbot` is an agent runtime built for financial analysis. It keeps the flexibility of a chat agent, but makes the finance layer explicit and maintainable:
 
 - `skills` orchestrate high-level analysis tasks
 - shared market-domain services handle `quote / news / macro`
 - outputs can include `skill routing`, `data reliability`, `source health`, and `route trace`
 - the same stack works across CLI, scheduled jobs, and chat channels
 
-## In One Sentence
-
-If you want something more specific than a generic chatbot, and you need a system that can:
-
-- monitor positions and watchlists
-- generate market briefs and catalyst watchlists
-- tell you which capabilities it used and how reliable the data was
-- run in Feishu, Telegram, Slack, DingTalk, and other channels
-
-that is what this project is for.
-
-## What It Is Good At
+## What You Can Use It For
 
 - generating market briefs for a symbol set or watchlist
 - building catalyst and event watchlists from holdings
@@ -32,7 +21,7 @@ that is what this project is for.
 - sending channel-aware reports with reliability notes
 - staying small enough that the core code is still practical to modify
 
-## Why marketbot
+## Why It Is Not Just Another Chatbot
 
 - `Skill-first orchestration`
   Financial analysis is not one giant prompt. Skills declare triggers, output shape, risk, freshness, market coverage, asset classes, and required tools.
@@ -44,6 +33,15 @@ that is what this project is for.
   The runtime handles sessions, concurrency, tool execution, and channels instead of embedding finance logic in the main loop.
 - `Built for iteration`
   The same analysis stack can power CLI usage, saved reports, recurring jobs, and outbound bots.
+
+## Shortest Path To First Use
+
+```bash
+marketbot onboard
+marketbot agent
+marketbot agent -m "Give me the latest price for NVDA, 07709, and 513310"
+marketbot agent -m "Build a two-week catalyst watchlist for NVDA, UNH, 07709, 07747, 513310, and 518880"
+```
 
 ## Core Concepts
 

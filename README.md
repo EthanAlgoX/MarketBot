@@ -5,25 +5,14 @@
   <p><strong><a href="README_en.md">English</a> | 中文</strong></p>
 </div>
 
-`marketbot` 是一个面向金融分析场景的 agent runtime。它保留了通用聊天 agent 的灵活性，但把金融工作真正拆成了可维护的几层：
+`marketbot` 是一个面向金融分析场景的 agent runtime。它保留了通用聊天 agent 的灵活性，但把金融工作拆成了清晰可维护的几层：
 
 - 上层用 `skill` 编排分析任务
 - 中层用统一的市场领域服务处理 `quote / news / macro`
 - 输出层携带 `skill routing`、`data reliability`、`source health`、`route trace`
 - 结果可以发到 CLI、周期性任务和多种聊天渠道
 
-## 一句话理解
-
-如果你想要的不是“泛用聊天机器人”，而是一个能：
-
-- 看持仓和 watchlist
-- 输出市场简报和热点事件
-- 说明自己用了哪些能力、数据可靠性如何
-- 跑在飞书、Telegram、Slack、钉钉等渠道里
-
-那这个项目就是为这个目标设计的。
-
-## 它适合做什么
+## 你可以用它做什么
 
 - 针对一组标的生成市场简报
 - 给持仓生成热点事件和催化监控清单
@@ -32,7 +21,7 @@
 - 把结果推送到聊天渠道，并保留可靠性说明
 - 在需要时快速修改数据路由、skill 和输出逻辑
 
-## 为什么是 marketbot
+## 为什么不是普通聊天机器人
 
 - `skill-first`
   金融分析不是一段大 prompt。每个 skill 都可以声明触发条件、输出形态、风险级别、时效要求、市场覆盖、资产类别和依赖工具。
@@ -44,6 +33,15 @@
   runtime 主要负责消息处理、并发、会话、tool 执行和渠道发送，不把金融逻辑塞进主循环。
 - `适合长期演化`
   同一套能力可以服务 CLI、定时任务、报告存档和多渠道推送。
+
+## 最短上手路径
+
+```bash
+marketbot onboard
+marketbot agent
+marketbot agent -m "给我 NVDA、07709、513310 的最新价格"
+marketbot agent -m "根据我的持仓生成未来两周的热点事件监控清单：NVDA,UNH,07709,07747,513310,518880"
+```
 
 ## 核心概念
 

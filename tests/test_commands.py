@@ -2559,3 +2559,50 @@ def test_status_shows_browser_safety_configuration(tmp_path):
     assert "Browser allowAdapters: xueqiu/hot-stock" in result.stdout
     assert "Browser allowDomains: xueqiu.com, reddit.com" in result.stdout
     assert "Browser allowUrlPrefixes: https://www.youtube.com/watch?v=" in result.stdout
+
+
+def test_status_json_includes_browser_defaults(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+
+    with patch("marketbot.config.loader.get_config_path", return_value=tmp_path / "config.json"), patch(
+        "marketbot.config.loader.load_config", return_value=config
+    ):
+        result = runner.invoke(app, ["status", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["config"]["path"].endswith("config.json")
+    assert payload["workspace"]["path"] == str(tmp_path)
+    assert payload["browser"]["enabled"] is False
+    assert payload["browser"]["allowRequestCapture"] is False
+    assert payload["browser"]["allowRequestBodies"] is False
+
+
+def test_status_json_includes_browser_and_provider_state(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    config.tools.browser.enabled = True
+    config.tools.browser.mode = "sensitive"
+    config.tools.browser.command = "bb-browser"
+    config.tools.browser.allow_request_capture = True
+    config.tools.browser.allow_request_bodies = True
+    config.tools.browser.allow_sites = ["reddit"]
+    config.tools.browser.allow_domains = ["reddit.com"]
+    config.providers.openrouter.api_key = "sk-test"
+
+    with patch("marketbot.config.loader.get_config_path", return_value=tmp_path / "config.json"), patch(
+        "marketbot.config.loader.load_config", return_value=config
+    ), patch("marketbot.cli.commands.shutil.which", return_value="/usr/local/bin/bb-browser"):
+        result = runner.invoke(app, ["status", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["browser"]["enabled"] is True
+    assert payload["browser"]["mode"] == "sensitive"
+    assert payload["browser"]["commandFound"] is True
+    assert payload["browser"]["allowRequestCapture"] is True
+    assert payload["browser"]["allowRequestBodies"] is True
+    assert payload["browser"]["allowSites"] == ["reddit"]
+    assert payload["browser"]["allowDomains"] == ["reddit.com"]
+    assert any(item["name"] == "openrouter" and item["configured"] is True for item in payload["providers"])
