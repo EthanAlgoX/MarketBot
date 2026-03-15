@@ -333,6 +333,47 @@ async def test_browser_network_fetch_allows_url_inside_prefix_allowlist() -> Non
     assert result == '{"ok":true}'
 
 
+async def test_browser_network_requests_requires_explicit_capture_flag() -> None:
+    tool = BrowserNetworkTool(
+        browser_config=BrowserToolsConfig(enabled=True, mode="sensitive"),
+    )
+
+    result = await tool.execute(mode="requests")
+
+    assert "request capture is disabled" in result
+
+
+async def test_browser_network_requests_with_body_requires_explicit_body_flag() -> None:
+    tool = BrowserNetworkTool(
+        browser_config=BrowserToolsConfig(
+            enabled=True,
+            mode="sensitive",
+            allow_request_capture=True,
+        ),
+    )
+
+    result = await tool.execute(mode="requests", withBody=True)
+
+    assert "request bodies are disabled" in result
+
+
+async def test_browser_network_requests_allows_with_body_when_explicitly_enabled() -> None:
+    tool = BrowserNetworkTool(
+        browser_config=BrowserToolsConfig(
+            enabled=True,
+            mode="sensitive",
+            allow_request_capture=True,
+            allow_request_bodies=True,
+        ),
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    tool._run = _async_return('{"ok":true}')  # type: ignore[method-assign]
+
+    result = await tool.execute(mode="requests", withBody=True)
+
+    assert result == '{"ok":true}'
+
+
 def _async_return(value: str):
     async def _inner(*args: Any, **kwargs: Any) -> str:
         return value

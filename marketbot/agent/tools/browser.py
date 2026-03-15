@@ -36,6 +36,8 @@ class _BrowserToolBase(Tool):
         self.allow_url_prefixes = [
             str(item).strip() for item in (getattr(browser_config, "allow_url_prefixes", []) or []) if str(item).strip()
         ]
+        self.allow_request_capture = bool(getattr(browser_config, "allow_request_capture", False)) if browser_config else False
+        self.allow_request_bodies = bool(getattr(browser_config, "allow_request_bodies", False)) if browser_config else False
 
     def _ensure_available(self) -> str | None:
         if not self.enabled:
@@ -242,6 +244,10 @@ class BrowserNetworkTool(_BrowserToolBase):
                 return reason or "Error: url blocked by allowlist"
             command = ["fetch", url]
         else:
+            if not self.allow_request_capture:
+                return "Error: browser request capture is disabled. Enable tools.browser.allow_request_capture in config."
+            if withBody and not self.allow_request_bodies:
+                return "Error: browser request bodies are disabled. Enable tools.browser.allow_request_bodies in config."
             command = ["network", "requests"]
             if withBody:
                 command.append("--with-body")

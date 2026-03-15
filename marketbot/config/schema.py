@@ -320,6 +320,8 @@ class BrowserToolsConfig(Base):
     allow_adapters: list[str] = Field(default_factory=list)
     allow_domains: list[str] = Field(default_factory=list)
     allow_url_prefixes: list[str] = Field(default_factory=list)
+    allow_request_capture: bool = False
+    allow_request_bodies: bool = False
     adapter_catalog: list[str] = Field(default_factory=list)
 
 
