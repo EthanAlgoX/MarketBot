@@ -125,7 +125,11 @@ class SkillsLoader:
 
         return "\n\n---\n\n".join(parts) if parts else ""
 
-    def build_skills_summary(self, available_tools: set[str] | None = None) -> str:
+    def build_skills_summary(
+        self,
+        available_tools: set[str] | None = None,
+        browser_adapter_catalog: list[str] | None = None,
+    ) -> str:
         """
         Build a summary of all skills (name, description, path, availability).
 
@@ -143,6 +147,13 @@ class SkillsLoader:
             return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
         lines = ["<skills>"]
+        if browser_adapter_catalog:
+            lines.append("  <browserAdapters>")
+            for adapter in browser_adapter_catalog:
+                value = escape_xml(str(adapter).strip())
+                if value:
+                    lines.append(f"    <adapter>{value}</adapter>")
+            lines.append("  </browserAdapters>")
         for s in all_skills:
             name = escape_xml(s["name"])
             path = s["path"]

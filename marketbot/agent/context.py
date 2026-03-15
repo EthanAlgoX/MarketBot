@@ -132,7 +132,14 @@ class ContextBuilder:
         if browser_catalog:
             parts.append(browser_catalog)
 
-        skills_summary = self.skills.build_skills_summary(available_tools=self.available_tools) if include_skills_summary else ""
+        skills_summary = (
+            self.skills.build_skills_summary(
+                available_tools=self.available_tools,
+                browser_adapter_catalog=self.browser_adapter_catalog,
+            )
+            if include_skills_summary
+            else ""
+        )
         if skills_summary:
             parts.append(f"""# Skills
 

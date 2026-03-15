@@ -333,3 +333,13 @@ def test_skills_summary_marks_missing_runtime_tools(tmp_path):
 
     assert '<skill available="false">' in summary
     assert "Tool: market_signal" in summary
+
+
+def test_skills_summary_includes_browser_adapter_catalog(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    summary = loader.build_skills_summary(browser_adapter_catalog=["xueqiu/hot-stock", "reddit/search"])
+
+    assert "<browserAdapters>" in summary
+    assert "<adapter>xueqiu/hot-stock</adapter>" in summary
+    assert "<adapter>reddit/search</adapter>" in summary

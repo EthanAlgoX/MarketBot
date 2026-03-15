@@ -97,6 +97,25 @@ def test_system_prompt_includes_browser_adapter_catalog_when_configured(tmp_path
     assert "- reddit/search" in prompt
 
 
+def test_system_prompt_skills_summary_includes_browser_adapter_catalog_when_no_skill_selected(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_browser_adapter_catalog(["xueqiu/hot-stock", "reddit/search"])
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Help me brainstorm a release note title.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "\n# Skills\n" in prompt
+    assert "<browserAdapters>" in prompt
+    assert "<adapter>xueqiu/hot-stock</adapter>" in prompt
+    assert "<adapter>reddit/search</adapter>" in prompt
+
+
 def test_non_market_message_omits_market_playbook_from_runtime_prompt(tmp_path, monkeypatch) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)
