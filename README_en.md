@@ -45,16 +45,12 @@ marketbot agent -m "Build a two-week catalyst watchlist for NVDA, UNH, 07709, 07
 
 ## Core Concepts
 
-### 1. Skills
-
-`marketbot/skills/*/SKILL.md`
-
-Skills are the top-level orchestration units. They define:
-
-- when they should trigger
-- which markets and asset classes they fit
-- which tools they depend on
-- what kind of output they should produce
+| Layer | Location | Responsibility |
+| --- | --- | --- |
+| `Skills` | `marketbot/skills/*/SKILL.md` | High-level orchestration: when to trigger, which market fits, which tools are required, and what output shape to use |
+| `Market Domain` | `marketbot/domain/market/` | Standardized `quote / news / macro` access plus cache, source health, route trace, and runtime capability profiles |
+| `Tools` | `marketbot/agent/tools/market.py` and related modules | Atomic capabilities such as `market_snapshot`, `market_news`, `market_macro`, and `market_brief` |
+| `Reporting / Delivery` | `marketbot/market_reporting.py`, `marketbot/channels/*` | Render structured analysis into CLI replies, saved reports, notification summaries, and channel messages |
 
 Common built-in skills:
 
@@ -70,48 +66,6 @@ Common built-in skills:
 | `catalyst-tracker` | Event and catalyst tracking |
 | `stock-watch` | Monitoring and summaries for specific symbols |
 | `risk-checklist` | Risk framing around active setups |
-
-### 2. Market Domain
-
-`marketbot/domain/market/`
-
-This is the standardized market-data layer. It is responsible for:
-
-- quote routing
-- news routing
-- macro access
-- cache
-- source health
-- route trace
-- runtime capability profiles
-
-The goal is not to always produce an answer. The goal is to return real data when available, and be explicit when it is not.
-
-### 3. Tools
-
-The main market tools are:
-
-- `market_snapshot`
-- `market_news`
-- `market_macro`
-- `market_signal`
-- `market_brief`
-- `market_source_plan`
-- `market_event_extract`
-- `market_social_sentiment`
-- `market_fundamentals`
-- `market_chip_distribution`
-
-### 4. Reporting and Delivery
-
-`marketbot/market_reporting.py` and `marketbot/channels/*`
-
-These turn structured analysis into:
-
-- CLI replies
-- saved reports
-- notification summaries
-- channel messages
 
 ## 5-Minute Quick Start
 

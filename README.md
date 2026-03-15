@@ -45,16 +45,12 @@ marketbot agent -m "根据我的持仓生成未来两周的热点事件监控清
 
 ## 核心概念
 
-### 1. Skills
-
-`marketbot/skills/*/SKILL.md`
-
-这是最高层的任务编排单元。它们定义：
-
-- 什么时候该触发
-- 适合什么市场和资产类别
-- 依赖哪些底层工具
-- 输出应该长什么样
+| 层 | 位置 | 负责什么 |
+| --- | --- | --- |
+| `Skills` | `marketbot/skills/*/SKILL.md` | 高层任务编排，决定何时触发、适合什么市场、依赖哪些工具、输出长什么样 |
+| `Market Domain` | `marketbot/domain/market/` | 标准化的 `quote / news / macro` 访问，外加 cache、source health、route trace、runtime profile |
+| `Tools` | `marketbot/agent/tools/market.py` 等 | 原子能力层，例如 `market_snapshot`、`market_news`、`market_macro`、`market_brief` |
+| `Reporting / Delivery` | `marketbot/market_reporting.py`、`marketbot/channels/*` | 把结构化结果渲染成 CLI 回复、保存报告、通知摘要和渠道消息 |
 
 常见内置 skill：
 
@@ -70,48 +66,6 @@ marketbot agent -m "根据我的持仓生成未来两周的热点事件监控清
 | `catalyst-tracker` | 做催化剂跟踪 |
 | `stock-watch` | 对指定标的做监控和摘要 |
 | `risk-checklist` | 输出风险清单 |
-
-### 2. Market Domain
-
-`marketbot/domain/market/`
-
-这是标准化的数据访问层，负责：
-
-- 行情路由
-- 新闻源路由
-- 宏观数据访问
-- cache
-- source health
-- route trace
-- runtime capability profile
-
-它的目标不是“永远返回一个答案”，而是尽量返回真实数据，并在拿不到时明确说明哪里不可用。
-
-### 3. Tools
-
-底层原子能力主要包括：
-
-- `market_snapshot`
-- `market_news`
-- `market_macro`
-- `market_signal`
-- `market_brief`
-- `market_source_plan`
-- `market_event_extract`
-- `market_social_sentiment`
-- `market_fundamentals`
-- `market_chip_distribution`
-
-### 4. Reporting / Delivery
-
-`marketbot/market_reporting.py` 和 `marketbot/channels/*`
-
-负责把结构化分析结果渲染成：
-
-- CLI 回复
-- 保存的报告
-- 通知摘要
-- 渠道消息
 
 ## 5 分钟上手
 
