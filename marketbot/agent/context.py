@@ -83,6 +83,7 @@ class ContextBuilder:
         external_skill_suggestions: list[dict[str, Any]] | None = None,
         *,
         include_market_playbook: bool = True,
+        include_memory: bool = True,
         include_skills_summary: bool = True,
         selected_skill_char_budget: int | None = None,
         active_skill_char_budget: int | None = 400,
@@ -94,7 +95,7 @@ class ContextBuilder:
         if bootstrap:
             parts.append(bootstrap)
 
-        memory = self.memory.get_context(layer=self.memory_layer)
+        memory = self.memory.get_context(layer=self.memory_layer) if include_memory else ""
         if memory:
             layer_label = {"L0": "Abstract", "L1": "Overview", "L2": "Details"}.get(self.memory_layer, "Details")
             parts.append(f"# Memory ({layer_label})\n\n{memory}")
@@ -270,6 +271,11 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             )
             else history
         )
+        include_memory = not self._should_ignore_memory_for_market_scan(
+            current_message,
+            request_profile=request_profile,
+            resolved_skill_names=resolved_skill_names,
+        )
 
         # Merge runtime context and user content into a single user message
         # to avoid consecutive same-role messages that some providers reject.
@@ -290,6 +296,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                         or request_profile.get("asset_classes")
                         or resolved_skill_names
                     ),
+                    include_memory=include_memory,
                     include_skills_summary=not resolved_skill_names,
                     selected_skill_char_budget=1200,
                     active_skill_char_budget=400,
@@ -354,6 +361,53 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                 }
             )
         )
+
+    @staticmethod
+    def _should_ignore_memory_for_market_scan(
+        current_message: str,
+        *,
+        request_profile: dict[str, Any] | None = None,
+        resolved_skill_names: list[str] | None = None,
+    ) -> bool:
+        """Avoid using memory-backed holdings as implicit input for broad market scans."""
+        text = str(current_message or "").lower()
+        active_skills = set(resolved_skill_names or [])
+        profile = request_profile or {}
+
+        broad_scan_terms = (
+            "market opportunity",
+            "market opportunities",
+            "daily opportunity",
+            "daily opportunities",
+            "今日机会",
+            "市场机会",
+            "全市场",
+            "热点机会",
+        )
+        explicit_portfolio_terms = (
+            "my portfolio",
+            "my holdings",
+            "my watchlist",
+            "my positions",
+            "持仓",
+            "组合",
+            "自选",
+            "观察列表",
+            "watchlist",
+            "portfolio",
+            "holdings",
+            "positions",
+        )
+        broad_scan = any(term in text for term in broad_scan_terms)
+        explicit_portfolio = any(term in text for term in explicit_portfolio_terms)
+
+        if explicit_portfolio:
+            return False
+
+        if "market-discovery" in active_skills and broad_scan:
+            return True
+
+        return False
 
     def _build_skill_routing(
         self,
