@@ -5,62 +5,119 @@
   <p><strong>English | <a href="README.md">中文</a></strong></p>
 </div>
 
-`marketbot` evolved from the minimalist general-purpose assistant `nanobot`, but its center of gravity is now financial analysis:
+`marketbot` is an agent runtime built for financial analysis. It keeps the flexibility of a chat agent, but makes the finance layer explicit and inspectable:
 
-- skill-driven market research instead of a generic prompt wrapper
-- finance-native quote/news/macro services instead of tool-specific scraping logic
-- explainable output with skill routing, data reliability, source health, and route trace
-- chat-first delivery across Telegram, Slack, Discord, Feishu, DingTalk, Email, WhatsApp, QQ, Mochat, and optional Matrix
+- `skills` orchestrate high-level analysis tasks
+- shared market-domain services handle `quote / news / macro`
+- outputs can include `skill routing`, `data reliability`, `source health`, and `route trace`
+- the same stack works across CLI, scheduled jobs, and chat channels
 
-## What It Is
+## In One Sentence
 
-marketbot is an AI assistant designed specifically for financial analysis, featuring **27+ built-in financial skills**. It bridges the gap between flexible agent chat and structured market research:
+If you want something more specific than a generic chatbot, and you need a system that can:
 
-- generate a market brief for a set of symbols
-- monitor watchlists and recurring report tasks
-- route requests to the right skills based on market, asset class, freshness, and available tools
-- send reports to chat channels with channel-aware formatting
-- stay hackable enough that you can read the core code in an afternoon
+- monitor positions and watchlists
+- generate market briefs and catalyst watchlists
+- tell you which capabilities it used and how reliable the data was
+- run in Feishu, Telegram, Slack, DingTalk, and other channels
 
-It keeps the agent flexible, but makes the finance layer explicit.
+that is what this project is for.
+
+## What It Is Good At
+
+- generating market briefs for a symbol set or watchlist
+- building catalyst and event watchlists from holdings
+- running recurring watchlist monitoring and daily screening
+- routing requests to the right skills based on market, asset class, freshness, and runtime tool availability
+- sending channel-aware reports with reliability notes
+- staying small enough that the core code is still practical to modify
 
 ## Why marketbot
 
-- **Skill-first orchestration**. Skills remain the top-level planning unit. Each skill can declare triggers, output shape, risk level, freshness needs, markets, asset classes, and required tools.
-- **External skill fallback**. When no suitable local skill is selected, marketbot can suggest curated candidates from `openclaw/skills` via the `awesome-openclaw-skills` index instead of stopping at "no skill found".
-- **Thin runtime**. The runtime focuses on sessions, tool execution, concurrency, cancellation, and channels instead of embedding market logic in the main loop.
-- **Finance-native domain layer**. Quote, news, and macro access are backed by shared market domain services with cache, fallback telemetry, and runtime capability profiling.
-- **Explainable outputs**. Reports and chat replies can include capability notes, blocked-skill reasons, source health, and reliability summaries.
-- **Good operational fit**. The same analysis stack can power CLI usage, scheduled reports, and outbound notifications.
+- `Skill-first orchestration`
+  Financial analysis is not one giant prompt. Skills declare triggers, output shape, risk, freshness, market coverage, asset classes, and required tools.
+- `Independent domain layer`
+  Quote, news, and macro access live in shared market services instead of being duplicated in every tool.
+- `Explainable output`
+  Chat replies, reports, and notifications can include skill routing, blocked reasons, source health, and data reliability.
+- `Thin runtime`
+  The runtime handles sessions, concurrency, tool execution, and channels instead of embedding finance logic in the main loop.
+- `Built for iteration`
+  The same analysis stack can power CLI usage, saved reports, recurring jobs, and outbound bots.
 
-## Architecture
+## Core Concepts
 
-The project is split into four layers:
+### 1. Skills
 
-1. **Runtime**
-   - `marketbot/agent/loop.py`
-   - `marketbot/agent/processor.py`
-   - `marketbot/runtime/bootstrap.py`
-   - Handles message ingress, per-session concurrency, session persistence, tool registration, and final outbound messages.
+`marketbot/skills/*/SKILL.md`
 
-2. **Skills**
-   - `marketbot/skills/*/SKILL.md`
-   - Encodes higher-level analysis behavior.
-   - Skill metadata drives selection using request triggers, market coverage, asset classes, freshness, and runtime tool availability.
+Skills are the top-level orchestration units. They define:
 
-3. **Market domain**
-   - `marketbot/domain/market/services.py`
-   - `marketbot/domain/market/profile.py`
-   - Provides normalized market data access, source fallback, route trace, cache, and runtime market capability profiles.
+- when they should trigger
+- which markets and asset classes they fit
+- which tools they depend on
+- what kind of output they should produce
 
-4. **Reporting and delivery**
-   - `marketbot/market_reporting.py`
-   - `marketbot/channels/*`
-   - Turns structured analysis into chat replies, saved reports, and notifications with channel-aware explainability.
+Common built-in skills:
 
-## Install
+| Skill | What it does |
+| --- | --- |
+| `market-report` | Structured market briefs for symbols or watchlists |
+| `market-monitor` | Ongoing monitoring and market surveillance |
+| `market-discovery` | Theme and idea discovery |
+| `news-intelligence` | News clustering and impact analysis |
+| `sentiment-analysis` | News and social sentiment synthesis |
+| `portfolio-analyzer` | Portfolio-level risk and structure review |
+| `daily-stock-screener` | Daily watchlist screening across valuation, trend, volume, and sentiment |
+| `catalyst-tracker` | Event and catalyst tracking |
+| `stock-watch` | Monitoring and summaries for specific symbols |
+| `risk-checklist` | Risk framing around active setups |
 
-From source:
+### 2. Market Domain
+
+`marketbot/domain/market/`
+
+This is the standardized market-data layer. It is responsible for:
+
+- quote routing
+- news routing
+- macro access
+- cache
+- source health
+- route trace
+- runtime capability profiles
+
+The goal is not to always produce an answer. The goal is to return real data when available, and be explicit when it is not.
+
+### 3. Tools
+
+The main market tools are:
+
+- `market_snapshot`
+- `market_news`
+- `market_macro`
+- `market_signal`
+- `market_brief`
+- `market_source_plan`
+- `market_event_extract`
+- `market_social_sentiment`
+- `market_fundamentals`
+- `market_chip_distribution`
+
+### 4. Reporting and Delivery
+
+`marketbot/market_reporting.py` and `marketbot/channels/*`
+
+These turn structured analysis into:
+
+- CLI replies
+- saved reports
+- notification summaries
+- channel messages
+
+## 5-Minute Quick Start
+
+### 1. Install
 
 ```bash
 git clone https://github.com/EthanAlgoX/MarketBot.git
@@ -68,7 +125,7 @@ cd MarketBot
 pip install -e .
 ```
 
-If you need Matrix support:
+If you need Matrix:
 
 ```bash
 pip install -e ".[matrix]"
@@ -80,9 +137,7 @@ For development:
 pip install -e ".[dev]"
 ```
 
-## Quick Start
-
-### 1. Initialize workspace and config
+### 2. Initialize config
 
 ```bash
 marketbot onboard
@@ -90,7 +145,7 @@ marketbot onboard
 
 This creates the default workspace and `~/.marketbot/config.json`.
 
-### 2. Add a model provider
+### 3. Configure a model provider and market tools
 
 Minimal example:
 
@@ -109,7 +164,7 @@ Minimal example:
   },
   "tools": {
     "market": {
-      "quoteSource": "yahoo",
+      "quoteSource": "auto",
       "newsSources": ["reuters", "bloomberg", "cls"],
       "macroSource": "fred",
       "cacheTtlS": 60
@@ -122,13 +177,34 @@ Minimal example:
 }
 ```
 
-### 3. Use it directly
+Notes:
+
+- `quoteSource: auto` is the safest default for mixed-market workflows
+- `newsSources` controls the news routing order
+- `macroSource: fred` requires a FRED API key; without one, the system should degrade explicitly
+- `explainabilityMode` controls whether capability and reliability notes are attached
+
+### 4. Start using it
+
+Open chat mode:
 
 ```bash
 marketbot agent
 ```
 
-### 4. Generate a market brief
+Ask for prices:
+
+```bash
+marketbot agent -m "Give me the latest price for NVDA, 07709, and 513310"
+```
+
+Generate a holdings-driven event watchlist:
+
+```bash
+marketbot agent -m "Build a two-week catalyst watchlist for NVDA, UNH, 07709, 07747, 513310, and 518880"
+```
+
+Generate a market brief:
 
 ```bash
 marketbot market report --symbols NVDA,SPY --save
@@ -136,66 +212,67 @@ marketbot market report --symbols NVDA,SPY --save
 
 Useful options:
 
-- `--json`: return raw structured payload
+- `--json`: return the raw structured payload
 - `--session auto|premarket|intraday|close`
 - `--notify --notify-channel telegram --chat-id 10001`
 
-### 5. Create a recurring report heartbeat
+Create a recurring heartbeat template:
 
 ```bash
 marketbot market heartbeat-setup
 ```
 
-## Core Finance Capabilities
+## Common Workflows
 
-Out of the box, the built-in skills focus on a few high-value finance workflows:
+### Holdings / watchlist monitoring
 
-| Skill | What it does |
-| --- | --- |
-| `market-report` | Multi-signal market brief generation for symbols or watchlists |
-| `daily-stock-screener` | Daily watchlist screening with valuation, trend, volume, and sentiment filters |
-| `market-monitor` | Ongoing watch/monitor style analysis |
-| `market-discovery` | Idea generation and market scanning |
-| `news-intelligence` | News/event extraction and impact analysis |
-| `sentiment-analysis` | News and social sentiment synthesis |
-| `portfolio-analyzer` | Portfolio-level review and risk framing |
-| `stock-data-sourcing` | Market-specific data sourcing and routing guidance |
-| `risk-checklist` | Risk framing around current setups |
-| `catalyst-tracker` | Catalyst-oriented research support |
+```bash
+marketbot agent -m "Generate today's premarket watchlist for SPY,NVDA,GOOG,TSLA,UNH,07709,513310"
+```
 
-Under those skills, the market toolchain includes:
+### Catalyst and event tracking
 
-- `market_snapshot`
-- `market_news`
-- `market_macro`
-- `market_signal`
-- `market_brief`
-- `market_source_plan`
-- `market_event_extract`
-- `market_social_sentiment`
-- `market_fundamentals`
-- `market_chip_distribution`
+```bash
+marketbot agent -m "List the most important catalysts and risks for NVDA, UNH, and 07709 over the next two weeks"
+```
+
+### Daily screening
+
+```bash
+marketbot agent -m "Screen NVDA,TSLA,INTC,TTD,CRWV and rank today's best setups"
+```
+
+### Data-source and routing diagnostics
+
+```bash
+marketbot agent -m "Why does 07709 use this quote source? Show me the routing and reliability."
+```
 
 ## Explainability and Reliability
 
-One of the main design goals is to make financial outputs inspectable.
+This is the part that most clearly separates `marketbot` from a generic chat agent.
 
-marketbot can expose:
+The system can expose:
 
-- **skill routing**: which skills were selected and which were blocked
-- **blocked reasons**: missing tools, market mismatch, asset-class mismatch, freshness mismatch
-- **data reliability**: aggregate status for snapshot/news/macro
-- **source health**: per-provider status such as `ok`, `cached`, `fallback`, or `error`
-- **route trace**: how the system routed and downgraded data access
+- `skill routing`
+  which skills were selected
+- `blocked reasons`
+  which skills were not selected, and why
+- `data reliability`
+  aggregate status for `snapshot / news / macro`
+- `source health`
+  per-provider state such as `ok`, `cached`, `degraded`, `fallback`, or `error`
+- `route trace`
+  how data access was routed and downgraded
 
-These notes appear in:
+These notes can appear in:
 
 - chat replies
 - saved market reports
 - notification summaries
-- outbound metadata for channels
+- outbound metadata
 
-Explainability behavior is configurable per channel with:
+Per-channel configuration:
 
 - `channels.explainabilityMode`
 - `channels.explainabilityOverrides`
@@ -204,28 +281,28 @@ Explainability behavior is configurable per channel with:
 
 ## Channels
 
-marketbot supports:
+Supported channels:
 
 | Channel | Notes |
 | --- | --- |
-| Telegram | Full bot support via `python-telegram-bot` |
+| Telegram | via `python-telegram-bot` |
 | Slack | Socket mode |
-| Discord | REST + gateway flow |
-| Feishu | Text, rich post, and card-style output |
+| Discord | REST + gateway |
+| Feishu | text, post, and card-style output |
 | DingTalk | Stream mode |
 | Email | IMAP + SMTP |
-| WhatsApp | Bridge-based integration |
-| QQ | Bot integration |
+| WhatsApp | bridge-based integration |
+| QQ | bot integration |
 | Mochat | Socket.IO + HTTP |
-| Matrix | Optional extra dependency |
+| Matrix | optional extra dependency |
 
-To run as a long-lived multi-channel bot:
+Run as a long-lived bot:
 
 ```bash
 marketbot gateway
 ```
 
-To inspect current setup:
+Inspect the current setup:
 
 ```bash
 marketbot status
@@ -234,9 +311,37 @@ marketbot provider --help
 marketbot skills --help
 ```
 
+## Browser Integration
+
+If you want `bb-browser` integration, start with a conservative configuration:
+
+```json
+{
+  "tools": {
+    "browser": {
+      "enabled": true,
+      "command": "bb-browser",
+      "mode": "safe",
+      "allowSites": ["xueqiu", "eastmoney", "reddit", "github", "youtube"],
+      "allowDomains": ["xueqiu.com", "eastmoney.com", "reddit.com", "github.com", "youtube.com"],
+      "allowUrlPrefixes": ["https://www.youtube.com/watch?v=", "https://api.github.com/repos/"],
+      "allowRequestCapture": false,
+      "allowRequestBodies": false
+    }
+  }
+}
+```
+
+Notes:
+
+- `safe` allows read-only browser operations
+- `allowSites` / `allowAdapters` constrain `browser_site`
+- `allowDomains` / `allowUrlPrefixes` constrain page open and network fetch
+- `allowRequestCapture` and `allowRequestBodies` should stay off unless explicitly needed
+
 ## Skill Search and Install
 
-Use the CLI to search local skills first and fall back to curated external catalogs when needed:
+Search local skills first, then fall back to curated external catalogs:
 
 ```bash
 marketbot skills search "kubernetes deployment"
@@ -247,34 +352,30 @@ Installed external skills are written to `workspace/skills/` and loaded as works
 
 ## Development
 
-### Run tests
-
-Use the project test command below. `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` is intentional.
-
-```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin
-```
-
 ### Useful directories
 
 | Path | Purpose |
 | --- | --- |
 | `marketbot/agent/` | runtime loop, context, session processing |
 | `marketbot/runtime/` | tool bootstrap and runtime wiring |
-| `marketbot/domain/market/` | market services, plugins, runtime capability profile |
-| `marketbot/skills/` | built-in skills and skill metadata |
-| `marketbot/channels/` | chat adapters |
+| `marketbot/domain/market/` | market services and runtime capability profiles |
+| `marketbot/skills/` | built-in skills and metadata |
+| `marketbot/channels/` | channel adapters |
 | `marketbot/cache/` | market cache |
 | `marketbot/market_reporting.py` | report rendering and explainability output |
 | `tests/` | regression coverage |
 
-### Adding a new finance capability
+### Run tests
 
-Typical path:
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin
+```
+
+### Typical path for adding a new finance capability
 
 1. add or update a skill in `marketbot/skills/<name>/SKILL.md`
 2. declare metadata for triggers, output, risk, freshness, markets, asset classes, and required tools
-3. extend market-domain services if you need new normalized data access
+3. extend `marketbot/domain/market/` if you need new normalized data access
 4. expose or adapt a tool if the skill needs a new atomic capability
 5. add routing, contract, and report tests
 
