@@ -6,7 +6,7 @@ metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","the
 
 # Market Opportunity Discovery
 
-Use this skill to scan the broader market and identify the most actionable investment opportunities based on a weighted scoring mechanism of events, sentiment, volume, and momentum. It is a highly analytical skill that aggregates data from multiple sources.
+Use this skill to scan the broader market and identify the most actionable investment opportunities based on events, sentiment, volume, and momentum. Treat it as an orchestrator skill: it should combine native market tools with narrower specialist skills instead of guessing ad hoc workflows.
 
 ## When to use
 
@@ -18,12 +18,20 @@ Use this skill to scan the broader market and identify the most actionable inves
 
 Follow this pipeline to arrive at the final opportunity list:
 
-1. **Step 1: Market Scan**: Look for abnormal price movements or volume spikes across sectors. (e.g., Semiconductor +3.8%, Volume +120%).
-2. **Step 2: Event Matching**: Consult the `news` or event analysis tools to see what is driving the anomaly (e.g., "AI GPU demand").
-3. **Step 3: Sentiment Shift**: Consult the `sentiment-analysis` skill to check the trend (e.g., sentiment rising from 0.41 to 0.67).
-   - If retail attention or logged-in site heat is part of the thesis, use `browser_site` to confirm the trend with Xueqiu, Reddit, Zhihu, or Eastmoney.
-4. **Step 4: Fund Flow/Volume**: Detect capital inflows using ETF data, high volume prints, or sector volume metrics.
-5. **Step 5: Sector Momentum**: Identify if multiple assets in the same sector are moving together (e.g., NVDA, AMD, TSMC all rising).
+1. **Step 1: Market Scan**: Use `market_snapshot` and `market_news` to look for abnormal price movements, volume spikes, or catalyst clusters.
+2. **Step 2: Event Matching**: Use `news-intelligence` or direct event tools to identify what is driving the anomaly.
+3. **Step 3: Sentiment Shift**: Use `sentiment-analysis` for baseline sentiment.
+   - If site-native or logged-in discussion heat matters, escalate to a narrower browser-backed specialist:
+     - `xueqiu-research`
+     - `eastmoney-live`
+     - `reddit-research`
+     - `twitter-browser-research`
+     - `zhihu-browser-research`
+     - `weibo-browser-research`
+     - `social-signal-browser`
+   - When browser-backed evidence is needed, use only adapters that exist in the runtime catalog. Do not invent new adapter names inside this skill.
+4. **Step 4: Fund Flow/Volume**: Detect capital inflows using ETF data, high-volume prints, or sector-volume metrics.
+5. **Step 5: Sector Momentum**: Identify whether multiple assets in the same sector are moving together.
 6. **Step 6: Opportunity Scoring**: Form a final `opportunity_score` based on the weights below.
 
 ## Opportunity Scoring Formula
@@ -49,11 +57,13 @@ Categorize each discovered opportunity into one of four buckets:
 ## Data Availability Rules
 
 - Prefer live tool output over prior knowledge when discussing current opportunities.
+- Prefer specialist browser-backed skills over direct `browser_site` calls whenever a matching skill exists.
 - For each market section you write, confirm that this run has current tool evidence for that market.
 - If you did not fetch current evidence for a market, mark it as `unverified` instead of presenting a concrete market view.
 - If live data is unavailable for a market or symbol, say `live data unavailable` or `price unavailable`.
 - Do not invent provider-specific failures such as `Yahoo 429` unless that exact failure is present in current tool warnings or source-health output.
 - Do not present unavailable markets as actionable setups; downgrade them to watchlist candidates and explain the data gap.
+- If no listed browser-backed specialist or cataloged adapter fits the request, say that explicitly instead of fabricating a browser workflow.
 
 ## Output Format
 

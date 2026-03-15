@@ -11,8 +11,13 @@ needs site-native discussion context from logged-in or dynamic community pages.
 
 ## Workflow
 
-1. Use `browser_site` to pull community-native results from platforms such as
-   Xueqiu, Reddit, Zhihu, or other browser-backed adapters.
+1. Use `browser_site` only with adapters that exist in the runtime catalog. Prefer concrete adapters from specialist skills such as:
+   - `xueqiu/hot-stock`
+   - `xueqiu/feed`
+   - `reddit/search`
+   - `reddit/thread`
+   - `zhihu/search`
+   - `weibo/search`
 2. Focus on:
    - discussion heat
    - recurring narratives
@@ -22,5 +27,6 @@ needs site-native discussion context from logged-in or dynamic community pages.
 
 ## Rules
 
+- Do not invent new adapters inside this skill. If a needed source is not in the runtime catalog, say so and fall back to the closest listed adapter or specialist skill.
 - Treat browser-backed community chatter as a fast signal, not a standalone thesis.
 - Separate discussion observations from verified facts and filings.

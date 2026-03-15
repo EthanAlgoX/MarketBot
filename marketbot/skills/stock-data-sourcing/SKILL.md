@@ -54,10 +54,10 @@ Prefer market coverage and freshness over provider purity, and always state the 
 
 - `A-share` and Chinese news:
   - prefer `Bocha`, then `Tavily`, then `SerpAPI`
-  - for site-native logged-in context or dynamic pages, add `browser_site` with `eastmoney/*` or `xueqiu/*`
+  - for site-native logged-in context or dynamic pages, add `browser_site` with concrete cataloged adapters such as `eastmoney/stock`, `eastmoney/headlines`, `xueqiu/stock`, or `xueqiu/hot-stock`
 - `US` and global English news:
   - prefer `Brave`, then `Tavily`, then `SerpAPI`
-  - for logged-in social or dynamic discussion pages, add `browser_site`
+  - for logged-in social or dynamic discussion pages, add `browser_site` only with cataloged adapters such as `reddit/search`, `twitter/search`, `youtube/transcript`, or `github/search`
 - Default freshness target: keep news within `3 days` unless the user asks for a longer window.
 - For catalyst work, search across these dimensions:
   - latest news
