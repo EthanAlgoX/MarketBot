@@ -193,8 +193,6 @@ Relevant configuration:
 
 ## Channels
 
-Supported channels:
-
 | Channel | Notes |
 | --- | --- |
 | Telegram | via `python-telegram-bot` |
@@ -208,15 +206,10 @@ Supported channels:
 | Mochat | Socket.IO + HTTP |
 | Matrix | optional extra dependency |
 
-Run as a long-lived bot:
+Common commands:
 
 ```bash
 marketbot gateway
-```
-
-Inspect the current setup:
-
-```bash
 marketbot status
 marketbot channels --help
 marketbot provider --help
@@ -244,11 +237,10 @@ If you want `bb-browser` integration, start with a conservative configuration:
 }
 ```
 
-Notes:
+Key points:
 
 - `safe` allows read-only browser operations
-- `allowSites` / `allowAdapters` constrain `browser_site`
-- `allowDomains` / `allowUrlPrefixes` constrain page open and network fetch
+- `allowSites` / `allowDomains` keep access scope tight
 - `allowRequestCapture` and `allowRequestBodies` should stay off unless explicitly needed
 
 ## Skill Search and Install

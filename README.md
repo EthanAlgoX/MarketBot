@@ -193,8 +193,6 @@ marketbot agent -m "为什么 07709 走这个价格源？给我看数据路由�
 
 ## 渠道支持
 
-目前支持：
-
 | 渠道 | 说明 |
 | --- | --- |
 | Telegram | 基于 `python-telegram-bot` |
@@ -208,15 +206,10 @@ marketbot agent -m "为什么 07709 走这个价格源？给我看数据路由�
 | Mochat | Socket.IO + HTTP |
 | Matrix | 可选依赖 |
 
-长期运行：
+常用命令：
 
 ```bash
 marketbot gateway
-```
-
-查看当前状态：
-
-```bash
 marketbot status
 marketbot channels --help
 marketbot provider --help
@@ -225,7 +218,7 @@ marketbot skills --help
 
 ## Browser 集成
 
-如果要启用 `bb-browser` 集成，建议先从保守配置开始：
+如果要启用 `bb-browser`，建议先从保守配置开始：
 
 ```json
 {
@@ -244,11 +237,10 @@ marketbot skills --help
 }
 ```
 
-说明：
+关键点：
 
 - `safe` 只允许只读浏览动作
-- `allowSites` / `allowAdapters` 约束 `browser_site`
-- `allowDomains` / `allowUrlPrefixes` 约束页面打开和网络抓取
+- `allowSites` / `allowDomains` 用来收紧访问范围
 - `allowRequestCapture` 与 `allowRequestBodies` 默认建议关闭
 
 ## Skill 搜索与安装
