@@ -194,30 +194,6 @@ class MarketSnapshotTool(Tool):
                 cleaned.append(symbol)
         return cleaned
 
-    @staticmethod
-    def _mock_quote(symbol: str) -> dict[str, Any]:
-        # Deterministic mock based on symbol hash for stable tests/demos.
-        seed = sum(ord(c) for c in symbol)
-        price = round(50 + (seed % 500) * 0.7, 2)
-        change_pct = round(((seed % 17) - 8) * 0.35, 2)
-        volume = int(1_000_000 + (seed % 2_000_000))
-        avg_volume = int(1_200_000 + (seed % 1_500_000))
-        flow_ratio = volume / max(avg_volume, 1)
-        flow_hint = "inflow" if flow_ratio >= 1.25 else "outflow" if flow_ratio <= 0.80 else "neutral"
-        momentum = "up" if change_pct >= 1.0 else "down" if change_pct <= -1.0 else "flat"
-        return {
-            "symbol": symbol,
-            "price": price,
-            "changePct": change_pct,
-            "volume": volume,
-            "avgVolume": avg_volume,
-            "flowRatio": round(flow_ratio, 3),
-            "flowHint": flow_hint,
-            "momentum": momentum,
-            "currency": "USD",
-            "marketState": "REGULAR",
-        }
-
     async def _fetch_yahoo(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_yahoo(symbols)
 
@@ -266,109 +242,47 @@ class MarketSnapshotTool(Tool):
             effective_source = self._source
 
         if effective_source == "mock":
-            rows = [self._mock_quote(symbol) for symbol in normalized]
-            warnings: list[str] = []
+            rows = []
+            warnings = ["mock quote source is disabled"]
             self._service.record_health(
                 "mock",
-                reason="Deterministic mock quote source selected.",
+                fallback=True,
+                warnings=warnings,
+                reason="Mock quote source is disabled; no synthetic quotes returned.",
                 provider_chain=["mock"],
             )
         elif effective_source == "eastmoney":
             rows, warnings = await self._fetch_eastmoney(normalized)
             if not rows:
-                rows = [self._mock_quote(symbol) for symbol in normalized]
-                warnings.append("quote source fallback: mock")
-                self._service.record_health(
-                    "mock",
-                    fallback=True,
-                    warnings=warnings,
-                    reason="Eastmoney returned no usable quotes; falling back to mock.",
-                    provider_chain=["eastmoney", "mock"],
-                )
+                warnings.append("quote source returned no usable quotes")
         elif effective_source == "tencent_cn":
             rows, warnings = await self._fetch_tencent_cn(normalized)
             if not rows:
-                rows = [self._mock_quote(symbol) for symbol in normalized]
-                warnings.append("quote source fallback: mock")
-                self._service.record_health(
-                    "mock",
-                    fallback=True,
-                    warnings=warnings,
-                    reason="Tencent CN returned no usable quotes; falling back to mock.",
-                    provider_chain=["tencent_cn", "mock"],
-                )
+                warnings.append("quote source returned no usable quotes")
         elif effective_source == "tencent_hk":
             rows, warnings = await self._fetch_tencent_hk(normalized)
             if not rows:
-                rows = [self._mock_quote(symbol) for symbol in normalized]
-                warnings.append("quote source fallback: mock")
-                self._service.record_health(
-                    "mock",
-                    fallback=True,
-                    warnings=warnings,
-                    reason="Tencent HK returned no usable quotes; falling back to mock.",
-                    provider_chain=["tencent_hk", "mock"],
-                )
+                warnings.append("quote source returned no usable quotes")
         elif effective_source == "tencent_us":
             rows, warnings = await self._fetch_tencent_us(normalized)
             if not rows:
-                rows = [self._mock_quote(symbol) for symbol in normalized]
-                warnings.append("quote source fallback: mock")
-                self._service.record_health(
-                    "mock",
-                    fallback=True,
-                    warnings=warnings,
-                    reason="Tencent US returned no usable quotes; falling back to mock.",
-                    provider_chain=["tencent_us", "mock"],
-                )
+                warnings.append("quote source returned no usable quotes")
         elif effective_source == "auto":
             rows, warnings = await self._fetch_auto(normalized)
             if not rows:
-                rows = [self._mock_quote(symbol) for symbol in normalized]
-                warnings.append("quote source fallback: mock")
-                self._service.record_health(
-                    "mock",
-                    fallback=True,
-                    warnings=warnings,
-                    reason="Auto quote routing returned no usable quotes; falling back to mock.",
-                    provider_chain=["eastmoney", "yahoo", "mock"],
-                )
+                warnings.append("quote source returned no usable quotes")
         elif effective_source == "yfinance":
             rows, warnings = await self._fetch_yfinance(normalized)
             if not rows:
-                rows = [self._mock_quote(symbol) for symbol in normalized]
-                warnings.append("quote source fallback: mock")
-                self._service.record_health(
-                    "mock",
-                    fallback=True,
-                    warnings=warnings,
-                    reason="YFinance alias returned no usable quotes; falling back to mock.",
-                    provider_chain=["yfinance", "mock"],
-                )
+                warnings.append("quote source returned no usable quotes")
         elif effective_source == "tradingview":
             rows, warnings = await self._fetch_tradingview(normalized)
             if not rows:
-                rows = [self._mock_quote(symbol) for symbol in normalized]
-                warnings.append("quote source fallback: mock")
-                self._service.record_health(
-                    "mock",
-                    fallback=True,
-                    warnings=warnings,
-                    reason="TradingView alias returned no usable quotes; falling back to mock.",
-                    provider_chain=["tradingview", "mock"],
-                )
+                warnings.append("quote source returned no usable quotes")
         else:
             rows, warnings = await self._fetch_yahoo(normalized)
             if not rows:
-                rows = [self._mock_quote(symbol) for symbol in normalized]
-                warnings.append("quote source fallback: mock")
-                self._service.record_health(
-                    "mock",
-                    fallback=True,
-                    warnings=warnings,
-                    reason="Yahoo returned no usable quotes; falling back to mock.",
-                    provider_chain=["yahoo", "mock"],
-                )
+                warnings.append("quote source returned no usable quotes")
 
         result: dict[str, Any] = {
             "asOf": _utc_now_iso(),

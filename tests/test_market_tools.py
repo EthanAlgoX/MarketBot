@@ -44,14 +44,14 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-def test_market_snapshot_mock_source() -> None:
+def test_market_snapshot_mock_source_is_disabled() -> None:
     cfg = MarketToolsConfig(quote_source="mock", default_symbols=["NVDA"])
     tool = MarketSnapshotTool(config=cfg)
     payload = json.loads(_run(tool.execute(symbols=["NVDA"])))
     assert payload["source"] == "mock"
-    assert payload["quotes"][0]["symbol"] == "NVDA"
-    assert "changePct" in payload["quotes"][0]
-    assert payload["sourceHealth"]["mock"]["status"] == "ok"
+    assert payload["quotes"] == []
+    assert "mock quote source is disabled" in payload["warnings"]
+    assert payload["sourceHealth"]["mock"]["status"] == "fallback"
     assert payload["routeTrace"][0]["source"] == "mock"
 
 
