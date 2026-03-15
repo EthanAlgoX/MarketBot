@@ -11,18 +11,24 @@ video, podcast, interview, conference clip, or earnings discussion.
 
 ## Workflow
 
-1. Use `browser_site` with YouTube adapters such as:
+1. Use `browser_site` with YouTube adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `youtube/transcript`
    - `youtube/search`
    - `youtube/video`
-2. Extract:
+2. Typical calls:
+   - transcript pull: `browser_site(adapter="youtube/transcript", args=["<video-url-or-id>"])`
+   - channel/topic search: `browser_site(adapter="youtube/search", args=["NVDA Jensen Huang interview"])`
+   - metadata fallback: `browser_site(adapter="youtube/video", args=["<video-url-or-id>"])`
+3. Extract:
    - key claims
    - management or speaker tone
    - forward-looking guidance or thesis points
-3. Pair with `summarize` or `earnings-readout` when the transcript needs a more
+4. Pair with `summarize` or `earnings-readout` when the transcript needs a more
    structured write-up.
 
 ## Rules
 
+- Prefer `youtube/transcript` when available in the catalog; only fall back to `youtube/video` or `youtube/search` when transcript access is unavailable.
+- Do not invent adapter names like `youtube/comments` unless the runtime catalog explicitly exposes them.
 - Prefer transcript over title-only interpretation.
 - Flag when transcript quality looks incomplete or auto-generated.

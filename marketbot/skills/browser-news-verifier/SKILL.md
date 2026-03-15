@@ -12,17 +12,22 @@ verification from site search, dynamic pages, or logged-in discussion sources.
 ## Workflow
 
 1. Identify the primary headline or claim to verify.
-2. Use `browser_site` to check one or more site-native sources such as:
-   - `eastmoney/*`
-   - `xueqiu/*`
-   - `reddit/*`
-   - `zhihu/*`
-   - `youtube/*`
-3. Compare:
+2. Use `browser_site` only with adapters present in the runtime catalog. Prefer exact adapters such as:
+   - `eastmoney/headlines`
+   - `eastmoney/stock`
+   - `xueqiu/stock`
+   - `reddit/search`
+   - `zhihu/search`
+   - `youtube/search`
+3. Typical calls:
+   - A-share rumor check: `browser_site(adapter="eastmoney/headlines", args=["宁德时代"])`
+   - ticker discussion cross-check: `browser_site(adapter="xueqiu/stock", args=["NVDA"])`
+   - community verification: `browser_site(adapter="reddit/search", args=["NVDA guidance"])`
+4. Compare:
    - whether the claim appears in site-native search
    - whether the wording changes across sources
    - whether the discussion confirms, disputes, or distorts the claim
-4. Pair with `news-intelligence` for structured impact analysis after source verification.
+5. Pair with `news-intelligence` for structured impact analysis after source verification.
 
 ## Output format
 
@@ -46,6 +51,8 @@ verification from site search, dynamic pages, or logged-in discussion sources.
 
 ## Rules
 
+- Do not use wildcard patterns like `eastmoney/*` at execution time. Choose a concrete adapter from the runtime catalog.
+- If the most relevant site or adapter is not available in the catalog, state that explicitly and continue with the closest available cataloged source.
 - Distinguish article confirmation from community repetition.
 - Prefer direct source pages or site-native search over reposts.
 - State clearly when a claim remains unverified.

@@ -11,17 +11,22 @@ not show up well in public APIs or generic news search.
 
 ## Workflow
 
-1. Use `browser_site` with Reddit adapters such as:
+1. Use `browser_site` with Reddit adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `reddit/search`
    - `reddit/hot`
    - `reddit/thread`
-2. Extract:
+2. Typical calls:
+   - topic search: `browser_site(adapter="reddit/search", args=["NVDA earnings"])`
+   - subreddit heat: `browser_site(adapter="reddit/hot", args=["wallstreetbets"])`
+   - single thread: `browser_site(adapter="reddit/thread", args=["<thread-url-or-id>"])`
+3. Extract:
    - recurring narratives
    - crowd positioning or meme intensity
    - whether discussion is broad, ironic, bullish, or fearful
-3. Pair with `sentiment-analysis` if a weighted conclusion is needed.
+4. Pair with `sentiment-analysis` if a weighted conclusion is needed.
 
 ## Rules
 
+- Do not guess undocumented `reddit/*` adapters. If the runtime catalog does not expose the adapter you want, say so and use the closest listed adapter instead.
 - Treat Reddit as fast retail signal, not as a verified primary source.
 - Separate memes, jokes, and sarcasm from actual thesis statements.

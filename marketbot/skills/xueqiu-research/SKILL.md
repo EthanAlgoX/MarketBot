@@ -11,17 +11,22 @@ context that standard market APIs do not provide well.
 
 ## Workflow
 
-1. Use `browser_site` with Xueqiu adapters such as:
+1. Use `browser_site` with Xueqiu adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `xueqiu/hot-stock`
    - `xueqiu/stock`
    - `xueqiu/feed`
-2. Summarize:
+2. Typical calls:
+   - heat scan: `browser_site(adapter="xueqiu/hot-stock", args=["10"])`
+   - single stock page: `browser_site(adapter="xueqiu/stock", args=["NVDA"])`
+   - logged-in feed context: `browser_site(adapter="xueqiu/feed", args=["NVDA"])`
+3. Summarize:
    - what is trending
    - what investors are discussing
    - whether the attention looks broad, narrow, euphoric, or defensive
-3. Pair with `market-report` or `sentiment-analysis` when a formal conclusion is needed.
+4. Pair with `market-report` or `sentiment-analysis` when a formal conclusion is needed.
 
 ## Rules
 
+- Do not invent new `xueqiu/*` adapter names. If the needed adapter is not in the runtime catalog, say that explicitly and fall back to the nearest cataloged adapter.
 - Treat Xueqiu as sentiment and discussion context, not as a sole source of truth.
 - Separate observed discussion from factual company disclosures.

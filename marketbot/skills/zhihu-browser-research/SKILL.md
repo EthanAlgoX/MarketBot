@@ -11,17 +11,22 @@ market themes, sectors, products, or companies.
 
 ## Workflow
 
-1. Use `browser_site` with Zhihu adapters such as:
+1. Use `browser_site` with Zhihu adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `zhihu/search`
    - `zhihu/hot`
    - `zhihu/question`
-2. Focus on:
+2. Typical calls:
+   - topic search: `browser_site(adapter="zhihu/search", args=["机器人出租 热度"])`
+   - hot board: `browser_site(adapter="zhihu/hot")`
+   - single question: `browser_site(adapter="zhihu/question", args=["<question-url-or-id>"])`
+3. Focus on:
    - topic heat
    - narrative framing
    - whether consensus is retail, expert-led, or mixed
-3. Pair with `social-signal-browser` when cross-platform comparison matters.
+4. Pair with `social-signal-browser` when cross-platform comparison matters.
 
 ## Rules
 
+- Do not guess undocumented `zhihu/*` adapters. If the catalog does not expose the adapter you need, use the nearest listed adapter and say what is missing.
 - Treat Zhihu as narrative and attention data, not as a factual primary source.
 - Separate high-quality explanatory answers from hype or repetition.
