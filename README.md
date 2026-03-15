@@ -120,6 +120,32 @@ marketbot onboard
 }
 ```
 
+如果要启用 `bb-browser` 集成，建议先用最保守配置：
+
+```json
+{
+  "tools": {
+    "browser": {
+      "enabled": true,
+      "command": "bb-browser",
+      "mode": "safe",
+      "allowSites": ["xueqiu", "eastmoney", "reddit", "github", "youtube"],
+      "allowDomains": ["xueqiu.com", "eastmoney.com", "reddit.com", "github.com", "youtube.com"],
+      "allowUrlPrefixes": ["https://www.youtube.com/watch?v=", "https://api.github.com/repos/"],
+      "allowRequestCapture": false,
+      "allowRequestBodies": false
+    }
+  }
+}
+```
+
+说明：
+
+- `safe` 模式只允许 `browser_site` 和 `browser_page` 的只读动作
+- `allowSites` / `allowAdapters` 用来约束 `browser_site`
+- `allowDomains` / `allowUrlPrefixes` 用来约束 `browser_page(open)` 和 `browser_network(fetch)`
+- `allowRequestCapture` 与 `allowRequestBodies` 默认应保持关闭，只有明确需要抓包时再打开
+
 ### 3. 直接聊天使用
 
 ```bash
@@ -160,6 +186,17 @@ marketbot market heartbeat-setup
 | `stock-data-sourcing` | 给出市场相关的数据源与路由建议 |
 | `risk-checklist` | 输出风险清单 |
 | `catalyst-tracker` | 做催化剂跟踪 |
+
+另外已支持一批 browser-backed specialist skills，用于登录态或站内搜索更强的平台研究，例如：
+
+- `xueqiu-research`
+- `eastmoney-live`
+- `reddit-research`
+- `twitter-browser-research`
+- `github-browser-research`
+- `youtube-transcript-browser`
+- `zhihu-browser-research`
+- `weibo-browser-research`
 
 底层 market tool 主要包括：
 

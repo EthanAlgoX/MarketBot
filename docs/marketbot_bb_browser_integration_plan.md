@@ -153,6 +153,9 @@ Requirements:
 
 - explicit user config
 - optional allowlist on site adapters
+- optional URL allowlist on `browser_page(open)` and `browser_network(fetch)`
+- explicit `allowRequestCapture=true` before `browser_network` can inspect requests
+- explicit `allowRequestBodies=true` before `browser_network(..., withBody=true)` can capture request bodies
 - clear warning in docs
 
 ## Configuration
@@ -167,6 +170,17 @@ Extend MarketBot config with:
       "command": "bb-browser",
       "mode": "safe",
       "timeoutS": 20,
+      "allowDomains": [
+        "xueqiu.com",
+        "eastmoney.com",
+        "reddit.com",
+        "github.com",
+        "youtube.com"
+      ],
+      "allowUrlPrefixes": [
+        "https://www.youtube.com/watch?v=",
+        "https://api.github.com/repos/"
+      ],
       "allowSites": [
         "xueqiu",
         "eastmoney",
@@ -179,6 +193,13 @@ Extend MarketBot config with:
   }
 }
 ```
+
+Recommended production stance:
+
+- keep `mode` at `safe` unless interactive browsing is required
+- use `allowSites` and `allowAdapters` to bound `browser_site`
+- use `allowDomains` or `allowUrlPrefixes` to bound `browser_page(open)` and `browser_network(fetch)`
+- keep `allowRequestCapture` and `allowRequestBodies` off unless request inspection is specifically required
 
 ## Skills To Add
 
