@@ -11,17 +11,21 @@ person, technology, sector, or event before deeper analysis.
 
 ## Workflow
 
-1. Use `browser_site` with Wikipedia adapters such as:
+1. Use `browser_site` with Wikipedia adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `wikipedia/search`
    - `wikipedia/summary`
-2. Extract:
+2. Typical calls:
+   - entity search: `browser_site(adapter="wikipedia/search", args=["semiconductor supply chain"])`
+   - direct summary: `browser_site(adapter="wikipedia/summary", args=["TSMC"])`
+3. Extract:
    - entity background
    - historical context
    - terminology and framing
-3. Pair with market or browser-backed specialist skills when the summary is
+4. Pair with market or browser-backed specialist skills when the summary is
    only the starting point for analysis.
 
 ## Rules
 
+- Do not invent undocumented `wikipedia/*` adapters. If the runtime catalog does not expose the one you need, say so and continue with the closest listed adapter.
 - Treat Wikipedia as reference background, not a real-time source.
 - Use it to establish context, not to validate fast-moving claims.

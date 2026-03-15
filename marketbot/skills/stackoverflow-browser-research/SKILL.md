@@ -11,16 +11,20 @@ signal around a technology, framework, API, or product.
 
 ## Workflow
 
-1. Use `browser_site` with Stack Overflow adapters such as:
+1. Use `browser_site` with Stack Overflow adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `stackoverflow/search`
    - `stackoverflow/thread`
-2. Extract:
+2. Typical calls:
+   - problem search: `browser_site(adapter="stackoverflow/search", args=["openai python rate limit"])`
+   - thread inspection: `browser_site(adapter="stackoverflow/thread", args=["<question-url-or-id>"])`
+3. Extract:
    - recurring implementation issues
    - setup or migration friction
    - whether interest looks broad or niche
-3. Pair with `hackernews-browser-research` when developer discussion quality matters.
+4. Pair with `hackernews-browser-research` when developer discussion quality matters.
 
 ## Rules
 
+- Do not invent undocumented `stackoverflow/*` adapters. If the runtime catalog does not expose the one you need, say so and continue with the closest listed adapter.
 - Treat Stack Overflow as friction and adoption signal, not as direct business proof.
 - Separate novice setup issues from structural product weakness.

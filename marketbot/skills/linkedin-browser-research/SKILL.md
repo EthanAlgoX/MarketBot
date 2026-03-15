@@ -11,17 +11,21 @@ signals, company activity, or profile-based ecosystem clues.
 
 ## Workflow
 
-1. Use `browser_site` with LinkedIn adapters such as:
+1. Use `browser_site` with LinkedIn adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `linkedin/search`
    - `linkedin/profile`
-2. Focus on:
+2. Typical calls:
+   - company or people search: `browser_site(adapter="linkedin/search", args=["OpenAI research engineer"])`
+   - profile or company page: `browser_site(adapter="linkedin/profile", args=["<profile-or-company-url>"])`
+3. Focus on:
    - hiring intensity
    - company and team activity
    - industry positioning and ecosystem signals
-3. Pair with `github-browser-research` when both professional and open-source
+4. Pair with `github-browser-research` when both professional and open-source
    traction matter.
 
 ## Rules
 
+- Do not invent undocumented `linkedin/*` adapters. If the runtime catalog does not expose the one you need, say so and continue with the closest listed adapter.
 - Treat LinkedIn as professional-signal context, not as audited business data.
 - Separate profile claims from independently verified facts.

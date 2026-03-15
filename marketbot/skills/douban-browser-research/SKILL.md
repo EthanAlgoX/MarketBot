@@ -11,17 +11,22 @@ that may affect media, platform, or consumer-facing names.
 
 ## Workflow
 
-1. Use `browser_site` with Douban adapters such as:
+1. Use `browser_site` with Douban adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `douban/search`
    - `douban/movie`
    - `douban/top250`
-2. Focus on:
+2. Typical calls:
+   - title search: `browser_site(adapter="douban/search", args=["哪吒"])`
+   - movie detail: `browser_site(adapter="douban/movie", args=["<movie-id-or-url>"])`
+   - list-level context: `browser_site(adapter="douban/top250")`
+3. Focus on:
    - rating and attention
    - cultural buzz
    - whether the signal is broad enough to matter commercially
-3. Pair with `xiaohongshu-browser-research` or `weibo-browser-research` when cross-platform consumer heat matters.
+4. Pair with `xiaohongshu-browser-research` or `weibo-browser-research` when cross-platform consumer heat matters.
 
 ## Rules
 
+- Do not invent undocumented `douban/*` adapters. If the runtime catalog does not expose the one you need, say so and continue with the closest listed adapter.
 - Treat Douban as cultural-attention context, not direct revenue evidence.
 - Separate critical reception from commercial success.
