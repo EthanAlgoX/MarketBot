@@ -466,6 +466,29 @@ def test_market_news_mock_source() -> None:
     assert payload["sourceHealth"]["mock"]["providerChain"] == ["mock"]
 
 
+def test_market_news_does_not_fallback_to_mock_when_live_sources_fail(monkeypatch) -> None:
+    cfg = MarketToolsConfig()
+    cfg.news_sources = ["google"]
+    tool = MarketNewsTool(config=cfg)
+
+    async def _fail_provider(source: str, symbol: str, limit: int, days: int):
+        tool._service.record_health(
+            source,
+            warnings=[f"{symbol}: provider failure"],
+            reason=f"News routing for {symbol} via {source}.",
+            provider_chain=[source],
+        )
+        return [], [f"{symbol}: provider failure"]
+
+    monkeypatch.setattr(tool, "_fetch_provider_news", _fail_provider)
+    payload = json.loads(_run(tool.execute(symbols=["NVDA"], limit=3)))
+
+    assert payload["providerBySymbol"]["NVDA"] == "unavailable"
+    assert payload["items"] == []
+    assert "NVDA: news source returned no usable items" in payload["warnings"]
+    assert "mock" not in payload["sourceHealth"]
+
+
 def test_market_snapshot_service_uses_cache(tmp_path, monkeypatch) -> None:
     cfg = MarketToolsConfig()
     service = MarketSnapshotService(config=cfg, workspace=tmp_path)
@@ -649,6 +672,20 @@ def test_market_macro_manual_mode() -> None:
     assert 0.0 <= payload["macroRisk"] <= 1.0
     assert payload["sourceHealth"]["manual"]["status"] == "ok"
     assert payload["routeTrace"][0]["reason"] == "Manual macro fallback mode is active."
+
+
+def test_market_macro_missing_fred_key_uses_manual_fallback_health() -> None:
+    cfg = MarketToolsConfig()
+    cfg.macro_source = "fred"
+    cfg.fred_api_key = ""
+    tool = MarketMacroTool(config=cfg)
+    payload = json.loads(_run(tool.execute(indicators=["fedFunds", "cpi"])))
+
+    assert payload["source"] == "manual"
+    assert payload["sourceHealth"]["manual"]["status"] == "fallback"
+    assert payload["sourceHealth"]["manual"]["providerChain"] == ["fred", "manual"]
+    assert "fedFunds: missing FRED api key" in payload["warnings"]
+    assert "cpi: missing FRED api key" in payload["warnings"]
 
 
 def test_market_social_sentiment_mock_source() -> None:

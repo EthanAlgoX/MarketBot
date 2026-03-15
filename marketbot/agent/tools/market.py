@@ -1178,10 +1178,8 @@ class MarketNewsTool(Tool):
                     break
 
             if not symbol_items:
-                symbol_items = self._mock_items(symbol, limit)
-                provider_by_symbol[symbol] = "mock"
-                warnings.append(f"{symbol}: news source fallback: mock")
-                self._service.record_health("mock", fallback=True, warnings=warnings)
+                provider_by_symbol[symbol] = "unavailable"
+                warnings.append(f"{symbol}: news source returned no usable items")
 
             all_items.extend(symbol_items)
 
@@ -1458,6 +1456,17 @@ class MarketMacroTool(Tool):
 
         if not by_name:
             payload = self._manual_fallback(clean)
+            fallback_warnings = list(warnings)
+            fallback_warnings.extend(str(item) for item in payload.get("warnings", []) if str(item).strip())
+            payload["warnings"] = fallback_warnings
+            self._service.reset_health()
+            self._service.record_health(
+                "manual",
+                warnings=fallback_warnings,
+                fallback=True,
+                reason="FRED data unavailable; using manual macro fallback.",
+                provider_chain=["fred", "manual"],
+            )
             payload["sourceHealth"] = self._service.health_snapshot()
             payload["routeTrace"] = self._service.route_trace()
             return json.dumps(payload, ensure_ascii=False)
