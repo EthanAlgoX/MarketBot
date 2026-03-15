@@ -455,6 +455,8 @@ def test_browser_reddit_message_auto_injects_reddit_skill(tmp_path) -> None:
 
     prompt = messages[0]["content"]
     assert "### Skill: reddit-research" in prompt
+    assert "### Skill: social-signal-browser" not in prompt
+    assert "### Skill: sentiment-analysis" not in prompt
 
 
 def test_browser_youtube_message_auto_injects_transcript_skill(tmp_path) -> None:
@@ -465,6 +467,22 @@ def test_browser_youtube_message_auto_injects_transcript_skill(tmp_path) -> None
     messages = builder.build_messages(
         history=[],
         current_message="Pull the YouTube transcript from this market interview video.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: youtube-transcript-browser" in prompt
+
+
+def test_browser_youtube_interview_message_auto_injects_transcript_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Pull the YouTube interview transcript and summarize the claims.",
         channel="cli",
         chat_id="direct",
     )
@@ -519,6 +537,7 @@ def test_browser_news_verifier_message_auto_injects_verifier_skill(tmp_path) -> 
 
     prompt = messages[0]["content"]
     assert "### Skill: browser-news-verifier" in prompt
+    assert "### Skill: news-intelligence" not in prompt
 
 
 def test_browser_weibo_message_auto_injects_weibo_skill(tmp_path) -> None:
@@ -535,6 +554,8 @@ def test_browser_weibo_message_auto_injects_weibo_skill(tmp_path) -> None:
 
     prompt = messages[0]["content"]
     assert "### Skill: weibo-browser-research" in prompt
+    assert "### Skill: social-signal-browser" not in prompt
+    assert "### Skill: sentiment-analysis" not in prompt
 
 
 def test_browser_bilibili_message_auto_injects_bilibili_skill(tmp_path) -> None:
@@ -567,6 +588,8 @@ def test_browser_xiaohongshu_message_auto_injects_xiaohongshu_skill(tmp_path) ->
 
     prompt = messages[0]["content"]
     assert "### Skill: xiaohongshu-browser-research" in prompt
+    assert "### Skill: social-signal-browser" not in prompt
+    assert "### Skill: sentiment-analysis" not in prompt
 
 
 def test_browser_twitter_message_auto_injects_twitter_skill(tmp_path) -> None:
@@ -577,6 +600,24 @@ def test_browser_twitter_message_auto_injects_twitter_skill(tmp_path) -> None:
     messages = builder.build_messages(
         history=[],
         current_message="Search Twitter thread discussion and FinTwit commentary for this ticker.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: twitter-browser-research" in prompt
+    assert "### Skill: social-signal-browser" not in prompt
+    assert "### Skill: sentiment-analysis" not in prompt
+
+
+def test_browser_x_thread_message_auto_injects_twitter_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Review this X thread and FinTwit reaction to the earnings guide.",
         channel="cli",
         chat_id="direct",
     )
@@ -615,6 +656,8 @@ def test_browser_douban_message_auto_injects_douban_skill(tmp_path) -> None:
 
     prompt = messages[0]["content"]
     assert "### Skill: douban-browser-research" in prompt
+    assert "### Skill: social-signal-browser" not in prompt
+    assert "### Skill: sentiment-analysis" not in prompt
 
 
 def test_browser_linkedin_message_auto_injects_linkedin_skill(tmp_path) -> None:
@@ -625,6 +668,24 @@ def test_browser_linkedin_message_auto_injects_linkedin_skill(tmp_path) -> None:
     messages = builder.build_messages(
         history=[],
         current_message="Use LinkedIn company page and hiring signal context for this firm.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: linkedin-browser-research" in prompt
+    assert "### Skill: social-signal-browser" not in prompt
+    assert "### Skill: sentiment-analysis" not in prompt
+
+
+def test_browser_linkedin_hiring_signal_message_auto_injects_linkedin_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Check hiring signal and company page changes on LinkedIn for this startup.",
         channel="cli",
         chat_id="direct",
     )

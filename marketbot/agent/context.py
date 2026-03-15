@@ -367,7 +367,16 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         shadow_pairs = {
             "social-signal-browser": {"sentiment-analysis"},
             "xueqiu-research": {"sentiment-analysis"},
+            "reddit-research": {"social-signal-browser", "sentiment-analysis"},
+            "twitter-browser-research": {"social-signal-browser", "sentiment-analysis"},
+            "zhihu-browser-research": {"social-signal-browser", "sentiment-analysis"},
+            "weibo-browser-research": {"social-signal-browser", "sentiment-analysis"},
+            "bilibili-browser-research": {"social-signal-browser", "sentiment-analysis"},
+            "xiaohongshu-browser-research": {"social-signal-browser", "sentiment-analysis"},
+            "douban-browser-research": {"social-signal-browser", "sentiment-analysis"},
+            "linkedin-browser-research": {"social-signal-browser", "sentiment-analysis"},
             "eastmoney-live": {"news-intelligence"},
+            "browser-news-verifier": {"news-intelligence"},
         }
         blocked_auto: set[str] = set()
         for specialist, blocked in shadow_pairs.items():
@@ -489,6 +498,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "xiaohongshu",
             "小红书",
             "twitter",
+            "x thread",
             "tweet thread",
             "fintwit",
             "hacker news",
@@ -497,6 +507,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "豆瓣",
             "linkedin",
             "company page",
+            "hiring signal",
             "stack overflow",
             "stackoverflow",
             "wikipedia",
@@ -504,8 +515,12 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "verify news",
             "cross-check headline",
             "source verify",
+            "source validation",
+            "youtube",
             "youtube transcript",
             "video transcript",
+            "podcast transcript",
+            "interview transcript",
             "hot stock",
             "discussion heat",
             "forum heat",
@@ -584,7 +599,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                 consider("bilibili-browser-research")
             if "xiaohongshu" in text or "小红书" in text or "rednote" in text:
                 consider("xiaohongshu-browser-research")
-            if "twitter" in text or "tweet thread" in text or "fintwit" in text:
+            if "twitter" in text or "x thread" in text or "tweet thread" in text or "fintwit" in text:
                 consider("twitter-browser-research")
             if "hacker news" in text or "hn thread" in text:
                 consider("hackernews-browser-research")
@@ -596,9 +611,20 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                 consider("stackoverflow-browser-research")
             if "wikipedia" in text or "wiki summary" in text:
                 consider("wikipedia-browser-research")
-            if "verify news" in text or "cross-check headline" in text or "source verify" in text:
+            if (
+                "verify news" in text
+                or "cross-check headline" in text
+                or "source verify" in text
+                or "source validation" in text
+            ):
                 consider("browser-news-verifier")
-            if "youtube transcript" in text or "video transcript" in text:
+            if (
+                "youtube" in text
+                or "youtube transcript" in text
+                or "video transcript" in text
+                or "podcast transcript" in text
+                or "interview transcript" in text
+            ):
                 consider("youtube-transcript-browser")
 
         if any(term in text for term in source_terms):
