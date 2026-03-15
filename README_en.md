@@ -227,9 +227,11 @@ If you want `bb-browser` integration, start with a conservative configuration:
       "enabled": true,
       "command": "bb-browser",
       "mode": "safe",
+      "adapterCatalog": ["xueqiu/hot-stock", "eastmoney/stock", "reddit/search", "youtube/transcript"],
       "allowSites": ["xueqiu", "eastmoney", "reddit", "github", "youtube"],
       "allowDomains": ["xueqiu.com", "eastmoney.com", "reddit.com", "github.com", "youtube.com"],
       "allowUrlPrefixes": ["https://www.youtube.com/watch?v=", "https://api.github.com/repos/"],
+      "allowEval": false,
       "allowRequestCapture": false,
       "allowRequestBodies": false
     }
@@ -240,7 +242,10 @@ If you want `bb-browser` integration, start with a conservative configuration:
 Key points:
 
 - `safe` allows read-only browser operations
-- `allowSites` / `allowDomains` keep access scope tight
+- `adapterCatalog` becomes the runtime allowlist for `browser_site`; when set, only listed `<site>/<command>` adapters may execute
+- `allowSites` / `allowAdapters` still work as secondary constraints; they are the main boundary only when `adapterCatalog` is empty
+- `allowDomains` / `allowUrlPrefixes` bound `browser_page(open)` and `browser_network(fetch)`
+- `allowEval` should stay off unless page-side script evaluation is explicitly needed
 - `allowRequestCapture` and `allowRequestBodies` should stay off unless explicitly needed
 
 ## Skill Search and Install

@@ -227,9 +227,11 @@ marketbot skills --help
       "enabled": true,
       "command": "bb-browser",
       "mode": "safe",
+      "adapterCatalog": ["xueqiu/hot-stock", "eastmoney/stock", "reddit/search", "youtube/transcript"],
       "allowSites": ["xueqiu", "eastmoney", "reddit", "github", "youtube"],
       "allowDomains": ["xueqiu.com", "eastmoney.com", "reddit.com", "github.com", "youtube.com"],
       "allowUrlPrefixes": ["https://www.youtube.com/watch?v=", "https://api.github.com/repos/"],
+      "allowEval": false,
       "allowRequestCapture": false,
       "allowRequestBodies": false
     }
@@ -240,7 +242,10 @@ marketbot skills --help
 关键点：
 
 - `safe` 只允许只读浏览动作
-- `allowSites` / `allowDomains` 用来收紧访问范围
+- `adapterCatalog` 会作为 `browser_site` 的实际执行白名单；配置后只允许 catalog 中的 `<site>/<command>`
+- `allowSites` / `allowAdapters` 仍可作为补充约束；未配置 `adapterCatalog` 时才是主要边界
+- `allowDomains` / `allowUrlPrefixes` 用来约束 `browser_page(open)` 和 `browser_network(fetch)`
+- `allowEval` 默认建议关闭，只有明确需要页面脚本求值时再打开
 - `allowRequestCapture` 与 `allowRequestBodies` 默认建议关闭
 
 ## Skill 搜索与安装

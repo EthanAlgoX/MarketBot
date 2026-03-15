@@ -1,6 +1,6 @@
 # Browser Adapter Catalog
 
-This file documents the intended adapter-catalog pattern for MarketBot's
+This file documents the adapter-catalog pattern for MarketBot's
 `browser_site` integration.
 
 ## Goal
@@ -71,6 +71,7 @@ Example:
 ## Usage Guidance
 
 - Prefer adapters from this catalog in browser-backed skills.
-- Treat catalog membership as a documentation and routing hint.
-- Use `allowAdapters` for hard enforcement.
-- Use `adapterCatalog` for discoverability and prompt guidance.
+- Treat catalog membership as both a routing hint and a runtime execution boundary.
+- When `adapterCatalog` is non-empty, `browser_site` only allows adapters listed in the catalog.
+- Use `allowAdapters` and `allowSites` as secondary constraints or as fallback boundaries when no catalog is configured.
+- Keep the catalog intentionally small and aligned with the specialist skills you actually support.
