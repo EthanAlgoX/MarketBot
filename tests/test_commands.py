@@ -2543,6 +2543,7 @@ def test_status_shows_browser_safety_configuration(tmp_path):
     config.tools.browser.enabled = True
     config.tools.browser.command = "bb-browser"
     config.tools.browser.mode = "sensitive"
+    config.tools.browser.allow_eval = True
     config.tools.browser.allow_request_capture = True
     config.tools.browser.allow_request_bodies = False
     config.tools.browser.allow_sites = ["xueqiu", "reddit"]
@@ -2558,6 +2559,7 @@ def test_status_shows_browser_safety_configuration(tmp_path):
     assert result.exit_code == 0
     assert "Browser: ✓" in result.stdout
     assert "Browser mode: sensitive" in result.stdout
+    assert "Browser eval: enabled" in result.stdout
     assert "Browser request capture: enabled" in result.stdout
     assert "Browser request bodies: disabled" in result.stdout
     assert "Browser allowSites: xueqiu, reddit" in result.stdout
@@ -2580,6 +2582,7 @@ def test_status_json_includes_browser_defaults(tmp_path):
     assert payload["config"]["path"].endswith("config.json")
     assert payload["workspace"]["path"] == str(tmp_path)
     assert payload["browser"]["enabled"] is False
+    assert payload["browser"]["allowEval"] is False
     assert payload["browser"]["allowRequestCapture"] is False
     assert payload["browser"]["allowRequestBodies"] is False
 
@@ -2590,6 +2593,7 @@ def test_status_json_includes_browser_and_provider_state(tmp_path):
     config.tools.browser.enabled = True
     config.tools.browser.mode = "sensitive"
     config.tools.browser.command = "bb-browser"
+    config.tools.browser.allow_eval = True
     config.tools.browser.allow_request_capture = True
     config.tools.browser.allow_request_bodies = True
     config.tools.browser.allow_sites = ["reddit"]
@@ -2606,6 +2610,7 @@ def test_status_json_includes_browser_and_provider_state(tmp_path):
     assert payload["browser"]["enabled"] is True
     assert payload["browser"]["mode"] == "sensitive"
     assert payload["browser"]["commandFound"] is True
+    assert payload["browser"]["allowEval"] is True
     assert payload["browser"]["allowRequestCapture"] is True
     assert payload["browser"]["allowRequestBodies"] is True
     assert payload["browser"]["allowSites"] == ["reddit"]
@@ -2626,6 +2631,7 @@ def test_format_browser_runtime_summary_enabled():
     config.tools.browser.enabled = True
     config.tools.browser.mode = "sensitive"
     config.tools.browser.command = "bb-browser"
+    config.tools.browser.allow_eval = True
     config.tools.browser.allow_request_capture = True
     config.tools.browser.allow_request_bodies = False
     config.tools.browser.allow_sites = ["reddit", "github"]
@@ -2637,6 +2643,7 @@ def test_format_browser_runtime_summary_enabled():
     assert "Browser: mode=sensitive" in summary
     assert "command=bb-browser" in summary
     assert "command_found=yes" in summary
+    assert "eval=on" in summary
     assert "request_capture=on" in summary
     assert "request_bodies=off" in summary
     assert "sites=2" in summary

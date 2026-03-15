@@ -307,6 +307,28 @@ async def test_browser_page_blocks_url_outside_prefix_allowlist() -> None:
     assert "blocked by prefix allowlist" in result
 
 
+async def test_browser_page_eval_requires_explicit_flag() -> None:
+    tool = BrowserPageTool(
+        browser_config=BrowserToolsConfig(enabled=True, mode="sensitive"),
+    )
+
+    result = await tool.execute(action="eval", value="document.title")
+
+    assert "browser eval is disabled" in result
+
+
+async def test_browser_page_eval_allows_when_explicitly_enabled() -> None:
+    tool = BrowserPageTool(
+        browser_config=BrowserToolsConfig(enabled=True, mode="sensitive", allow_eval=True),
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    tool._run = _async_return('{"ok":true}')  # type: ignore[method-assign]
+
+    result = await tool.execute(action="eval", value="document.title")
+
+    assert result == '{"ok":true}'
+
+
 async def test_browser_network_fetch_blocks_url_outside_domain_allowlist() -> None:
     tool = BrowserNetworkTool(
         browser_config=BrowserToolsConfig(enabled=True, mode="sensitive", allow_domains=["github.com"]),

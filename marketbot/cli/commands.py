@@ -3241,6 +3241,7 @@ def status(
     if browser_enabled:
         console.print(f"Browser mode: {browser_cfg.mode}")
         console.print(f"Browser command: {browser_command}")
+        console.print("Browser eval: " + ("[red]enabled[/red]" if browser_cfg.allow_eval else "[dim]disabled[/dim]"))
         console.print(
             "Browser request capture: "
             + ("[yellow]enabled[/yellow]" if browser_cfg.allow_request_capture else "[dim]disabled[/dim]")
@@ -3306,6 +3307,7 @@ def _build_status_payload(config: Config, config_path: Path) -> dict[str, Any]:
             "mode": browser_cfg.mode,
             "command": browser_command,
             "commandFound": bool(browser_binary),
+            "allowEval": bool(browser_cfg.allow_eval),
             "allowRequestCapture": bool(browser_cfg.allow_request_capture),
             "allowRequestBodies": bool(browser_cfg.allow_request_bodies),
             "allowSites": list(browser_cfg.allow_sites),
@@ -3354,6 +3356,7 @@ def _format_browser_runtime_summary(config: Config) -> str:
         f"mode={browser['mode']}",
         f"command={browser['command']}",
         f"command_found={'yes' if browser['commandFound'] else 'no'}",
+        f"eval={'on' if browser['allowEval'] else 'off'}",
         f"request_capture={'on' if browser['allowRequestCapture'] else 'off'}",
         f"request_bodies={'on' if browser['allowRequestBodies'] else 'off'}",
     ]

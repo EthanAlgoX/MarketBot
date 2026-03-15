@@ -36,6 +36,7 @@ class _BrowserToolBase(Tool):
         self.allow_url_prefixes = [
             str(item).strip() for item in (getattr(browser_config, "allow_url_prefixes", []) or []) if str(item).strip()
         ]
+        self.allow_eval = bool(getattr(browser_config, "allow_eval", False)) if browser_config else False
         self.allow_request_capture = bool(getattr(browser_config, "allow_request_capture", False)) if browser_config else False
         self.allow_request_bodies = bool(getattr(browser_config, "allow_request_bodies", False)) if browser_config else False
 
@@ -199,6 +200,11 @@ class BrowserPageTool(_BrowserToolBase):
         action_name = str(action or "").strip().lower()
         if not self._action_allowed(action_name):
             return f"Error: browser action blocked in {self.mode} mode: {action_name}"
+        if action_name == "eval":
+            if self.mode != "sensitive":
+                return f"Error: browser eval requires sensitive mode, current={self.mode}"
+            if not self.allow_eval:
+                return "Error: browser eval is disabled. Enable tools.browser.allow_eval in config."
         allowed, reason = self._url_allowed(target)
         if not allowed:
             return reason or "Error: target blocked by url allowlist"
