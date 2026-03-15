@@ -375,6 +375,22 @@ def test_metadata_driven_monitor_and_portfolio_skills_are_injected(tmp_path) -> 
     assert "### Skill: portfolio-analyzer" in portfolio_messages[0]["content"]
 
 
+def test_chinese_market_opportunity_message_injects_market_discovery(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="分析今日股票市场机会，给出美股、港股、A股值得关注的主题和代码。",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: market-discovery" in prompt
+    assert "### Skill: stock-data-sourcing" not in prompt
+
+
 def test_specialist_earnings_skill_shadows_auto_market_report(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

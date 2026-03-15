@@ -147,6 +147,17 @@ def test_daily_stock_screener_trigger_matching_uses_metadata(tmp_path):
     assert "daily-stock-screener" in matched
 
 
+def test_market_discovery_trigger_matching_supports_chinese_opportunity_terms(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "分析今日股票市场机会，给出值得关注的主题机会",
+        route={"equity": True, "symbols": ["NVDA", "0700.HK", "513310"]},
+    )
+
+    assert "market-discovery" in matched
+
+
 def test_external_skill_catalog_parser_extracts_curated_entries(tmp_path):
     loader = SkillsLoader(tmp_path)
     sample = """

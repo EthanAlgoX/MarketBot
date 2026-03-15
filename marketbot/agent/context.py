@@ -485,6 +485,19 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "metals",
             "precious metals",
         )
+        discovery_terms = (
+            "discover",
+            "opportunity",
+            "theme",
+            "rotation",
+            "market opportunity",
+            "机会",
+            "市场机会",
+            "今日机会",
+            "机会分析",
+            "主题机会",
+            "轮动机会",
+        )
         browser_research_terms = (
             "xueqiu",
             "雪球",
@@ -560,12 +573,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "brave",
             "tavily",
             "serpapi",
-            "a股",
-            "港股",
-            "美股",
             "a-share",
-            "hk stock",
-            "us stock",
         )
 
         if route["asset_like"] and any(term in text for term in analysis_terms):
@@ -586,6 +594,9 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             consider("crypto-gold-monitor")
         elif route["crypto"] and ("intermarket" in text or "gold" in text or "silver" in text):
             consider("crypto-gold-monitor")
+
+        if (route["asset_like"] or route["equity"] or route["etf"]) and any(term in text for term in discovery_terms):
+            consider("market-discovery")
 
         if any(term in text for term in browser_research_terms):
             if "xueqiu" in text or "雪球" in text or "hot stock" in text:
