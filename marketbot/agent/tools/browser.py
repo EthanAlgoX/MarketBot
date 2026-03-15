@@ -30,6 +30,9 @@ class _BrowserToolBase(Tool):
         self.allow_adapters = {
             str(item).strip().lower() for item in (getattr(browser_config, "allow_adapters", []) or []) if str(item).strip()
         }
+        self.adapter_catalog = {
+            str(item).strip().lower() for item in (getattr(browser_config, "adapter_catalog", []) or []) if str(item).strip()
+        }
         self.allow_domains = {
             str(item).strip().lower() for item in (getattr(browser_config, "allow_domains", []) or []) if str(item).strip()
         }
@@ -49,6 +52,8 @@ class _BrowserToolBase(Tool):
 
     def _adapter_allowed(self, adapter: str) -> bool:
         normalized = adapter.strip().lower()
+        if self.adapter_catalog:
+            return normalized in self.adapter_catalog
         if self.allow_adapters:
             return normalized in self.allow_adapters
         if not self.allow_sites:

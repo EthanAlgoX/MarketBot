@@ -410,11 +410,18 @@ class _BrowserConfig:
     timeout_s = 20
     allow_sites = ["xueqiu", "eastmoney"]
     allow_adapters = []
+    adapter_catalog = []
 
 
 class _BrowserAdapterConfig(_BrowserConfig):
     allow_sites = []
     allow_adapters = ["xueqiu/hot-stock"]
+
+
+class _BrowserCatalogConfig(_BrowserConfig):
+    allow_sites = ["xueqiu", "eastmoney", "reddit"]
+    allow_adapters = ["xueqiu/hot-stock", "reddit/search"]
+    adapter_catalog = ["xueqiu/hot-stock"]
 
 
 async def test_browser_site_blocks_adapter_outside_allowlist() -> None:
@@ -444,6 +451,20 @@ async def test_browser_page_blocks_unsafe_actions_in_safe_mode() -> None:
 async def test_browser_site_adapter_allowlist_overrides_site_allowlist() -> None:
     tool = BrowserSiteTool(browser_config=_BrowserAdapterConfig())
     blocked = await tool.execute(adapter="xueqiu/stock", args=["TSLA"])
+    allowed_shape = await tool.execute(adapter="xueqiu/hot-stock", args=["--bad"])
+    assert "adapter blocked by allowlist" in blocked
+    assert "must not include raw CLI flags" in allowed_shape
+
+
+async def test_browser_site_catalog_blocks_adapter_outside_catalog() -> None:
+    tool = BrowserSiteTool(browser_config=_BrowserCatalogConfig())
+    result = await tool.execute(adapter="reddit/search", args=["ai"])
+    assert "adapter blocked by allowlist" in result
+
+
+async def test_browser_site_catalog_overrides_legacy_allowlists() -> None:
+    tool = BrowserSiteTool(browser_config=_BrowserCatalogConfig())
+    blocked = await tool.execute(adapter="eastmoney/stock", args=["000001"])
     allowed_shape = await tool.execute(adapter="xueqiu/hot-stock", args=["--bad"])
     assert "adapter blocked by allowlist" in blocked
     assert "must not include raw CLI flags" in allowed_shape
