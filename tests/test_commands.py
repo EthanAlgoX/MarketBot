@@ -2517,3 +2517,45 @@ def test_skills_install_installs_to_workspace(tmp_path):
     install_mock.assert_called_once_with("daily-stock-screener", force=False)
     assert "Installed skill to" in result.stdout
     assert "Start a new agent session" in result.stdout
+
+
+def test_status_shows_browser_disabled_by_default(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+
+    with patch("marketbot.config.loader.get_config_path", return_value=tmp_path / "config.json"), patch(
+        "marketbot.config.loader.load_config", return_value=config
+    ):
+        result = runner.invoke(app, ["status"])
+
+    assert result.exit_code == 0
+    assert "Browser: disabled" in result.stdout
+
+
+def test_status_shows_browser_safety_configuration(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    config.tools.browser.enabled = True
+    config.tools.browser.command = "bb-browser"
+    config.tools.browser.mode = "sensitive"
+    config.tools.browser.allow_request_capture = True
+    config.tools.browser.allow_request_bodies = False
+    config.tools.browser.allow_sites = ["xueqiu", "reddit"]
+    config.tools.browser.allow_adapters = ["xueqiu/hot-stock"]
+    config.tools.browser.allow_domains = ["xueqiu.com", "reddit.com"]
+    config.tools.browser.allow_url_prefixes = ["https://www.youtube.com/watch?v="]
+
+    with patch("marketbot.config.loader.get_config_path", return_value=tmp_path / "config.json"), patch(
+        "marketbot.config.loader.load_config", return_value=config
+    ), patch("marketbot.cli.commands.shutil.which", return_value="/usr/local/bin/bb-browser"):
+        result = runner.invoke(app, ["status"])
+
+    assert result.exit_code == 0
+    assert "Browser: ✓" in result.stdout
+    assert "Browser mode: sensitive" in result.stdout
+    assert "Browser request capture: enabled" in result.stdout
+    assert "Browser request bodies: disabled" in result.stdout
+    assert "Browser allowSites: xueqiu, reddit" in result.stdout
+    assert "Browser allowAdapters: xueqiu/hot-stock" in result.stdout
+    assert "Browser allowDomains: xueqiu.com, reddit.com" in result.stdout
+    assert "Browser allowUrlPrefixes: https://www.youtube.com/watch?v=" in result.stdout

@@ -3221,6 +3221,34 @@ def status():
     console.print(f"Config: {config_path} {'[green]✓[/green]' if config_path.exists() else '[red]✗[/red]'}")
     console.print(f"Workspace: {workspace} {'[green]✓[/green]' if workspace.exists() else '[red]✗[/red]'}")
 
+    browser_cfg = config.tools.browser
+    browser_enabled = bool(browser_cfg.enabled)
+    browser_command = str(browser_cfg.command or "bb-browser").strip() or "bb-browser"
+    browser_binary = shutil.which(browser_command) if browser_enabled else None
+    browser_status = "[green]✓[/green]" if browser_enabled else "[dim]disabled[/dim]"
+    if browser_enabled and not browser_binary:
+        browser_status = "[yellow]! command not found[/yellow]"
+    console.print(f"Browser: {browser_status}")
+    if browser_enabled:
+        console.print(f"Browser mode: {browser_cfg.mode}")
+        console.print(f"Browser command: {browser_command}")
+        console.print(
+            "Browser request capture: "
+            + ("[yellow]enabled[/yellow]" if browser_cfg.allow_request_capture else "[dim]disabled[/dim]")
+        )
+        console.print(
+            "Browser request bodies: "
+            + ("[red]enabled[/red]" if browser_cfg.allow_request_bodies else "[dim]disabled[/dim]")
+        )
+        if browser_cfg.allow_sites:
+            console.print(f"Browser allowSites: {', '.join(browser_cfg.allow_sites)}")
+        if browser_cfg.allow_adapters:
+            console.print(f"Browser allowAdapters: {', '.join(browser_cfg.allow_adapters)}")
+        if browser_cfg.allow_domains:
+            console.print(f"Browser allowDomains: {', '.join(browser_cfg.allow_domains)}")
+        if browser_cfg.allow_url_prefixes:
+            console.print(f"Browser allowUrlPrefixes: {', '.join(browser_cfg.allow_url_prefixes)}")
+
     if config_path.exists():
         from marketbot.providers.registry import PROVIDERS
 
