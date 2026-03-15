@@ -15,10 +15,7 @@ not show up well in public APIs or generic news search.
    - `reddit/search`
    - `reddit/hot`
    - `reddit/thread`
-2. Typical calls:
-   - topic search: `browser_site(adapter="reddit/search", args=["NVDA earnings"])`
-   - subreddit heat: `browser_site(adapter="reddit/hot", args=["wallstreetbets"])`
-   - single thread: `browser_site(adapter="reddit/thread", args=["<thread-url-or-id>"])`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Extract:
    - recurring narratives
    - crowd positioning or meme intensity

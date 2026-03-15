@@ -19,10 +19,7 @@ verification from site search, dynamic pages, or logged-in discussion sources.
    - `reddit/search`
    - `zhihu/search`
    - `youtube/search`
-3. Typical calls:
-   - A-share rumor check: `browser_site(adapter="eastmoney/headlines", args=["宁德时代"])`
-   - ticker discussion cross-check: `browser_site(adapter="xueqiu/stock", args=["NVDA"])`
-   - community verification: `browser_site(adapter="reddit/search", args=["NVDA guidance"])`
+3. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 4. Compare:
    - whether the claim appears in site-native search
    - whether the wording changes across sources

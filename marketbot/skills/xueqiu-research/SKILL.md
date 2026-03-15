@@ -15,10 +15,7 @@ context that standard market APIs do not provide well.
    - `xueqiu/hot-stock`
    - `xueqiu/stock`
    - `xueqiu/feed`
-2. Typical calls:
-   - heat scan: `browser_site(adapter="xueqiu/hot-stock", args=["10"])`
-   - single stock page: `browser_site(adapter="xueqiu/stock", args=["NVDA"])`
-   - logged-in feed context: `browser_site(adapter="xueqiu/feed", args=["NVDA"])`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Summarize:
    - what is trending
    - what investors are discussing

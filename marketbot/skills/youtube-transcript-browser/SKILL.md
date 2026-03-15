@@ -15,10 +15,7 @@ video, podcast, interview, conference clip, or earnings discussion.
    - `youtube/transcript`
    - `youtube/search`
    - `youtube/video`
-2. Typical calls:
-   - transcript pull: `browser_site(adapter="youtube/transcript", args=["<video-url-or-id>"])`
-   - channel/topic search: `browser_site(adapter="youtube/search", args=["NVDA Jensen Huang interview"])`
-   - metadata fallback: `browser_site(adapter="youtube/video", args=["<video-url-or-id>"])`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Extract:
    - key claims
    - management or speaker tone
