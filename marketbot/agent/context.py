@@ -27,6 +27,7 @@ class ContextBuilder:
         self.memory_layer = "L1"
         self.available_tools: set[str] | None = None
         self.market_runtime_profile: dict[str, dict[str, list[str]]] | None = None
+        self.browser_adapter_catalog: list[str] = []
         self.last_skill_routing: dict[str, Any] | None = None
 
     def set_memory_layer(self, layer: str) -> None:
@@ -44,6 +45,20 @@ class ContextBuilder:
     def set_market_runtime_profile(self, profile: dict[str, dict[str, list[str]]] | None) -> None:
         """Set market-domain runtime capabilities for market-aware skill filtering."""
         self.market_runtime_profile = profile
+
+    def set_browser_adapter_catalog(self, adapters: list[str] | None) -> None:
+        """Set the configured browser adapter catalog for prompt-time discoverability."""
+        if not adapters:
+            self.browser_adapter_catalog = []
+            return
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in adapters:
+            value = str(raw or "").strip()
+            if value and value not in seen:
+                normalized.append(value)
+                seen.add(value)
+        self.browser_adapter_catalog = normalized
 
     def get_last_skill_routing(self) -> dict[str, Any] | None:
         """Return the last structured skill-routing result built for a message."""
@@ -112,6 +127,10 @@ class ContextBuilder:
             )
             if always_content:
                 parts.append(f"# Active Skills\n\n{always_content}")
+
+        browser_catalog = self._format_browser_adapter_catalog()
+        if browser_catalog:
+            parts.append(browser_catalog)
 
         skills_summary = self.skills.build_skills_summary(available_tools=self.available_tools) if include_skills_summary else ""
         if skills_summary:
@@ -463,6 +482,25 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "github issue",
             "zhihu",
             "知乎",
+            "weibo",
+            "微博",
+            "bilibili",
+            "b站",
+            "xiaohongshu",
+            "小红书",
+            "twitter",
+            "tweet thread",
+            "fintwit",
+            "hacker news",
+            "hn thread",
+            "douban",
+            "豆瓣",
+            "linkedin",
+            "company page",
+            "stack overflow",
+            "stackoverflow",
+            "wikipedia",
+            "wiki summary",
             "verify news",
             "cross-check headline",
             "source verify",
@@ -540,6 +578,24 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                 consider("github-browser-research")
             if "zhihu" in text or "知乎" in text:
                 consider("zhihu-browser-research")
+            if "weibo" in text or "微博" in text:
+                consider("weibo-browser-research")
+            if "bilibili" in text or "b站" in text:
+                consider("bilibili-browser-research")
+            if "xiaohongshu" in text or "小红书" in text or "rednote" in text:
+                consider("xiaohongshu-browser-research")
+            if "twitter" in text or "tweet thread" in text or "fintwit" in text:
+                consider("twitter-browser-research")
+            if "hacker news" in text or "hn thread" in text:
+                consider("hackernews-browser-research")
+            if "douban" in text or "豆瓣" in text:
+                consider("douban-browser-research")
+            if "linkedin" in text or "company page" in text:
+                consider("linkedin-browser-research")
+            if "stack overflow" in text or "stackoverflow" in text:
+                consider("stackoverflow-browser-research")
+            if "wikipedia" in text or "wiki summary" in text:
+                consider("wikipedia-browser-research")
             if "verify news" in text or "cross-check headline" in text or "source verify" in text:
                 consider("browser-news-verifier")
             if "youtube transcript" in text or "video transcript" in text:
@@ -641,6 +697,20 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                 lines.append(f"  description: {description}")
             if url:
                 lines.append(f"  source: {url}")
+        return "\n".join(lines)
+
+    def _format_browser_adapter_catalog(self) -> str:
+        """Render configured browser adapters as runtime guidance."""
+        if not self.browser_adapter_catalog:
+            return ""
+        lines = [
+            "# Browser Adapter Catalog",
+            "These browser_site adapters are configured for this runtime. Prefer them over ad hoc adapter guesses.",
+        ]
+        for adapter in self.browser_adapter_catalog[:20]:
+            lines.append(f"- {adapter}")
+        if len(self.browser_adapter_catalog) > 20:
+            lines.append(f"- ... and {len(self.browser_adapter_catalog) - 20} more")
         return "\n".join(lines)
 
     def _build_user_content(self, text: str, media: list[str] | None) -> str | list[dict[str, Any]]:

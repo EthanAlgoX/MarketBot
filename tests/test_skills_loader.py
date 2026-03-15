@@ -28,6 +28,15 @@ def test_builtin_market_skills_are_discoverable(tmp_path):
     assert "github-browser-research" in names
     assert "zhihu-browser-research" in names
     assert "browser-news-verifier" in names
+    assert "weibo-browser-research" in names
+    assert "bilibili-browser-research" in names
+    assert "xiaohongshu-browser-research" in names
+    assert "twitter-browser-research" in names
+    assert "hackernews-browser-research" in names
+    assert "douban-browser-research" in names
+    assert "linkedin-browser-research" in names
+    assert "stackoverflow-browser-research" in names
+    assert "wikipedia-browser-research" in names
 
 
 def test_market_report_skill_content_is_loadable(tmp_path):

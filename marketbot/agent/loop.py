@@ -151,6 +151,7 @@ class AgentLoop:
         self._register_default_tools()
         self.context.set_available_tools(self.tools.tool_names)
         self.context.set_market_runtime_profile(build_market_runtime_profile(self.market_config))
+        self.context.set_browser_adapter_catalog(getattr(self.browser_config, "adapter_catalog", []) if self.browser_config else [])
 
     def _register_default_tools(self) -> None:
         """Register the default set of tools."""

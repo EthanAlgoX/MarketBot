@@ -34,7 +34,7 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `market-analysis` | `market-report`, `market-monitor`, `market-discovery`, `news-intelligence`, `sentiment-analysis`, `macro-regime`, `sector-breadth` |
 | `event-driven` | `catalyst-tracker`, `earnings-readout`, `risk-checklist` |
 | `screening-and-watch` | `daily-stock-screener`, `stock-watch`, `portfolio-analyzer` |
-| `specialist-research` | `options-payoff`, `pair-correlation`, `stock-data-sourcing`, `stock-info-explorer`, `wechat-article-search`, `xueqiu-research`, `eastmoney-live`, `social-signal-browser`, `reddit-research`, `youtube-transcript-browser`, `github-browser-research`, `zhihu-browser-research`, `browser-news-verifier` |
+| `specialist-research` | `options-payoff`, `pair-correlation`, `stock-data-sourcing`, `stock-info-explorer`, `wechat-article-search`, `xueqiu-research`, `eastmoney-live`, `social-signal-browser`, `reddit-research`, `youtube-transcript-browser`, `github-browser-research`, `zhihu-browser-research`, `browser-news-verifier`, `weibo-browser-research`, `bilibili-browser-research`, `xiaohongshu-browser-research`, `twitter-browser-research`, `hackernews-browser-research`, `douban-browser-research`, `linkedin-browser-research`, `stackoverflow-browser-research`, `wikipedia-browser-research` |
 | `platform-utility` | `github`, `summarize`, `weather`, `cron`, `tmux`, `clawhub`, `find-skills` |
 
 | Skill | Description |
@@ -58,6 +58,15 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `github-browser-research` | Use browser-backed GitHub adapters for repo, issue, and discussion research |
 | `zhihu-browser-research` | Use browser-backed Zhihu adapters for topic heat and Chinese narrative context |
 | `browser-news-verifier` | Use browser-backed site-native sources to verify or cross-check headlines and claims |
+| `weibo-browser-research` | Use browser-backed Weibo adapters for topic heat and public narrative momentum |
+| `bilibili-browser-research` | Use browser-backed Bilibili adapters for video and comment-driven market narratives |
+| `xiaohongshu-browser-research` | Use browser-backed Xiaohongshu adapters for consumer-attention and brand heat signals |
+| `twitter-browser-research` | Use browser-backed Twitter/X adapters for threads and fast market commentary |
+| `hackernews-browser-research` | Use browser-backed Hacker News adapters for technical and launch discussion |
+| `douban-browser-research` | Use browser-backed Douban adapters for cultural heat and entertainment attention |
+| `linkedin-browser-research` | Use browser-backed LinkedIn adapters for professional signals and hiring context |
+| `stackoverflow-browser-research` | Use browser-backed Stack Overflow adapters for developer friction and adoption signals |
+| `wikipedia-browser-research` | Use browser-backed Wikipedia adapters for concise background and historical context |
 | `daily-stock-screener` | Screen daily stock watchlists into ranked candidates |
 | `catalyst-tracker` | Build a catalyst list and event calendar |
 | `risk-checklist` | Generate trade risk and position-sizing guardrails |

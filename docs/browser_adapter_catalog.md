@@ -49,6 +49,24 @@ Example:
 - `github/repo`
 - `zhihu/search`
 - `zhihu/hot`
+- `weibo/search`
+- `weibo/hot`
+- `bilibili/search`
+- `bilibili/video`
+- `xiaohongshu/search`
+- `xiaohongshu/hot`
+- `twitter/search`
+- `twitter/thread`
+- `hackernews/search`
+- `hackernews/thread`
+- `douban/search`
+- `douban/movie`
+- `linkedin/search`
+- `linkedin/profile`
+- `stackoverflow/search`
+- `stackoverflow/thread`
+- `wikipedia/search`
+- `wikipedia/summary`
 
 ## Usage Guidance
 

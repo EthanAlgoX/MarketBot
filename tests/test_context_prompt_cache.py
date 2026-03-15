@@ -85,6 +85,18 @@ def test_system_prompt_includes_market_analysis_playbook(tmp_path) -> None:
     assert "`market_signal`" in prompt
 
 
+def test_system_prompt_includes_browser_adapter_catalog_when_configured(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_browser_adapter_catalog(["xueqiu/hot-stock", "reddit/search"])
+
+    prompt = builder.build_system_prompt()
+
+    assert "# Browser Adapter Catalog" in prompt
+    assert "- xueqiu/hot-stock" in prompt
+    assert "- reddit/search" in prompt
+
+
 def test_non_market_message_omits_market_playbook_from_runtime_prompt(tmp_path, monkeypatch) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)
@@ -507,6 +519,150 @@ def test_browser_news_verifier_message_auto_injects_verifier_skill(tmp_path) -> 
 
     prompt = messages[0]["content"]
     assert "### Skill: browser-news-verifier" in prompt
+
+
+def test_browser_weibo_message_auto_injects_weibo_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Check Weibo topic heat around this market event.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: weibo-browser-research" in prompt
+
+
+def test_browser_bilibili_message_auto_injects_bilibili_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Look at B站 creator discussion and comments for this theme.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: bilibili-browser-research" in prompt
+
+
+def test_browser_xiaohongshu_message_auto_injects_xiaohongshu_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Check 小红书 consumer sentiment and note heat for this brand.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: xiaohongshu-browser-research" in prompt
+
+
+def test_browser_twitter_message_auto_injects_twitter_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Search Twitter thread discussion and FinTwit commentary for this ticker.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: twitter-browser-research" in prompt
+
+
+def test_browser_hackernews_message_auto_injects_hn_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Check Hacker News thread reaction to this AI product launch.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: hackernews-browser-research" in prompt
+
+
+def test_browser_douban_message_auto_injects_douban_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Check 豆瓣 rating and culture heat for this movie-related company.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: douban-browser-research" in prompt
+
+
+def test_browser_linkedin_message_auto_injects_linkedin_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Use LinkedIn company page and hiring signal context for this firm.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: linkedin-browser-research" in prompt
+
+
+def test_browser_stackoverflow_message_auto_injects_stackoverflow_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Search Stack Overflow for implementation friction around this API.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: stackoverflow-browser-research" in prompt
+
+
+def test_browser_wikipedia_message_auto_injects_wikipedia_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Get a Wikipedia summary and background research for this historical event.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: wikipedia-browser-research" in prompt
 
 
 def test_runtime_tool_availability_allows_monitor_when_required_tools_exist(tmp_path) -> None:
