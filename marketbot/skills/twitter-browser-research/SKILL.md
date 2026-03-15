@@ -11,17 +11,22 @@ search, or fast-moving social discussion around an asset, theme, or event.
 
 ## Workflow
 
-1. Use `browser_site` with Twitter/X adapters such as:
+1. Use `browser_site` with Twitter/X adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `twitter/search`
    - `twitter/thread`
    - `twitter/user`
-2. Focus on:
+2. Typical calls:
+   - topic search: `browser_site(adapter="twitter/search", args=["NVDA guidance"])`
+   - single thread: `browser_site(adapter="twitter/thread", args=["<thread-url-or-id>"])`
+   - source account view: `browser_site(adapter="twitter/user", args=["@sama"])`
+3. Focus on:
    - recurring narratives
    - analyst or trader commentary
    - whether sentiment is accelerating or reversing
-3. Pair with `sentiment-analysis` when a weighted conclusion is needed.
+4. Pair with `sentiment-analysis` when a weighted conclusion is needed.
 
 ## Rules
 
+- Do not guess undocumented `twitter/*` adapters. If the catalog does not expose the adapter you want, say so and use the closest listed adapter instead.
 - Treat Twitter/X as fast signal and distribution context, not verified fact by itself.
 - Separate original reporting from repeated hot takes or engagement bait.

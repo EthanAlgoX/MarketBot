@@ -11,17 +11,22 @@ context from Bilibili around a market theme, company, or sector.
 
 ## Workflow
 
-1. Use `browser_site` with Bilibili adapters such as:
+1. Use `browser_site` with Bilibili adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `bilibili/search`
    - `bilibili/video`
    - `bilibili/comments`
-2. Extract:
+2. Typical calls:
+   - topic search: `browser_site(adapter="bilibili/search", args=["英伟达 财报"])`
+   - single video: `browser_site(adapter="bilibili/video", args=["<video-url-or-id>"])`
+   - comments scan: `browser_site(adapter="bilibili/comments", args=["<video-url-or-id>"])`
+3. Extract:
    - recurring talking points
    - creator framing
    - audience comment tone and engagement
-3. Pair with `youtube-transcript-browser` when comparing Chinese and global video narratives.
+4. Pair with `youtube-transcript-browser` when comparing Chinese and global video narratives.
 
 ## Rules
 
+- Do not invent undocumented `bilibili/*` adapters. If the runtime catalog does not expose the one you need, say so and fall back to the closest listed adapter.
 - Distinguish creator opinion from source-backed facts.
 - Use comments as sentiment context, not evidence of fundamentals.

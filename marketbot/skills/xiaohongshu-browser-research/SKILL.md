@@ -11,16 +11,20 @@ attention signals that do not show up in market news or traditional social APIs.
 
 ## Workflow
 
-1. Use `browser_site` with Xiaohongshu adapters such as:
+1. Use `browser_site` with Xiaohongshu adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `xiaohongshu/search`
    - `xiaohongshu/hot`
-2. Extract:
+2. Typical calls:
+   - keyword search: `browser_site(adapter="xiaohongshu/search", args=["lululemon 热度"])`
+   - hot topic view: `browser_site(adapter="xiaohongshu/hot")`
+3. Extract:
    - product or brand heat
    - recurring user narratives
    - demand or preference signals
-3. Pair with `social-signal-browser` when retail attention is part of the thesis.
+4. Pair with `social-signal-browser` when retail attention is part of the thesis.
 
 ## Rules
 
+- Do not invent undocumented `xiaohongshu/*` adapters. If the runtime catalog does not expose the adapter you need, say so and continue with the closest listed adapter.
 - Treat Xiaohongshu as consumer-attention context, not direct proof of revenue or sell-through.
 - Separate brand buzz from transaction data.

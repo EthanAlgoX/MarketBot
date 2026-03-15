@@ -11,16 +11,20 @@ more useful than plain API output.
 
 ## Workflow
 
-1. Use `browser_site` with Eastmoney adapters such as:
+1. Use `browser_site` with Eastmoney adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `eastmoney/stock`
    - `eastmoney/headlines`
-2. Extract:
+2. Typical calls:
+   - stock page context: `browser_site(adapter="eastmoney/stock", args=["000001"])`
+   - headline or newsflash check: `browser_site(adapter="eastmoney/headlines", args=["宁德时代"])`
+3. Extract:
    - stock-page highlights
    - latest headlines or newsflash context
    - retail-facing market heat
-3. Pair with `market-report` or `news-intelligence` for structured synthesis.
+4. Pair with `market-report` or `news-intelligence` for structured synthesis.
 
 ## Rules
 
+- Do not invent undocumented `eastmoney/*` adapters. If the runtime catalog does not expose the one you need, say so and continue with the closest listed adapter.
 - Use this as a site-native supplement, not a replacement for validated quote tools.
 - Explicitly mark page-derived context when exact fields are not standardized.
