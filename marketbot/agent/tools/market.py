@@ -97,6 +97,19 @@ def _eastmoney_secid(symbol: str) -> str | None:
     return f"{market}.{code}"
 
 
+def _is_hk_symbol(symbol: str) -> bool:
+    """Return True for Hong Kong tickers supported by Eastmoney."""
+    text = str(symbol or "").strip().upper()
+    if not text:
+        return False
+    if text.startswith("HK") and len(text) == 7 and text[2:].isdigit():
+        return True
+    if text.endswith(".HK"):
+        code = text[:-3]
+        return len(code) == 5 and code.isdigit()
+    return len(text) == 5 and text.isdigit()
+
+
 def _weighted_price_band(points: list[tuple[float, float]], lower_q: float, upper_q: float) -> tuple[float, float]:
     """Return weighted quantile price band for normalized (price, weight) pairs."""
     if not points:
@@ -213,6 +226,9 @@ class MarketSnapshotTool(Tool):
     async def _fetch_eastmoney(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_eastmoney(symbols)
 
+    async def _fetch_tencent_hk(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        return await self._service.fetch_tencent_hk(symbols)
+
     async def _fetch_auto(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_auto(symbols)
 
@@ -225,7 +241,16 @@ class MarketSnapshotTool(Tool):
             return json.dumps({"error": "no valid symbols provided"}, ensure_ascii=False)
 
         self._service.reset_health()
-        if self._source == "mock":
+        use_cn_eastmoney = any(_is_a_share_symbol(symbol) for symbol in normalized)
+        use_hk_tencent = any(_is_hk_symbol(symbol) for symbol in normalized)
+        if self._source == "yahoo" and use_cn_eastmoney:
+            effective_source = "eastmoney"
+        elif self._source == "yahoo" and use_hk_tencent:
+            effective_source = "tencent_hk"
+        else:
+            effective_source = self._source
+
+        if effective_source == "mock":
             rows = [self._mock_quote(symbol) for symbol in normalized]
             warnings: list[str] = []
             self._service.record_health(
@@ -233,7 +258,7 @@ class MarketSnapshotTool(Tool):
                 reason="Deterministic mock quote source selected.",
                 provider_chain=["mock"],
             )
-        elif self._source == "eastmoney":
+        elif effective_source == "eastmoney":
             rows, warnings = await self._fetch_eastmoney(normalized)
             if not rows:
                 rows = [self._mock_quote(symbol) for symbol in normalized]
@@ -245,7 +270,19 @@ class MarketSnapshotTool(Tool):
                     reason="Eastmoney returned no usable quotes; falling back to mock.",
                     provider_chain=["eastmoney", "mock"],
                 )
-        elif self._source == "auto":
+        elif effective_source == "tencent_hk":
+            rows, warnings = await self._fetch_tencent_hk(normalized)
+            if not rows:
+                rows = [self._mock_quote(symbol) for symbol in normalized]
+                warnings.append("quote source fallback: mock")
+                self._service.record_health(
+                    "mock",
+                    fallback=True,
+                    warnings=warnings,
+                    reason="Tencent HK returned no usable quotes; falling back to mock.",
+                    provider_chain=["tencent_hk", "mock"],
+                )
+        elif effective_source == "auto":
             rows, warnings = await self._fetch_auto(normalized)
             if not rows:
                 rows = [self._mock_quote(symbol) for symbol in normalized]
@@ -257,7 +294,7 @@ class MarketSnapshotTool(Tool):
                     reason="Auto quote routing returned no usable quotes; falling back to mock.",
                     provider_chain=["eastmoney", "yahoo", "mock"],
                 )
-        elif self._source == "yfinance":
+        elif effective_source == "yfinance":
             rows, warnings = await self._fetch_yfinance(normalized)
             if not rows:
                 rows = [self._mock_quote(symbol) for symbol in normalized]
@@ -269,7 +306,7 @@ class MarketSnapshotTool(Tool):
                     reason="YFinance alias returned no usable quotes; falling back to mock.",
                     provider_chain=["yfinance", "mock"],
                 )
-        elif self._source == "tradingview":
+        elif effective_source == "tradingview":
             rows, warnings = await self._fetch_tradingview(normalized)
             if not rows:
                 rows = [self._mock_quote(symbol) for symbol in normalized]
@@ -296,7 +333,7 @@ class MarketSnapshotTool(Tool):
 
         result: dict[str, Any] = {
             "asOf": _utc_now_iso(),
-            "source": self._source,
+            "source": effective_source,
             "symbols": normalized,
             "quotes": rows,
             "warnings": warnings,

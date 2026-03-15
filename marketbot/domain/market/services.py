@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -39,6 +40,31 @@ def normalize_a_share_symbol(symbol: str) -> str:
     text = str(symbol or "").strip().upper()
     if text.startswith(("SH", "SZ")) and len(text) == 8 and text[2:].isdigit():
         return text[2:]
+    return text
+
+
+def is_hk_symbol(symbol: str) -> bool:
+    """Return True for Hong Kong tickers supported by Eastmoney."""
+    text = str(symbol or "").strip().upper()
+    if not text:
+        return False
+    if text.startswith("HK") and len(text) == 7 and text[2:].isdigit():
+        return True
+    if text.endswith(".HK"):
+        code = text[:-3]
+        return len(code) == 5 and code.isdigit()
+    return len(text) == 5 and text.isdigit()
+
+
+def normalize_hk_symbol(symbol: str) -> str:
+    """Normalize Hong Kong tickers to a 5-digit code."""
+    text = str(symbol or "").strip().upper()
+    if text.startswith("HK") and len(text) == 7 and text[2:].isdigit():
+        return text[2:]
+    if text.endswith(".HK"):
+        code = text[:-3]
+        if len(code) == 5 and code.isdigit():
+            return code
     return text
 
 
@@ -165,6 +191,12 @@ class MarketSnapshotService(MarketDomainService):
         self.timeout = float(config.request_timeout_s) if config else 12.0
         self.source = config.quote_source if config else "yahoo"
 
+    def _get_json_sync(self, url: str, *, params: dict[str, Any]) -> dict[str, Any]:
+        """Fetch JSON with sync httpx for endpoints that misbehave under AsyncClient."""
+        response = httpx.get(url, params=params, timeout=self.timeout, follow_redirects=True)
+        response.raise_for_status()
+        return response.json()
+
     async def _fetch_yahoo_uncached(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         warnings: list[str] = []
         try:
@@ -256,10 +288,11 @@ class MarketSnapshotService(MarketDomainService):
             "secids": ",".join(secid for _, secid in secid_pairs),
         }
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get("https://push2.eastmoney.com/api/qt/ulist.np/get", params=params)
-                response.raise_for_status()
-                payload = response.json()
+            payload = await asyncio.to_thread(
+                self._get_json_sync,
+                "https://push2.eastmoney.com/api/qt/ulist.np/get",
+                params=params,
+            )
         except Exception as e:
             logger.error("market_snapshot eastmoney fetch failed: {}", e)
             return [], warnings + [f"eastmoney quote fetch failed: {e}"]
@@ -281,6 +314,7 @@ class MarketSnapshotService(MarketDomainService):
             change_pct = float(raw.get("f3") or 0.0)
             volume = int(float(raw.get("f5") or 0.0))
             momentum = "up" if change_pct >= 1.0 else "down" if change_pct <= -1.0 else "flat"
+            is_hk = len(code) == 5 and code.isdigit()
             rows.append(
                 {
                     "symbol": code,
@@ -294,7 +328,7 @@ class MarketSnapshotService(MarketDomainService):
                     "flowRatio": None,
                     "flowHint": "neutral",
                     "momentum": momentum,
-                    "currency": "CNY",
+                    "currency": "HKD" if is_hk else "CNY",
                     "marketState": "REGULAR",
                     "open": raw.get("f17"),
                     "high": raw.get("f15"),
@@ -321,9 +355,96 @@ class MarketSnapshotService(MarketDomainService):
         )
         return rows, warnings
 
+    async def _fetch_tencent_hk_uncached(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        warnings: list[str] = []
+        hk_codes = [normalize_hk_symbol(symbol) for symbol in symbols if is_hk_symbol(symbol)]
+        if not hk_codes:
+            return [], warnings
+
+        query = ",".join(f"hk{code}" for code in hk_codes)
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+                response = await client.get(f"https://qt.gtimg.cn/q={query}")
+                response.raise_for_status()
+                text = response.text
+        except Exception as e:
+            logger.error("market_snapshot tencent hk fetch failed: {}", e)
+            return [], [f"tencent hk quote fetch failed: {e}"]
+
+        rows: list[dict[str, Any]] = []
+        for line in [item.strip() for item in text.split(";") if item.strip()]:
+            if '="' not in line:
+                continue
+            prefix, payload = line.split('="', 1)
+            raw = payload.rstrip('"')
+            parts = raw.split("~")
+            if len(parts) < 38:
+                continue
+            symbol = parts[2].strip().upper()
+            if not symbol:
+                continue
+            try:
+                price = float(parts[3]) if parts[3] else None
+                pre_close = float(parts[4]) if parts[4] else None
+                open_price = float(parts[5]) if parts[5] else None
+                volume = int(float(parts[6] or 0.0))
+                change_amount = float(parts[31]) if parts[31] else None
+                change_pct = float(parts[32]) if parts[32] else 0.0
+                high = float(parts[33]) if parts[33] else None
+                low = float(parts[34]) if parts[34] else None
+                amount = float(parts[37]) if parts[37] else None
+            except ValueError:
+                warnings.append(f"invalid tencent hk quote payload for {symbol}")
+                continue
+
+            momentum = "up" if change_pct >= 1.0 else "down" if change_pct <= -1.0 else "flat"
+            rows.append(
+                {
+                    "symbol": symbol,
+                    "name": parts[1].strip() or None,
+                    "price": price,
+                    "changePct": round(change_pct, 4),
+                    "changeAmount": change_amount,
+                    "volume": volume,
+                    "avgVolume": None,
+                    "amount": amount,
+                    "flowRatio": None,
+                    "flowHint": "neutral",
+                    "momentum": momentum,
+                    "currency": "HKD",
+                    "marketState": "REGULAR",
+                    "open": open_price,
+                    "high": high,
+                    "low": low,
+                    "preClose": pre_close,
+                }
+            )
+
+        missing = [code for code in hk_codes if code not in {str(row.get("symbol", "")).upper() for row in rows}]
+        warnings.extend([f"missing tencent hk quote for {code}" for code in missing])
+        return rows, warnings
+
+    async def fetch_tencent_hk(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        result, cached = await self.cached_call(
+            "tencent_hk",
+            "market_snapshot_tencent_hk",
+            (symbols,),
+            lambda: self._fetch_tencent_hk_uncached(symbols),
+        )
+        rows, warnings = result
+        self.record_health(
+            "tencent_hk",
+            warnings=warnings,
+            cached=cached,
+            reason="Tencent quote routing for Hong Kong tickers.",
+            provider_chain=["tencent_hk"],
+        )
+        return rows, warnings
+
     async def fetch_auto(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         cn_symbols = [symbol for symbol in symbols if is_a_share_symbol(symbol)]
-        global_symbols = [symbol for symbol in symbols if symbol not in cn_symbols]
+        hk_symbols = [symbol for symbol in symbols if is_hk_symbol(symbol)]
+        global_symbols = [symbol for symbol in symbols if symbol not in cn_symbols and symbol not in hk_symbols]
 
         rows: list[dict[str, Any]] = []
         warnings: list[str] = []
@@ -332,6 +453,11 @@ class MarketSnapshotService(MarketDomainService):
             cn_rows, cn_warnings = await self.fetch_eastmoney(cn_symbols)
             rows.extend(cn_rows)
             warnings.extend(cn_warnings)
+
+        if hk_symbols:
+            hk_rows, hk_warnings = await self.fetch_tencent_hk(hk_symbols)
+            rows.extend(hk_rows)
+            warnings.extend(hk_warnings)
 
         if global_symbols:
             global_rows, global_warnings = await self.fetch_yahoo(global_symbols)
