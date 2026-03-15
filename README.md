@@ -256,8 +256,6 @@ marketbot skills install k8s-release
 
 ## 开发
 
-### 建议先看这些目录
-
 | 路径 | 说明 |
 | --- | --- |
 | `marketbot/agent/` | runtime loop、context、session 处理 |
@@ -269,13 +267,13 @@ marketbot skills install k8s-release
 | `marketbot/market_reporting.py` | 报告渲染与 explainability 输出 |
 | `tests/` | 回归测试 |
 
-### 跑测试
+常用命令：
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin
 ```
 
-### 新增一个金融能力的常见路径
+新增一个金融能力的常见路径：
 
 1. 在 `marketbot/skills/<name>/SKILL.md` 新增或调整 skill
 2. 给 skill 增加触发条件、输出、风险、freshness、市场、资产类别、required tools 等 metadata

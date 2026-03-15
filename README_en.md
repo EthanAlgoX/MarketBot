@@ -256,8 +256,6 @@ Installed external skills are written to `workspace/skills/` and loaded as works
 
 ## Development
 
-### Useful directories
-
 | Path | Purpose |
 | --- | --- |
 | `marketbot/agent/` | runtime loop, context, session processing |
@@ -269,13 +267,13 @@ Installed external skills are written to `workspace/skills/` and loaded as works
 | `marketbot/market_reporting.py` | report rendering and explainability output |
 | `tests/` | regression coverage |
 
-### Run tests
+Common command:
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin
 ```
 
-### Typical path for adding a new finance capability
+Typical path for adding a new finance capability:
 
 1. add or update a skill in `marketbot/skills/<name>/SKILL.md`
 2. declare metadata for triggers, output, risk, freshness, markets, asset classes, and required tools
