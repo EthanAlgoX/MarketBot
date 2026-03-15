@@ -98,16 +98,22 @@ def _eastmoney_secid(symbol: str) -> str | None:
 
 
 def _is_hk_symbol(symbol: str) -> bool:
-    """Return True for Hong Kong tickers supported by Eastmoney."""
+    """Return True for Hong Kong tickers supported by Tencent HK quotes."""
     text = str(symbol or "").strip().upper()
     if not text:
         return False
-    if text.startswith("HK") and len(text) == 7 and text[2:].isdigit():
+    if text.startswith("HK") and 1 <= len(text[2:]) <= 5 and text[2:].isdigit():
         return True
     if text.endswith(".HK"):
         code = text[:-3]
-        return len(code) == 5 and code.isdigit()
-    return len(text) == 5 and text.isdigit()
+        return 1 <= len(code) <= 5 and code.isdigit()
+    return 1 <= len(text) <= 5 and text.isdigit()
+
+
+def _is_us_symbol(symbol: str) -> bool:
+    """Return True for plain US stock / ETF tickers supported by Tencent US quotes."""
+    text = str(symbol or "").strip().upper()
+    return bool(re.fullmatch(r"[A-Z]{1,6}", text))
 
 
 def _weighted_price_band(points: list[tuple[float, float]], lower_q: float, upper_q: float) -> tuple[float, float]:
@@ -229,6 +235,12 @@ class MarketSnapshotTool(Tool):
     async def _fetch_tencent_hk(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_tencent_hk(symbols)
 
+    async def _fetch_tencent_cn(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        return await self._service.fetch_tencent_cn(symbols)
+
+    async def _fetch_tencent_us(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        return await self._service.fetch_tencent_us(symbols)
+
     async def _fetch_auto(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_auto(symbols)
 
@@ -241,12 +253,15 @@ class MarketSnapshotTool(Tool):
             return json.dumps({"error": "no valid symbols provided"}, ensure_ascii=False)
 
         self._service.reset_health()
-        use_cn_eastmoney = any(_is_a_share_symbol(symbol) for symbol in normalized)
+        use_cn_tencent = any(_is_a_share_symbol(symbol) for symbol in normalized)
         use_hk_tencent = any(_is_hk_symbol(symbol) for symbol in normalized)
-        if self._source == "yahoo" and use_cn_eastmoney:
-            effective_source = "eastmoney"
+        use_us_tencent = any(_is_us_symbol(symbol) for symbol in normalized)
+        if self._source == "yahoo" and use_cn_tencent:
+            effective_source = "tencent_cn"
         elif self._source == "yahoo" and use_hk_tencent:
             effective_source = "tencent_hk"
+        elif self._source == "yahoo" and use_us_tencent:
+            effective_source = "tencent_us"
         else:
             effective_source = self._source
 
@@ -270,6 +285,18 @@ class MarketSnapshotTool(Tool):
                     reason="Eastmoney returned no usable quotes; falling back to mock.",
                     provider_chain=["eastmoney", "mock"],
                 )
+        elif effective_source == "tencent_cn":
+            rows, warnings = await self._fetch_tencent_cn(normalized)
+            if not rows:
+                rows = [self._mock_quote(symbol) for symbol in normalized]
+                warnings.append("quote source fallback: mock")
+                self._service.record_health(
+                    "mock",
+                    fallback=True,
+                    warnings=warnings,
+                    reason="Tencent CN returned no usable quotes; falling back to mock.",
+                    provider_chain=["tencent_cn", "mock"],
+                )
         elif effective_source == "tencent_hk":
             rows, warnings = await self._fetch_tencent_hk(normalized)
             if not rows:
@@ -281,6 +308,18 @@ class MarketSnapshotTool(Tool):
                     warnings=warnings,
                     reason="Tencent HK returned no usable quotes; falling back to mock.",
                     provider_chain=["tencent_hk", "mock"],
+                )
+        elif effective_source == "tencent_us":
+            rows, warnings = await self._fetch_tencent_us(normalized)
+            if not rows:
+                rows = [self._mock_quote(symbol) for symbol in normalized]
+                warnings.append("quote source fallback: mock")
+                self._service.record_health(
+                    "mock",
+                    fallback=True,
+                    warnings=warnings,
+                    reason="Tencent US returned no usable quotes; falling back to mock.",
+                    provider_chain=["tencent_us", "mock"],
                 )
         elif effective_source == "auto":
             rows, warnings = await self._fetch_auto(normalized)

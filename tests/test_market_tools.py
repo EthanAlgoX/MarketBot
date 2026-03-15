@@ -123,6 +123,42 @@ def test_market_snapshot_tencent_hk_source(monkeypatch) -> None:
     assert payload["quotes"][0]["currency"] == "HKD"
 
 
+def test_market_snapshot_tencent_hk_source_accepts_4_digit_symbol(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="yahoo", default_symbols=["9961.HK"])
+    tool = MarketSnapshotTool(config=cfg)
+
+    async def _fake_fetch_tencent_hk(symbols):
+        assert symbols == ["9961.HK"]
+        return (
+            [
+                {
+                    "symbol": "09961",
+                    "name": "携程集团-S",
+                    "price": 401.6,
+                    "changePct": -1.38,
+                    "volume": 1359257,
+                    "avgVolume": None,
+                    "flowRatio": None,
+                    "flowHint": "neutral",
+                    "momentum": "down",
+                    "currency": "HKD",
+                    "marketState": "REGULAR",
+                }
+            ],
+            [],
+        )
+
+    async def _fake_fetch_yahoo(symbols):
+        raise AssertionError("yahoo should not run for 4-digit HK symbols when tencent hk fallback is available")
+
+    monkeypatch.setattr(tool, "_fetch_tencent_hk", _fake_fetch_tencent_hk)
+    monkeypatch.setattr(tool, "_fetch_yahoo", _fake_fetch_yahoo)
+    payload = json.loads(_run(tool.execute(symbols=["9961.HK"])))
+    assert payload["source"] == "tencent_hk"
+    assert payload["quotes"][0]["symbol"] == "09961"
+    assert payload["quotes"][0]["currency"] == "HKD"
+
+
 def test_market_snapshot_yfinance_source(monkeypatch) -> None:
     cfg = MarketToolsConfig(quote_source="yfinance", default_symbols=["NVDA"])
     tool = MarketSnapshotTool(config=cfg)
@@ -213,6 +249,72 @@ def test_market_snapshot_auto_routes_hk_to_tencent(monkeypatch) -> None:
     assert payload["source"] == "auto"
     assert payload["quotes"][0]["symbol"] == "07709"
     assert payload["quotes"][0]["currency"] == "HKD"
+
+
+def test_market_snapshot_auto_routes_cn_to_tencent(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="auto", default_symbols=["513100"])
+    tool = MarketSnapshotTool(config=cfg)
+
+    async def _fake_fetch_auto(symbols):
+        assert symbols == ["513100"]
+        return (
+            [
+                {
+                    "symbol": "513100",
+                    "price": 1.767,
+                    "changePct": -0.95,
+                    "volume": 1399438,
+                    "avgVolume": None,
+                    "flowRatio": None,
+                    "flowHint": "neutral",
+                    "momentum": "flat",
+                    "currency": "CNY",
+                    "marketState": "REGULAR",
+                }
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(tool, "_fetch_auto", _fake_fetch_auto)
+    payload = json.loads(_run(tool.execute(symbols=["513100"])))
+    assert payload["source"] == "auto"
+    assert payload["quotes"][0]["symbol"] == "513100"
+    assert payload["quotes"][0]["currency"] == "CNY"
+
+
+def test_market_snapshot_yahoo_source_routes_us_to_tencent(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="yahoo", default_symbols=["NVDA"])
+    tool = MarketSnapshotTool(config=cfg)
+
+    async def _fake_fetch_tencent_us(symbols):
+        assert symbols == ["NVDA"]
+        return (
+            [
+                {
+                    "symbol": "NVDA",
+                    "price": 180.25,
+                    "changePct": -1.58,
+                    "volume": 160988424,
+                    "avgVolume": None,
+                    "flowRatio": None,
+                    "flowHint": "neutral",
+                    "momentum": "down",
+                    "currency": "USD",
+                    "marketState": "REGULAR",
+                }
+            ],
+            [],
+        )
+
+    async def _fake_fetch_yahoo(symbols):
+        raise AssertionError("yahoo should not run for US symbols when tencent us fallback is available")
+
+    monkeypatch.setattr(tool, "_fetch_tencent_us", _fake_fetch_tencent_us)
+    monkeypatch.setattr(tool, "_fetch_yahoo", _fake_fetch_yahoo)
+    payload = json.loads(_run(tool.execute(symbols=["NVDA"])))
+    assert payload["source"] == "tencent_us"
+    assert payload["quotes"][0]["symbol"] == "NVDA"
+    assert payload["quotes"][0]["currency"] == "USD"
 
 
 def test_market_snapshot_yahoo_source_routes_hk_to_tencent(monkeypatch) -> None:
