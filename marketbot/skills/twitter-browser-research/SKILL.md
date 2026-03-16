@@ -15,10 +15,7 @@ search, or fast-moving social discussion around an asset, theme, or event.
    - `twitter/search`
    - `twitter/thread`
    - `twitter/user`
-2. Typical calls:
-   - topic search: `browser_site(adapter="twitter/search", args=["NVDA guidance"])`
-   - single thread: `browser_site(adapter="twitter/thread", args=["<thread-url-or-id>"])`
-   - source account view: `browser_site(adapter="twitter/user", args=["@sama"])`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Focus on:
    - recurring narratives
    - analyst or trader commentary

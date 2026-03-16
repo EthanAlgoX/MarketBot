@@ -14,9 +14,7 @@ more useful than plain API output.
 1. Use `browser_site` with Eastmoney adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `eastmoney/stock`
    - `eastmoney/headlines`
-2. Typical calls:
-   - stock page context: `browser_site(adapter="eastmoney/stock", args=["000001"])`
-   - headline or newsflash check: `browser_site(adapter="eastmoney/headlines", args=["宁德时代"])`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Extract:
    - stock-page highlights
    - latest headlines or newsflash context

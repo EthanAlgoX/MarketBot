@@ -14,9 +14,7 @@ attention signals that do not show up in market news or traditional social APIs.
 1. Use `browser_site` with Xiaohongshu adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `xiaohongshu/search`
    - `xiaohongshu/hot`
-2. Typical calls:
-   - keyword search: `browser_site(adapter="xiaohongshu/search", args=["lululemon 热度"])`
-   - hot topic view: `browser_site(adapter="xiaohongshu/hot")`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Extract:
    - product or brand heat
    - recurring user narratives

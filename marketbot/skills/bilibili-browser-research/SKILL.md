@@ -15,10 +15,7 @@ context from Bilibili around a market theme, company, or sector.
    - `bilibili/search`
    - `bilibili/video`
    - `bilibili/comments`
-2. Typical calls:
-   - topic search: `browser_site(adapter="bilibili/search", args=["英伟达 财报"])`
-   - single video: `browser_site(adapter="bilibili/video", args=["<video-url-or-id>"])`
-   - comments scan: `browser_site(adapter="bilibili/comments", args=["<video-url-or-id>"])`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Extract:
    - recurring talking points
    - creator framing
