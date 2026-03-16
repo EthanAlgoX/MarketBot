@@ -24,6 +24,18 @@ def classify_market_request(
             f"{merged_text} {symbol_blob}",
         )
     )
+    etf = any(
+        token in merged_lower
+        for token in (
+            "etf",
+            "index fund",
+            "index etf",
+            "指数基金",
+            "指数etf",
+            "交易型开放式指数基金",
+            "场内基金",
+        )
+    ) or any(symbol in {"SPY", "QQQ", "IWM", "GLD", "SLV"} for symbol in clean_symbols)
     equity = any(
         token in merged_lower
         for token in (
@@ -35,7 +47,6 @@ def classify_market_request(
             "shares",
             "earnings",
             "guidance",
-            "etf",
             "股票",
             "个股",
             "a股",
@@ -92,7 +103,7 @@ def classify_market_request(
     )
     asset_like = ticker_like or any(
         token in merged_lower for token in ("asset", "ticker", "symbol", "forex", "futures", "commodity")
-    ) or equity or crypto or metals
+    ) or equity or etf or crypto or metals
 
     if metals and macro:
         primary = "metals-macro"
@@ -112,6 +123,7 @@ def classify_market_request(
     return {
         "asset_like": asset_like,
         "equity": equity,
+        "etf": etf,
         "crypto": crypto,
         "metals": metals,
         "macro": macro,

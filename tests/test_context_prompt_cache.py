@@ -393,6 +393,36 @@ def test_chinese_market_opportunity_message_injects_market_discovery(tmp_path) -
     assert "do not mention provider names" in prompt.lower()
 
 
+def test_general_message_does_not_crash_skill_routing(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="你好",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    assert messages[0]["role"] == "system"
+    assert messages[-1]["role"] == "user"
+
+
+def test_etf_opportunity_message_can_route_market_discovery(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="分析今天ETF市场机会，重点看 SPY 和纳斯达克ETF。",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: market-discovery" in prompt
+
+
 def test_live_market_request_drops_stale_history(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)
