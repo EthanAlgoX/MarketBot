@@ -141,6 +141,8 @@ def test_explicit_skill_names_are_loaded_into_system_prompt(tmp_path) -> None:
     assert "# Selected Skills" in prompt
     assert "### Skill: market-report" in prompt
     assert "### Skill: risk-checklist" in prompt
+    assert "/marketbot/skills/{skill-name}/SKILL.md" in prompt
+    assert "use that inlined content first" in prompt
 
 
 def test_market_analysis_message_auto_injects_market_skills(tmp_path) -> None:
