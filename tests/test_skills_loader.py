@@ -18,6 +18,7 @@ def test_builtin_market_skills_are_discoverable(tmp_path):
     assert "options-payoff" in names
     assert "pair-correlation" in names
     assert "earnings-readout" in names
+    assert "vix-panic-reversion" in names
     assert "sector-breadth" in names
     assert "macro-regime" in names
     assert "xueqiu-research" in names
@@ -156,6 +157,17 @@ def test_market_discovery_trigger_matching_supports_chinese_opportunity_terms(tm
     )
 
     assert "market-discovery" in matched
+
+
+def test_vix_panic_reversion_trigger_matching_uses_metadata(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "VIX > 35 的时候是否适合抄底，等 VIX < 20 再卖出？",
+        route={"equity": True, "etf": True, "macro": True, "symbols": ["VIX", "SPY"]},
+    )
+
+    assert "vix-panic-reversion" in matched
 
 
 def test_external_skill_catalog_parser_extracts_curated_entries(tmp_path):
