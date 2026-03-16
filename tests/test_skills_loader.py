@@ -170,6 +170,17 @@ def test_vix_panic_reversion_trigger_matching_uses_metadata(tmp_path):
     assert "vix-panic-reversion" in matched
 
 
+def test_vix_alert_trigger_matching_supports_monitoring_language(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "VIX > 35 自动提醒",
+        route={"equity": True, "etf": True, "macro": True, "symbols": ["VIX", "SPY"]},
+    )
+
+    assert "vix-panic-reversion" in matched
+
+
 def test_external_skill_catalog_parser_extracts_curated_entries(tmp_path):
     loader = SkillsLoader(tmp_path)
     sample = """
