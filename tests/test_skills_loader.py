@@ -202,6 +202,15 @@ def test_multi_llm_stock_panel_capabilities_require_browser_page(tmp_path):
     assert capabilities["required_tools"] == ["browser_page", "market_snapshot"]
 
 
+def test_multi_llm_stock_panel_mentions_panel_availability(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    content = loader.load_skill("multi-llm-stock-panel")
+
+    assert content is not None
+    assert "## Panel Availability" in content
+
+
 def test_external_skill_catalog_parser_extracts_curated_entries(tmp_path):
     loader = SkillsLoader(tmp_path)
     sample = """

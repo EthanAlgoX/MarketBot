@@ -25,7 +25,7 @@ Open these exact pages with `browser_page`:
 2. `https://chatgpt.com/`
 3. `https://grok.com/`
 
-If one site is unavailable, blocked, logged out, or unusable, continue with the remaining sites and state the gap.
+If one site is unavailable, blocked, logged out, or unusable, continue with the remaining sites and state the gap. Partial results are acceptable.
 
 ## Fixed Prompt
 
@@ -52,7 +52,8 @@ Send this prompt to each model with only minimal market/date adaptation if neede
 4. If the snapshot is empty or has no usable refs, refresh/re-open that page and retry snapshot once before declaring the panel unavailable.
 5. Identify the message composer ref from that snapshot, then use `browser_page(action="fill", target="<ref>", value="...prompt...", tab=...)`.
 6. Submit with `browser_page(action="click", ...)` on the send button if a clear send button ref exists; otherwise use `browser_page(action="press", value="Enter", tab=...)`.
-7. Extract only the structured candidate fields:
+7. Poll for a response at most twice for each panel. If the page shows login requirements, missing API key, or still no answer after two checks, mark that panel unavailable and move on.
+8. Extract only the structured candidate fields:
    - symbol
    - company name
    - thesis
@@ -60,10 +61,10 @@ Send this prompt to each model with only minimal market/date adaptation if neede
    - target price
    - upside probability
    - risks
-8. Deduplicate overlapping picks across Gemini, ChatGPT, and Grok.
-9. Use `market_snapshot` to verify the current price for every final candidate.
-10. If a model-provided current price conflicts with live market data, use live market data and explicitly mark the model claim as stale.
-11. Produce a single ranked summary of the best ideas.
+9. Deduplicate overlapping picks across Gemini, ChatGPT, and Grok.
+10. Use `market_snapshot` to verify the current price for every final candidate.
+11. If a model-provided current price conflicts with live market data, use live market data and explicitly mark the model claim as stale.
+12. Produce a single ranked summary of the best ideas.
 
 ## Ranking Rules
 
@@ -104,6 +105,11 @@ Bias toward names supported by at least two of the three models.
 - Best US idea:
 - Best HK idea:
 - Highest-conviction overall idea:
+
+## Panel Availability
+- Gemini:
+- ChatGPT:
+- Grok:
 ```
 
 ## Rules
@@ -113,6 +119,9 @@ Bias toward names supported by at least two of the three models.
 - Do not use `exec` to run raw `bb-browser` commands when `browser_page` is available.
 - Refs from `snapshot` are only valid for the current page state. Always take a fresh snapshot before `fill` or `click`.
 - When working across multiple tabs, always pass the tab id on every browser action so you do not act on the wrong page.
+- Never spend more than 1 open + 1 retry snapshot + 1 submit + 2 response checks on any single panel.
+- If only one panel responds, still return a report using that single panel and mark the other panels unavailable.
+- If no panels respond, stop and report the exact panel availability state instead of burning more tool iterations.
 - Do not summarize vague sectors when the prompt asks for concrete stocks.
 - If browser interaction fails on any of the three sites, say which panel was unavailable.
 - If the models return too many names, compress to the highest-conviction 3-5 names.
