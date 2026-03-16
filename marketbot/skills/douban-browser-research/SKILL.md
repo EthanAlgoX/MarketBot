@@ -15,10 +15,7 @@ that may affect media, platform, or consumer-facing names.
    - `douban/search`
    - `douban/movie`
    - `douban/top250`
-2. Typical calls:
-   - title search: `browser_site(adapter="douban/search", args=["哪吒"])`
-   - movie detail: `browser_site(adapter="douban/movie", args=["<movie-id-or-url>"])`
-   - list-level context: `browser_site(adapter="douban/top250")`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Focus on:
    - rating and attention
    - cultural buzz

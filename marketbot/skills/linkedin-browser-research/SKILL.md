@@ -14,9 +14,7 @@ signals, company activity, or profile-based ecosystem clues.
 1. Use `browser_site` with LinkedIn adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `linkedin/search`
    - `linkedin/profile`
-2. Typical calls:
-   - company or people search: `browser_site(adapter="linkedin/search", args=["OpenAI research engineer"])`
-   - profile or company page: `browser_site(adapter="linkedin/profile", args=["<profile-or-company-url>"])`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Focus on:
    - hiring intensity
    - company and team activity

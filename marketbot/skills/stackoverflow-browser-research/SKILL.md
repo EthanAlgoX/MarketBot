@@ -14,9 +14,7 @@ signal around a technology, framework, API, or product.
 1. Use `browser_site` with Stack Overflow adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `stackoverflow/search`
    - `stackoverflow/thread`
-2. Typical calls:
-   - problem search: `browser_site(adapter="stackoverflow/search", args=["openai python rate limit"])`
-   - thread inspection: `browser_site(adapter="stackoverflow/thread", args=["<question-url-or-id>"])`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Extract:
    - recurring implementation issues
    - setup or migration friction

@@ -14,9 +14,7 @@ person, technology, sector, or event before deeper analysis.
 1. Use `browser_site` with Wikipedia adapters that exist in the runtime catalog. Prefer exact adapters such as:
    - `wikipedia/search`
    - `wikipedia/summary`
-2. Typical calls:
-   - entity search: `browser_site(adapter="wikipedia/search", args=["semiconductor supply chain"])`
-   - direct summary: `browser_site(adapter="wikipedia/summary", args=["TSMC"])`
+2. Read [references/adapter-examples.md](references/adapter-examples.md) when you need concrete adapter call patterns or fallback behavior.
 3. Extract:
    - entity background
    - historical context
