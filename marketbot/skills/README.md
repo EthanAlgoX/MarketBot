@@ -74,3 +74,22 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `stock-info-explorer` | Use local Yahoo Finance charts and indicator scripts |
 | `crypto-gold-monitor` | Monitor BTC, ETH, gold, and silver from free APIs |
 | `skill-creator` | Create new skills |
+
+## Browser Asset Index
+
+The highest-traffic browser-backed skills now split concrete adapter calls into
+`references/adapter-examples.md` so `SKILL.md` can stay short and reusable.
+
+Current skills with adapter reference files:
+
+- `xueqiu-research`
+- `eastmoney-live`
+- `reddit-research`
+- `youtube-transcript-browser`
+- `browser-news-verifier`
+- `twitter-browser-research`
+- `bilibili-browser-research`
+- `xiaohongshu-browser-research`
+
+Use these reference files when you need exact `browser_site(...)` examples,
+catalog-aligned adapter choices, or explicit fallback patterns.

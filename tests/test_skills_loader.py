@@ -354,3 +354,21 @@ def test_skills_summary_includes_browser_adapter_catalog(tmp_path):
     assert "<browserAdapters>" in summary
     assert "<adapter>xueqiu/hot-stock</adapter>" in summary
     assert "<adapter>reddit/search</adapter>" in summary
+
+
+def test_high_traffic_browser_skills_ship_adapter_reference_files(tmp_path):
+    loader = SkillsLoader(tmp_path)
+    skill_names = [
+        "xueqiu-research",
+        "eastmoney-live",
+        "reddit-research",
+        "youtube-transcript-browser",
+        "browser-news-verifier",
+        "twitter-browser-research",
+        "bilibili-browser-research",
+        "xiaohongshu-browser-research",
+    ]
+
+    for skill_name in skill_names:
+        skill_path = loader.builtin_skills / skill_name / "references" / "adapter-examples.md"
+        assert skill_path.exists(), f"missing adapter reference for {skill_name}"
