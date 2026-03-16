@@ -615,6 +615,13 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "metals",
             "precious metals",
         )
+        multi_llm_panel_terms = (
+            "bb-browser",
+            "gemini",
+            "chatgpt",
+            "grok",
+            "多模型选股",
+        )
         discovery_terms = (
             "discover",
             "opportunity",
@@ -706,6 +713,11 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "a-share",
         )
 
+        if all(term in text for term in ("gemini", "chatgpt", "grok")) or (
+            "bb-browser" in text and any(term in text for term in ("一个月内大幅上涨", "未来一个月内大涨股票", "多模型选股"))
+        ):
+            consider("multi-llm-stock-panel")
+
         if route["asset_like"] and any(term in text for term in analysis_terms):
             consider("market-report")
 
@@ -715,7 +727,11 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         if route["asset_like"] and any(term in text for term in risk_terms):
             consider("risk-checklist")
 
-        if route["equity"] and (any(term in text for term in chart_terms) or any(term in text for term in analysis_terms)):
+        if (
+            route["equity"]
+            and (any(term in text for term in chart_terms) or any(term in text for term in analysis_terms))
+            and not any(term in text for term in multi_llm_panel_terms)
+        ):
             consider("stock-info-explorer")
         elif route["crypto"] and any(term in text for term in chart_terms):
             consider("stock-info-explorer")
@@ -729,6 +745,8 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             consider("market-discovery")
 
         if any(term in text for term in browser_research_terms):
+            if all(term in text for term in ("gemini", "chatgpt", "grok")) or "bb-browser" in text:
+                consider("multi-llm-stock-panel")
             if "xueqiu" in text or "雪球" in text or "hot stock" in text:
                 consider("xueqiu-research")
             if "eastmoney" in text or "东方财富" in text or "股吧" in text:

@@ -425,6 +425,22 @@ def test_etf_opportunity_message_can_route_market_discovery(tmp_path) -> None:
     assert "### Skill: market-discovery" in prompt
 
 
+def test_bb_browser_multi_llm_prompt_prefers_multi_llm_stock_panel(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="使用bb-browser打开Gemini、ChatGPT、Grok，分析美股港股未来一个月内大幅上涨的股票并综合总结",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: multi-llm-stock-panel" in prompt
+    assert "### Skill: stock-info-explorer" not in prompt
+
+
 def test_live_market_request_drops_stale_history(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)
