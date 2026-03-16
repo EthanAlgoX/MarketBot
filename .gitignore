@@ -67,6 +67,8 @@ apps/ios/*.mobileprovision
 # Local untracked files
 .tmp/
 .local/
+.codex-home/
+.codex-node/
 data/finance-cache/
 .vscode/
 IDENTITY.md

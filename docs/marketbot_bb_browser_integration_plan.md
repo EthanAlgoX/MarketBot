@@ -344,6 +344,23 @@ Status:
 - verify `browser_site` runs a harmless adapter command
 - verify blocked actions fail in `safe` mode
 
+### Local Smoke Test
+
+Run the workspace smoke script after installing `bb-browser` and adapters:
+
+```bash
+python3 scripts/run_bb_browser_smoke.py \
+  --command /abs/path/to/bb-browser \
+  --check-login-site
+```
+
+What it checks:
+
+- `bb-browser site wikipedia/summary TSMC`
+- `bb-browser site reddit/search "NVDA earnings"`
+- `MarketBot` `BrowserSiteTool` calling `wikipedia/summary`
+- optional `xueqiu/hot-stock` probe, treating explicit login-required hints as a soft pass
+
 ## Non-Goals
 
 - bundling the Chrome extension into MarketBot
