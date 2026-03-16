@@ -19,6 +19,7 @@ def test_builtin_market_skills_are_discoverable(tmp_path):
     assert "pair-correlation" in names
     assert "earnings-readout" in names
     assert "vix-panic-reversion" in names
+    assert "multi-llm-stock-panel" in names
     assert "sector-breadth" in names
     assert "macro-regime" in names
     assert "xueqiu-research" in names
@@ -179,6 +180,17 @@ def test_vix_alert_trigger_matching_supports_monitoring_language(tmp_path):
     )
 
     assert "vix-panic-reversion" in matched
+
+
+def test_multi_llm_stock_panel_trigger_matching_supports_bb_browser_prompt(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "使用bb-browser打开Gemini、ChatGPT、Grok，分析美股港股未来一个月内大幅上涨的股票并综合总结",
+        route={"equity": True, "symbols": ["NVDA", "0700.HK"]},
+    )
+
+    assert "multi-llm-stock-panel" in matched
 
 
 def test_external_skill_catalog_parser_extracts_curated_entries(tmp_path):
