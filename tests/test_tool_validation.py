@@ -284,7 +284,7 @@ async def test_browser_page_allows_url_inside_domain_allowlist() -> None:
 
 async def test_browser_page_ignores_non_url_target_for_click() -> None:
     tool = BrowserPageTool(
-        browser_config=BrowserToolsConfig(enabled=True, allow_domains=["xueqiu.com"]),
+        browser_config=BrowserToolsConfig(enabled=True, mode="interactive", allow_domains=["xueqiu.com"]),
     )
     tool._ensure_available = lambda: None  # type: ignore[method-assign]
     tool._run = _async_return('{"ok":true}')  # type: ignore[method-assign]

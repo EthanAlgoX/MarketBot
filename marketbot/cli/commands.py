@@ -5,6 +5,7 @@ import json
 import os
 import re
 import select
+import shutil
 import signal
 import sys
 from datetime import UTC, datetime
@@ -3318,30 +3319,29 @@ def _build_status_payload(config: Config, config_path: Path) -> dict[str, Any]:
         "providers": [],
     }
 
-    if config_path.exists():
-        from marketbot.providers.registry import PROVIDERS
+    from marketbot.providers.registry import PROVIDERS
 
-        providers: list[dict[str, Any]] = []
-        for spec in PROVIDERS:
-            p = getattr(config.providers, spec.name, None)
-            if p is None:
-                continue
-            entry: dict[str, Any] = {
-                "name": spec.name,
-                "label": spec.label,
-                "type": "oauth" if spec.is_oauth else "local" if spec.is_local else "api",
-                "configured": False,
-            }
-            if spec.is_oauth:
-                entry["configured"] = True
-            elif spec.is_local:
-                entry["configured"] = bool(p.api_base)
-                if p.api_base:
-                    entry["apiBase"] = p.api_base
-            else:
-                entry["configured"] = bool(p.api_key)
-            providers.append(entry)
-        payload["providers"] = providers
+    providers: list[dict[str, Any]] = []
+    for spec in PROVIDERS:
+        p = getattr(config.providers, spec.name, None)
+        if p is None:
+            continue
+        entry: dict[str, Any] = {
+            "name": spec.name,
+            "label": spec.label,
+            "type": "oauth" if spec.is_oauth else "local" if spec.is_local else "api",
+            "configured": False,
+        }
+        if spec.is_oauth:
+            entry["configured"] = True
+        elif spec.is_local:
+            entry["configured"] = bool(p.api_base)
+            if p.api_base:
+                entry["apiBase"] = p.api_base
+        else:
+            entry["configured"] = bool(p.api_key)
+        providers.append(entry)
+    payload["providers"] = providers
 
     return payload
 

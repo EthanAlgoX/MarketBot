@@ -143,8 +143,6 @@ class BrowserSiteTool(_BrowserToolBase):
     }
 
     async def execute(self, adapter: str, args: list[str] | None = None, json: bool = True, jq: str | None = None, **kwargs: Any) -> str:
-        if error := self._ensure_available():
-            return error
         normalized = str(adapter or "").strip()
         if not self._ADAPTER_RE.fullmatch(normalized):
             return "Error: adapter must look like <site>/<command> using only letters, numbers, and hyphens"
@@ -158,6 +156,8 @@ class BrowserSiteTool(_BrowserToolBase):
             if value.startswith("--"):
                 return f"Error: adapter args must not include raw CLI flags: {value}"
             normalized_args.append(value)
+        if error := self._ensure_available():
+            return error
 
         command = ["site", normalized, *normalized_args]
         if json:
@@ -200,8 +200,6 @@ class BrowserPageTool(_BrowserToolBase):
         json: bool = True,
         **kwargs: Any,
     ) -> str:
-        if error := self._ensure_available():
-            return error
         action_name = str(action or "").strip().lower()
         if not self._action_allowed(action_name):
             return f"Error: browser action blocked in {self.mode} mode: {action_name}"
@@ -213,6 +211,8 @@ class BrowserPageTool(_BrowserToolBase):
         allowed, reason = self._url_allowed(target)
         if not allowed:
             return reason or "Error: target blocked by url allowlist"
+        if error := self._ensure_available():
+            return error
         command = [action_name]
         if target:
             command.append(target)
@@ -242,8 +242,6 @@ class BrowserNetworkTool(_BrowserToolBase):
     }
 
     async def execute(self, mode: str, url: str | None = None, withBody: bool = False, json: bool = True, **kwargs: Any) -> str:
-        if error := self._ensure_available():
-            return error
         if self.mode != "sensitive":
             return f"Error: browser network access requires sensitive mode, current={self.mode}"
         mode_name = str(mode or "").strip().lower()
@@ -262,6 +260,8 @@ class BrowserNetworkTool(_BrowserToolBase):
             command = ["network", "requests"]
             if withBody:
                 command.append("--with-body")
+        if error := self._ensure_available():
+            return error
         if json:
             command.append("--json")
         return await self._run(command)
