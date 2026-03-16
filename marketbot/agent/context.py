@@ -723,7 +723,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         elif route["crypto"] and ("intermarket" in text or "gold" in text or "silver" in text):
             consider("crypto-gold-monitor")
 
-        if (route["asset_like"] or route["equity"] or route["etf"]) and any(term in text for term in discovery_terms):
+        if (route["asset_like"] or route["equity"] or bool(route.get("etf"))) and any(term in text for term in discovery_terms):
             consider("market-discovery")
 
         if any(term in text for term in browser_research_terms):
