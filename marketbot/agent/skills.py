@@ -601,6 +601,10 @@ class SkillsLoader:
         runtime_reasons = self._runtime_mismatch_reasons(capabilities, request_profile, runtime_profile)
         reasons.extend(runtime_reasons)
 
+        special_reason = self._special_compatibility_reason(name, text, route=route)
+        if special_reason:
+            reasons.append(special_reason)
+
         compatible = not reasons
         if compatible:
             reasons.append("requirements satisfied")
@@ -627,9 +631,37 @@ class SkillsLoader:
         request_profile = self._build_request_profile(text, route=route)
         if not self._runtime_supports_request(capabilities, request_profile, runtime_profile):
             return False
+        if self._special_compatibility_reason(name, text, route=route):
+            return False
         if not capabilities.get("markets") and not capabilities.get("asset_classes"):
             return True
         return self._matches_profile(capabilities, request_profile)
+
+    @staticmethod
+    def _special_compatibility_reason(name: str, text: str, route: dict[str, object] | None = None) -> str | None:
+        """Apply skill-specific compatibility rules that metadata alone cannot express."""
+        lowered = text.lower()
+        route = route or {}
+        symbols = [str(symbol or "").strip() for symbol in route.get("symbols", []) if str(symbol or "").strip()]
+
+        if name == "daily-stock-screener":
+            has_watchlist_intent = any(
+                term in lowered
+                for term in (
+                    "watchlist",
+                    "股票列表",
+                    "自选",
+                    "候选",
+                    "rank",
+                    "screen",
+                    "筛选",
+                    "排序",
+                )
+            )
+            if not has_watchlist_intent and not symbols:
+                return "requires an explicit watchlist or symbol list"
+
+        return None
 
     @classmethod
     def _missing_required_tools(cls, capabilities: dict, available_tools: set[str] | None) -> list[str]:

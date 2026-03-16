@@ -429,6 +429,7 @@ def test_broad_market_scan_omits_memory_context(tmp_path) -> None:
     prompt = messages[0]["content"]
     assert "# Memory (" not in prompt
     assert "User holdings: NVDA, 07709, 513310" not in prompt
+    assert "### Skill: daily-stock-screener" not in prompt
 
 
 def test_portfolio_request_keeps_memory_context(tmp_path) -> None:
