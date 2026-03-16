@@ -390,6 +390,7 @@ def test_chinese_market_opportunity_message_injects_market_discovery(tmp_path) -
     assert "### Skill: market-discovery" in prompt
     assert "### Skill: stock-data-sourcing" not in prompt
     assert "do not reuse stale provider failures" in prompt.lower()
+    assert "do not mention provider names" in prompt.lower()
 
 
 def test_live_market_request_drops_stale_history(tmp_path) -> None:

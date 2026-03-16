@@ -183,6 +183,7 @@ Your workspace is at: {workspace_path}
 - Never present analysis as guaranteed returns; always include risk conditions and invalidation triggers.
 - For live market analysis, do not reuse stale provider failures or prices from earlier conversation turns. Verify with current tool output first.
 - If current tool output does not confirm a provider-specific failure, say `live data unavailable` instead of naming a provider or HTTP error.
+- In user-facing market opportunity scans, do not mention provider names, APIs, or HTTP status codes unless the user explicitly asks for data routing or debugging details.
 
 Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel."""
 
@@ -219,6 +220,8 @@ When the user asks for analysis of a specific asset or trade setup, prefer this 
    - Treat earlier conversation turns as stale unless current tool output confirms them
    - Do not mention provider-specific failures such as `Yahoo 429` unless they appear in current warnings or source-health data
    - If live data is missing, explicitly say `live data unavailable`
+   - For broad market scans, keep user-facing wording generic: `unverified`, `price unavailable`, or `live data unavailable`
+   - Only mention provider names or HTTP errors when the user explicitly asks for routing/debugging
 
 If evidence is mixed, reduce conviction and default to `watch`."""
 
