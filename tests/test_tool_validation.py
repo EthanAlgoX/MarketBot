@@ -329,6 +329,48 @@ async def test_browser_page_eval_allows_when_explicitly_enabled() -> None:
     assert result == '{"ok":true}'
 
 
+async def test_browser_page_places_tab_flag_before_subcommand() -> None:
+    tool = BrowserPageTool(
+        browser_config=BrowserToolsConfig(enabled=True, mode="interactive"),
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    captured: dict[str, Any] = {}
+
+    async def _fake_run(args: list[str], prefix_args: list[str] | None = None) -> str:
+        captured["args"] = args
+        captured["prefix_args"] = prefix_args
+        return '{"ok":true}'
+
+    tool._run = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="snapshot", tab="tab-123")
+
+    assert result == '{"ok":true}'
+    assert captured["prefix_args"] == ["--tab", "tab-123"]
+    assert captured["args"] == ["snapshot", "--json"]
+
+
+async def test_browser_page_press_action_passes_key_value() -> None:
+    tool = BrowserPageTool(
+        browser_config=BrowserToolsConfig(enabled=True, mode="interactive"),
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    captured: dict[str, Any] = {}
+
+    async def _fake_run(args: list[str], prefix_args: list[str] | None = None) -> str:
+        captured["args"] = args
+        captured["prefix_args"] = prefix_args
+        return '{"ok":true}'
+
+    tool._run = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="press", value="Enter", tab="tab-123")
+
+    assert result == '{"ok":true}'
+    assert captured["prefix_args"] == ["--tab", "tab-123"]
+    assert captured["args"] == ["press", "Enter", "--json"]
+
+
 async def test_browser_network_fetch_blocks_url_outside_domain_allowlist() -> None:
     tool = BrowserNetworkTool(
         browser_config=BrowserToolsConfig(enabled=True, mode="sensitive", allow_domains=["github.com"]),

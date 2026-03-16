@@ -46,9 +46,13 @@ Send this prompt to each model with only minimal market/date adaptation if neede
 
 ## Workflow
 
-1. Use `browser_page(action="open", target=...)` to open the three fixed targets.
-2. Use `browser_page` interactive actions to submit the fixed prompt to each model.
-3. Extract only the structured candidate fields:
+1. Use `browser_page(action="open", target=...)` to open the three fixed targets and record the returned `tabId` for each newly opened page.
+2. Work only against those fresh `tabId` values. Ignore older pre-existing tabs for the same site.
+3. For each fresh tab, run `browser_page(action="snapshot", tab=...)` first to capture the current interactive refs.
+4. If the snapshot is empty or has no usable refs, refresh/re-open that page and retry snapshot once before declaring the panel unavailable.
+5. Identify the message composer ref from that snapshot, then use `browser_page(action="fill", target="<ref>", value="...prompt...", tab=...)`.
+6. Submit with `browser_page(action="click", ...)` on the send button if a clear send button ref exists; otherwise use `browser_page(action="press", value="Enter", tab=...)`.
+7. Extract only the structured candidate fields:
    - symbol
    - company name
    - thesis
@@ -56,10 +60,10 @@ Send this prompt to each model with only minimal market/date adaptation if neede
    - target price
    - upside probability
    - risks
-4. Deduplicate overlapping picks across Gemini, ChatGPT, and Grok.
-5. Use `market_snapshot` to verify the current price for every final candidate.
-6. If a model-provided current price conflicts with live market data, use live market data and explicitly mark the model claim as stale.
-7. Produce a single ranked summary of the best ideas.
+8. Deduplicate overlapping picks across Gemini, ChatGPT, and Grok.
+9. Use `market_snapshot` to verify the current price for every final candidate.
+10. If a model-provided current price conflicts with live market data, use live market data and explicitly mark the model claim as stale.
+11. Produce a single ranked summary of the best ideas.
 
 ## Ranking Rules
 
@@ -106,6 +110,9 @@ Bias toward names supported by at least two of the three models.
 
 - Do not trust model-reported current prices without `market_snapshot` verification.
 - Do not say "bb-browser is unavailable" when `browser_page` is available in the tool list.
+- Do not use `exec` to run raw `bb-browser` commands when `browser_page` is available.
+- Refs from `snapshot` are only valid for the current page state. Always take a fresh snapshot before `fill` or `click`.
+- When working across multiple tabs, always pass the tab id on every browser action so you do not act on the wrong page.
 - Do not summarize vague sectors when the prompt asks for concrete stocks.
 - If browser interaction fails on any of the three sites, say which panel was unavailable.
 - If the models return too many names, compress to the highest-conviction 3-5 names.

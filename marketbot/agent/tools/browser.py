@@ -17,7 +17,7 @@ class _BrowserToolBase(Tool):
     """Shared helpers for browser-backed tool wrappers."""
 
     SAFE_PAGE_ACTIONS = {"open", "snapshot", "screenshot"}
-    INTERACTIVE_PAGE_ACTIONS = SAFE_PAGE_ACTIONS | {"click", "fill"}
+    INTERACTIVE_PAGE_ACTIONS = SAFE_PAGE_ACTIONS | {"click", "fill", "press"}
 
     def __init__(self, browser_config: Any | None = None, workspace: Path | None = None):
         self.workspace = workspace
@@ -100,8 +100,8 @@ class _BrowserToolBase(Tool):
 
         return True, None
 
-    async def _run(self, args: list[str]) -> str:
-        command = [self.command, *args]
+    async def _run(self, args: list[str], prefix_args: list[str] | None = None) -> str:
+        command = [self.command, *(prefix_args or []), *args]
         process = await asyncio.create_subprocess_exec(
             *command,
             stdout=asyncio.subprocess.PIPE,
@@ -175,9 +175,9 @@ class BrowserPageTool(_BrowserToolBase):
     parameters = {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["open", "snapshot", "click", "fill", "screenshot", "eval"]},
+            "action": {"type": "string", "enum": ["open", "snapshot", "click", "fill", "press", "screenshot", "eval"]},
             "target": {"type": "string", "description": "URL, element handle, or JS expression depending on action"},
-            "value": {"type": "string", "description": "Optional action value, e.g. fill text"},
+            "value": {"type": "string", "description": "Optional action value, e.g. fill text or key name for press"},
             "tab": {"type": "string", "description": "Optional tab id"},
             "json": {"type": "boolean", "default": True},
         },
@@ -213,16 +213,18 @@ class BrowserPageTool(_BrowserToolBase):
             return reason or "Error: target blocked by url allowlist"
         if error := self._ensure_available():
             return error
+        prefix_args: list[str] = []
+        if tab:
+            prefix_args.extend(["--tab", tab])
+
         command = [action_name]
         if target:
             command.append(target)
-        if value and action_name in {"fill", "eval"}:
+        if value and action_name in {"fill", "eval", "press"}:
             command.append(value)
-        if tab:
-            command.extend(["--tab", tab])
         if json:
             command.append("--json")
-        return await self._run(command)
+        return await self._run(command, prefix_args=prefix_args)
 
 
 class BrowserNetworkTool(_BrowserToolBase):
