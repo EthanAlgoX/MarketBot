@@ -966,8 +966,21 @@ class FeishuChannel(BaseChannel):
             if not content and not media_paths:
                 return
 
-            # Forward to message bus
+            # Send an immediate acknowledgement so longer analyses do not look like a dead bot.
             reply_to = chat_id if chat_type == "group" else sender_id
+            receive_id_type = "chat_id" if reply_to.startswith("oc_") else "open_id"
+            ack_body = json.dumps({"text": "已收到，正在分析，请稍等。"}, ensure_ascii=False)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None,
+                self._send_message_sync,
+                receive_id_type,
+                reply_to,
+                "text",
+                ack_body,
+            )
+
+            # Forward to message bus
             await self._handle_message(
                 sender_id=sender_id,
                 chat_id=reply_to,
