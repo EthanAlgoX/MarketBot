@@ -643,6 +643,19 @@ class SkillsLoader:
         lowered = text.lower()
         route = route or {}
         symbols = [str(symbol or "").strip() for symbol in route.get("symbols", []) if str(symbol or "").strip()]
+        broad_scan = any(
+            term in lowered
+            for term in (
+                "market opportunity",
+                "market opportunities",
+                "daily opportunity",
+                "daily opportunities",
+                "今日机会",
+                "市场机会",
+                "全市场",
+                "热点机会",
+            )
+        )
 
         if name == "daily-stock-screener":
             has_watchlist_intent = any(
@@ -658,8 +671,38 @@ class SkillsLoader:
                     "排序",
                 )
             )
+            if broad_scan:
+                return "broad market scans should use discovery, not watchlist screening"
             if not has_watchlist_intent and not symbols:
                 return "requires an explicit watchlist or symbol list"
+
+        if name == "stock-data-sourcing":
+            explicit_routing_debug = any(
+                term in lowered
+                for term in (
+                    "why this source",
+                    "show routing",
+                    "routing debug",
+                    "route debug",
+                    "data source selection",
+                    "compare data sources",
+                    "source coverage",
+                    "why does",
+                    "debug",
+                    "diagnostic",
+                    "路由",
+                    "为什么",
+                    "数据源选择",
+                    "比较数据源",
+                    "数据源",
+                    "行情源",
+                    "新闻源",
+                    "回退链路",
+                    "source plan",
+                )
+            )
+            if broad_scan and not explicit_routing_debug:
+                return "broad market scans should not use source-planning skill by default"
 
         return None
 
