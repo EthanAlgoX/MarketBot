@@ -1,12 +1,14 @@
 ---
 name: multi-llm-stock-panel
-description: Use bb-browser to query Gemini, ChatGPT, and Grok for one-month high-upside US and Hong Kong stock ideas, then verify current prices and synthesize a final ranked summary.
-metadata: {"marketbot":{"emoji":"🧠","triggers":["bb-browser","gemini chatgpt grok","multi llm stock panel","future one month upside","一个月内大幅上涨","未来一个月内大涨股票","多模型选股","基本面 市场情绪 趋势 抓机遇"],"output":"multi-llm-stock-panel-report","risk":"high","freshness":"live","tools":["browser_site","market_snapshot"],"required_tools":["browser_site","market_snapshot"],"markets":["hong-kong","us","mixed"],"asset_classes":["equity","etf"],"task_type":"browser-research","determinism":"tool-backed","priority":90}}
+description: Use browser-backed tools to query Gemini, ChatGPT, and Grok for one-month high-upside US and Hong Kong stock ideas, then verify current prices and synthesize a final ranked summary.
+metadata: {"marketbot":{"emoji":"🧠","triggers":["bb-browser","gemini chatgpt grok","multi llm stock panel","future one month upside","一个月内大幅上涨","未来一个月内大涨股票","多模型选股","基本面 市场情绪 趋势 抓机遇"],"output":"multi-llm-stock-panel-report","risk":"high","freshness":"market-live","tools":["browser_page","browser_site","market_snapshot"],"required_tools":["browser_page","market_snapshot"],"markets":["hong-kong","us","mixed"],"asset_classes":["equity","etf"],"task_type":"browser-research","determinism":"tool-backed","priority":90}}
 ---
 
 # Multi-LLM Stock Panel
 
 Use this skill when the user wants a browser-driven idea panel that asks multiple frontier chat models to act like a strong trader and surface the best one-month upside candidates in US and Hong Kong equities.
+
+Treat `bb-browser` as the runtime browser capability exposed through MarketBot tools. If `browser_page` or `browser_site` is available, use those tools directly and do not speculate about raw CLI availability.
 
 ## When to use
 
@@ -17,7 +19,7 @@ Use this skill when the user wants a browser-driven idea panel that asks multipl
 
 ## Fixed Browser Targets
 
-Open these exact pages with `bb-browser` / `browser_site`:
+Open these exact pages with `browser_page`:
 
 1. `https://aistudio.google.com/prompts/new_chat?model=gemini-3.1-pro-preview`
 2. `https://chatgpt.com/`
@@ -44,8 +46,8 @@ Send this prompt to each model with only minimal market/date adaptation if neede
 
 ## Workflow
 
-1. Use `bb-browser` / `browser_site` to open the three fixed targets.
-2. Submit the fixed prompt to each model.
+1. Use `browser_page(action="open", target=...)` to open the three fixed targets.
+2. Use `browser_page` interactive actions to submit the fixed prompt to each model.
 3. Extract only the structured candidate fields:
    - symbol
    - company name
@@ -103,6 +105,7 @@ Bias toward names supported by at least two of the three models.
 ## Rules
 
 - Do not trust model-reported current prices without `market_snapshot` verification.
+- Do not say "bb-browser is unavailable" when `browser_page` is available in the tool list.
 - Do not summarize vague sectors when the prompt asks for concrete stocks.
 - If browser interaction fails on any of the three sites, say which panel was unavailable.
 - If the models return too many names, compress to the highest-conviction 3-5 names.

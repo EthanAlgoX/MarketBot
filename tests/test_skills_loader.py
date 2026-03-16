@@ -193,6 +193,15 @@ def test_multi_llm_stock_panel_trigger_matching_supports_bb_browser_prompt(tmp_p
     assert "multi-llm-stock-panel" in matched
 
 
+def test_multi_llm_stock_panel_capabilities_require_browser_page(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    capabilities = loader.get_skill_capabilities("multi-llm-stock-panel")
+
+    assert "browser_page" in capabilities["tools"]
+    assert capabilities["required_tools"] == ["browser_page", "market_snapshot"]
+
+
 def test_external_skill_catalog_parser_extracts_curated_entries(tmp_path):
     loader = SkillsLoader(tmp_path)
     sample = """
