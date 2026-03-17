@@ -40,33 +40,112 @@ Example:
 - `xueqiu/stock`
 - `xueqiu/feed`
 - `eastmoney/stock`
-- `eastmoney/headlines`
+- `eastmoney/news`
 - `reddit/search`
 - `reddit/thread`
 - `youtube/transcript`
 - `youtube/search`
-- `github/search`
 - `github/repo`
 - `zhihu/search`
 - `zhihu/hot`
-- `weibo/search`
+- `weibo/post`
+- `weibo/user_posts`
 - `weibo/hot`
 - `bilibili/search`
 - `bilibili/video`
+- `bilibili/comments`
 - `xiaohongshu/search`
-- `xiaohongshu/hot`
+- `xiaohongshu/note`
 - `twitter/search`
 - `twitter/thread`
-- `hackernews/search`
+- `twitter/user`
+- `hackernews/top`
 - `hackernews/thread`
 - `douban/search`
 - `douban/movie`
 - `linkedin/search`
 - `linkedin/profile`
 - `stackoverflow/search`
-- `stackoverflow/thread`
 - `wikipedia/search`
 - `wikipedia/summary`
+
+## Real Adapter Families Installed Locally
+
+On this machine, `bb-browser site update` currently installs adapters for these
+site families:
+
+- `36kr`
+- `arxiv`
+- `baidu`
+- `bbc`
+- `bilibili`
+- `bing`
+- `boss`
+- `cnblogs`
+- `csdn`
+- `ctrip`
+- `devto`
+- `douban`
+- `duckduckgo`
+- `eastmoney`
+- `genius`
+- `github`
+- `google`
+- `gsmarena`
+- `hackernews`
+- `hupu`
+- `imdb`
+- `jike`
+- `linkedin`
+- `npm`
+- `openlibrary`
+- `producthunt`
+- `pypi`
+- `qidian`
+- `reddit`
+- `reuters`
+- `smzdm`
+- `sogou`
+- `stackoverflow`
+- `toutiao`
+- `twitter`
+- `v2ex`
+- `weibo`
+- `wikipedia`
+- `xiaohongshu`
+- `xueqiu`
+- `yahoo-finance`
+- `youdao`
+- `youtube`
+- `zhihu`
+
+## Real Smoke Status
+
+These are real runs observed on this workstation on 2026-03-17.
+
+### Verified Working
+
+- `wikipedia/summary`
+- `reddit/search`
+- `youtube/search`
+- `zhihu/hot`
+- `yahoo-finance/quote`
+- `xueqiu/hot-stock`
+
+### Verified Through MarketBot Tooling
+
+- `BrowserSiteTool -> wikipedia/summary`
+
+### Present But Currently Requires Browser State
+
+- `eastmoney/news`
+  Current behavior: `Failed to fetch`; adapter hints to open and log in to `https://www.eastmoney.com`
+- `github/repo`
+  Current behavior: adapter hints to open and log in to `https://github.com`
+- `hackernews/top`
+  Current behavior: adapter hints to open `https://news.ycombinator.com`
+- `arxiv/search`
+  Current behavior: adapter hints to open `https://arxiv.org`
 
 ## Usage Guidance
 

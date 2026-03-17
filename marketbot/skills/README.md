@@ -93,3 +93,27 @@ Current skills with adapter reference files:
 
 Use these reference files when you need exact `browser_site(...)` examples,
 catalog-aligned adapter choices, or explicit fallback patterns.
+
+## Browser Runtime Notes
+
+The current `bb-browser` integration has been real-smoke-tested locally against
+several adapter families.
+
+Working adapters observed on 2026-03-17:
+
+- `wikipedia/summary`
+- `reddit/search`
+- `youtube/search`
+- `zhihu/hot`
+- `yahoo-finance/quote`
+- `xueqiu/hot-stock`
+
+Adapters that exist but currently depend on browser state on this workstation:
+
+- `eastmoney/news`
+- `github/repo`
+- `hackernews/top`
+- `arxiv/search`
+
+Use [`browser_adapter_catalog.md`](/Users/ethan/Documents/workspace/MarketBot/docs/browser_adapter_catalog.md)
+as the runtime-facing source of truth for catalog choices and real smoke status.
