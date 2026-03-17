@@ -22,12 +22,11 @@ Example:
       "enabled": true,
       "adapterCatalog": [
         "xueqiu/hot-stock",
-        "xueqiu/stock",
-        "eastmoney/stock",
         "reddit/search",
-        "youtube/transcript",
-        "github/search",
-        "zhihu/hot"
+        "youtube/search",
+        "zhihu/hot",
+        "yahoo-finance/quote",
+        "wikipedia/summary"
       ]
     }
   }
@@ -37,37 +36,29 @@ Example:
 ## Recommended Initial Catalog
 
 - `xueqiu/hot-stock`
-- `xueqiu/stock`
-- `xueqiu/feed`
+- `reddit/search`
+- `youtube/search`
+- `zhihu/hot`
+- `yahoo-finance/quote`
+- `wikipedia/summary`
+
+Optional second-wave adapters after local verification:
+
 - `eastmoney/stock`
 - `eastmoney/news`
-- `reddit/search`
-- `reddit/thread`
-- `youtube/transcript`
-- `youtube/search`
 - `github/repo`
+- `youtube/transcript`
+- `reddit/thread`
 - `zhihu/search`
-- `zhihu/hot`
-- `weibo/post`
-- `weibo/user_posts`
 - `weibo/hot`
 - `bilibili/search`
-- `bilibili/video`
-- `bilibili/comments`
 - `xiaohongshu/search`
-- `xiaohongshu/note`
 - `twitter/search`
-- `twitter/thread`
-- `twitter/user`
 - `hackernews/top`
-- `hackernews/thread`
 - `douban/search`
-- `douban/movie`
 - `linkedin/search`
-- `linkedin/profile`
 - `stackoverflow/search`
-- `wikipedia/search`
-- `wikipedia/summary`
+- `arxiv/search`
 
 ## Real Adapter Families Installed Locally
 
