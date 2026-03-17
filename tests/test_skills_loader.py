@@ -209,6 +209,7 @@ def test_multi_llm_stock_panel_mentions_panel_availability(tmp_path):
 
     assert content is not None
     assert "## Panel Availability" in content
+    assert "do not fall back to `market_snapshot`" in content
 
 
 def test_external_skill_catalog_parser_extracts_curated_entries(tmp_path):

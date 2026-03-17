@@ -122,6 +122,7 @@ Bias toward names supported by at least two of the three models.
 - Never spend more than 1 open + 1 retry snapshot + 1 submit + 2 response checks on any single panel.
 - If only one panel responds, still return a report using that single panel and mark the other panels unavailable.
 - If no panels respond, stop and report the exact panel availability state instead of burning more tool iterations.
+- If no panels respond, do not fall back to `market_snapshot`, `market_news`, or any other substitute analysis flow. Report failure of the requested multi-panel workflow directly.
 - Do not summarize vague sectors when the prompt asks for concrete stocks.
 - If browser interaction fails on any of the three sites, say which panel was unavailable.
 - If the models return too many names, compress to the highest-conviction 3-5 names.
