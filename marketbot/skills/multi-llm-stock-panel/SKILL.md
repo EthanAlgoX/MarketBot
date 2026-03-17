@@ -48,12 +48,14 @@ Send this prompt to each model with only minimal market/date adaptation if neede
 
 1. Use `browser_page(action="open", target=...)` to open the three fixed targets and record the returned `tabId` for each newly opened page.
 2. Work only against those fresh `tabId` values. Ignore older pre-existing tabs for the same site.
-3. For each fresh tab, run `browser_page(action="snapshot", tab=...)` first to capture the current interactive refs.
-4. If the snapshot is empty or has no usable refs, refresh/re-open that page and retry snapshot once before declaring the panel unavailable.
-5. Identify the message composer ref from that snapshot, then use `browser_page(action="fill", target="<ref>", value="...prompt...", tab=...)`.
-6. Submit with `browser_page(action="click", ...)` on the send button if a clear send button ref exists; otherwise use `browser_page(action="press", value="Enter", tab=...)`.
-7. Poll for a response at most twice for each panel. If the page shows login requirements, missing API key, or still no answer after two checks, mark that panel unavailable and move on.
-8. Extract only the structured candidate fields:
+3. Process the panels in this fixed order exactly once: Gemini, then ChatGPT, then Grok.
+4. For each fresh tab, run `browser_page(action="snapshot", tab=...)` first to capture the current interactive refs.
+5. If the snapshot is empty or has no usable refs, refresh/re-open that page and retry snapshot once before declaring the panel unavailable.
+6. Identify the message composer ref from that snapshot, then use `browser_page(action="fill", target="<ref>", value="...prompt...", tab=...)`.
+7. Submit with `browser_page(action="click", ...)` on the send button if a clear send button ref exists; otherwise use `browser_page(action="press", value="Enter", tab=...)`.
+8. Poll for a response at most twice for each panel. If the page shows login requirements, missing API key, or still no answer after two checks, mark that panel unavailable and move on.
+9. After Grok is checked, stop the browser workflow immediately. Do not go back to Gemini or ChatGPT for another pass.
+10. Extract only the structured candidate fields:
    - symbol
    - company name
    - thesis
@@ -61,10 +63,10 @@ Send this prompt to each model with only minimal market/date adaptation if neede
    - target price
    - upside probability
    - risks
-9. Deduplicate overlapping picks across Gemini, ChatGPT, and Grok.
-10. Use `market_snapshot` to verify the current price for every final candidate.
-11. If a model-provided current price conflicts with live market data, use live market data and explicitly mark the model claim as stale.
-12. Produce a single ranked summary of the best ideas.
+11. Deduplicate overlapping picks across Gemini, ChatGPT, and Grok.
+12. Use `market_snapshot` to verify the current price for every final candidate.
+13. If a model-provided current price conflicts with live market data, use live market data and explicitly mark the model claim as stale.
+14. Produce a single ranked summary of the best ideas.
 
 ## Ranking Rules
 
@@ -123,6 +125,8 @@ Bias toward names supported by at least two of the three models.
 - If only one panel responds, still return a report using that single panel and mark the other panels unavailable.
 - If no panels respond, stop and report the exact panel availability state instead of burning more tool iterations.
 - If no panels respond, do not fall back to `market_snapshot`, `market_news`, or any other substitute analysis flow. Report failure of the requested multi-panel workflow directly.
+- Never start a second pass across the panels. One ordered sweep only.
+- Once a panel is marked unavailable, do not reopen it, revisit it, or search for alternate old tabs from the same site.
 - Do not summarize vague sectors when the prompt asks for concrete stocks.
 - If browser interaction fails on any of the three sites, say which panel was unavailable.
 - If the models return too many names, compress to the highest-conviction 3-5 names.
