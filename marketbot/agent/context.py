@@ -79,6 +79,7 @@ class ContextBuilder:
     def build_system_prompt(
         self,
         skill_names: list[str] | None = None,
+        current_message: str | None = None,
         skill_diagnostics: list[dict[str, Any]] | None = None,
         external_skill_suggestions: list[dict[str, Any]] | None = None,
         *,
@@ -111,6 +112,13 @@ class ContextBuilder:
             )
             if selected_content:
                 parts.append(f"# Selected Skills\n\n{selected_content}")
+
+        intel_scheduler_note = self._format_intel_scheduler_note(
+            current_message=current_message,
+            selected_skills=selected_skills,
+        )
+        if intel_scheduler_note:
+            parts.append(intel_scheduler_note)
 
         diagnostics_block = self._format_skill_diagnostics(skill_diagnostics)
         if diagnostics_block:
@@ -294,6 +302,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                 "role": "system",
                 "content": self.build_system_prompt(
                     resolved_skill_names,
+                    current_message=current_message,
                     skill_diagnostics=skill_diagnostics,
                     external_skill_suggestions=external_skill_suggestions,
                     include_market_playbook=bool(
@@ -712,6 +721,32 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "serpapi",
             "a-share",
         )
+        intel_source_terms = (
+            "rss",
+            "feed source",
+            "news source",
+            "source pack",
+            "digest source",
+            "资讯源",
+            "情报源",
+            "rss 源",
+            "添加rss",
+            "订阅源",
+            "采集资讯",
+        )
+        intel_digest_terms = (
+            "intel digest",
+            "daily digest",
+            "digest schedule",
+            "news digest",
+            "ai digest",
+            "资讯日报",
+            "情报摘要",
+            "技术日报",
+            "每日摘要",
+            "定时摘要",
+            "定时日报",
+        )
 
         if all(term in text for term in ("gemini", "chatgpt", "grok")) or (
             "bb-browser" in text and any(term in text for term in ("一个月内大幅上涨", "未来一个月内大涨股票", "多模型选股"))
@@ -796,6 +831,12 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         if any(term in text for term in source_terms):
             consider("stock-data-sourcing")
 
+        if any(term in text for term in intel_source_terms):
+            consider("intel-collector")
+
+        if any(term in text for term in intel_digest_terms):
+            consider("intel-daily-digest")
+
         for name in self.skills.find_trigger_candidates(current_message, available_tools=self.available_tools):
             consider(name)
 
@@ -838,6 +879,45 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "generator",
         )
         return any(term in text for term in discovery_terms)
+
+    @staticmethod
+    def _format_intel_scheduler_note(
+        *,
+        current_message: str | None,
+        selected_skills: list[str] | None,
+    ) -> str:
+        """Inject deterministic guidance for recurring intel digest workflows."""
+        names = set(selected_skills or [])
+        if "intel-daily-digest" not in names:
+            return ""
+
+        text = str(current_message or "").lower()
+        recurring_terms = (
+            "schedule",
+            "every morning",
+            "every day",
+            "daily",
+            "自动",
+            "定时",
+            "每天",
+            "每日",
+        )
+        if not any(term in text for term in recurring_terms):
+            return ""
+
+        return """# Intel Scheduling Rules
+
+For recurring intel digests with fresh coverage, collection and digest generation are separate jobs.
+
+- Prefer the combined `marketbot intel schedule-latest-daily` command when the user asks for a scheduled daily intel digest with fresh coverage.
+- If you do not use the combined command, always output both commands explicitly.
+- Do not describe `marketbot intel schedule-daily` as a collection job.
+- If the user asks for an 08:00 digest, use this canonical pattern:
+  `marketbot intel schedule-latest-daily --collect-cron-expr "55 7 * * *" --digest-cron-expr "0 8 * * *" --tz Asia/Shanghai`
+  Or the underlying pair:
+  `marketbot intel schedule-collect --cron-expr "55 7 * * *" --tz Asia/Shanghai`
+  `marketbot intel schedule-daily --cron-expr "0 8 * * *" --tz Asia/Shanghai`
+- Use `marketbot intel schedule-list` and `marketbot intel schedule-remove <job-id>` to manage the resulting jobs."""
 
     @staticmethod
     def _format_skill_diagnostics(skill_diagnostics: list[dict[str, Any]] | None) -> str:
@@ -907,6 +987,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
 
     def _build_user_content(self, text: str, media: list[str] | None) -> str | list[dict[str, Any]]:
         """Build user message content with optional base64-encoded images."""
+        text = self._augment_user_text(text)
         if not media:
             return text
 
@@ -926,6 +1007,22 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         if not images:
             return text
         return images + [{"type": "text", "text": text}]
+
+    @staticmethod
+    def _augment_user_text(text: str) -> str:
+        """Add narrow runtime hints for requests that need deterministic command planning."""
+        raw = str(text or "")
+        lower = raw.lower()
+        intel_terms = ("intel digest", "daily digest", "资讯日报", "情报摘要")
+        recurring_terms = ("schedule", "every morning", "自动", "定时", "每天", "每日")
+        if any(term in lower for term in intel_terms) and any(term in lower for term in recurring_terms):
+            return (
+                raw
+                + "\n\n"
+                + "Planning note: for the latest scheduled intel digest, prefer "
+                + "`marketbot intel schedule-latest-daily`."
+            )
+        return raw
 
     def add_tool_result(
         self, messages: list[dict[str, Any]],

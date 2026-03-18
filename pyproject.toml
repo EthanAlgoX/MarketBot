@@ -46,6 +46,7 @@ dependencies = [
     "openai>=2.8.0",
     "yfinance>=0.2.65,<1.0.0",
     "tradingview-ta>=3.3.0,<4.0.0",
+    "feedparser>=6.0.11,<7.0.0",
 ]
 
 [project.optional-dependencies]

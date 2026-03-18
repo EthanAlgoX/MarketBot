@@ -66,6 +66,10 @@ marketbot agent -m "根据我的持仓生成未来两周的热点事件监控清
 | `catalyst-tracker` | 做催化剂跟踪 |
 | `stock-watch` | 对指定标的做监控和摘要 |
 | `risk-checklist` | 输出风险清单 |
+| `ak-rss-digest` | 从固定 RSS 源生成偏 AI 和技术主题的中文阅读摘要 |
+| `tech-news-digest` | 从分层信源目录生成 AI 与技术新闻日报 |
+| `intel-collector` | 管理 RSS/资讯源、执行采集并建立定时采集任务 |
+| `intel-daily-digest` | 从已采集的情报条目生成日报并建立定时摘要任务 |
 
 ## 5 分钟上手
 
@@ -161,7 +165,45 @@ marketbot agent -m "根据我的持仓生成今天盘前监控清单：SPY,NVDA,
 marketbot agent -m "列出 NVDA、UNH、07709 未来两周最重要的催化和风险"
 marketbot agent -m "筛选今天值得重点看的股票：NVDA,TSLA,INTC,TTD,CRWV"
 marketbot agent -m "为什么 07709 走这个价格源？给我看数据路由和可靠性"
+marketbot agent -m "请生成一份 AI 日报，从固定 RSS 里整理阅读摘要"
+marketbot agent -m "生成今天的技术新闻日报，重点看 AI 和开发者工具"
 ```
+
+## 技术资讯 Skill
+
+除了市场分析链路，当前也内置了三类技术资讯能力：
+
+- `ak-rss-digest`
+  使用固定 RSS/Atom 信源和脚本抓取，适合做偏 AI agent、前沿 AI、深度访谈的中文阅读摘要。
+- `tech-news-digest`
+  使用分层信源目录做技术和 AI 新闻汇总，优先抓取 `tier1`，不足时再扩到 `tier2`，浏览器型来源作为可选增强。
+- `intel-collector` / `intel-daily-digest`
+  提供可持久化的 RSS/资讯源管理、采集、digest 生成和 cron 调度，适合把资讯流接成可重复运行的情报管线。
+
+典型调用：
+
+```bash
+marketbot agent -m "请生成一份 AI 日报，从固定 RSS 里整理阅读摘要"
+marketbot agent -m "生成今天的技术新闻日报，重点看 AI、模型产品和开发者工具"
+```
+
+如果你希望把 RSS/资讯源采集和日报生成接入定时任务，推荐使用 `intel` 命令链路：
+
+```bash
+marketbot intel source-add --type rss --name "OpenAI Blog" --url https://openai.com/blog/rss.xml
+marketbot intel collect
+marketbot intel digest-daily
+marketbot intel digest-list
+marketbot intel digest-show 1
+marketbot intel schedule-latest-daily --collect-cron-expr "55 7 * * *" --digest-cron-expr "0 8 * * *" --tz Asia/Shanghai
+marketbot intel schedule-list
+marketbot intel schedule-remove <job-id>
+```
+
+其中 `schedule-latest-daily` 会一次创建两个 cron job：
+
+- 上游 `intel_collect`，先刷新 source
+- 下游 `intel_digest_daily`，再基于最新条目生成日报
 
 ## 可解释性与可靠性
 

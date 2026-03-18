@@ -52,6 +52,8 @@ app = typer.Typer(
     help=f"{__logo__} marketbot - Personal AI Assistant",
     no_args_is_help=True,
 )
+intel_app = typer.Typer(help="Intel source collection and digest tools")
+app.add_typer(intel_app, name="intel")
 
 console = Console()
 EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit", ":q"}
@@ -1479,6 +1481,532 @@ def _make_provider(config: Config):
     )
 
 
+def _open_intel_db(config_path: Path | None = None):
+    """Open and initialize the intel database for the configured workspace."""
+    from marketbot.config.loader import load_config
+    from marketbot.domain.intel.storage import connect_intel_db, init_intel_schema
+
+    config = load_config(config_path)
+    conn = connect_intel_db(config.workspace_path)
+    init_intel_schema(conn)
+    return config, conn
+
+
+async def _collect_intel_sources(conn, *, scope: str, scope_key: str):
+    """Collect items for active intel sources in a scope."""
+    from marketbot.domain.intel.collector import IntelCollectorService, utc_now_iso
+    from marketbot.domain.intel.models import CollectResult
+    from marketbot.domain.intel.storage import insert_raw_items, list_sources, mark_source_collected
+
+    service = IntelCollectorService()
+    sources = list_sources(conn, scope=scope, scope_key=scope_key, active_only=True)
+    results = []
+    for source in sources:
+        collected_at = utc_now_iso()
+        try:
+            items = await service.collect_source(source)
+            inserted = insert_raw_items(conn, items)
+            mark_source_collected(conn, int(source.id or 0), collected_at=collected_at)
+            results.append(
+                CollectResult(
+                    source_id=int(source.id or 0),
+                    ok=True,
+                    items_collected=len(items),
+                    items_inserted=inserted,
+                )
+            )
+        except Exception as exc:
+            mark_source_collected(
+                conn,
+                int(source.id or 0),
+                collected_at=collected_at,
+                error=str(exc),
+            )
+            results.append(CollectResult(source_id=int(source.id or 0), ok=False, error=str(exc)))
+    return results
+
+
+def _render_intel_collect_summary(results) -> str:
+    """Render a compact summary for intel collection runs."""
+    total_sources = len(results)
+    ok_count = sum(1 for item in results if item.ok)
+    inserted = sum(int(getattr(item, "items_inserted", 0) or 0) for item in results)
+    lines = [
+        f"Intel collect completed: {ok_count}/{total_sources} sources ok.",
+        f"Inserted items: {inserted}",
+    ]
+    errors = [item for item in results if not item.ok and item.error]
+    if errors:
+        lines.append("Errors:")
+        lines.extend(f"- source #{item.source_id}: {item.error}" for item in errors[:5])
+    return "\n".join(lines)
+
+
+def _build_intel_daily_digest(conn, *, scope: str, scope_key: str, hours: int, limit: int):
+    """Build and load the latest daily digest for a scope."""
+    from marketbot.domain.intel.digest import build_daily_digest
+    from marketbot.domain.intel.storage import list_digests
+
+    digest_id = build_daily_digest(conn, scope=scope, scope_key=scope_key, hours=hours, limit=limit)
+    digest = list_digests(
+        conn,
+        digest_type="daily",
+        scope=scope,
+        scope_key=scope_key,
+        limit=1,
+    )[0]
+    return digest_id, digest
+
+
+def _build_cron_schedule(
+    *,
+    every_minutes: int | None,
+    cron_expr: str | None,
+    tz: str | None,
+):
+    """Build a cron schedule from simple CLI options."""
+    from marketbot.cron.types import CronSchedule
+
+    if every_minutes and cron_expr:
+        raise typer.BadParameter("use either --every-minutes or --cron-expr, not both")
+    if every_minutes is not None:
+        if every_minutes <= 0:
+            raise typer.BadParameter("--every-minutes must be > 0")
+        return CronSchedule(kind="every", every_ms=every_minutes * 60 * 1000)
+    if cron_expr:
+        return CronSchedule(kind="cron", expr=cron_expr, tz=tz)
+    raise typer.BadParameter("one of --every-minutes or --cron-expr is required")
+
+
+def _schedule_intel_job(
+    *,
+    config_path: Path | None,
+    name: str,
+    schedule,
+    payload_kind: str,
+    scope: str,
+    scope_key: str,
+    deliver: bool = False,
+    channel: str | None = None,
+    to: str | None = None,
+    hours: int = 24,
+    limit: int = 12,
+):
+    """Create a cron job and rewrite its payload for intel execution."""
+    from marketbot.config.loader import load_config
+    from marketbot.cron.service import CronService
+
+    config = load_config(config_path)
+    cron_store_path = config.workspace_path / "cron" / "jobs.json"
+    cron = CronService(cron_store_path)
+    job = cron.add_job(
+        name=name,
+        schedule=schedule,
+        message=name,
+        deliver=deliver,
+        channel=channel,
+        to=to,
+    )
+    job.payload.kind = payload_kind
+    job.payload.scope = scope
+    job.payload.scope_key = scope_key
+    job.payload.hours = hours
+    job.payload.limit = limit
+    cron._save_store()
+    return job
+
+
+def _load_intel_cron_service(config_path: Path | None = None):
+    """Load the workspace cron service used by intel scheduled jobs."""
+    from marketbot.config.loader import load_config
+    from marketbot.cron.service import CronService
+
+    config = load_config(config_path)
+    cron_store_path = config.workspace_path / "cron" / "jobs.json"
+    return CronService(cron_store_path)
+
+
+@intel_app.command("source-add")
+def intel_source_add(
+    name: str = typer.Option(..., help="Source display name"),
+    source_type: str = typer.Option(..., "--type", help="Source type: rss or website"),
+    url: str = typer.Option(..., help="Source URL"),
+    scope: str = typer.Option("workspace", help="Logical scope"),
+    scope_key: str = typer.Option("", help="Scope identifier"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Add an intel source to the workspace registry."""
+    from marketbot.domain.intel.models import IntelSource
+    from marketbot.domain.intel.storage import add_source
+
+    config_path = Path(config) if config else None
+    _, conn = _open_intel_db(config_path)
+    try:
+        source_id = add_source(
+            conn,
+            IntelSource(
+                name=name,
+                source_type=source_type.strip().lower(),
+                config_json=json.dumps({"url": url}, ensure_ascii=False),
+                scope=scope,
+                scope_key=scope_key,
+            ),
+        )
+    finally:
+        conn.close()
+    console.print(f"[green]✓[/green] Added intel source #{source_id}: {name}")
+
+
+@intel_app.command("source-list")
+def intel_source_list(
+    scope: str = typer.Option("workspace", help="Logical scope"),
+    scope_key: str = typer.Option("", help="Scope identifier"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """List active intel sources."""
+    from marketbot.domain.intel.storage import list_sources
+
+    config_path = Path(config) if config else None
+    _, conn = _open_intel_db(config_path)
+    try:
+        sources = list_sources(conn, scope=scope, scope_key=scope_key, active_only=True)
+    finally:
+        conn.close()
+
+    table = Table(title="Intel Sources")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Name", style="green")
+    table.add_column("Type")
+    table.add_column("Scope")
+    table.add_column("Last Collected")
+    table.add_column("Last Error")
+    for source in sources:
+        table.add_row(
+            str(source.id or ""),
+            source.name,
+            source.source_type,
+            f"{source.scope}:{source.scope_key}",
+            source.last_collected_at or "-",
+            source.last_error or "-",
+        )
+    console.print(table)
+
+
+@intel_app.command("collect")
+def intel_collect(
+    scope: str = typer.Option("workspace", help="Logical scope"),
+    scope_key: str = typer.Option("", help="Scope identifier"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Collect items for all active intel sources in a scope."""
+    config_path = Path(config) if config else None
+    _, conn = _open_intel_db(config_path)
+    try:
+        results = asyncio.run(_collect_intel_sources(conn, scope=scope, scope_key=scope_key))
+    finally:
+        conn.close()
+
+    table = Table(title="Intel Collect Results")
+    table.add_column("Source ID", style="cyan")
+    table.add_column("Status")
+    table.add_column("Collected")
+    table.add_column("Inserted")
+    table.add_column("Error")
+    for result in results:
+        table.add_row(
+            str(result.source_id),
+            "ok" if result.ok else "error",
+            str(result.items_collected),
+            str(result.items_inserted),
+            result.error or "-",
+        )
+    console.print(table)
+    if results and not any(result.ok for result in results):
+        raise typer.Exit(1)
+
+
+@intel_app.command("digest-daily")
+def intel_digest_daily(
+    scope: str = typer.Option("workspace", help="Logical scope"),
+    scope_key: str = typer.Option("", help="Scope identifier"),
+    hours: int = typer.Option(24, help="Trailing collection window in hours"),
+    limit: int = typer.Option(12, help="Maximum digest items"),
+    save: bool = typer.Option(True, "--save/--no-save", help="Save markdown report to workspace/reports"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Build a daily digest from recently collected intel items."""
+    from marketbot.config.loader import load_config
+
+    config_path = Path(config) if config else None
+    _, conn = _open_intel_db(config_path)
+    try:
+        digest_id, digest = _build_intel_daily_digest(
+            conn,
+            scope=scope,
+            scope_key=scope_key,
+            hours=hours,
+            limit=limit,
+        )
+    finally:
+        conn.close()
+
+    console.print(f"[green]✓[/green] Built digest #{digest_id}: {digest.title}")
+    console.print(Markdown(digest.body_markdown))
+
+    if save:
+        config_obj = load_config(config_path)
+        reports_dir = config_obj.workspace_path / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        target = reports_dir / f"intel_digest_daily_{stamp}.md"
+        target.write_text(digest.body_markdown, encoding="utf-8")
+        console.print(f"[dim]Saved to {target}[/dim]")
+
+
+@intel_app.command("digest-list")
+def intel_digest_list(
+    scope: str = typer.Option("workspace", help="Logical scope"),
+    scope_key: str = typer.Option("", help="Scope identifier"),
+    limit: int = typer.Option(20, help="Maximum digests to list"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """List recent intel digests for a scope."""
+    from marketbot.domain.intel.storage import list_digests
+
+    config_path = Path(config) if config else None
+    _, conn = _open_intel_db(config_path)
+    try:
+        digests = list_digests(
+            conn,
+            digest_type="daily",
+            scope=scope,
+            scope_key=scope_key,
+            limit=limit,
+        )
+    finally:
+        conn.close()
+
+    table = Table(title="Intel Digests")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Type")
+    table.add_column("Title", style="green")
+    table.add_column("Created At")
+    table.add_column("Window")
+    for digest in digests:
+        table.add_row(
+            str(digest.id or ""),
+            digest.digest_type,
+            digest.title,
+            digest.created_at or "-",
+            f"{digest.window_start or '-'} -> {digest.window_end or '-'}",
+        )
+    console.print(table)
+
+
+@intel_app.command("digest-show")
+def intel_digest_show(
+    digest_id: int = typer.Argument(..., help="Digest id"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Show a single intel digest by id."""
+    from marketbot.domain.intel.storage import get_digest
+
+    config_path = Path(config) if config else None
+    _, conn = _open_intel_db(config_path)
+    try:
+        digest = get_digest(conn, digest_id)
+    finally:
+        conn.close()
+
+    if not digest:
+        console.print(f"[red]Intel digest not found: {digest_id}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[green]Digest #{digest_id}[/green] {digest.title}")
+    console.print(Markdown(digest.body_markdown))
+
+
+@intel_app.command("schedule-collect")
+def intel_schedule_collect(
+    scope: str = typer.Option("workspace", help="Logical scope"),
+    scope_key: str = typer.Option("", help="Scope identifier"),
+    every_minutes: int | None = typer.Option(None, help="Repeat collection every N minutes"),
+    cron_expr: str | None = typer.Option(None, help="Cron expression for collection"),
+    tz: str | None = typer.Option(None, help="Timezone for cron expressions"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Schedule recurring intel source collection."""
+    config_path = Path(config) if config else None
+    schedule = _build_cron_schedule(
+        every_minutes=every_minutes,
+        cron_expr=cron_expr,
+        tz=tz,
+    )
+    job = _schedule_intel_job(
+        config_path=config_path,
+        name=f"intel collect [{scope}:{scope_key}]",
+        schedule=schedule,
+        payload_kind="intel_collect",
+        scope=scope,
+        scope_key=scope_key,
+    )
+    console.print(f"[green]✓[/green] Scheduled intel collect job {job.id}: {job.name}")
+
+
+@intel_app.command("schedule-daily")
+def intel_schedule_daily(
+    scope: str = typer.Option("workspace", help="Logical scope"),
+    scope_key: str = typer.Option("", help="Scope identifier"),
+    every_minutes: int | None = typer.Option(None, help="Repeat digest generation every N minutes"),
+    cron_expr: str | None = typer.Option("0 8 * * *", help="Cron expression for digest generation"),
+    tz: str | None = typer.Option("Asia/Shanghai", help="Timezone for cron expressions"),
+    hours: int = typer.Option(24, help="Trailing collection window in hours"),
+    limit: int = typer.Option(12, help="Maximum digest items"),
+    deliver: bool = typer.Option(False, help="Deliver digest to a channel when built"),
+    channel: str | None = typer.Option(None, help="Target channel for delivery"),
+    to: str | None = typer.Option(None, help="Target chat id for delivery"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Schedule recurring daily digest generation."""
+    if deliver and (not channel or not to):
+        raise typer.BadParameter("--channel and --to are required when --deliver is set")
+    config_path = Path(config) if config else None
+    schedule = _build_cron_schedule(
+        every_minutes=every_minutes,
+        cron_expr=cron_expr,
+        tz=tz,
+    )
+    job = _schedule_intel_job(
+        config_path=config_path,
+        name=f"intel daily digest [{scope}:{scope_key}]",
+        schedule=schedule,
+        payload_kind="intel_digest_daily",
+        scope=scope,
+        scope_key=scope_key,
+        deliver=deliver,
+        channel=channel,
+        to=to,
+        hours=hours,
+        limit=limit,
+    )
+    console.print(f"[green]✓[/green] Scheduled intel daily digest job {job.id}: {job.name}")
+
+
+@intel_app.command("schedule-latest-daily")
+def intel_schedule_latest_daily(
+    scope: str = typer.Option("workspace", help="Logical scope"),
+    scope_key: str = typer.Option("", help="Scope identifier"),
+    collect_cron_expr: str = typer.Option("55 7 * * *", help="Cron expression for upstream collection"),
+    digest_cron_expr: str = typer.Option("0 8 * * *", help="Cron expression for digest generation"),
+    tz: str | None = typer.Option("Asia/Shanghai", help="Timezone for cron expressions"),
+    hours: int = typer.Option(24, help="Trailing collection window in hours"),
+    limit: int = typer.Option(12, help="Maximum digest items"),
+    deliver: bool = typer.Option(False, help="Deliver digest to a channel when built"),
+    channel: str | None = typer.Option(None, help="Target channel for delivery"),
+    to: str | None = typer.Option(None, help="Target chat id for delivery"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Schedule paired collection and digest jobs for fresh daily intel digests."""
+    if deliver and (not channel or not to):
+        raise typer.BadParameter("--channel and --to are required when --deliver is set")
+    config_path = Path(config) if config else None
+    collect_schedule = _build_cron_schedule(
+        every_minutes=None,
+        cron_expr=collect_cron_expr,
+        tz=tz,
+    )
+    digest_schedule = _build_cron_schedule(
+        every_minutes=None,
+        cron_expr=digest_cron_expr,
+        tz=tz,
+    )
+    collect_job = _schedule_intel_job(
+        config_path=config_path,
+        name=f"intel collect [{scope}:{scope_key}]",
+        schedule=collect_schedule,
+        payload_kind="intel_collect",
+        scope=scope,
+        scope_key=scope_key,
+    )
+    digest_job = _schedule_intel_job(
+        config_path=config_path,
+        name=f"intel daily digest [{scope}:{scope_key}]",
+        schedule=digest_schedule,
+        payload_kind="intel_digest_daily",
+        scope=scope,
+        scope_key=scope_key,
+        deliver=deliver,
+        channel=channel,
+        to=to,
+        hours=hours,
+        limit=limit,
+    )
+    console.print(
+        "[green]✓[/green] Scheduled latest intel daily workflow: "
+        f"collect job {collect_job.id}, digest job {digest_job.id}"
+    )
+
+
+@intel_app.command("schedule-list")
+def intel_schedule_list(
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """List scheduled intel cron jobs."""
+    config_path = Path(config) if config else None
+    cron = _load_intel_cron_service(config_path)
+    jobs = [
+        job
+        for job in cron.list_jobs(include_disabled=True)
+        if job.payload.kind in {"intel_collect", "intel_digest_daily"}
+    ]
+
+    table = Table(title="Intel Scheduled Jobs")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Name", style="green")
+    table.add_column("Kind")
+    table.add_column("Enabled")
+    table.add_column("Schedule")
+    table.add_column("Next Run")
+
+    for job in jobs:
+        if job.schedule.kind == "every":
+            schedule_text = f"every {int((job.schedule.every_ms or 0) / 60000)}m"
+        elif job.schedule.kind == "cron":
+            schedule_text = f"{job.schedule.expr} [{job.schedule.tz or 'local'}]"
+        else:
+            schedule_text = f"at {job.schedule.at_ms}"
+        table.add_row(
+            job.id,
+            job.name,
+            job.payload.kind,
+            "yes" if job.enabled else "no",
+            schedule_text,
+            str(job.state.next_run_at_ms or "-"),
+        )
+
+    console.print(table)
+
+
+@intel_app.command("schedule-remove")
+def intel_schedule_remove(
+    job_id: str = typer.Argument(..., help="Cron job id"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Remove a scheduled intel cron job."""
+    config_path = Path(config) if config else None
+    cron = _load_intel_cron_service(config_path)
+    jobs = {job.id: job for job in cron.list_jobs(include_disabled=True)}
+    job = jobs.get(job_id)
+    if not job or job.payload.kind not in {"intel_collect", "intel_digest_daily"}:
+        console.print(f"[red]Intel cron job not found: {job_id}[/red]")
+        raise typer.Exit(1)
+    removed = cron.remove_job(job_id)
+    if not removed:
+        console.print(f"[red]Failed to remove intel cron job: {job_id}[/red]")
+        raise typer.Exit(1)
+    console.print(f"[green]✓[/green] Removed intel scheduled job {job_id}")
+
+
 # ============================================================================
 # Gateway / Server
 # ============================================================================
@@ -1556,6 +2084,43 @@ def gateway(
         """Execute a cron job through the agent."""
         from marketbot.agent.tools.cron import CronTool
         from marketbot.agent.tools.message import MessageTool
+        if job.payload.kind == "intel_collect":
+            _, intel_conn = _open_intel_db(config_path)
+            try:
+                results = await _collect_intel_sources(
+                    intel_conn,
+                    scope=job.payload.scope,
+                    scope_key=job.payload.scope_key,
+                )
+                return _render_intel_collect_summary(results)
+            finally:
+                intel_conn.close()
+
+        if job.payload.kind == "intel_digest_daily":
+            _, intel_conn = _open_intel_db(config_path)
+            try:
+                _, digest = _build_intel_daily_digest(
+                    intel_conn,
+                    scope=job.payload.scope,
+                    scope_key=job.payload.scope_key,
+                    hours=job.payload.hours,
+                    limit=job.payload.limit,
+                )
+                if job.payload.deliver and job.payload.to:
+                    from marketbot.bus.events import OutboundMessage
+
+                    await bus.publish_outbound(
+                        OutboundMessage(
+                            channel=job.payload.channel or "cli",
+                            chat_id=job.payload.to,
+                            content=digest.body_markdown,
+                        )
+                    )
+                    return digest.body_markdown
+                return digest.body_markdown
+            finally:
+                intel_conn.close()
+
         reminder_note = (
             "[Scheduled Task] Timer finished.\n\n"
             f"Task '{job.name}' has been triggered.\n"

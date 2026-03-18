@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head>
+    <title>AK RSS Digest Feeds</title>
+  </head>
+  <body>
+    <outline text="Latent Space" title="Latent Space" type="rss" xmlUrl="https://www.latent.space/feed" htmlUrl="https://www.latent.space" />
+    <outline text="One Useful Thing" title="One Useful Thing" type="rss" xmlUrl="https://www.oneusefulthing.org/feed" htmlUrl="https://www.oneusefulthing.org" />
+    <outline text="Simon Willison" title="Simon Willison" type="rss" xmlUrl="https://simonwillison.net/atom/everything/" htmlUrl="https://simonwillison.net" />
+    <outline text="Stratechery" title="Stratechery" type="rss" xmlUrl="https://stratechery.com/feed/" htmlUrl="https://stratechery.com" />
+    <outline text="Hacker News" title="Hacker News" type="rss" xmlUrl="https://hnrss.org/frontpage" htmlUrl="https://news.ycombinator.com" />
+  </body>
+</opml>

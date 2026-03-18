@@ -34,6 +34,7 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `market-analysis` | `market-report`, `market-monitor`, `market-discovery`, `news-intelligence`, `sentiment-analysis`, `macro-regime`, `sector-breadth` |
 | `event-driven` | `catalyst-tracker`, `earnings-readout`, `risk-checklist` |
 | `screening-and-watch` | `daily-stock-screener`, `stock-watch`, `portfolio-analyzer` |
+| `tech-intelligence` | `ak-rss-digest`, `tech-news-digest`, `intel-collector`, `intel-daily-digest`, `hackernews-browser-research`, `github-browser-research` |
 | `specialist-research` | `options-payoff`, `pair-correlation`, `stock-data-sourcing`, `stock-info-explorer`, `wechat-article-search`, `xueqiu-research`, `eastmoney-live`, `social-signal-browser`, `reddit-research`, `youtube-transcript-browser`, `github-browser-research`, `zhihu-browser-research`, `browser-news-verifier`, `weibo-browser-research`, `bilibili-browser-research`, `xiaohongshu-browser-research`, `twitter-browser-research`, `hackernews-browser-research`, `douban-browser-research`, `linkedin-browser-research`, `stackoverflow-browser-research`, `wikipedia-browser-research` |
 | `platform-utility` | `github`, `summarize`, `weather`, `cron`, `tmux`, `clawhub`, `find-skills` |
 
@@ -63,6 +64,10 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `xiaohongshu-browser-research` | Use browser-backed Xiaohongshu adapters for consumer-attention and brand heat signals |
 | `twitter-browser-research` | Use browser-backed Twitter/X adapters for threads and fast market commentary |
 | `hackernews-browser-research` | Use browser-backed Hacker News adapters for technical and launch discussion |
+| `ak-rss-digest` | Generate a script-backed Chinese reading digest from a fixed AI and tech RSS bundle |
+| `tech-news-digest` | Generate a daily AI and tech news digest from a tiered source catalog |
+| `intel-collector` | Manage RSS and intel sources, run collection, and maintain recurring intel schedules |
+| `intel-daily-digest` | Build daily digests from collected intel items and manage recurring digest schedules |
 | `douban-browser-research` | Use browser-backed Douban adapters for cultural heat and entertainment attention |
 | `linkedin-browser-research` | Use browser-backed LinkedIn adapters for professional signals and hiring context |
 | `stackoverflow-browser-research` | Use browser-backed Stack Overflow adapters for developer friction and adoption signals |

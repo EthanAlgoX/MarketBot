@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from marketbot.cron.service import CronService
-from marketbot.cron.types import CronSchedule
+from marketbot.cron.types import CronPayload, CronSchedule
 
 
 def test_add_job_rejects_unknown_timezone(tmp_path) -> None:
@@ -59,3 +59,40 @@ async def test_running_service_honors_external_disable(tmp_path) -> None:
         assert called == []
     finally:
         service.stop()
+
+
+def test_cron_payload_persists_intel_fields(tmp_path) -> None:
+    store_path = tmp_path / "cron" / "jobs.json"
+    service = CronService(store_path)
+
+    job = service.add_job(
+        name="intel-daily",
+        schedule=CronSchedule(kind="every", every_ms=60_000),
+        message="build intel digest",
+    )
+    job.payload = CronPayload(
+        kind="intel_digest_daily",
+        message="build intel digest",
+        deliver=True,
+        channel="telegram",
+        to="chat-1",
+        scope="workspace",
+        scope_key="",
+        hours=12,
+        limit=8,
+    )
+    service._save_store()
+
+    reloaded = CronService(store_path)
+    loaded = reloaded.list_jobs(include_disabled=True)
+
+    assert len(loaded) == 1
+    payload = loaded[0].payload
+    assert payload.kind == "intel_digest_daily"
+    assert payload.deliver is True
+    assert payload.channel == "telegram"
+    assert payload.to == "chat-1"
+    assert payload.scope == "workspace"
+    assert payload.scope_key == ""
+    assert payload.hours == 12
+    assert payload.limit == 8

@@ -107,6 +107,10 @@ class CronService:
                             deliver=j["payload"].get("deliver", False),
                             channel=j["payload"].get("channel"),
                             to=j["payload"].get("to"),
+                            scope=j["payload"].get("scope", "workspace"),
+                            scope_key=j["payload"].get("scope_key", ""),
+                            hours=int(j["payload"].get("hours", 24) or 24),
+                            limit=int(j["payload"].get("limit", 12) or 12),
                         ),
                         state=CronJobState(
                             next_run_at_ms=j.get("state", {}).get("nextRunAtMs"),
@@ -154,6 +158,10 @@ class CronService:
                         "deliver": j.payload.deliver,
                         "channel": j.payload.channel,
                         "to": j.payload.to,
+                        "scope": j.payload.scope,
+                        "scope_key": j.payload.scope_key,
+                        "hours": j.payload.hours,
+                        "limit": j.payload.limit,
                     },
                     "state": {
                         "nextRunAtMs": j.state.next_run_at_ms,

@@ -185,6 +185,84 @@ def test_watchlist_screening_message_auto_injects_daily_stock_screener(tmp_path)
     assert any(item["name"] == "daily-stock-screener" for item in routing["selected"])
 
 
+def test_ai_digest_message_auto_injects_ak_rss_digest_when_exec_available(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"exec", "web_fetch"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="请生成一份 AI 日报，从固定 RSS 里整理阅读摘要。",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: ak-rss-digest" in prompt
+    routing = builder.get_last_skill_routing()
+    assert routing is not None
+    assert any(item["name"] == "ak-rss-digest" for item in routing["selected"])
+
+
+def test_tech_news_digest_message_auto_injects_when_web_fetch_available(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"web_fetch", "read_file", "write_file"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Generate a tech news digest with today's AI news and product updates.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: tech-news-digest" in prompt
+
+
+def test_intel_digest_message_auto_injects_when_exec_available(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"exec"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Please build an intel digest and schedule it every morning at 8.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: intel-daily-digest" in prompt
+    assert "# Intel Scheduling Rules" in prompt
+    assert 'marketbot intel schedule-latest-daily --collect-cron-expr "55 7 * * *" --digest-cron-expr "0 8 * * *" --tz Asia/Shanghai' in prompt
+    assert 'marketbot intel schedule-collect --cron-expr "55 7 * * *" --tz Asia/Shanghai' in prompt
+    assert 'marketbot intel schedule-daily --cron-expr "0 8 * * *" --tz Asia/Shanghai' in prompt
+    routing = builder.get_last_skill_routing()
+    assert routing is not None
+    assert any(item["name"] == "intel-daily-digest" for item in routing["selected"])
+    assert "schedule-latest-daily" in messages[-1]["content"]
+
+
+def test_intel_collector_message_auto_injects_when_exec_available(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"exec"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Please add an RSS source for OpenAI news and schedule collection every 30 minutes.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: intel-collector" in prompt
+    routing = builder.get_last_skill_routing()
+    assert routing is not None
+    assert any(item["name"] == "intel-collector" for item in routing["selected"])
+
+
 def test_external_skill_suggestions_are_added_when_no_local_skill_matches(tmp_path, monkeypatch) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

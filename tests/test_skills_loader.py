@@ -1,6 +1,7 @@
 from marketbot.agent.skills import SkillsLoader
 from marketbot.config.schema import MarketToolsConfig
 from marketbot.domain.market import build_market_runtime_profile
+import json
 
 
 def test_builtin_market_skills_are_discoverable(tmp_path):
@@ -8,6 +9,8 @@ def test_builtin_market_skills_are_discoverable(tmp_path):
 
     names = {item["name"] for item in loader.list_skills(filter_unavailable=False)}
 
+    assert "ak-rss-digest" in names
+    assert "tech-news-digest" in names
     assert "daily-stock-screener" in names
     assert "market-report" in names
     assert "catalyst-tracker" in names
@@ -48,6 +51,24 @@ def test_market_report_skill_content_is_loadable(tmp_path):
 
     assert content is not None
     assert "# Market Report" in content
+
+
+def test_ak_rss_digest_skill_content_is_loadable(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    content = loader.load_skill("ak-rss-digest")
+
+    assert content is not None
+    assert "# AK RSS Digest" in content
+
+
+def test_tech_news_digest_skill_content_is_loadable(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    content = loader.load_skill("tech-news-digest")
+
+    assert content is not None
+    assert "# Tech News Digest" in content
 
 
 def test_stock_data_sourcing_skill_content_is_loadable(tmp_path):
@@ -100,6 +121,63 @@ def test_market_skill_capabilities_are_parsed(tmp_path):
     assert capabilities["required_tools"] == ["market_snapshot", "market_signal"]
     assert "equity" in capabilities["asset_classes"]
     assert "us" in capabilities["markets"]
+
+
+def test_ak_rss_digest_capabilities_are_parsed(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    capabilities = loader.get_skill_capabilities("ak-rss-digest")
+
+    assert "rss digest" in capabilities["triggers"]
+    assert capabilities["output"] == "ai-reading-digest"
+    assert capabilities["risk"] == "low"
+    assert capabilities["freshness"] == "live"
+    assert capabilities["required_tools"] == ["exec"]
+    assert capabilities["tools"] == ["exec", "web_fetch"]
+    assert capabilities["markets"] == ["global"]
+
+
+def test_tech_news_digest_capabilities_are_parsed(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    capabilities = loader.get_skill_capabilities("tech-news-digest")
+
+    assert "tech news" in capabilities["triggers"]
+    assert capabilities["output"] == "tech-news-digest-report"
+    assert capabilities["risk"] == "low"
+    assert capabilities["freshness"] == "live"
+    assert capabilities["required_tools"] == ["web_fetch"]
+    assert "browser_page" in capabilities["tools"]
+    assert capabilities["markets"] == ["global"]
+
+
+def test_ak_rss_digest_ships_script_and_feeds_reference(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    script_path = loader.builtin_skills / "ak-rss-digest" / "scripts" / "fetch_today_feed_items.py"
+    feeds_path = loader.builtin_skills / "ak-rss-digest" / "references" / "feeds.opml"
+
+    assert script_path.exists()
+    assert feeds_path.exists()
+
+
+def test_tech_news_digest_ships_script_and_valid_source_catalog(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    script_path = loader.builtin_skills / "tech-news-digest" / "scripts" / "collect_sources.py"
+    catalog_path = loader.builtin_skills / "tech-news-digest" / "references" / "sources.json"
+    template_path = loader.builtin_skills / "tech-news-digest" / "references" / "report-template.md"
+
+    assert script_path.exists()
+    assert template_path.exists()
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    assert "sources" in catalog
+    assert "tier1" in catalog["sources"]
+    assert "tier2" in catalog["sources"]
+    assert "tier3_browser" in catalog["sources"]
+    content = loader.load_skill("tech-news-digest")
+    assert content is not None
+    assert "--output" in content
 
 
 def test_stock_data_sourcing_capabilities_include_tool_alignment(tmp_path):
@@ -158,6 +236,28 @@ def test_market_discovery_trigger_matching_supports_chinese_opportunity_terms(tm
     )
 
     assert "market-discovery" in matched
+
+
+def test_ak_rss_digest_trigger_matching_respects_exec_tool(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "请做一个 AI 日报，从固定 RSS 里整理阅读摘要。",
+        available_tools={"exec", "web_fetch"},
+    )
+
+    assert "ak-rss-digest" in matched
+
+
+def test_tech_news_digest_trigger_matching_respects_web_fetch_tool(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "Generate a tech news digest covering today's AI news and major product updates.",
+        available_tools={"web_fetch", "read_file", "write_file"},
+    )
+
+    assert "tech-news-digest" in matched
 
 
 def test_vix_panic_reversion_trigger_matching_uses_metadata(tmp_path):

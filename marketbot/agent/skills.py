@@ -381,7 +381,11 @@ class SkillsLoader:
                     continue
                 return False
         if required_freshness and relevant_tools:
-            if not any(freshness_satisfies(required_freshness, tool_freshness.get(tool_name, [])) for tool_name in relevant_tools):
+            profiled_tools = [tool_name for tool_name in relevant_tools if tool_freshness.get(tool_name)]
+            if profiled_tools and not any(
+                freshness_satisfies(required_freshness, tool_freshness.get(tool_name, []))
+                for tool_name in profiled_tools
+            ):
                 return False
 
         return True
@@ -753,9 +757,17 @@ class SkillsLoader:
                 )
 
         if required_freshness and relevant_tools:
-            freshness_ok = any(freshness_satisfies(required_freshness, tool_freshness.get(tool_name, [])) for tool_name in relevant_tools)
+            profiled_tools = [tool_name for tool_name in relevant_tools if tool_freshness.get(tool_name)]
+            freshness_ok = (
+                True
+                if not profiled_tools
+                else any(
+                    freshness_satisfies(required_freshness, tool_freshness.get(tool_name, []))
+                    for tool_name in profiled_tools
+                )
+            )
             if not freshness_ok:
-                offered = sorted({item for tool_name in relevant_tools for item in tool_freshness.get(tool_name, [])})
+                offered = sorted({item for tool_name in profiled_tools for item in tool_freshness.get(tool_name, [])})
                 reasons.append(
                     f"runtime freshness mismatch: need {required_freshness}; available={', '.join(offered) if offered else 'unknown'}"
                 )

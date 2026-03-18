@@ -66,6 +66,10 @@ Common built-in skills:
 | `catalyst-tracker` | Event and catalyst tracking |
 | `stock-watch` | Monitoring and summaries for specific symbols |
 | `risk-checklist` | Risk framing around active setups |
+| `ak-rss-digest` | Chinese AI and tech reading digests from a fixed RSS bundle |
+| `tech-news-digest` | Daily AI and technology news digests from a tiered source catalog |
+| `intel-collector` | Manage RSS and intel sources, run collection, and schedule recurring collection jobs |
+| `intel-daily-digest` | Build daily digests from collected intel items and schedule recurring digest jobs |
 
 ## 5-Minute Quick Start
 
@@ -161,7 +165,50 @@ marketbot agent -m "Generate today's premarket watchlist for SPY,NVDA,GOOG,TSLA,
 marketbot agent -m "List the most important catalysts and risks for NVDA, UNH, and 07709 over the next two weeks"
 marketbot agent -m "Screen NVDA,TSLA,INTC,TTD,CRWV and rank today's best setups"
 marketbot agent -m "Why does 07709 use this quote source? Show me the routing and reliability."
+marketbot agent -m "Generate an AI reading digest from the fixed RSS bundle."
+marketbot agent -m "Generate today's tech news digest focused on AI and developer tools."
 ```
+
+## Tech-Intelligence Skills
+
+In addition to market-analysis workflows, `marketbot` now ships three
+tech-intelligence capability layers:
+
+- `ak-rss-digest`
+  Script-backed digest generation from a fixed RSS/Atom bundle, tuned for AI
+  agents, frontier AI commentary, interviews, and high-signal essays.
+- `tech-news-digest`
+  Tiered source-catalog aggregation for AI and technology news, with `tier1`
+  first-pass fetching and optional browser-backed enrichment for dynamic sites.
+- `intel-collector` / `intel-daily-digest`
+  Persistent RSS/intel source management, collection, digest generation, and
+  cron scheduling for repeatable intel pipelines.
+
+Typical prompts:
+
+```bash
+marketbot agent -m "Generate an AI reading digest from the fixed RSS bundle."
+marketbot agent -m "Generate today's tech news digest focused on AI, model products, and developer tools."
+```
+
+If you want RSS collection and digest generation to run on a schedule, prefer
+the `intel` command workflow:
+
+```bash
+marketbot intel source-add --type rss --name "OpenAI Blog" --url https://openai.com/blog/rss.xml
+marketbot intel collect
+marketbot intel digest-daily
+marketbot intel digest-list
+marketbot intel digest-show 1
+marketbot intel schedule-latest-daily --collect-cron-expr "55 7 * * *" --digest-cron-expr "0 8 * * *" --tz Asia/Shanghai
+marketbot intel schedule-list
+marketbot intel schedule-remove <job-id>
+```
+
+`schedule-latest-daily` creates two cron jobs together:
+
+- upstream `intel_collect` to refresh sources first
+- downstream `intel_digest_daily` to build the digest from fresh items
 
 ## Explainability and Reliability
 
