@@ -37,6 +37,9 @@
 ## 最短上手路径
 
 ```bash
+python3 -m venv .venv313
+source .venv313/bin/activate
+python -m pip install -e .
 marketbot onboard
 marketbot agent
 marketbot agent -m "给我 NVDA、07709、513310 的最新价格"
@@ -78,20 +81,29 @@ marketbot agent -m "根据我的持仓生成未来两周的热点事件监控清
 ```bash
 git clone https://github.com/EthanAlgoX/MarketBot.git
 cd MarketBot
-pip install -e .
+python3 -m venv .venv313
+source .venv313/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
 ```
 
 如果需要 Matrix：
 
 ```bash
-pip install -e ".[matrix]"
+python -m pip install -e ".[matrix]"
 ```
 
 如果是开发环境：
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
+
+说明：
+
+- 推荐始终在虚拟环境中执行 `marketbot` 命令
+- 如果你的机器上没有 `pip` 命令，直接使用 `python -m pip ...`
+- 项目要求 Python `>= 3.11`
 
 ### 2. 初始化配置
 
@@ -145,6 +157,7 @@ marketbot onboard
 最常用的 4 条命令：
 
 ```bash
+source .venv313/bin/activate
 marketbot agent
 marketbot agent -m "给我 NVDA、07709、513310 的最新价格"
 marketbot agent -m "根据我的持仓生成未来两周的热点事件监控清单：NVDA,UNH,07709,07747,513310,518880"
@@ -157,6 +170,70 @@ marketbot market report --symbols NVDA,SPY --save
 - `marketbot market report --session premarket|intraday|close`
 - `marketbot market report --notify --notify-channel telegram --chat-id 10001`
 - `marketbot market heartbeat-setup`：生成周期性报告模板
+
+如果你要接飞书、Telegram、Slack、Discord 等渠道，不是启动 `marketbot agent`，而是启动：
+
+```bash
+source .venv313/bin/activate
+marketbot gateway
+```
+
+`agent` 只负责本地 CLI 对话；渠道消息接收和回包由 `gateway` 负责。
+
+## 常见错误
+
+### 1. `zsh: command not found: pip`
+
+原因：系统里没有暴露 `pip` 命令，或当前 shell 没有激活虚拟环境。
+
+处理方式：
+
+```bash
+python3 -m venv .venv313
+source .venv313/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+### 2. `error: externally-managed-environment`
+
+原因：macOS / Homebrew Python 默认不允许直接往系统环境安装包（PEP 668）。
+
+处理方式：不要使用系统 Python 直接 `pip install -e .`，改用虚拟环境：
+
+```bash
+python3 -m venv .venv313
+source .venv313/bin/activate
+python -m pip install -e .
+```
+
+### 3. 飞书发消息后没有回复
+
+常见原因：只启动了 `marketbot agent`，没有启动 `marketbot gateway`。
+
+正确方式：
+
+```bash
+source .venv313/bin/activate
+marketbot gateway
+```
+
+排查顺序：
+
+- 先执行 `marketbot status`，确认 `channels.feishu.enabled = true`
+- 确认配置文件 `~/.marketbot/config.json` 里已经填写 `appId` 和 `appSecret`
+- 保持 `marketbot gateway` 进程持续运行，不要只开 `marketbot agent`
+- 如果 `allowFrom` 为空，飞书消息会被拒绝；调试时可先设为 `["*"]`
+
+### 4. `PermissionError` 或会话文件写入失败
+
+原因：`marketbot` 默认会把会话、cron 和工作区文件写到 `~/.marketbot/workspace/`。
+
+处理方式：
+
+- 确认当前用户对 `~/.marketbot/` 有写权限
+- 不要在只读沙箱环境里直接运行需要落盘的 `marketbot` 进程
+- 必要时先执行 `marketbot onboard` 重新初始化默认目录
 
 ## 常见使用场景
 

@@ -37,6 +37,9 @@
 ## Shortest Path To First Use
 
 ```bash
+python3 -m venv .venv313
+source .venv313/bin/activate
+python -m pip install -e .
 marketbot onboard
 marketbot agent
 marketbot agent -m "Give me the latest price for NVDA, 07709, and 513310"
@@ -78,20 +81,29 @@ Common built-in skills:
 ```bash
 git clone https://github.com/EthanAlgoX/MarketBot.git
 cd MarketBot
-pip install -e .
+python3 -m venv .venv313
+source .venv313/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
 ```
 
 If you need Matrix:
 
 ```bash
-pip install -e ".[matrix]"
+python -m pip install -e ".[matrix]"
 ```
 
 For development:
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
+
+Notes:
+
+- Prefer running all `marketbot` commands inside a virtual environment
+- If `pip` is not on your PATH, use `python -m pip ...`
+- The project requires Python `>= 3.11`
 
 ### 2. Initialize config
 
@@ -145,6 +157,7 @@ Notes:
 The 4 commands most people need first:
 
 ```bash
+source .venv313/bin/activate
 marketbot agent
 marketbot agent -m "Give me the latest price for NVDA, 07709, and 513310"
 marketbot agent -m "Build a two-week catalyst watchlist for NVDA, UNH, 07709, 07747, 513310, and 518880"
@@ -157,6 +170,70 @@ Also useful:
 - `marketbot market report --session premarket|intraday|close`
 - `marketbot market report --notify --notify-channel telegram --chat-id 10001`
 - `marketbot market heartbeat-setup`: create a recurring heartbeat template
+
+If you want Feishu, Telegram, Slack, Discord, or other chat channels to receive and reply to messages, start:
+
+```bash
+source .venv313/bin/activate
+marketbot gateway
+```
+
+`marketbot agent` is for local CLI interaction. Channel ingress and outbound replies run through `marketbot gateway`.
+
+## Common Errors
+
+### 1. `zsh: command not found: pip`
+
+Cause: `pip` is not available on PATH, or the virtual environment is not activated.
+
+Fix:
+
+```bash
+python3 -m venv .venv313
+source .venv313/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+### 2. `error: externally-managed-environment`
+
+Cause: macOS / Homebrew Python blocks direct package installation into the system environment under PEP 668.
+
+Fix: do not install with system `pip install -e .`; use a virtual environment instead:
+
+```bash
+python3 -m venv .venv313
+source .venv313/bin/activate
+python -m pip install -e .
+```
+
+### 3. Feishu receives messages but MarketBot does not reply
+
+Common cause: only `marketbot agent` is running; `marketbot gateway` is not.
+
+Correct startup:
+
+```bash
+source .venv313/bin/activate
+marketbot gateway
+```
+
+Checklist:
+
+- run `marketbot status` and confirm Feishu is enabled
+- verify `~/.marketbot/config.json` contains `appId` and `appSecret`
+- keep the `marketbot gateway` process running
+- if `allowFrom` is empty, Feishu messages are denied; during initial debugging you can use `["*"]`
+
+### 4. `PermissionError` or session files cannot be written
+
+Cause: `marketbot` writes sessions, cron state, and workspace files under `~/.marketbot/workspace/` by default.
+
+Fix:
+
+- make sure the current user can write to `~/.marketbot/`
+- do not run a stateful `marketbot` process inside a read-only sandbox
+- rerun `marketbot onboard` if you need to recreate the default directories
 
 ## Common Workflows
 
