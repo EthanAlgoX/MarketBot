@@ -355,6 +355,82 @@ def test_parse_response_malformed():
     assert result.finish_reason == "error"
 
 
+def test_parse_response_skips_malformed_tool_calls() -> None:
+    """Malformed tool call payloads should not crash provider parsing."""
+    provider = AzureOpenAIProvider(
+        api_key="test-key",
+        api_base="https://test-resource.openai.azure.com",
+        default_model="gpt-4o",
+    )
+
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "role": "assistant",
+                    "tool_calls": [
+                        {"id": "call_bad_1", "function": None},
+                        {"id": "call_bad_2", "function": {"arguments": "{}"}},
+                        {
+                            "id": "call_ok",
+                            "function": {
+                                "name": "browser_site",
+                                "arguments": '{"adapter": "twitter/search", "args": ["NVDA"]}',
+                            },
+                        },
+                    ],
+                },
+                "finish_reason": "tool_calls",
+            }
+        ]
+    }
+
+    result = provider._parse_response(response)
+
+    assert result.finish_reason == "tool_calls"
+    assert len(result.tool_calls) == 1
+    assert result.tool_calls[0].id == "call_ok"
+    assert result.tool_calls[0].name == "browser_site"
+    assert result.tool_calls[0].arguments == {"adapter": "twitter/search", "args": ["NVDA"]}
+
+
+def test_parse_response_treats_missing_tool_arguments_as_empty_dict() -> None:
+    """Null tool arguments should degrade to an empty argument object."""
+    provider = AzureOpenAIProvider(
+        api_key="test-key",
+        api_base="https://test-resource.openai.azure.com",
+        default_model="gpt-4o",
+    )
+
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "function": {
+                                "name": "browser_site",
+                                "arguments": None,
+                            },
+                        }
+                    ],
+                },
+                "finish_reason": "tool_calls",
+            }
+        ]
+    }
+
+    result = provider._parse_response(response)
+
+    assert result.finish_reason == "tool_calls"
+    assert len(result.tool_calls) == 1
+    assert result.tool_calls[0].arguments == {}
+
+
 def test_get_default_model():
     """Test get_default_model method."""
     provider = AzureOpenAIProvider(

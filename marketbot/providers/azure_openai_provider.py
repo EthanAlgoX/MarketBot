@@ -161,21 +161,43 @@ class AzureOpenAIProvider(LLMProvider):
     def _parse_response(self, response: dict[str, Any]) -> LLMResponse:
         """Parse Azure OpenAI response into our standard format."""
         try:
-            choice = response["choices"][0]
-            message = choice["message"]
+            choices = response.get("choices")
+            if not isinstance(choices, list) or not choices:
+                raise ValueError("missing choices")
+            choice = choices[0]
+            if not isinstance(choice, dict):
+                raise ValueError("invalid choice payload")
+
+            message = choice.get("message") or {}
+            if not isinstance(message, dict):
+                raise ValueError("invalid message payload")
 
             tool_calls = []
-            if message.get("tool_calls"):
-                for tc in message["tool_calls"]:
-                    # Parse arguments from JSON string if needed
-                    args = tc["function"]["arguments"]
+            raw_tool_calls = message.get("tool_calls")
+            if isinstance(raw_tool_calls, list):
+                for index, tc in enumerate(raw_tool_calls):
+                    if not isinstance(tc, dict):
+                        continue
+                    function = tc.get("function")
+                    if not isinstance(function, dict):
+                        continue
+                    name = str(function.get("name") or "").strip()
+                    if not name:
+                        continue
+
+                    # Parse arguments from JSON string if needed.
+                    args = function.get("arguments")
                     if isinstance(args, str):
                         args = json_repair.loads(args)
+                    elif args is None:
+                        args = {}
+                    elif not isinstance(args, dict):
+                        args = {"raw": args}
 
                     tool_calls.append(
                         ToolCallRequest(
-                            id=tc["id"],
-                            name=tc["function"]["name"],
+                            id=str(tc.get("id") or f"call_{index}"),
+                            name=name,
                             arguments=args,
                         )
                     )
@@ -199,7 +221,7 @@ class AzureOpenAIProvider(LLMProvider):
                 reasoning_content=reasoning_content,
             )
 
-        except (KeyError, IndexError) as e:
+        except (KeyError, IndexError, TypeError, ValueError) as e:
             return LLMResponse(
                 content=f"Error parsing Azure OpenAI response: {str(e)}",
                 finish_reason="error",
