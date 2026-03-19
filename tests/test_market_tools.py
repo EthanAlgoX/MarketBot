@@ -87,6 +87,71 @@ def test_market_snapshot_eastmoney_source(monkeypatch) -> None:
     assert payload["quotes"][0]["currency"] == "CNY"
 
 
+def test_market_snapshot_tickflow_source(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="tickflow", default_symbols=["600519"])
+    tool = MarketSnapshotTool(config=cfg)
+
+    async def _fake_fetch(symbols):
+        assert symbols == ["600519"]
+        return (
+            [
+                {
+                    "symbol": "600519",
+                    "name": "贵州茅台",
+                    "price": 1688.0,
+                    "changePct": 1.26,
+                    "volume": 123456,
+                    "avgVolume": None,
+                    "flowRatio": None,
+                    "flowHint": "neutral",
+                    "momentum": "up",
+                    "currency": "CNY",
+                    "marketState": "REGULAR",
+                    "provider": "tickflow",
+                }
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(tool, "_fetch_tickflow", _fake_fetch)
+    payload = json.loads(_run(tool.execute(symbols=["600519"])))
+    assert payload["source"] == "tickflow"
+    assert payload["quotes"][0]["symbol"] == "600519"
+    assert payload["quotes"][0]["provider"] == "tickflow"
+
+
+def test_market_snapshot_tickflow_source_keeps_suffixed_input(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="tickflow", default_symbols=["600519.SH"])
+    tool = MarketSnapshotTool(config=cfg)
+
+    async def _fake_fetch(symbols):
+        assert symbols == ["600519.SH"]
+        return (
+            [
+                {
+                    "symbol": "600519.SH",
+                    "name": "贵州茅台",
+                    "price": 1688.0,
+                    "changePct": 1.26,
+                    "volume": 123456,
+                    "avgVolume": None,
+                    "flowRatio": None,
+                    "flowHint": "neutral",
+                    "momentum": "up",
+                    "currency": "CNY",
+                    "marketState": "REGULAR",
+                    "provider": "tickflow",
+                }
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(tool, "_fetch_tickflow", _fake_fetch)
+    payload = json.loads(_run(tool.execute(symbols=["600519.SH"])))
+    assert payload["source"] == "tickflow"
+    assert payload["quotes"][0]["symbol"] == "600519.SH"
+
+
 def test_market_snapshot_tencent_hk_source(monkeypatch) -> None:
     cfg = MarketToolsConfig(quote_source="yahoo", default_symbols=["07709.HK"])
     tool = MarketSnapshotTool(config=cfg)
@@ -379,10 +444,10 @@ def test_market_source_plan_for_a_share_news_and_quote() -> None:
     payload = json.loads(_run(tool.execute(symbols=["600519"], tasks=["quote", "news", "chips", "fundamentals"])))
 
     assert payload["market"] == "a-share"
-    assert payload["tasks"][0]["providers"][0] == "tushare"
+    assert payload["tasks"][0]["providers"][0] == "tickflow"
     assert payload["tasks"][1]["providers"][0] == "bocha"
     assert payload["tasks"][2]["providers"][0] == "eastmoney-kline-local-cyq"
-    assert payload["tasks"][3]["providers"][0] == "eastmoney"
+    assert payload["tasks"][3]["providers"][0] == "tickflow"
     assert "market_snapshot (current)" in payload["tasks"][0]["currentMarketbotTools"]
     assert "market_news (current cross-market search)" in payload["tasks"][1]["currentMarketbotTools"]
     assert "market_chip_distribution (current)" in payload["tasks"][2]["currentMarketbotTools"]
@@ -663,6 +728,67 @@ def test_market_fundamentals_prefers_yfinance_for_global_symbols(monkeypatch) ->
     assert payload["items"][0]["provider"] == "yfinance"
 
 
+def test_market_fundamentals_uses_tickflow_for_a_share(monkeypatch) -> None:
+    tool = MarketFundamentalsTool(config=MarketToolsConfig(quote_source="tickflow", tickflow_api_key="test-key"))
+
+    async def _fake_tickflow(symbols: list[str]):
+        assert symbols == ["600519"]
+        return (
+            [
+                {
+                    "symbol": "600519",
+                    "name": "贵州茅台",
+                    "marketCap": 200.0,
+                    "floatMarketCap": 150.0,
+                    "sharesOutstanding": 20.0,
+                    "floatShares": 15.0,
+                    "trailingPE": None,
+                    "priceToBook": None,
+                    "currency": "CNY",
+                    "provider": "tickflow",
+                }
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(tool, "_fetch_tickflow", _fake_tickflow)
+    payload = json.loads(_run(tool.execute(symbols=["600519"])))
+
+    assert payload["items"][0]["symbol"] == "600519"
+    assert payload["items"][0]["provider"] == "tickflow"
+    assert payload["items"][0]["marketCap"] == 200.0
+
+
+def test_market_fundamentals_tickflow_keeps_suffixed_input(monkeypatch) -> None:
+    tool = MarketFundamentalsTool(config=MarketToolsConfig(quote_source="tickflow", tickflow_api_key="test-key"))
+
+    async def _fake_tickflow(symbols: list[str]):
+        assert symbols == ["600519.SH"]
+        return (
+            [
+                {
+                    "symbol": "600519.SH",
+                    "name": "贵州茅台",
+                    "marketCap": 200.0,
+                    "floatMarketCap": 150.0,
+                    "sharesOutstanding": 20.0,
+                    "floatShares": 15.0,
+                    "trailingPE": None,
+                    "priceToBook": None,
+                    "currency": "CNY",
+                    "provider": "tickflow",
+                }
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(tool, "_fetch_tickflow", _fake_tickflow)
+    payload = json.loads(_run(tool.execute(symbols=["600519.SH"])))
+
+    assert payload["items"][0]["symbol"] == "600519.SH"
+    assert payload["items"][0]["provider"] == "tickflow"
+
+
 def test_market_macro_manual_mode() -> None:
     cfg = MarketToolsConfig()
     cfg.macro_source = "manual"
@@ -699,12 +825,67 @@ def test_market_social_sentiment_mock_source() -> None:
     assert payload["totalMentions"] >= 2
 
 
+def test_market_social_sentiment_a_share_defaults_to_mock_without_reddit(monkeypatch) -> None:
+    cfg = MarketToolsConfig()
+    tool = MarketSocialSentimentTool(config=cfg)
+
+    async def _fail_reddit(symbol: str, limit: int):
+        raise AssertionError("reddit should not run for A-share social sentiment by default")
+
+    monkeypatch.setattr(tool, "_fetch_reddit", _fail_reddit)
+    payload = json.loads(_run(tool.execute(symbols=["600000.SH"], limit=12)))
+
+    assert payload["perSymbol"][0]["symbol"] == "600000.SH"
+    assert payload["warnings"] == []
+    assert payload["totalMentions"] >= 1
+
+
 def test_market_brief_composes_outputs() -> None:
     cfg = MarketToolsConfig(quote_source="mock")
     cfg.news_sources = ["mock"]
     cfg.social_sources = ["mock"]
     cfg.macro_source = "manual"
     tool = MarketBriefTool(config=cfg)
+
+    async def _fake_snapshot(*args, **kwargs):
+        return json.dumps(
+            {
+                "asOf": "2026-03-07T00:00:00Z",
+                "source": "mock-brief-fixture",
+                "symbols": ["NVDA", "SPY"],
+                "quotes": [
+                    {
+                        "symbol": "NVDA",
+                        "price": 100.0,
+                        "changePct": 1.5,
+                        "volume": 1000,
+                        "avgVolume": 900,
+                        "flowRatio": 1.1,
+                        "flowHint": "inflow",
+                        "momentum": "up",
+                        "currency": "USD",
+                        "marketState": "REGULAR",
+                    },
+                    {
+                        "symbol": "SPY",
+                        "price": 500.0,
+                        "changePct": -0.4,
+                        "volume": 2000,
+                        "avgVolume": 2100,
+                        "flowRatio": 0.95,
+                        "flowHint": "neutral",
+                        "momentum": "flat",
+                        "currency": "USD",
+                        "marketState": "REGULAR",
+                    },
+                ],
+                "warnings": [],
+                "sourceHealth": {"mock-brief-fixture": {"status": "ok"}},
+                "routeTrace": [],
+            }
+        )
+
+    tool._snapshot.execute = _fake_snapshot
     payload = json.loads(_run(tool.execute(symbols=["NVDA", "SPY"], headline="NVIDIA launches new AI chip")))
     assert len(payload["signals"]) == 2
     assert "social" in payload
@@ -715,7 +896,7 @@ def test_market_brief_composes_outputs() -> None:
     assert "Market Focus: equity" in payload["briefMarkdown"]
     assert "Scenario Playbook" in payload["briefMarkdown"]
     assert "Data Reliability" in payload["briefMarkdown"]
-    assert "snapshot: mock=ok" in payload["briefMarkdown"]
+    assert "snapshot: mock-brief-fixture=ok" in payload["briefMarkdown"]
     assert "macro: manual=ok" in payload["briefMarkdown"]
 
 
@@ -918,9 +1099,11 @@ def test_agent_loop_sets_market_runtime_profile_from_config(tmp_path) -> None:
 def test_market_runtime_profile_supports_yfinance_and_tradingview() -> None:
     yfinance_profile = build_market_runtime_profile(MarketToolsConfig(quote_source="yfinance"))
     tradingview_profile = build_market_runtime_profile(MarketToolsConfig(quote_source="tradingview"))
+    tickflow_profile = build_market_runtime_profile(MarketToolsConfig(quote_source="tickflow"))
 
     assert yfinance_profile["tool_markets"]["market_snapshot"] == ["global", "hong-kong", "mixed", "us"]
     assert tradingview_profile["tool_markets"]["market_snapshot"] == ["global", "hong-kong", "mixed", "us"]
+    assert tickflow_profile["tool_markets"]["market_snapshot"] == ["a-share"]
 
 
 def test_agent_loop_exposes_last_skill_routing(tmp_path) -> None:

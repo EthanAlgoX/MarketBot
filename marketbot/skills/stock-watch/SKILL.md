@@ -18,9 +18,12 @@ Use this skill to monitor and analyze specific stocks, providing high-quality "D
 1. **Scheduling (Optional)**: If the user asks for periodic monitoring, use the `cron` tool to schedule the task.
 2. **Data Acquisition**: For each ticker, gather the following:
    - **Market Snapshot**: Price, volume, and daily change.
+     - For A-share names, prefer TickFlow-backed realtime snapshot when configured.
    - **Capital Flow**: Identify main fund inflows/outflows (主力资金) if available via market logs or news.
    - **Sentiment**: Quantify sentiment from news and social sources (weighted News 0.5, Social 0.3, Forums 0.2).
+     - For A-share and Hong Kong names, lower the confidence of social/forum inputs unless the runtime exposes a market-native social source.
    - **Fundamentals**: Key financial dates, performance YoY/QoQ, and catalyst events.
+     - TickFlow-backed fundamentals currently give the strongest A-share baseline for name, share count, and market-cap style fields inside `marketbot`.
    - **Risk Assessment**: Check for technical overextension, liquidity issues, or negative news catalysts.
 3. **Execution & Scoring**:
    - Assign a **Decision Score (0-100)** based on integrated signals.

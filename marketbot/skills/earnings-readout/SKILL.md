@@ -1,7 +1,7 @@
 ---
 name: earnings-readout
 description: Summarize an earnings release into beat-or-miss, guidance change, call highlights, price reaction, and follow-up catalysts for a stock or watchlist name.
-metadata: {"marketbot":{"emoji":"🧾","triggers":["earnings","results","quarterly report","guidance","beat or miss","财报","业绩解读","电话会"],"output":"earnings-readout-report","risk":"high","freshness":"event-live","tools":["market_news","market_event_extract","market_snapshot","market_fundamentals"],"required_tools":["market_news","market_snapshot"],"markets":["a-share","hong-kong","us","global"],"asset_classes":["equity","etf"],"task_type":"earnings-analysis","determinism":"tool-backed","priority":90}}
+metadata: {"marketbot":{"emoji":"🧾","triggers":["earnings results","results","quarterly report","guidance","beat or miss","财报","业绩解读","电话会"],"output":"earnings-readout-report","risk":"high","freshness":"event-live","tools":["market_news","market_event_extract","market_snapshot","market_fundamentals"],"required_tools":["market_news","market_snapshot"],"markets":["a-share","hong-kong","us","global"],"asset_classes":["equity","etf"],"task_type":"earnings-analysis","determinism":"tool-backed","priority":90}}
 ---
 
 # Earnings Readout

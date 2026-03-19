@@ -364,7 +364,8 @@ class MarketToolsConfig(Base):
     enabled: bool = True
     request_timeout_s: int = Field(12, ge=1, le=120)
     snapshot_max_symbols: int = Field(12, ge=1, le=100)
-    quote_source: Literal["yahoo", "yfinance", "tradingview", "eastmoney", "auto", "mock"] = "yahoo"
+    quote_source: Literal["yahoo", "yfinance", "tradingview", "eastmoney", "tickflow", "auto", "mock"] = "yahoo"
+    tickflow_api_key: str = ""
     news_sources: list[str] = Field(default_factory=lambda: ["reuters", "bloomberg", "cls"])
     news_max_age_days: int = Field(3, ge=1, le=30)
     bocha_api_key: str = ""

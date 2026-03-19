@@ -40,9 +40,12 @@ Safe defaults by market:
 Primary tools:
 
 1. `market_snapshot` for price, change, volume, average volume, flow hints, and momentum proxy
+   - For A-share lists, prefer TickFlow-backed realtime snapshot when configured.
 2. `market_fundamentals` for valuation fields such as PE when available
+   - For A-share lists, TickFlow currently provides profile/share-cap basics first; PE/PB may still be unavailable and should be labeled explicitly.
 3. `market_news` for recent headlines
 4. `market_social_sentiment` for crowd tone when relevant
+   - For A-share and Hong Kong lists, do not assume Reddit-like live coverage; treat social tone as optional and lower-confidence unless a market-native source is present.
 5. `market_brief` for final market summary and scenario framing
 
 Optional enrichment:

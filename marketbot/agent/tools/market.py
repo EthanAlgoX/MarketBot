@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,7 +17,14 @@ import httpx
 from loguru import logger
 
 from marketbot.agent.tools.base import Tool
-from marketbot.domain.market.services import MarketMacroService, MarketNewsService, MarketSnapshotService
+from marketbot.domain.market.services import (
+    MarketMacroService,
+    MarketNewsService,
+    MarketSnapshotService,
+    normalize_a_share_symbol,
+    preferred_a_share_symbol,
+    to_tickflow_symbol,
+)
 from marketbot.market_routing import classify_market_request
 from marketbot.rl.policy import HeuristicMarketSignalPolicy
 from marketbot.rl.recorder import MarketSignalRolloutRecorder
@@ -72,6 +81,8 @@ def _is_a_share_symbol(symbol: str) -> bool:
     text = str(symbol or "").strip().upper()
     if not text:
         return False
+    if re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", text):
+        return True
     if text.startswith(("SH", "SZ")) and len(text) == 8 and text[2:].isdigit():
         return True
     return len(text) == 6 and text.isdigit()
@@ -80,6 +91,8 @@ def _is_a_share_symbol(symbol: str) -> bool:
 def _normalize_a_share_symbol(symbol: str) -> str:
     """Normalize mainland China symbol to a 6-digit code."""
     text = str(symbol or "").strip().upper()
+    if re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", text):
+        return text.split(".", 1)[0]
     if text.startswith(("SH", "SZ")) and len(text) == 8 and text[2:].isdigit():
         return text[2:]
     return text
@@ -208,6 +221,9 @@ class MarketSnapshotTool(Tool):
     async def _fetch_eastmoney(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_eastmoney(symbols)
 
+    async def _fetch_tickflow(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        return await self._service.fetch_tickflow(symbols)
+
     async def _fetch_tencent_hk(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_tencent_hk(symbols)
 
@@ -253,6 +269,10 @@ class MarketSnapshotTool(Tool):
             )
         elif effective_source == "eastmoney":
             rows, warnings = await self._fetch_eastmoney(normalized)
+            if not rows:
+                warnings.append("quote source returned no usable quotes")
+        elif effective_source == "tickflow":
+            rows, warnings = await self._fetch_tickflow(normalized)
             if not rows:
                 warnings.append("quote source returned no usable quotes")
         elif effective_source == "tencent_cn":
@@ -514,12 +534,12 @@ class MarketSourcePlanTool(Tool):
     @staticmethod
     def _quote_chain(market: str) -> tuple[list[str], str]:
         if market == "a-share":
-            return ["tushare", "efinance", "akshare", "pytdx", "baostock"], "Prefer Tushare when token-backed stability matters; otherwise use efinance first."
+            return ["tickflow", "tushare", "efinance", "akshare", "pytdx", "baostock"], "Prefer TickFlow for realtime A-share quotes when API-backed stability matters; otherwise fall back to the existing China data stack."
         if market == "hong-kong":
             return ["akshare", "yfinance"], "Akshare gives the strongest free HK path; use Yahoo as fallback."
         if market == "us":
             return ["yfinance"], "US symbols and indices should go straight to Yahoo-style routing for consistency."
-        return ["eastmoney-or-yahoo-auto", "mock"], "Use auto-routing across Eastmoney for CN symbols and Yahoo for global symbols."
+        return ["tickflow-or-auto", "mock"], "Use TickFlow for mainland realtime quotes when configured; otherwise keep auto-routing across China and global sources."
 
     @staticmethod
     def _news_chain(market: str) -> tuple[list[str], str]:
@@ -545,7 +565,7 @@ class MarketSourcePlanTool(Tool):
         if task == "chips":
             return ["eastmoney-kline-local-cyq", "akshare"], "Chip distribution works best for A-share names with turnover-aware local estimation.", ["market_chip_distribution (current)"], []
         if task == "fundamentals":
-            return ["eastmoney", "yahoo"], "Use Eastmoney for A-share valuation basics and Yahoo quote fields for global symbols.", ["market_fundamentals (current)"], []
+            return ["tickflow", "eastmoney", "yahoo"], "Use TickFlow first for A-share profile and share-cap data when configured, then Eastmoney for mainland basics and Yahoo quote fields for global symbols.", ["market_fundamentals (current)"], []
         if task == "breadth":
             providers = ["efinance", "akshare", "tushare"] if market in {"a-share", "mixed"} else ["yfinance"]
             why = "China breadth and sector ranking are better served by Eastmoney-family or Tushare data."
@@ -938,6 +958,7 @@ class MarketFundamentalsTool(Tool):
         self._config = config
         self._timeout = float(config.request_timeout_s) if config else 12.0
         self._ut = "fa5fd1943c7b386f172d6893dbfba10b"
+        self._tickflow_api_key = ((getattr(config, "tickflow_api_key", "") if config else "") or os.environ.get("TICKFLOW_API_KEY", "")).strip()
 
     @staticmethod
     def _scaled_hundred(value: Any) -> float | None:
@@ -1031,6 +1052,92 @@ class MarketFundamentalsTool(Tool):
         rows, warnings = await self._fetch_yahoo(symbols)
         return [{**row, "provider": "yfinance"} for row in rows], warnings
 
+    async def _fetch_tickflow(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        warnings: list[str] = []
+        normalized_pairs: list[tuple[str, str]] = []
+        for symbol in symbols:
+            normalized = to_tickflow_symbol(symbol)
+            if not normalized:
+                warnings.append(f"{symbol}: unsupported by tickflow fundamentals")
+                continue
+            normalized_pairs.append((symbol, normalized))
+
+        if not normalized_pairs:
+            return [], warnings
+        if not self._tickflow_api_key:
+            return [], warnings + ["tickflow fundamentals require TICKFLOW_API_KEY"]
+
+        def _fetch_sync() -> tuple[list[dict[str, Any]], list[str]]:
+            try:
+                from tickflow import TickFlow
+            except Exception as e:  # pragma: no cover - optional dependency state
+                return [], warnings + [f"tickflow import failed: {e}"]
+
+            client = TickFlow(api_key=self._tickflow_api_key, timeout=self._timeout)
+            try:
+                instruments = client.instruments.batch([item[1] for item in normalized_pairs])
+                quotes = client.quotes.get(symbols=[item[1] for item in normalized_pairs])
+            except Exception as e:
+                return [], warnings + [f"tickflow fundamentals fetch failed: {e}"]
+            finally:
+                client.close()
+
+            instrument_by_symbol = {
+                str(item.get("symbol", "")).upper(): item
+                for item in instruments
+                if isinstance(item, dict) and str(item.get("symbol", "")).strip()
+            }
+            quote_by_symbol = {
+                str(item.get("symbol", "")).upper(): item
+                for item in quotes
+                if isinstance(item, dict) and str(item.get("symbol", "")).strip()
+            }
+
+            rows: list[dict[str, Any]] = []
+            local_warnings = list(warnings)
+            for original, normalized in normalized_pairs:
+                inst = instrument_by_symbol.get(normalized.upper())
+                quote = quote_by_symbol.get(normalized.upper())
+                if not inst:
+                    local_warnings.append(f"{normalized}: missing tickflow instrument")
+                    continue
+                if not quote:
+                    local_warnings.append(f"{normalized}: missing tickflow quote")
+                    continue
+
+                ext = inst.get("ext") if isinstance(inst.get("ext"), dict) else {}
+                total_shares = ext.get("total_shares")
+                float_shares = ext.get("float_shares")
+                last_price = quote.get("last_price")
+                market_cap = None
+                float_market_cap = None
+                try:
+                    if total_shares is not None and last_price is not None:
+                        market_cap = float(total_shares) * float(last_price)
+                    if float_shares is not None and last_price is not None:
+                        float_market_cap = float(float_shares) * float(last_price)
+                except (TypeError, ValueError):
+                    market_cap = None
+                    float_market_cap = None
+
+                rows.append(
+                    {
+                        "symbol": preferred_a_share_symbol(original),
+                        "name": inst.get("name") or quote.get("name") or original,
+                        "marketCap": market_cap,
+                        "floatMarketCap": float_market_cap,
+                        "sharesOutstanding": total_shares,
+                        "floatShares": float_shares,
+                        "trailingPE": None,
+                        "priceToBook": None,
+                        "currency": "CNY",
+                        "provider": "tickflow",
+                    }
+                )
+            return rows, local_warnings
+
+        return await asyncio.to_thread(_fetch_sync)
+
     async def execute(self, symbols: list[str], **kwargs: Any) -> str:
         clean_symbols = MarketSnapshotTool._normalize_symbols(symbols)
         if not clean_symbols:
@@ -1041,13 +1148,18 @@ class MarketFundamentalsTool(Tool):
         rows: list[dict[str, Any]] = []
         warnings: list[str] = []
 
-        for symbol in a_share_symbols:
-            item, err = await self._fetch_eastmoney(symbol)
-            if err:
-                warnings.append(f"{symbol}: {err}")
-                continue
-            if item:
-                rows.append(item)
+        if getattr(self._config, "quote_source", "yahoo") == "tickflow":
+            tickflow_rows, tickflow_warnings = await self._fetch_tickflow(a_share_symbols)
+            rows.extend(tickflow_rows)
+            warnings.extend(tickflow_warnings)
+        else:
+            for symbol in a_share_symbols:
+                item, err = await self._fetch_eastmoney(symbol)
+                if err:
+                    warnings.append(f"{symbol}: {err}")
+                    continue
+                if item:
+                    rows.append(item)
 
         if global_symbols:
             if getattr(self._config, "quote_source", "yahoo") == "yfinance":
@@ -1232,6 +1344,17 @@ class MarketSocialSentimentTool(Tool):
         self._post_limit = int(config.social_post_limit) if config else 30
 
     @staticmethod
+    def _resolve_sources_for_symbol(symbol: str, configured_sources: list[str]) -> list[str]:
+        market = MarketNewsService.symbol_market(symbol)
+        if "mock" in configured_sources:
+            return ["mock"]
+        if market in {"a-share", "hong-kong"}:
+            return ["mock"]
+        if "reddit" in configured_sources:
+            return ["reddit"]
+        return ["mock"]
+
+    @staticmethod
     def _mock_summary(symbol: str, limit: int) -> dict[str, Any]:
         seed = sum(ord(c) for c in symbol)
         sentiment = _clamp(((seed % 21) - 10) / 10.0, -1.0, 1.0)
@@ -1347,11 +1470,13 @@ class MarketSocialSentimentTool(Tool):
         warnings: list[str] = []
 
         for symbol in clean_symbols:
-            if "mock" in self._sources:
+            resolved_sources = self._resolve_sources_for_symbol(symbol, self._sources)
+
+            if "mock" in resolved_sources:
                 summaries.append(self._mock_summary(symbol, limit))
                 continue
 
-            if "reddit" in self._sources:
+            if "reddit" in resolved_sources:
                 summary, err = await self._fetch_reddit(symbol, limit)
                 if err:
                     summary = self._mock_summary(symbol, limit)

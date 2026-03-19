@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,6 +31,8 @@ def is_a_share_symbol(symbol: str) -> bool:
     text = str(symbol or "").strip().upper()
     if not text:
         return False
+    if re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", text):
+        return True
     if text.startswith(("SH", "SZ")) and len(text) == 8 and text[2:].isdigit():
         return True
     return len(text) == 6 and text.isdigit()
@@ -37,6 +41,8 @@ def is_a_share_symbol(symbol: str) -> bool:
 def normalize_a_share_symbol(symbol: str) -> str:
     """Normalize mainland tickers to a 6-digit code."""
     text = str(symbol or "").strip().upper()
+    if re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", text):
+        return text.split(".", 1)[0]
     if text.startswith(("SH", "SZ")) and len(text) == 8 and text[2:].isdigit():
         return text[2:]
     return text
@@ -87,6 +93,35 @@ def eastmoney_secid(symbol: str) -> str | None:
     else:
         market = "0"
     return f"{market}.{code}"
+
+
+def to_tickflow_symbol(symbol: str) -> str | None:
+    """Normalize mainland tickers into TickFlow's CODE.EXCHANGE format."""
+    text = str(symbol or "").strip().upper()
+    if not text:
+        return None
+    if re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", text):
+        return text
+    if text.startswith(("SH", "SZ", "BJ")) and len(text) == 8 and text[2:].isdigit():
+        return f"{text[2:]}.{text[:2]}"
+    if len(text) == 6 and text.isdigit():
+        if text.startswith("6"):
+            return f"{text}.SH"
+        if text.startswith(("0", "1", "2", "3")):
+            return f"{text}.SZ"
+        if text.startswith(("4", "8", "9")):
+            return f"{text}.BJ"
+    return None
+
+
+def preferred_a_share_symbol(symbol: str) -> str:
+    """Preserve suffix form when provided, otherwise return normalized 6-digit code."""
+    normalized = to_tickflow_symbol(symbol)
+    if normalized:
+        text = str(symbol or "").strip().upper()
+        if "." in text:
+            return normalized
+    return normalize_a_share_symbol(symbol)
 
 
 class MarketDomainService:
@@ -197,6 +232,110 @@ class MarketSnapshotService(MarketDomainService):
         super().__init__(config=config, workspace=workspace)
         self.timeout = float(config.request_timeout_s) if config else 12.0
         self.source = config.quote_source if config else "yahoo"
+        self.tickflow_api_key = ((getattr(config, "tickflow_api_key", "") if config else "") or os.environ.get("TICKFLOW_API_KEY", "")).strip()
+
+    async def _fetch_tickflow_uncached(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        warnings: list[str] = []
+        normalized_pairs: list[tuple[str, str]] = []
+
+        for symbol in symbols:
+            normalized = to_tickflow_symbol(symbol)
+            if not normalized:
+                warnings.append(f"{symbol}: unsupported by tickflow quote source")
+                continue
+            normalized_pairs.append((symbol, normalized))
+
+        if not normalized_pairs:
+            return [], warnings
+
+        if not self.tickflow_api_key:
+            return [], warnings + ["tickflow quote source requires TICKFLOW_API_KEY for realtime quotes"]
+
+        def _fetch_sync() -> tuple[list[dict[str, Any]], list[str]]:
+            try:
+                from tickflow import TickFlow
+            except Exception as e:  # pragma: no cover - depends on optional package state
+                return [], warnings + [f"tickflow import failed: {e}"]
+
+            client = TickFlow(api_key=self.tickflow_api_key, timeout=self.timeout)
+            try:
+                payload = client.quotes.get(symbols=[item[1] for item in normalized_pairs])
+            except Exception as e:
+                return [], warnings + [f"tickflow quote fetch failed: {e}"]
+            finally:
+                client.close()
+
+            by_symbol = {
+                str(row.get("symbol", "")).upper(): row
+                for row in payload
+                if isinstance(row, dict) and str(row.get("symbol", "")).strip()
+            }
+
+            rows: list[dict[str, Any]] = []
+            local_warnings = list(warnings)
+            for original, normalized in normalized_pairs:
+                raw = by_symbol.get(normalized.upper())
+                if not raw:
+                    local_warnings.append(f"missing tickflow quote for {normalized}")
+                    continue
+
+                prev_close = raw.get("prev_close")
+                last_price = raw.get("last_price")
+                ext = raw.get("ext") if isinstance(raw.get("ext"), dict) else {}
+                change_pct = ext.get("change_pct")
+                if change_pct is None and prev_close not in (None, 0) and last_price is not None:
+                    try:
+                        change_pct = ((float(last_price) - float(prev_close)) / float(prev_close)) * 100.0
+                    except (TypeError, ValueError, ZeroDivisionError):
+                        change_pct = 0.0
+                try:
+                    change_pct = float(change_pct or 0.0)
+                except (TypeError, ValueError):
+                    change_pct = 0.0
+
+                momentum = "up" if change_pct >= 1.0 else "down" if change_pct <= -1.0 else "flat"
+                rows.append(
+                    {
+                        "symbol": preferred_a_share_symbol(original),
+                        "name": raw.get("name"),
+                        "price": last_price,
+                        "changePct": round(change_pct, 4),
+                        "changeAmount": None if prev_close in (None, "") or last_price is None else round(float(last_price) - float(prev_close), 4),
+                        "volume": int(raw.get("volume") or 0),
+                        "avgVolume": None,
+                        "amount": raw.get("amount"),
+                        "flowRatio": None,
+                        "flowHint": "neutral",
+                        "momentum": momentum,
+                        "currency": "CNY",
+                        "marketState": raw.get("session") or "REGULAR",
+                        "open": raw.get("open"),
+                        "high": raw.get("high"),
+                        "low": raw.get("low"),
+                        "preClose": prev_close,
+                        "provider": "tickflow",
+                    }
+                )
+            return rows, local_warnings
+
+        return await asyncio.to_thread(_fetch_sync)
+
+    async def fetch_tickflow(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        result, cached = await self.cached_call(
+            "tickflow",
+            "market_snapshot_tickflow",
+            (symbols,),
+            lambda: self._fetch_tickflow_uncached(symbols),
+        )
+        rows, warnings = result
+        self.record_health(
+            "tickflow",
+            warnings=warnings,
+            cached=cached,
+            reason="TickFlow realtime quote routing for mainland tickers.",
+            provider_chain=["tickflow"],
+        )
+        return rows, warnings
 
     async def _fetch_yahoo_uncached(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         warnings: list[str] = []

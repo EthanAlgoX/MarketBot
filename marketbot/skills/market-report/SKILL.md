@@ -25,7 +25,9 @@ co-movement, route to the specialist skill first and then synthesize.
    - `options-payoff` for strategy and payoff questions
    - `pair-correlation` for relationship or peer-linkage questions
 2. Use `market_snapshot` for recent price, momentum, and flow hints.
+   - For A-share workflows, prefer TickFlow-backed realtime snapshot when configured.
 3. Use `market_news`, `market_social_sentiment`, and `market_macro` when relevant.
+   - For A-share and Hong Kong workflows, treat social sentiment as low-confidence unless the runtime exposes a market-native source; default fallback may be synthetic rather than live forum data.
 4. Use `market_event_extract` if a headline or catalyst is driving the move.
 5. Use `market_signal` or `market_brief` to get a draft signal and scenario view.
 6. Write the final answer in the report format below, separating facts from assumptions.

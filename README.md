@@ -132,7 +132,8 @@ marketbot onboard
   },
   "tools": {
     "market": {
-      "quoteSource": "auto",
+      "quoteSource": "tickflow",
+      "tickflowApiKey": "tk-xxx",
       "newsSources": ["reuters", "bloomberg", "cls"],
       "macroSource": "fred",
       "cacheTtlS": 60
@@ -147,7 +148,8 @@ marketbot onboard
 
 说明：
 
-- `quoteSource: auto` 适合混合市场
+- `quoteSource: tickflow` 适合以 A 股实时数据为主的工作流；混合市场再考虑 `auto`
+- `tickflowApiKey` 用于 TickFlow 实时行情和基础面接口
 - `newsSources` 决定新闻路由顺序
 - `macroSource: fred` 需要 FRED API key；没有 key 时会明确降级
 - `explainabilityMode` 控制是否在结果里带能力和可靠性说明

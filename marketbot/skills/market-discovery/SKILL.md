@@ -1,12 +1,14 @@
 ---
 name: market-discovery
 description: Automatically discover potential investment opportunities by synthesizing market data, events, sentiment, and sector momentum.
-metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","theme","rotation","机会","市场机会","今日机会","机会分析","主题机会","轮动机会"],"output":"market-opportunity-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","browser_site"],"required_tools":["market_snapshot","market_news"],"markets":["global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
+metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","theme","rotation","机会","市场机会","今日机会","机会分析","主题机会","轮动机会"],"output":"market-opportunity-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","browser_site"],"required_tools":["market_snapshot","market_news"],"markets":["a-share","global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
 ---
 
 # Market Opportunity Discovery
 
 Use this skill to scan the broader market and identify the most actionable investment opportunities based on events, sentiment, volume, and momentum. Treat it as an orchestrator skill: it should combine native market tools with narrower specialist skills instead of guessing ad hoc workflows.
+
+For A-share discovery, use TickFlow-backed snapshot data as the primary live move detector when the runtime exposes it, and treat social sentiment as optional unless a market-native social/browser source is available.
 
 ## When to use
 
@@ -33,6 +35,12 @@ Follow this pipeline to arrive at the final opportunity list:
 4. **Step 4: Fund Flow/Volume**: Detect capital inflows using ETF data, high-volume prints, or sector-volume metrics.
 5. **Step 5: Sector Momentum**: Identify whether multiple assets in the same sector are moving together.
 6. **Step 6: Opportunity Scoring**: Form a final `opportunity_score` based on the weights below.
+
+For A-share discovery specifically:
+
+- Prefer sector/theme clustering over isolated single-name moves.
+- Treat ETF participation and board breadth as stronger confirmation than standalone social chatter.
+- If the move is driven only by low-confidence social/forum noise, downgrade it to a watchlist candidate.
 
 ## Opportunity Scoring Formula
 

@@ -1174,6 +1174,66 @@ def _parse_float_csv(values: str | None) -> list[float]:
 
 def _build_market_heartbeat_template(symbols: list[str], timezone: str = "America/New_York") -> str:
     """Create a heartbeat template for recurring market reports."""
+    return _build_market_heartbeat_template_for_market(symbols, timezone=timezone, market="auto")
+
+
+def _is_a_share_heartbeat_symbol(symbol: str) -> bool:
+    text = str(symbol or "").strip().upper()
+    if not text:
+        return False
+    return bool(re.fullmatch(r"\d{6}(?:\.(?:SH|SZ|BJ))?", text))
+
+
+def _infer_heartbeat_market(symbols: list[str], timezone: str, market: str) -> str:
+    requested = market.strip().lower()
+    if requested in {"a-share", "global"}:
+        return requested
+    tz = timezone.strip()
+    if tz in {"Asia/Shanghai", "Asia/Hong_Kong"}:
+        return "a-share"
+    if any(_is_a_share_heartbeat_symbol(symbol) for symbol in symbols):
+        return "a-share"
+    return "global"
+
+
+def _build_market_heartbeat_template_for_market(
+    symbols: list[str],
+    *,
+    timezone: str = "America/New_York",
+    market: str = "auto",
+) -> str:
+    """Create a heartbeat template for recurring market reports."""
+    resolved_market = _infer_heartbeat_market(symbols, timezone, market)
+    if resolved_market == "a-share":
+        default_symbols = "000001.SH,399001.SZ,399006.SZ,510300.SH,600000.SH"
+        joined = ", ".join(symbols) if symbols else "000001.SH, 399001.SZ, 399006.SZ, 510300.SH, 600000.SH"
+        joined_csv = ",".join(symbols) if symbols else default_symbols
+        return f"""# Market Report Tasks
+
+You are responsible for recurring market monitoring.
+
+<!-- marketbot:mode market-report -->
+<!-- marketbot:timezone {timezone or "Asia/Shanghai"} -->
+<!-- marketbot:weekdays mon,tue,wed,thu,fri -->
+<!-- marketbot:windows 09:20-09:40,11:25-11:35,14:50-15:10 -->
+<!-- marketbot:symbols {joined_csv} -->
+
+Active symbols: {joined}
+
+Run a market brief when the current local time is near one of these windows:
+- 09:30 A-share open
+- 11:30 morning close / breadth check
+- 15:00 close
+
+If the current time is outside those windows, skip.
+
+When you run:
+1. Use `market_brief` for the active symbols.
+2. Focus on A-share breadth, sector clustering, ETF participation, and the strongest live movers.
+3. Summarize the market state, top signals, macro regime, and scenario playbook.
+4. Keep the report concise and actionable.
+"""
+
     joined = ", ".join(symbols) if symbols else "SPY, QQQ, IWM, GLD, BTC-USD"
     joined_csv = ",".join(symbols) if symbols else "SPY,QQQ,IWM,GLD,BTC-USD"
     return f"""# Market Report Tasks
@@ -1228,14 +1288,17 @@ def _pick_notify_target(
 
     if channel:
         if channel not in enabled:
+            typer.echo("notify channel must be enabled and one of: telegram, slack, discord, feishu")
             raise typer.BadParameter(
                 "notify channel must be enabled and one of: telegram, slack, discord, feishu"
             )
         if not chat_id:
+            typer.echo("chat-id is required when notify-channel is provided")
             raise typer.BadParameter("chat-id is required when notify-channel is provided")
         return channel, chat_id
 
     if chat_id:
+        typer.echo("notify-channel is required when chat-id is provided")
         raise typer.BadParameter("notify-channel is required when chat-id is provided")
 
     from marketbot.session.manager import SessionManager
@@ -1249,6 +1312,9 @@ def _pick_notify_target(
         if session_channel in enabled and session_chat_id:
             return session_channel, session_chat_id
 
+    typer.echo(
+        "no notify target found; provide --notify-channel and --chat-id, or use an enabled channel with prior sessions"
+    )
     raise typer.BadParameter(
         "no notify target found; provide --notify-channel and --chat-id, or use an enabled channel with prior sessions"
     )
@@ -2538,6 +2604,7 @@ def market_report(
 
     normalized_session = session.strip().lower() or "auto"
     if normalized_session not in {"auto", "premarket", "intraday", "close"}:
+        typer.echo("session must be one of: auto, premarket, intraday, close")
         raise typer.BadParameter("session must be one of: auto, premarket, intraday, close")
 
     config = load_config()
@@ -2612,6 +2679,7 @@ def market_report(
 def market_heartbeat_setup(
     symbols: str = typer.Option("", "--symbols", "-s", help="Comma-separated symbols to monitor"),
     timezone: str = typer.Option("America/New_York", "--timezone", "-t", help="IANA timezone, e.g. America/New_York"),
+    market: str = typer.Option("auto", "--market", help="Heartbeat market profile: auto, a-share, global"),
     overwrite: bool = typer.Option(False, "--overwrite", help="Replace existing HEARTBEAT.md content"),
 ):
     """Create or append a heartbeat template for recurring market reports."""
@@ -2619,7 +2687,7 @@ def market_heartbeat_setup(
 
     config = load_config()
     heartbeat_path = config.workspace_path / "HEARTBEAT.md"
-    content = _build_market_heartbeat_template(_parse_symbol_csv(symbols), timezone=timezone)
+    content = _build_market_heartbeat_template_for_market(_parse_symbol_csv(symbols), timezone=timezone, market=market)
 
     if heartbeat_path.exists() and not overwrite:
         existing = heartbeat_path.read_text(encoding="utf-8")

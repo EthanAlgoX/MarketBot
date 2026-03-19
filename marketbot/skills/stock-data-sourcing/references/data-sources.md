@@ -6,7 +6,7 @@ This reference condenses the reusable data-source design from `../daily_stock_an
 
 | Task | Primary | Fallbacks | Notes |
 | --- | --- | --- | --- |
-| A-share realtime quote | `efinance` | `akshare_em` -> `akshare_sina` / `akshare_qq` -> `pytdx` | Free, broad, but Eastmoney/Sina/Tencent endpoints can rate-limit. |
+| A-share realtime quote | `tickflow` | `efinance` -> `akshare_em` -> `akshare_sina` / `akshare_qq` -> `pytdx` | `tickflow` is now the preferred API-backed realtime path inside `marketbot`; free endpoints remain useful fallback options. |
 | A-share daily history | `tushare` when token exists, else `efinance` | `akshare` -> `pytdx` -> `baostock` | `tushare` gets promoted to highest priority when token is valid. |
 | A-share ETF history | `efinance` / `tushare` | `akshare` -> `yfinance` | ETF prefixes are handled explicitly. |
 | Hong Kong daily history | `akshare stock_hk_hist` | `yfinance` | `daily_stock_analysis` has explicit HK support in `AkshareFetcher`. |
@@ -69,9 +69,9 @@ That is the most reusable part for `marketbot`: it turns raw search into a struc
 
 ### What is already mapped in current marketbot tools
 
-- `market_snapshot` now supports `eastmoney`, `yahoo`, `auto`, and `mock`
+- `market_snapshot` now supports `tickflow`, `eastmoney`, `yahoo`, `auto`, and `mock`
 - `market_chip_distribution` now estimates A-share chip structure from Eastmoney daily kline and turnover
-- `market_fundamentals` now loads lightweight valuation/profile fields from Eastmoney for A-share and Yahoo quote for global symbols
+- `market_fundamentals` now loads lightweight profile/share-cap fields from TickFlow for A-share when configured, otherwise Eastmoney for mainland symbols and Yahoo quote for global symbols
 - `market_news` now supports cross-market routing across `Bocha`, `Brave`, `Tavily`, `SerpAPI`, Google RSS, and `mock`
 - `market_source_plan` explains which provider chain should be used for each market/task combination
 

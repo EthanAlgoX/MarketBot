@@ -132,7 +132,8 @@ Minimal example:
   },
   "tools": {
     "market": {
-      "quoteSource": "auto",
+      "quoteSource": "tickflow",
+      "tickflowApiKey": "tk-xxx",
       "newsSources": ["reuters", "bloomberg", "cls"],
       "macroSource": "fred",
       "cacheTtlS": 60
@@ -147,7 +148,8 @@ Minimal example:
 
 Notes:
 
-- `quoteSource: auto` is the safest default for mixed-market workflows
+- `quoteSource: tickflow` is the best default when A-share realtime data is the priority; use `auto` for mixed-market workflows
+- `tickflowApiKey` powers TickFlow realtime quote and fundamentals calls
 - `newsSources` controls the news routing order
 - `macroSource: fred` requires a FRED API key; without one, the system should degrade explicitly
 - `explainabilityMode` controls whether capability and reliability notes are attached
