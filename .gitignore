@@ -67,6 +67,8 @@ apps/ios/*.mobileprovision
 # Local untracked files
 .tmp/
 .local/
+.learnings/
+$TMPDIR/
 .codex-home/
 .codex-node/
 data/finance-cache/
@@ -75,6 +77,7 @@ IDENTITY.md
 USER.md
 .tgz
 marketbot.json
+marketbot-tech-news-digest.md
 
 # local tooling
 .serena/
