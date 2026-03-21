@@ -102,6 +102,13 @@ class CustomProvider(LLMProvider):
             return LLMResponse(content=f"Error: {message}", finish_reason="error")
         if error_payload is not None:
             return LLMResponse(content=f"Error: {error_payload}", finish_reason="error")
+        status_code = response.get("status_code")
+        status_msg = response.get("status_msg")
+        if status_code is not None and status_msg is not None:
+            return LLMResponse(
+                content=f"Error: backend status {status_code}: {status_msg}",
+                finish_reason="error",
+            )
 
         base_resp = response.get("base_resp")
         choices = response.get("choices")

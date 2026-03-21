@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from marketbot.agent.context import ContextBuilder
 from marketbot.agent.loop import AgentLoop
 from marketbot.session.manager import Session
@@ -318,12 +320,7 @@ def test_run_agent_loop_disables_tools_after_first_broad_market_scan_round() -> 
     )
 
     assert final_content == "final answer"
-    assert tools_used == [
-        "market_snapshot",
-        "market_news",
-        "market_macro",
-        "market_brief",
-    ]
+    assert tools_used == ["market_snapshot"]
     assert len(loop.provider.chat.await_args_list) == 2
     assert [d["function"]["name"] for d in loop.provider.chat.await_args_list[0].kwargs["tools"]] == [
         "market_snapshot",
@@ -332,3 +329,97 @@ def test_run_agent_loop_disables_tools_after_first_broad_market_scan_round() -> 
         "market_brief",
     ]
     assert loop.provider.chat.await_args_list[1].kwargs["tools"] == []
+
+
+def test_persist_local_report_if_needed_writes_daily_market_markdown(tmp_path) -> None:
+    loop = _mk_loop()
+    loop.workspace = tmp_path
+
+    class _FakeProcessor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {
+                "selected": [
+                    {"name": "daily-market-opportunity"},
+                ]
+            }
+
+    loop.processor = _FakeProcessor()
+
+    report_path = loop._persist_local_report_if_needed(
+        "# 📅 每日机会扫描\n\n今日无高置信机会，维持观察名单",
+        request_text="每日机会",
+    )
+
+    assert report_path is not None
+    assert report_path.exists()
+    saved = report_path.read_text(encoding="utf-8")
+    assert "# Daily Market Opportunity" in saved
+    assert "- request: 每日机会" in saved
+    assert "今日无高置信机会" in saved
+
+
+def test_append_saved_report_path_includes_local_path() -> None:
+    result = AgentLoop._append_saved_report_path("report body", Path("/tmp/report.md"))
+
+    assert result == "report body\n\n已保存到本地: /tmp/report.md"
+
+
+def test_match_daily_opportunity_report_query() -> None:
+    loop = _mk_loop()
+
+    assert loop._match_daily_opportunity_report_query("每日机会保存地址在哪") is True
+    assert loop._match_daily_opportunity_report_query("每日机会文档在哪") is True
+    assert loop._match_daily_opportunity_report_query("每日机会") is False
+
+
+def test_build_daily_opportunity_report_query_response_lists_recent_files(tmp_path) -> None:
+    loop = _mk_loop()
+    loop.workspace = tmp_path
+    report_dir = tmp_path / "reports" / "daily-market-opportunity"
+    report_dir.mkdir(parents=True)
+    newest = report_dir / "20260322-000821-daily-market-opportunity.md"
+    newest.write_text("ok", encoding="utf-8")
+
+    content = loop._build_daily_opportunity_report_query_response()
+
+    assert str(report_dir) in content
+    assert str(newest) in content
+
+
+def test_persist_local_report_if_needed_skips_error_payloads(tmp_path) -> None:
+    loop = _mk_loop()
+    loop.workspace = tmp_path
+
+    class _FakeProcessor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "daily-market-opportunity"}]}
+
+    loop.processor = _FakeProcessor()
+
+    report_path = loop._persist_local_report_if_needed(
+        "Error: backend status 2013: invalid params",
+        request_text="每日机会",
+    )
+
+    assert report_path is None
+
+
+def test_persist_local_report_if_needed_skips_meta_queries(tmp_path) -> None:
+    loop = _mk_loop()
+    loop.workspace = tmp_path
+
+    class _FakeProcessor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "daily-market-opportunity"}]}
+
+    loop.processor = _FakeProcessor()
+
+    report_path = loop._persist_local_report_if_needed(
+        "# 📅 每日机会扫描\n\n今日无高置信机会，维持观察名单",
+        request_text="每日机会保存地址在哪",
+    )
+
+    assert report_path is None

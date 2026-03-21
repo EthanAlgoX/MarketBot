@@ -140,6 +140,20 @@ def test_custom_provider_parse_raw_response_reports_input_sensitive_when_flag_fi
     assert "policy_review" in str(result.content)
 
 
+def test_custom_provider_parse_raw_response_reports_backend_status_payload() -> None:
+    provider = CustomProvider(api_key="test", api_base="http://localhost:8000/v1", default_model="test-model")
+
+    result = provider._parse_raw_response(
+        {
+            "status_code": 42901,
+            "status_msg": "rate limited",
+        }
+    )
+
+    assert result.finish_reason == "error"
+    assert result.content == "Error: backend status 42901: rate limited"
+
+
 def test_custom_provider_parse_raw_response_uses_nested_base_resp() -> None:
     provider = CustomProvider(api_key="test", api_base="http://localhost:8000/v1", default_model="test-model")
 

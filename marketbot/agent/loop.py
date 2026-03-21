@@ -6,6 +6,7 @@ import asyncio
 import json
 import re
 from contextlib import AsyncExitStack
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
@@ -26,7 +27,7 @@ from marketbot.market_reporting import (
     render_analysis_explainability_summary,
     render_chat_explainability_footer_for_channel,
 )
-from marketbot.providers.base import LLMProvider, ToolCallRequest
+from marketbot.providers.base import LLMProvider
 from marketbot.runtime.bootstrap import ToolBootstrapContext, register_core_tools
 from marketbot.session.manager import Session, SessionManager
 
@@ -270,16 +271,6 @@ class AgentLoop:
             return f'{tc.name}("{val[:40]}…")' if len(val) > 40 else f'{tc.name}("{val}")'
         return ", ".join(_fmt(tc) for tc in tool_calls)
 
-    @classmethod
-    def _canonical_broad_market_scan_tool_calls(cls) -> list[ToolCallRequest]:
-        """Return the fixed first-round tool pipeline for generic daily market scans."""
-        return [
-            ToolCallRequest(id="broad-scan-market_snapshot", name="market_snapshot", arguments={}),
-            ToolCallRequest(id="broad-scan-market_news", name="market_news", arguments={}),
-            ToolCallRequest(id="broad-scan-market_macro", name="market_macro", arguments={}),
-            ToolCallRequest(id="broad-scan-market_brief", name="market_brief", arguments={}),
-        ]
-
     @staticmethod
     def _extract_market_brief_payload(messages: list[dict]) -> dict[str, Any]:
         """Extract the latest structured market brief payload from tool results, if present."""
@@ -399,6 +390,109 @@ class AgentLoop:
         if block in final_content:
             return final_content
         return f"{final_content.rstrip()}\n\n{block}"
+
+    def _selected_skill_names(self) -> set[str]:
+        """Return the set of currently routed skill names."""
+        routing = self.processor.get_last_skill_routing() or {}
+        selected = routing.get("selected", []) or []
+        names: set[str] = set()
+        for item in selected:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if name:
+                names.add(name)
+        return names
+
+    def _persist_local_report_if_needed(
+        self,
+        final_content: str | None,
+        *,
+        request_text: str | None = None,
+    ) -> Path | None:
+        """Persist markdown reports for fixed daily opportunity scans."""
+        if not final_content or "daily-market-opportunity" not in self._selected_skill_names():
+            return None
+        if self._match_daily_opportunity_report_query(request_text):
+            return None
+        normalized = final_content.strip()
+        if not normalized:
+            return None
+        if normalized.lower().startswith("error:"):
+            return None
+        if "invalid params" in normalized.lower() or "tool id(" in normalized.lower():
+            return None
+        if not any(
+            marker in normalized
+            for marker in ("每日机会", "高置信", "观察名单", "Watchlist", "Market Regime")
+        ):
+            return None
+        report_dir = self.workspace / "reports" / "daily-market-opportunity"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        report_path = report_dir / f"{stamp}-daily-market-opportunity.md"
+        header = [
+            "# Daily Market Opportunity",
+            "",
+            f"- generated_at: {datetime.now().isoformat()}",
+        ]
+        clean_request = str(request_text or "").strip()
+        if clean_request:
+            header.append(f"- request: {clean_request}")
+        header.extend(["", "---", "", final_content.rstrip(), ""])
+        report_path.write_text("\n".join(header), encoding="utf-8")
+        return report_path
+
+    @staticmethod
+    def _append_saved_report_path(final_content: str | None, report_path: Path | None) -> str | None:
+        """Append the local markdown path when a report was persisted."""
+        if not final_content or report_path is None:
+            return final_content
+        note = f"已保存到本地: {report_path}"
+        if note in final_content:
+            return final_content
+        return f"{final_content.rstrip()}\n\n{note}"
+
+    def _match_daily_opportunity_report_query(self, text: str | None) -> bool:
+        """Return True when the user is asking for saved daily-opportunity report locations."""
+        normalized = str(text or "").lower()
+        if not any(term in normalized for term in ("每日机会", "今日机会", "daily opportunity")):
+            return False
+        return any(
+            term in normalized
+            for term in (
+                "保存地址",
+                "保存路径",
+                "文档",
+                "报告路径",
+                "report path",
+                "save path",
+                "markdown",
+                ".md",
+                "md文档",
+                "在哪",
+                "在哪里",
+            )
+        )
+
+    def _build_daily_opportunity_report_query_response(self) -> str:
+        """Return a local-path summary for saved daily-opportunity markdown reports."""
+        report_dir = self.workspace / "reports" / "daily-market-opportunity"
+        lines = [f"每日机会 markdown 默认保存在: {report_dir}"]
+        if report_dir.exists():
+            files = sorted(report_dir.glob("*.md"), reverse=True)
+            if files:
+                lines.append("")
+                lines.append("最近文档:")
+                for path in files[:5]:
+                    lines.append(f"- {path}")
+            else:
+                lines.append("")
+                lines.append("当前目录下还没有 .md 文档。")
+        else:
+            lines.append("")
+            lines.append("目录尚未生成。先执行一次“每日机会”后会自动创建。")
+        return "\n".join(lines)
 
     @classmethod
     def _compress_tool_result(cls, tool_name: str, result: str) -> str:
@@ -682,8 +776,6 @@ class AgentLoop:
 
                 if response.has_tool_calls:
                     tool_calls = response.tool_calls
-                    if self._active_request_flags.get("broad_market_scan") and tool_rounds == 0:
-                        tool_calls = self._canonical_broad_market_scan_tool_calls()
 
                     if on_progress:
                         await on_progress(self._tool_hint(tool_calls), tool_hint=True)
@@ -839,6 +931,8 @@ class AgentLoop:
             final_content = self._append_chat_explainability(final_content, explainability)
             external_skill_suggestions = self._build_external_skill_install_suggestions()
             final_content = self._append_external_skill_suggestions(final_content, external_skill_suggestions)
+            report_path = self._persist_local_report_if_needed(final_content, request_text=msg.content)
+            final_content = self._append_saved_report_path(final_content, report_path)
             if usage:
                 session.metadata["last_usage"] = usage
             self._save_turn(session, all_msgs, 1 + len(history))
@@ -852,11 +946,20 @@ class AgentLoop:
                 metadata["explainability"] = explainability
             if external_skill_suggestions:
                 metadata["skill_install_suggestions"] = external_skill_suggestions
+            if report_path is not None:
+                metadata["saved_report_path"] = str(report_path)
             return OutboundMessage(channel=channel, chat_id=chat_id,
                                   content=final_content or "Background task completed.", metadata=metadata)
 
         preview = msg.content[:80] + "..." if len(msg.content) > 80 else msg.content
         logger.info("Processing message from {}:{}: {}", msg.channel, msg.sender_id, preview)
+
+        if self._match_daily_opportunity_report_query(msg.content):
+            return OutboundMessage(
+                channel=msg.channel,
+                chat_id=msg.chat_id,
+                content=self._build_daily_opportunity_report_query_response(),
+            )
 
         key = session_key or msg.session_key
         session = self.processor.get_session(key)
@@ -903,6 +1006,8 @@ class AgentLoop:
             final_content = self._append_chat_explainability(final_content, explainability)
         external_skill_suggestions = self._build_external_skill_install_suggestions()
         final_content = self._append_external_skill_suggestions(final_content, external_skill_suggestions)
+        report_path = self._persist_local_report_if_needed(final_content, request_text=msg.content)
+        final_content = self._append_saved_report_path(final_content, report_path)
 
         if usage:
             session.metadata["last_usage"] = usage
@@ -923,6 +1028,8 @@ class AgentLoop:
             metadata["explainability"] = explainability
         if external_skill_suggestions:
             metadata["skill_install_suggestions"] = external_skill_suggestions
+        if report_path is not None:
+            metadata["saved_report_path"] = str(report_path)
         return OutboundMessage(
             channel=msg.channel, chat_id=msg.chat_id, content=final_content,
             metadata=metadata,

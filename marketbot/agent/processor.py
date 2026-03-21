@@ -74,13 +74,15 @@ class MessageProcessor:
         normalized = str(message or "").strip()
         daily_market_scan_prompt = (
             "请做一份今日市场机会扫描。"
-            "基于公开市场数据，分析美股、港股、A股和加密市场中值得关注的机会、主题、代表标的、催化剂与风险。"
-            "优先使用 market_snapshot、market_news、market_social_sentiment、market_macro、market_brief、market_fundamentals 等原生 market tools。"
-            "不要优先使用 exec、web_fetch、web_search、browser_site 或泛化网页抓取作为兜底。"
+            "基于公开市场数据和当前工具返回的数据，分析美股、港股、A股和加密市场中值得关注的机会、主题、代表标的、催化剂与风险。"
+            "优先使用 market_snapshot、market_news、market_macro、market_brief 这条固定 market tool 链路。"
+            "不要优先使用 exec、web_fetch、web_search、browser_site、market_social_sentiment、market_fundamentals 或泛化网页抓取作为兜底。"
             "如果没有高置信机会，请明确写出今日无高置信机会，并给出观察名单。"
             "避免把少量资产快照直接上升为系统性结论；单点异常数据必须标记为 unverified outlier。"
             "如果当前是周末或主要市场休市时段，请按下一交易日观察名单输出，而不是给出盘中执行建议。"
             "完成首轮取数后直接输出最终答案，不要继续追加价格历史、额外验证或补充工具轮次。"
+            "用户可见答案里不要出现 provider、后端、API 名称、HTTP 状态码或数据源厂商名。"
+            "周末或休市时最多保留 3 个观察项，并优先使用固定篮子内已有标的；不要引入当前工具输出里没有出现过的新代码。"
         )
         rewrites = {
             "每日机会": daily_market_scan_prompt,

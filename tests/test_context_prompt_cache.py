@@ -519,6 +519,21 @@ def test_daily_opportunity_shortcut_routes_fixed_skill(tmp_path) -> None:
     assert "### Skill: market-discovery" not in prompt
 
 
+def test_daily_opportunity_meta_query_does_not_route_fixed_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="每日机会保存地址在哪",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: daily-market-opportunity" not in prompt
+
+
 def test_bb_browser_multi_llm_prompt_prefers_multi_llm_stock_panel(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

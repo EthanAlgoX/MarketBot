@@ -481,6 +481,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             selected_names.append(name)
             deduped_selected.append(item)
 
+        deduped_selected = self._filter_meta_queries(current_message, deduped_selected)
         deduped_selected = self._prune_shadowed_skills(deduped_selected)
 
         external_suggestions: list[dict[str, Any]] = []
@@ -495,6 +496,41 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "diagnostics": diagnostics,
             "externalSuggestions": external_suggestions,
         }
+
+    @staticmethod
+    def _filter_meta_queries(
+        current_message: str,
+        selected: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Remove execution skills when the user is only asking about saved artifacts or paths."""
+        text = str(current_message or "").lower()
+        daily_opportunity_terms = (
+            "每日机会",
+            "每日机会分析",
+            "今日机会",
+            "今日机会分析",
+        )
+        meta_terms = (
+            "保存地址",
+            "保存路径",
+            "文档",
+            "报告路径",
+            "report path",
+            "save path",
+            "markdown",
+            ".md",
+            "md文档",
+            "在哪",
+            "在哪里",
+        )
+        if not any(term in text for term in daily_opportunity_terms):
+            return selected
+        if not any(term in text for term in meta_terms):
+            return selected
+        return [
+            item for item in selected
+            if str(item.get("name", "")).strip() != "daily-market-opportunity"
+        ]
 
     def _prune_shadowed_skills(self, selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Drop broad auto-selected skills when a higher-priority specialist is present."""
@@ -650,6 +686,19 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "今日机会",
             "今日机会分析",
         )
+        daily_opportunity_meta_terms = (
+            "保存地址",
+            "保存路径",
+            "文档",
+            "报告路径",
+            "report path",
+            "save path",
+            "markdown",
+            ".md",
+            "md文档",
+            "在哪",
+            "在哪里",
+        )
         browser_research_terms = (
             "xueqiu",
             "雪球",
@@ -782,7 +831,9 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         elif route["crypto"] and ("intermarket" in text or "gold" in text or "silver" in text):
             consider("crypto-gold-monitor")
 
-        if any(term in text for term in daily_opportunity_terms):
+        if any(term in text for term in daily_opportunity_terms) and not any(
+            term in text for term in daily_opportunity_meta_terms
+        ):
             consider("daily-market-opportunity")
         elif (route["asset_like"] or route["equity"] or bool(route.get("etf"))) and any(term in text for term in discovery_terms):
             consider("market-discovery")
