@@ -26,7 +26,7 @@ from marketbot.market_reporting import (
     render_analysis_explainability_summary,
     render_chat_explainability_footer_for_channel,
 )
-from marketbot.providers.base import LLMProvider
+from marketbot.providers.base import LLMProvider, ToolCallRequest
 from marketbot.runtime.bootstrap import ToolBootstrapContext, register_core_tools
 from marketbot.session.manager import Session, SessionManager
 
@@ -52,6 +52,35 @@ class AgentLoop:
     _PARALLEL_SAFE_TOOL_PREFIXES = ("market_",)
     _PARALLEL_SAFE_TOOLS = {"read_file", "list_dir", "web_search", "web_fetch"}
     _PARALLEL_UNSAFE_TOOLS = {"write_file", "edit_file", "exec", "message", "spawn", "cron"}
+    _BROAD_MARKET_SCAN_MARKERS = (
+        "今日市场机会扫描",
+        "每日机会分析",
+        "每日机会",
+        "今日机会",
+        "daily opportunity",
+        "market opportunities today",
+    )
+    _BROAD_MARKET_SCAN_ALLOWED_TOOLS = {
+        "market_snapshot",
+        "market_macro",
+        "market_news",
+        "market_brief",
+    }
+    _BROAD_MARKET_SCAN_SNAPSHOT_SYMBOLS = [
+        "SPY", "QQQ", "DIA", "IWM", "NVDA", "AAPL", "MSFT", "TSLA",
+        "BTC-USD", "ETH-USD", "GLD", "TLT", "DXY",
+        "0700.HK", "9988.HK", "3690.HK", "9618.HK", "HSI", "HSTECH",
+        "000300", "000001", "399001", "600519", "002594", "300750",
+    ]
+    _BROAD_MARKET_SCAN_NEWS_SYMBOLS = [
+        "SPY", "QQQ", "NVDA", "TSLA", "BTC-USD", "0700.HK", "600519", "002594",
+    ]
+    _BROAD_MARKET_SCAN_BRIEF_SYMBOLS = [
+        "SPY", "QQQ", "NVDA", "TSLA", "BTC-USD", "0700.HK", "600519",
+    ]
+    _BROAD_MARKET_SCAN_MACRO_INDICATORS = [
+        "fedFunds", "us10y", "dxy", "cpi", "unemployment",
+    ]
 
     def __init__(
         self,
@@ -148,6 +177,7 @@ class AgentLoop:
         self._consolidation_locks = self.processor._consolidation_locks
         self._active_tasks: dict[str, list[asyncio.Task]] = {}  # session_key -> tasks
         self._session_locks: dict[str, asyncio.Lock] = {}
+        self._active_request_flags: dict[str, bool] = {}
         self._register_default_tools()
         self.context.set_available_tools(self.tools.tool_names)
         self.context.set_market_runtime_profile(build_market_runtime_profile(self.market_config))
@@ -239,6 +269,16 @@ class AgentLoop:
                 return tc.name
             return f'{tc.name}("{val[:40]}…")' if len(val) > 40 else f'{tc.name}("{val}")'
         return ", ".join(_fmt(tc) for tc in tool_calls)
+
+    @classmethod
+    def _canonical_broad_market_scan_tool_calls(cls) -> list[ToolCallRequest]:
+        """Return the fixed first-round tool pipeline for generic daily market scans."""
+        return [
+            ToolCallRequest(id="broad-scan-market_snapshot", name="market_snapshot", arguments={}),
+            ToolCallRequest(id="broad-scan-market_news", name="market_news", arguments={}),
+            ToolCallRequest(id="broad-scan-market_macro", name="market_macro", arguments={}),
+            ToolCallRequest(id="broad-scan-market_brief", name="market_brief", arguments={}),
+        ]
 
     @staticmethod
     def _extract_market_brief_payload(messages: list[dict]) -> dict[str, Any]:
@@ -455,6 +495,77 @@ class AgentLoop:
         return json.dumps(payload, ensure_ascii=False)
 
     @classmethod
+    def _is_broad_market_scan_request(cls, messages: list[dict[str, Any]] | None) -> bool:
+        """Return True when the turn is a generic daily market-opportunity scan."""
+        if not isinstance(messages, list):
+            return False
+        for message in reversed(messages):
+            if not isinstance(message, dict) or message.get("role") != "user":
+                continue
+            content = message.get("content")
+            if isinstance(content, str):
+                text = content
+            elif isinstance(content, list):
+                parts: list[str] = []
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        value = item.get("text")
+                        if isinstance(value, str):
+                            parts.append(value)
+                text = "\n".join(parts)
+            else:
+                continue
+            lowered = text.lower()
+            return any(marker.lower() in lowered for marker in cls._BROAD_MARKET_SCAN_MARKERS)
+        return False
+
+    def _tool_policy_result(self, tool_name: str) -> str | None:
+        """Return a synthetic result when policy blocks a tool for the active request."""
+        if tool_name == "exec" and self._active_request_flags.get("broad_market_scan"):
+            return (
+                "Error: exec disabled for generic daily market scans. "
+                "Use native market tools already in context and report data gaps explicitly."
+            )
+        return None
+
+    def _normalize_tool_arguments_for_request(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Normalize tool parameters for constrained request types."""
+        params = dict(arguments or {})
+        request_flags = getattr(self, "_active_request_flags", {}) or {}
+        if request_flags.get("broad_market_scan"):
+            if tool_name == "market_snapshot":
+                params["symbols"] = list(self._BROAD_MARKET_SCAN_SNAPSHOT_SYMBOLS)
+                params["includeMacro"] = False
+            elif tool_name == "market_news":
+                params["symbols"] = list(self._BROAD_MARKET_SCAN_NEWS_SYMBOLS)
+                params["limit"] = 12
+            elif tool_name == "market_macro":
+                params["indicators"] = list(self._BROAD_MARKET_SCAN_MACRO_INDICATORS)
+            elif tool_name == "market_brief":
+                params["symbols"] = list(self._BROAD_MARKET_SCAN_BRIEF_SYMBOLS)
+                params["includeFundamentals"] = False
+                params["includeSocial"] = False
+                params["includeChips"] = False
+                params["includeMacro"] = True
+                params["includeNews"] = True
+        return params
+
+    def _tool_definitions_for_request(self) -> list[dict[str, Any]]:
+        """Return the tool definitions visible to the model for the active request."""
+        definitions = self.tools.get_definitions()
+        if not self._active_request_flags.get("broad_market_scan"):
+            return definitions
+        filtered: list[dict[str, Any]] = []
+        for definition in definitions:
+            function = definition.get("function")
+            if not isinstance(function, dict):
+                continue
+            name = str(function.get("name") or "").strip()
+            if name in self._BROAD_MARKET_SCAN_ALLOWED_TOOLS:
+                filtered.append(definition)
+        return filtered
+
+    @classmethod
     def _is_parallel_safe_tool(cls, tool_name: str) -> bool:
         """Return True when the tool is safe to execute concurrently."""
         if tool_name in cls._PARALLEL_UNSAFE_TOOLS:
@@ -472,9 +583,14 @@ class AgentLoop:
         cache: dict[str, str] = {}
 
         async def _run_single(index: int, tool_call: Any) -> tuple[int, str, str]:
-            args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
+            normalized_args = self._normalize_tool_arguments_for_request(tool_call.name, tool_call.arguments)
+            args_str = json.dumps(normalized_args, ensure_ascii=False)
             logger.info("Tool call: {}({})", tool_call.name, args_str[:200])
-            result = await self.tools.execute(tool_call.name, tool_call.arguments)
+            blocked = self._tool_policy_result(tool_call.name)
+            if blocked is not None:
+                result = blocked
+            else:
+                result = await self.tools.execute(tool_call.name, normalized_args)
             compressed = self._compress_tool_result(tool_call.name, result)
             return index, self._tool_cache_key(tool_call), compressed
 
@@ -532,86 +648,88 @@ class AgentLoop:
         """Run the agent iteration loop. Returns (final_content, tools_used, messages, usage)."""
         messages = initial_messages
         iteration = 0
+        tool_rounds = 0
         final_content = None
         tools_used: list[str] = []
         usage_totals: dict[str, int] = {}
+        self._active_request_flags = {
+            "broad_market_scan": self._is_broad_market_scan_request(initial_messages),
+        }
+        try:
+            while iteration < self.max_iterations:
+                iteration += 1
+                tools_for_call = self._tool_definitions_for_request()
+                if self._active_request_flags.get("broad_market_scan") and tool_rounds >= 1:
+                    tools_for_call = []
 
-        while iteration < self.max_iterations:
-            iteration += 1
-
-            response = await self.provider.chat(
-                messages=messages,
-                tools=self.tools.get_definitions(),
-                model=self.model,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                reasoning_effort=self.reasoning_effort,
-            )
-            usage_totals = self._merge_usage(usage_totals, response.usage)
-            if response.usage:
-                logger.info(
-                    "LLM usage iteration={} prompt={} completion={} total={}",
-                    iteration,
-                    response.usage.get("prompt_tokens", 0),
-                    response.usage.get("completion_tokens", 0),
-                    response.usage.get("total_tokens", 0),
+                response = await self.provider.chat(
+                    messages=messages,
+                    tools=tools_for_call,
+                    model=self.model,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    reasoning_effort=self.reasoning_effort,
                 )
-
-            if response.has_tool_calls:
-                if on_progress:
-                    thoughts = [
-                        self._strip_think(response.content),
-                        response.reasoning_content,
-                        *(
-                            f"Thinking [{b.get('signature', '...')}]:\n{b.get('thought', '...')}"
-                            for b in (response.thinking_blocks or [])
-                            if isinstance(b, dict) and "signature" in b
-                        ),
-                    ]
-                    combined_thoughts = "\n\n".join(filter(None, thoughts))
-                    if combined_thoughts:
-                        await on_progress(combined_thoughts)
-                    await on_progress(self._tool_hint(response.tool_calls), tool_hint=True)
-
-                tool_call_dicts = [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.name,
-                            "arguments": json.dumps(tc.arguments, ensure_ascii=False)
-                        }
-                    }
-                    for tc in response.tool_calls
-                ]
-                messages = self.context.add_assistant_message(
-                    messages, response.content, tool_call_dicts,
-                    reasoning_content=response.reasoning_content,
-                    thinking_blocks=response.thinking_blocks,
-                )
-
-                if len(response.tool_calls) > 1:
-                    logger.info("Executing {} tool calls (parallel where safe)", len(response.tool_calls))
-
-                for tool_call, result in await self._execute_tool_calls(response.tool_calls):
-                    tools_used.append(tool_call.name)
-                    messages = self.context.add_tool_result(
-                        messages, tool_call.id, tool_call.name, result
+                usage_totals = self._merge_usage(usage_totals, response.usage)
+                if response.usage:
+                    logger.info(
+                        "LLM usage iteration={} prompt={} completion={} total={}",
+                        iteration,
+                        response.usage.get("prompt_tokens", 0),
+                        response.usage.get("completion_tokens", 0),
+                        response.usage.get("total_tokens", 0),
                     )
-            else:
-                clean = self._strip_think(response.content)
-                # Don't persist error responses to session history — they can
-                # poison the context and cause permanent 400 loops (#1303).
-                if response.finish_reason == "error":
-                    logger.error("LLM returned error: {}", (clean or "")[:200])
-                    final_content = clean or "Sorry, I encountered an error calling the AI model."
+
+                if response.has_tool_calls:
+                    tool_calls = response.tool_calls
+                    if self._active_request_flags.get("broad_market_scan") and tool_rounds == 0:
+                        tool_calls = self._canonical_broad_market_scan_tool_calls()
+
+                    if on_progress:
+                        await on_progress(self._tool_hint(tool_calls), tool_hint=True)
+
+                    tool_call_dicts = [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.name,
+                                "arguments": json.dumps(tc.arguments, ensure_ascii=False)
+                            }
+                        }
+                        for tc in tool_calls
+                    ]
+                    messages = self.context.add_assistant_message(
+                        messages, response.content, tool_call_dicts,
+                        reasoning_content=response.reasoning_content,
+                        thinking_blocks=response.thinking_blocks,
+                    )
+
+                    if len(tool_calls) > 1:
+                        logger.info("Executing {} tool calls (parallel where safe)", len(tool_calls))
+
+                    for tool_call, result in await self._execute_tool_calls(tool_calls):
+                        tools_used.append(tool_call.name)
+                        messages = self.context.add_tool_result(
+                            messages, tool_call.id, tool_call.name, result
+                        )
+                    tool_rounds += 1
+                else:
+                    clean = self._strip_think(response.content)
+                    # Don't persist error responses to session history — they can
+                    # poison the context and cause permanent 400 loops (#1303).
+                    if response.finish_reason == "error":
+                        logger.error("LLM returned error: {}", (clean or "")[:200])
+                        final_content = clean or "Sorry, I encountered an error calling the AI model."
+                        break
+                    messages = self.context.add_assistant_message(
+                        messages, clean, reasoning_content=response.reasoning_content,
+                        thinking_blocks=response.thinking_blocks,
+                    )
+                    final_content = clean
                     break
-                messages = self.context.add_assistant_message(
-                    messages, clean, reasoning_content=response.reasoning_content,
-                    thinking_blocks=response.thinking_blocks,
-                )
-                final_content = clean
-                break
+        finally:
+            self._active_request_flags = {}
 
         if final_content is None and iteration >= self.max_iterations:
             logger.warning("Max iterations ({}) reached", self.max_iterations)

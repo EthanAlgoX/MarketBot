@@ -1,7 +1,7 @@
 ---
 name: market-discovery
 description: Automatically discover potential investment opportunities by synthesizing market data, events, sentiment, and sector momentum.
-metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","theme","rotation","机会","市场机会","今日机会","机会分析","主题机会","轮动机会"],"output":"market-opportunity-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","browser_site"],"required_tools":["market_snapshot","market_news"],"markets":["a-share","global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
+metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","theme","rotation","市场机会","主题机会","轮动机会"],"output":"market-opportunity-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","browser_site"],"required_tools":["market_snapshot","market_news"],"markets":["a-share","global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
 ---
 
 # Market Opportunity Discovery
@@ -72,6 +72,49 @@ Categorize each discovered opportunity into one of four buckets:
 - Do not invent provider-specific failures such as `Yahoo 429` unless that exact failure is present in current tool warnings or source-health output.
 - Do not present unavailable markets as actionable setups; downgrade them to watchlist candidates and explain the data gap.
 - If no listed browser-backed specialist or cataloged adapter fits the request, say that explicitly instead of fabricating a browser workflow.
+
+## Daily Opportunity Guardrails
+
+Use these guardrails when the user asks for a generic daily opportunity scan such as `每日机会分析`, `今日机会`, or `market opportunities today`.
+
+- Do not describe the tape as `全面普跌`, `全面上涨`, `系统性抛售`, or similar breadth claims unless you actually fetched breadth-style evidence beyond a small basket of proxy assets.
+- Do not treat a single outlier move in a defensive asset such as `GLD`, `gold`, `TLT`, or `DXY` as the core market thesis unless a second independent source confirms it.
+- If one quote looks abnormal relative to the rest of the snapshot, label it `unverified outlier` and exclude it from the main conclusion unless confirmed.
+- If current evidence only supports a risk dashboard and not a real opportunity list, say `今日无高置信机会，维持观察名单` instead of forcing a bullish/bearish trade idea.
+- For generic daily scans, prefer native market tools first: `market_snapshot`, `market_news`, `market_social_sentiment`, `market_macro`, and `market_brief`.
+- Avoid ad hoc `exec`, `web_fetch`, `web_search`, or browser fallbacks for broad-market price discovery when native market tools already returned usable data. If native live data is weak, say so explicitly.
+- Distinguish clearly between:
+  - `confirmed`: supported by current tool output
+  - `watchlist`: plausible but not yet confirmed
+  - `unverified`: data gap or conflicting signals
+- When confidence is below `0.70`, downgrade the setup to `watchlist` or `no high-conviction setup`.
+- If the request arrives on a weekend or outside the main market session, frame the output as a `watchlist / next-session prep` report rather than an intraday action plan.
+- Do not run `exec` just to recover or inspect previous tool output. Use the tool results already in context, and if they are insufficient, state the gap directly.
+
+## Daily Output Template
+
+For generic daily opportunity scans, prefer this structure:
+
+```md
+# 🔭 Daily Opportunity Report
+
+## 1. Market Regime
+- Risk-on / risk-off / mixed
+- What is confirmed by current tools
+
+## 2. High-Conviction Setups
+- If none: `No high-conviction setups today.`
+
+## 3. Watchlist
+- 2-5 symbols or themes
+- Why each remains only watchlist quality
+
+## 4. Invalidations
+- What would upgrade or cancel today's view
+
+## 5. Data Gaps
+- Any unverified prices, outliers, or missing market coverage
+```
 
 ## Output Format
 

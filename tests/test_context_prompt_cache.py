@@ -503,6 +503,22 @@ def test_etf_opportunity_message_can_route_market_discovery(tmp_path) -> None:
     assert "### Skill: market-discovery" in prompt
 
 
+def test_daily_opportunity_shortcut_routes_fixed_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="每日机会",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: daily-market-opportunity" in prompt
+    assert "### Skill: market-discovery" not in prompt
+
+
 def test_bb_browser_multi_llm_prompt_prefers_multi_llm_stock_panel(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

@@ -644,6 +644,12 @@ If evidence is mixed, reduce conviction and default to `watch`."""
             "主题机会",
             "轮动机会",
         )
+        daily_opportunity_terms = (
+            "每日机会",
+            "每日机会分析",
+            "今日机会",
+            "今日机会分析",
+        )
         browser_research_terms = (
             "xueqiu",
             "雪球",
@@ -776,7 +782,9 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         elif route["crypto"] and ("intermarket" in text or "gold" in text or "silver" in text):
             consider("crypto-gold-monitor")
 
-        if (route["asset_like"] or route["equity"] or bool(route.get("etf"))) and any(term in text for term in discovery_terms):
+        if any(term in text for term in daily_opportunity_terms):
+            consider("daily-market-opportunity")
+        elif (route["asset_like"] or route["equity"] or bool(route.get("etf"))) and any(term in text for term in discovery_terms):
             consider("market-discovery")
 
         if any(term in text for term in browser_research_terms):

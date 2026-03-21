@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import uuid
 from typing import Any
+from urllib.parse import urljoin
+
+import httpx
 
 import json_repair
 from openai import AsyncOpenAI
@@ -16,11 +19,15 @@ class CustomProvider(LLMProvider):
     def __init__(self, api_key: str = "no-key", api_base: str = "http://localhost:8000/v1", default_model: str = "default"):
         super().__init__(api_key, api_base)
         self.default_model = default_model
+        self._affinity = uuid.uuid4().hex
+        self._default_headers = {"x-session-affinity": self._affinity}
+        if api_key and api_key != "no-key":
+            self._default_headers["Authorization"] = f"Bearer {api_key}"
         # Keep affinity stable for this provider instance to improve backend cache locality.
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=api_base,
-            default_headers={"x-session-affinity": uuid.uuid4().hex},
+            default_headers=self._default_headers,
         )
 
     async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
@@ -38,8 +45,22 @@ class CustomProvider(LLMProvider):
             kwargs.update(tools=tools, tool_choice="auto")
         try:
             return self._parse(await self._client.chat.completions.create(**kwargs))
-        except Exception as e:
-            return LLMResponse(content=f"Error: {e}", finish_reason="error")
+        except Exception:
+            try:
+                return await self._chat_http_fallback(kwargs)
+            except Exception as fallback_error:
+                return LLMResponse(content=f"Error: {fallback_error}", finish_reason="error")
+
+    async def _chat_http_fallback(self, payload: dict[str, Any]) -> LLMResponse:
+        """Fallback to raw HTTP for OpenAI-compatible backends with loose schemas."""
+        base = str(self.api_base or "").rstrip("/") + "/"
+        url = urljoin(base, "chat/completions")
+        headers = dict(self._default_headers)
+        headers["Content-Type"] = "application/json"
+        async with httpx.AsyncClient(timeout=60.0, headers=headers) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            return self._parse_raw_response(response.json())
 
     def _parse(self, response: Any) -> LLMResponse:
         choice = response.choices[0]
@@ -71,6 +92,102 @@ class CustomProvider(LLMProvider):
             content=msg.content, tool_calls=tool_calls, finish_reason=choice.finish_reason or "stop",
             usage={"prompt_tokens": u.prompt_tokens, "completion_tokens": u.completion_tokens, "total_tokens": u.total_tokens} if u else {},
             reasoning_content=getattr(msg, "reasoning_content", None) or None,
+        )
+
+    def _parse_raw_response(self, response: dict[str, Any]) -> LLMResponse:
+        """Parse raw OpenAI-compatible JSON from non-strict backends."""
+        error_payload = response.get("error")
+        if isinstance(error_payload, dict):
+            message = str(error_payload.get("message") or error_payload.get("type") or error_payload).strip()
+            return LLMResponse(content=f"Error: {message}", finish_reason="error")
+        if error_payload is not None:
+            return LLMResponse(content=f"Error: {error_payload}", finish_reason="error")
+
+        base_resp = response.get("base_resp")
+        choices = response.get("choices")
+        if isinstance(choices, dict):
+            choices = [choices]
+        if (choices is None or (isinstance(choices, list) and not choices)) and isinstance(base_resp, dict):
+            choices = base_resp.get("choices")
+            if isinstance(choices, dict):
+                choices = [choices]
+        input_sensitive_present = "input_sensitive" in response or "input_sensitive_type" in response
+        input_sensitive = response.get("input_sensitive")
+        if input_sensitive or (input_sensitive_present and (not isinstance(choices, list) or not choices)):
+            sensitive_type = str(response.get("input_sensitive_type") or "unknown").strip()
+            return LLMResponse(
+                content=f"Error: backend flagged the request as input_sensitive ({sensitive_type})",
+                finish_reason="error",
+            )
+
+        if isinstance(base_resp, dict):
+            nested = self._parse_raw_response(base_resp)
+            if nested.finish_reason != "error":
+                return nested
+            if not isinstance(choices, list) or not choices:
+                return nested
+
+        if not isinstance(choices, list) or not choices:
+            summary_keys = ", ".join(sorted(str(key) for key in response.keys())[:8]) if isinstance(response, dict) else ""
+            summary = f"missing choices; payload keys={summary_keys}" if summary_keys else "missing choices"
+            return LLMResponse(content=f"Error: {summary}", finish_reason="error")
+        choice = choices[0]
+        if not isinstance(choice, dict):
+            return LLMResponse(content="Error: invalid choice payload", finish_reason="error")
+        msg = choice.get("message")
+        if msg is None:
+            # Some backends flatten assistant content onto the choice itself.
+            msg = {
+                "content": choice.get("content"),
+                "tool_calls": choice.get("tool_calls"),
+                "reasoning_content": choice.get("reasoning_content"),
+            }
+        if not isinstance(msg, dict):
+            return LLMResponse(content="Error: invalid message payload", finish_reason="error")
+
+        tool_calls: list[ToolCallRequest] = []
+        raw_tool_calls = msg.get("tool_calls")
+        if isinstance(raw_tool_calls, list):
+            for index, tc in enumerate(raw_tool_calls):
+                if not isinstance(tc, dict):
+                    continue
+                function = tc.get("function")
+                if not isinstance(function, dict):
+                    continue
+                name = str(function.get("name") or "").strip()
+                if not name:
+                    continue
+                args = function.get("arguments")
+                if isinstance(args, str):
+                    args = json_repair.loads(args)
+                elif args is None:
+                    args = {}
+                elif not isinstance(args, dict):
+                    args = {"raw": args}
+                tool_calls.append(
+                    ToolCallRequest(
+                        id=str(tc.get("id") or f"call_{index}"),
+                        name=name,
+                        arguments=args,
+                    )
+                )
+
+        usage_raw = response.get("usage") or {}
+        usage = (
+            {
+                "prompt_tokens": int(usage_raw.get("prompt_tokens", 0) or 0),
+                "completion_tokens": int(usage_raw.get("completion_tokens", 0) or 0),
+                "total_tokens": int(usage_raw.get("total_tokens", 0) or 0),
+            }
+            if isinstance(usage_raw, dict)
+            else {}
+        )
+        return LLMResponse(
+            content=msg.get("content"),
+            tool_calls=tool_calls,
+            finish_reason=str(choice.get("finish_reason") or "stop"),
+            usage=usage,
+            reasoning_content=msg.get("reasoning_content") or None,
         )
 
     def get_default_model(self) -> str:

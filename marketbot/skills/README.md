@@ -32,7 +32,7 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | Category | Skills |
 |-------|-------------|
 | `market-analysis` | `market-report`, `market-monitor`, `market-discovery`, `news-intelligence`, `sentiment-analysis`, `macro-regime`, `sector-breadth` |
-| `event-driven` | `catalyst-tracker`, `earnings-readout`, `risk-checklist` |
+| `event-driven` | `catalyst-tracker`, `earnings-readout`, `risk-checklist`, `panic-reversion-monitor` |
 | `screening-and-watch` | `daily-stock-screener`, `stock-watch`, `portfolio-analyzer` |
 | `tech-intelligence` | `ak-rss-digest`, `tech-news-digest`, `intel-collector`, `intel-daily-digest`, `hackernews-browser-research`, `github-browser-research` |
 | `specialist-research` | `options-payoff`, `pair-correlation`, `stock-data-sourcing`, `stock-info-explorer`, `wechat-article-search`, `xueqiu-research`, `eastmoney-live`, `social-signal-browser`, `reddit-research`, `youtube-transcript-browser`, `github-browser-research`, `zhihu-browser-research`, `browser-news-verifier`, `weibo-browser-research`, `bilibili-browser-research`, `xiaohongshu-browser-research`, `twitter-browser-research`, `hackernews-browser-research`, `douban-browser-research`, `linkedin-browser-research`, `stackoverflow-browser-research`, `wikipedia-browser-research` |
@@ -75,6 +75,7 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `daily-stock-screener` | Screen daily stock watchlists into ranked candidates |
 | `catalyst-tracker` | Build a catalyst list and event calendar |
 | `risk-checklist` | Generate trade risk and position-sizing guardrails |
+| `panic-reversion-monitor` | Score event-driven panic selloffs and detect staged reversion windows |
 | `stock-data-sourcing` | Route A/H/US market and news providers with fallback guidance |
 | `stock-info-explorer` | Use local Yahoo Finance charts and indicator scripts |
 | `crypto-gold-monitor` | Monitor BTC, ETH, gold, and silver from free APIs |

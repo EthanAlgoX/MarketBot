@@ -2,6 +2,7 @@ from marketbot.agent.context import ContextBuilder
 from marketbot.agent.loop import AgentLoop
 from marketbot.session.manager import Session
 from marketbot.providers.base import ToolCallRequest
+from marketbot.providers.base import LLMResponse
 
 
 def _mk_loop() -> AgentLoop:
@@ -113,3 +114,221 @@ def test_execute_tool_calls_reuses_identical_calls_with_cache_note() -> None:
     assert seen == [("market_snapshot", {"value": "same"})]
     assert results[0][1] == "market_snapshot:same"
     assert '"cached": true' in results[1][1]
+
+
+def test_execute_tool_calls_blocks_exec_for_broad_market_scan() -> None:
+    import asyncio
+
+    loop = _mk_loop()
+    loop._active_request_flags = {"broad_market_scan": True}
+
+    class _FakeRegistry:
+        async def execute(self, name: str, params: dict) -> str:
+            raise AssertionError("exec should be blocked before tool execution")
+
+    loop.tools = _FakeRegistry()
+    tool_call = ToolCallRequest(id="1", name="exec", arguments={"command": "echo hi"})
+
+    results = asyncio.run(loop._execute_tool_calls([tool_call]))
+
+    assert len(results) == 1
+    assert "exec disabled for generic daily market scans" in results[0][1]
+
+
+def test_execute_tool_calls_allows_exec_outside_broad_market_scan() -> None:
+    import asyncio
+
+    loop = _mk_loop()
+    loop._active_request_flags = {}
+
+    class _FakeRegistry:
+        async def execute(self, name: str, params: dict) -> str:
+            return f"{name}:{params['command']}"
+
+    loop.tools = _FakeRegistry()
+    tool_call = ToolCallRequest(id="1", name="exec", arguments={"command": "echo hi"})
+
+    results = asyncio.run(loop._execute_tool_calls([tool_call]))
+
+    assert results == [(tool_call, "exec:echo hi")]
+
+
+def test_tool_definitions_for_broad_market_scan_only_exposes_market_pipeline() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"broad_market_scan": True}
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "market_snapshot"}},
+                {"type": "function", "function": {"name": "market_news"}},
+                {"type": "function", "function": {"name": "market_macro"}},
+                {"type": "function", "function": {"name": "market_brief"}},
+                {"type": "function", "function": {"name": "market_fundamentals"}},
+                {"type": "function", "function": {"name": "market_social_sentiment"}},
+                {"type": "function", "function": {"name": "web_search"}},
+                {"type": "function", "function": {"name": "exec"}},
+            ]
+
+    loop.tools = _FakeRegistry()
+
+    defs = loop._tool_definitions_for_request()
+
+    assert defs == [
+        {"type": "function", "function": {"name": "market_snapshot"}},
+        {"type": "function", "function": {"name": "market_news"}},
+        {"type": "function", "function": {"name": "market_macro"}},
+        {"type": "function", "function": {"name": "market_brief"}},
+    ]
+
+
+def test_tool_definitions_for_normal_request_keep_full_set() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {}
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "market_snapshot"}},
+                {"type": "function", "function": {"name": "web_search"}},
+            ]
+
+    loop.tools = _FakeRegistry()
+
+    defs = loop._tool_definitions_for_request()
+
+    assert defs == [
+        {"type": "function", "function": {"name": "market_snapshot"}},
+        {"type": "function", "function": {"name": "web_search"}},
+    ]
+
+
+def test_normalize_market_brief_arguments_for_broad_market_scan() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"broad_market_scan": True}
+
+    normalized = loop._normalize_tool_arguments_for_request(
+        "market_brief",
+        {
+            "includeFundamentals": True,
+            "includeSocial": True,
+            "includeChips": True,
+            "includeMacro": True,
+            "includeNews": True,
+            "symbols": ["NVDA", "SPY"],
+        },
+    )
+
+    assert normalized["includeFundamentals"] is False
+    assert normalized["includeSocial"] is False
+    assert normalized["includeChips"] is False
+    assert normalized["includeMacro"] is True
+    assert normalized["includeNews"] is True
+
+
+def test_normalize_market_snapshot_arguments_for_broad_market_scan() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"broad_market_scan": True}
+
+    normalized = loop._normalize_tool_arguments_for_request(
+        "market_snapshot",
+        {"symbols": ["NVDA"], "includeMacro": True},
+    )
+
+    assert normalized["symbols"] == list(loop._BROAD_MARKET_SCAN_SNAPSHOT_SYMBOLS)
+    assert normalized["includeMacro"] is False
+
+
+def test_normalize_market_news_arguments_for_broad_market_scan() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"broad_market_scan": True}
+
+    normalized = loop._normalize_tool_arguments_for_request(
+        "market_news",
+        {"symbols": ["NVDA"], "limit": 99},
+    )
+
+    assert normalized["symbols"] == list(loop._BROAD_MARKET_SCAN_NEWS_SYMBOLS)
+    assert normalized["limit"] == 12
+
+
+def test_run_agent_loop_disables_tools_after_first_broad_market_scan_round() -> None:
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    loop = _mk_loop()
+    loop.max_iterations = 4
+    loop.model = "test-model"
+    loop.temperature = 0.1
+    loop.max_tokens = 512
+    loop.reasoning_effort = None
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "market_snapshot"}},
+                {"type": "function", "function": {"name": "market_news"}},
+                {"type": "function", "function": {"name": "market_macro"}},
+                {"type": "function", "function": {"name": "market_brief"}},
+                {"type": "function", "function": {"name": "exec"}},
+            ]
+
+        async def execute(self, name: str, params: dict) -> str:
+            return f"{name}:{params}"
+
+    class _FakeContext:
+        @staticmethod
+        def add_assistant_message(messages, content, tool_calls=None, **kwargs):
+            updated = list(messages)
+            entry = {"role": "assistant", "content": content}
+            if tool_calls is not None:
+                entry["tool_calls"] = tool_calls
+            updated.append(entry)
+            return updated
+
+        @staticmethod
+        def add_tool_result(messages, tool_call_id, tool_name, result):
+            updated = list(messages)
+            updated.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "name": tool_name,
+                    "content": result,
+                }
+            )
+            return updated
+
+    responses = iter(
+        [
+            LLMResponse(
+                content="",
+                tool_calls=[ToolCallRequest(id="1", name="market_snapshot", arguments={})],
+            ),
+            LLMResponse(content="final answer", tool_calls=[]),
+        ]
+    )
+    loop.provider = MagicMock()
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+    loop.tools = _FakeRegistry()
+    loop.context = _FakeContext()
+
+    final_content, tools_used, _, _ = asyncio.run(
+        loop._run_agent_loop([{"role": "user", "content": "每日机会"}])
+    )
+
+    assert final_content == "final answer"
+    assert tools_used == [
+        "market_snapshot",
+        "market_news",
+        "market_macro",
+        "market_brief",
+    ]
+    assert len(loop.provider.chat.await_args_list) == 2
+    assert [d["function"]["name"] for d in loop.provider.chat.await_args_list[0].kwargs["tools"]] == [
+        "market_snapshot",
+        "market_news",
+        "market_macro",
+        "market_brief",
+    ]
+    assert loop.provider.chat.await_args_list[1].kwargs["tools"] == []

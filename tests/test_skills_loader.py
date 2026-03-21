@@ -22,6 +22,7 @@ def test_builtin_market_skills_are_discoverable(tmp_path):
     assert "pair-correlation" in names
     assert "earnings-readout" in names
     assert "vix-panic-reversion" in names
+    assert "panic-reversion-monitor" in names
     assert "multi-llm-stock-panel" in names
     assert "sector-breadth" in names
     assert "macro-regime" in names
@@ -280,6 +281,41 @@ def test_vix_alert_trigger_matching_supports_monitoring_language(tmp_path):
     )
 
     assert "vix-panic-reversion" in matched
+
+
+def test_panic_reversion_monitor_content_is_loadable(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    content = loader.load_skill("panic-reversion-monitor")
+
+    assert content is not None
+    assert "# Panic Reversion Monitor" in content
+    assert "Panic Coefficient" in content
+    assert "Drawdown From High" in content
+    assert "Recent high anchor selection" in content
+    assert "heartbeat-template.md" in content
+
+
+def test_panic_reversion_monitor_trigger_matching_uses_metadata(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "监控 07709 的恐慌系数，找战争冲击后的错杀修复和抄底时机。",
+        route={"equity": True, "etf": True, "symbols": ["07709"]},
+    )
+
+    assert "panic-reversion-monitor" in matched
+
+
+def test_panic_reversion_monitor_trigger_matching_supports_drawdown_cause_and_progress_language(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    matched = loader.match_skills_for_request(
+        "监控 07709 从近期高点跌了多少、为什么跌、以及这次战争事件进展到哪一步。",
+        route={"equity": True, "etf": True, "symbols": ["07709"]},
+    )
+
+    assert "panic-reversion-monitor" in matched
 
 
 def test_multi_llm_stock_panel_trigger_matching_supports_bb_browser_prompt(tmp_path):
