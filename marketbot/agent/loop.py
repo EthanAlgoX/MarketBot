@@ -82,6 +82,7 @@ class AgentLoop:
     _BROAD_MARKET_SCAN_MACRO_INDICATORS = [
         "fedFunds", "us10y", "dxy", "cpi", "unemployment",
     ]
+    _DAILY_OPPORTUNITY_SKILL = "daily-market-opportunity"
 
     def __init__(
         self,
@@ -292,6 +293,8 @@ class AgentLoop:
         """Append explainability footer for inline-only entrypoints like CLI/system."""
         if not final_content or not isinstance(explainability, dict):
             return final_content
+        if self._DAILY_OPPORTUNITY_SKILL in self._selected_skill_names():
+            return final_content
         if str(explainability.get("delivery", "")).strip().lower() != "inline":
             return final_content
         footer = str(explainability.get("inline_footer", "")).strip()
@@ -393,7 +396,10 @@ class AgentLoop:
 
     def _selected_skill_names(self) -> set[str]:
         """Return the set of currently routed skill names."""
-        routing = self.processor.get_last_skill_routing() or {}
+        processor = getattr(self, "processor", None)
+        if processor is None:
+            return set()
+        routing = processor.get_last_skill_routing() or {}
         selected = routing.get("selected", []) or []
         names: set[str] = set()
         for item in selected:
@@ -403,6 +409,102 @@ class AgentLoop:
             if name:
                 names.add(name)
         return names
+
+    def _normalize_daily_opportunity_report(self, final_content: str | None) -> str | None:
+        """Normalize the fixed daily-opportunity report shape without rewriting the thesis."""
+        if not final_content or self._DAILY_OPPORTUNITY_SKILL not in self._selected_skill_names():
+            return final_content
+
+        normalized = str(final_content).strip()
+        if not normalized:
+            return final_content
+        if self._looks_like_daily_opportunity_failure(normalized):
+            lowered = normalized.lower()
+            if "<minimax:tool_call>" in lowered or "<invoke name=" in lowered:
+                return (
+                    "# 📅 每日机会扫描\n\n"
+                    "## 1. Market Regime\n"
+                    "- some fields unavailable\n\n"
+                    "## 2. High-Conviction Setups\n"
+                    "- 今日无高置信机会，维持观察名单\n\n"
+                    "## 3. Watchlist\n"
+                    "- 本轮固定扫描已执行，但上游模型返回了无效工具指令，未能生成稳定摘要\n\n"
+                    "## 4. Invalidations\n"
+                    "- 重试后若恢复正常回包，再更新下一交易日观察名单\n\n"
+                    "## 5. Data Gaps\n"
+                    "- model returned invalid pseudo-tool output after the fixed scan"
+                )
+            return final_content
+
+        lines = normalized.splitlines()
+        if lines:
+            first = lines[0].strip()
+            if first.startswith("#"):
+                lines[0] = "# 📅 每日机会扫描"
+        normalized = "\n".join(lines)
+
+        replacements = {
+            "## 市场状态": "## 1. Market Regime",
+            "## 市场背景": "## 1. Market Regime",
+            "## 高置信机会": "## 2. High-Conviction Setups",
+            "## 今日无高置信机会": "## 2. High-Conviction Setups",
+            "## 观察名单": "## 3. Watchlist",
+            "## 失效条件": "## 4. Invalidations",
+            "## 风险提示": "## 4. Invalidations",
+            "## 数据缺口": "## 5. Data Gaps",
+            "## 数据可靠性": "## 5. Data Gaps",
+        }
+        for source, target in replacements.items():
+            normalized = normalized.replace(source, target)
+
+        required_sections = [
+            "## 1. Market Regime",
+            "## 2. High-Conviction Setups",
+            "## 3. Watchlist",
+            "## 4. Invalidations",
+            "## 5. Data Gaps",
+        ]
+        if "## 1. Market Regime" not in normalized:
+            normalized = normalized.replace("# 📅 每日机会扫描", "# 📅 每日机会扫描\n\n## 1. Market Regime", 1)
+        for section in required_sections[1:]:
+            if section not in normalized:
+                normalized = f"{normalized.rstrip()}\n\n{section}\n- some fields unavailable"
+        return normalized
+
+    async def _auto_append_daily_opportunity_market_brief(
+        self,
+        messages: list[dict[str, Any]],
+        tools_used: list[str],
+        *,
+        tool_rounds: int,
+    ) -> tuple[list[dict[str, Any]], list[str], int]:
+        """Auto-run market_brief once after the first tool round for the fixed daily-opportunity flow."""
+        if not self._active_request_flags.get("broad_market_scan"):
+            return messages, tools_used, tool_rounds
+        if not self._active_request_flags.get("daily_opportunity_scan"):
+            return messages, tools_used, tool_rounds
+        if tool_rounds != 1 or "market_brief" in tools_used:
+            return messages, tools_used, tool_rounds
+
+        arguments = self._normalize_tool_arguments_for_request("market_brief", {})
+        tool_call = {
+            "id": "daily-opportunity-auto-market-brief",
+            "type": "function",
+            "function": {
+                "name": "market_brief",
+                "arguments": json.dumps(arguments, ensure_ascii=False),
+            },
+        }
+        messages = self.context.add_assistant_message(messages, "", [tool_call])
+        logger.info("Auto-running market_brief for daily-market-opportunity after first tool round")
+        result = await self.tools.execute("market_brief", arguments)
+        messages = self.context.add_tool_result(
+            messages,
+            tool_call["id"],
+            "market_brief",
+            result,
+        )
+        return messages, [*tools_used, "market_brief"], tool_rounds + 1
 
     def _persist_local_report_if_needed(
         self,
@@ -418,9 +520,7 @@ class AgentLoop:
         normalized = final_content.strip()
         if not normalized:
             return None
-        if normalized.lower().startswith("error:"):
-            return None
-        if "invalid params" in normalized.lower() or "tool id(" in normalized.lower():
+        if self._looks_like_daily_opportunity_failure(normalized):
             return None
         if not any(
             marker in normalized
@@ -444,6 +544,31 @@ class AgentLoop:
         return report_path
 
     @staticmethod
+    def _looks_like_daily_opportunity_failure(content: str) -> bool:
+        """Return True when the payload is an error/debug response instead of a real report."""
+        normalized = str(content or "").strip()
+        if not normalized:
+            return True
+        lowered = normalized.lower()
+        if lowered.startswith("error:"):
+            return True
+        if any(
+            token in lowered
+            for token in (
+                "invalid params",
+                "tool id(",
+                "tool result's tool id",
+                "not found",
+                "backend status",
+                "call_function_",
+                "<minimax:tool_call>",
+                "<invoke name=",
+            )
+        ):
+            return True
+        return any(line.strip().lower().startswith("error:") for line in normalized.splitlines())
+
+    @staticmethod
     def _append_saved_report_path(final_content: str | None, report_path: Path | None) -> str | None:
         """Append the local markdown path when a report was persisted."""
         if not final_content or report_path is None:
@@ -462,7 +587,11 @@ class AgentLoop:
             term in normalized
             for term in (
                 "保存地址",
+                "保存到地址",
                 "保存路径",
+                "保存到路径",
+                "保存到",
+                "地址",
                 "文档",
                 "报告路径",
                 "report path",
@@ -748,6 +877,7 @@ class AgentLoop:
         usage_totals: dict[str, int] = {}
         self._active_request_flags = {
             "broad_market_scan": self._is_broad_market_scan_request(initial_messages),
+            "daily_opportunity_scan": self._DAILY_OPPORTUNITY_SKILL in self._selected_skill_names(),
         }
         try:
             while iteration < self.max_iterations:
@@ -806,6 +936,11 @@ class AgentLoop:
                             messages, tool_call.id, tool_call.name, result
                         )
                     tool_rounds += 1
+                    messages, tools_used, tool_rounds = await self._auto_append_daily_opportunity_market_brief(
+                        messages,
+                        tools_used,
+                        tool_rounds=tool_rounds,
+                    )
                 else:
                     clean = self._strip_think(response.content)
                     # Don't persist error responses to session history — they can
@@ -1001,6 +1136,7 @@ class AgentLoop:
 
         if final_content is None:
             final_content = "I've completed processing but have no response to give."
+        final_content = self._normalize_daily_opportunity_report(final_content)
         explainability = self._build_chat_explainability(all_msgs, channel=msg.channel)
         if msg.channel == "cli":
             final_content = self._append_chat_explainability(final_content, explainability)

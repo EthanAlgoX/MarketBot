@@ -220,6 +220,34 @@ def test_custom_provider_parse_raw_response_surfaces_nested_base_resp_error_when
     assert result.content == "Error: backend overloaded"
 
 
+def test_custom_provider_sanitize_messages_keeps_tool_ids_in_sync() -> None:
+    messages = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_function_9mwbnry4vx9s_5",
+                    "type": "function",
+                    "function": {"name": "market_brief", "arguments": "{}"},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call_function_9mwbnry4vx9s_5",
+            "name": "market_brief",
+            "content": "{}",
+        },
+    ]
+
+    sanitized = CustomProvider._sanitize_messages(messages)
+
+    assert sanitized[0]["tool_calls"][0]["id"] == sanitized[1]["tool_call_id"]
+    assert sanitized[0]["tool_calls"][0]["id"] != "call_function_9mwbnry4vx9s_5"
+    assert len(sanitized[0]["tool_calls"][0]["id"]) == 9
+
+
 def test_custom_provider_parse_raw_response_accepts_dict_choices() -> None:
     provider = CustomProvider(api_key="test", api_base="http://localhost:8000/v1", default_model="test-model")
 

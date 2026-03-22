@@ -261,13 +261,15 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         self,
         history: list[dict[str, Any]],
         current_message: str,
+        routing_message: str | None = None,
         skill_names: list[str] | None = None,
         media: list[str] | None = None,
         channel: str | None = None,
         chat_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build the complete message list for an LLM call."""
-        routing = self._build_skill_routing(current_message, skill_names)
+        route_message = routing_message if routing_message is not None else current_message
+        routing = self._build_skill_routing(route_message, skill_names)
         resolved_skill_names = [item["name"] for item in routing["selected"]]
         skill_diagnostics = routing["diagnostics"]
         external_skill_suggestions = routing.get("externalSuggestions", [])
@@ -278,14 +280,14 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         prior_history = (
             []
             if self._should_reset_history_for_live_market_request(
-                current_message,
+                route_message,
                 request_profile=request_profile,
                 resolved_skill_names=resolved_skill_names,
             )
             else history
         )
         include_memory = not self._should_ignore_memory_for_market_scan(
-            current_message,
+            route_message,
             request_profile=request_profile,
             resolved_skill_names=resolved_skill_names,
         )
@@ -302,7 +304,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
                 "role": "system",
                 "content": self.build_system_prompt(
                     resolved_skill_names,
-                    current_message=current_message,
+                    current_message=route_message,
                     skill_diagnostics=skill_diagnostics,
                     external_skill_suggestions=external_skill_suggestions,
                     include_market_playbook=bool(
@@ -512,7 +514,11 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         )
         meta_terms = (
             "保存地址",
+            "保存到地址",
             "保存路径",
+            "保存到路径",
+            "保存到",
+            "地址",
             "文档",
             "报告路径",
             "report path",
@@ -688,7 +694,11 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         )
         daily_opportunity_meta_terms = (
             "保存地址",
+            "保存到地址",
             "保存路径",
+            "保存到路径",
+            "保存到",
+            "地址",
             "文档",
             "报告路径",
             "report path",

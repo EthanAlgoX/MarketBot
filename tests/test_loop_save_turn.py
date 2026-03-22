@@ -331,6 +331,89 @@ def test_run_agent_loop_disables_tools_after_first_broad_market_scan_round() -> 
     assert loop.provider.chat.await_args_list[1].kwargs["tools"] == []
 
 
+def test_run_agent_loop_auto_appends_market_brief_for_daily_opportunity() -> None:
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    loop = _mk_loop()
+    loop.max_iterations = 5
+    loop.model = "test-model"
+    loop.temperature = 0.1
+    loop.max_tokens = 512
+    loop.reasoning_effort = None
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "market_snapshot"}},
+                {"type": "function", "function": {"name": "market_news"}},
+                {"type": "function", "function": {"name": "market_macro"}},
+                {"type": "function", "function": {"name": "market_brief"}},
+                {"type": "function", "function": {"name": "exec"}},
+            ]
+
+        async def execute(self, name: str, params: dict) -> str:
+            return f"{name}:{params}"
+
+    class _FakeContext:
+        @staticmethod
+        def add_assistant_message(messages, content, tool_calls=None, **kwargs):
+            updated = list(messages)
+            entry = {"role": "assistant", "content": content}
+            if tool_calls is not None:
+                entry["tool_calls"] = tool_calls
+            updated.append(entry)
+            return updated
+
+        @staticmethod
+        def add_tool_result(messages, tool_call_id, tool_name, result):
+            updated = list(messages)
+            updated.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "name": tool_name,
+                    "content": result,
+                }
+            )
+            return updated
+
+    class _FakeProcessor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "daily-market-opportunity"}]}
+
+    responses = iter(
+        [
+            LLMResponse(
+                content="",
+                tool_calls=[ToolCallRequest(id="1", name="market_snapshot", arguments={})],
+            ),
+            LLMResponse(content="final answer", tool_calls=[]),
+        ]
+    )
+    loop.provider = MagicMock()
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+    loop.tools = _FakeRegistry()
+    loop.context = _FakeContext()
+    loop.processor = _FakeProcessor()
+
+    final_content, tools_used, _, _ = asyncio.run(
+        loop._run_agent_loop([{"role": "user", "content": "每日机会"}])
+    )
+
+    assert final_content == "final answer"
+    assert tools_used == ["market_snapshot", "market_brief"]
+    assert len(loop.provider.chat.await_args_list) == 2
+    assert [d["function"]["name"] for d in loop.provider.chat.await_args_list[0].kwargs["tools"]] == [
+        "market_snapshot",
+        "market_news",
+        "market_macro",
+        "market_brief",
+    ]
+    assert loop.provider.chat.await_args_list[1].kwargs["tools"] == []
+
+
 def test_persist_local_report_if_needed_writes_daily_market_markdown(tmp_path) -> None:
     loop = _mk_loop()
     loop.workspace = tmp_path
@@ -363,6 +446,63 @@ def test_append_saved_report_path_includes_local_path() -> None:
     result = AgentLoop._append_saved_report_path("report body", Path("/tmp/report.md"))
 
     assert result == "report body\n\n已保存到本地: /tmp/report.md"
+
+
+def test_append_chat_explainability_skips_daily_opportunity_inline_footer() -> None:
+    loop = _mk_loop()
+
+    class _FakeProcessor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "daily-market-opportunity"}]}
+
+    loop.processor = _FakeProcessor()
+
+    result = loop._append_chat_explainability(
+        "# 📅 每日机会扫描",
+        {"delivery": "inline", "inline_footer": "## Capability & Data Notes\n- Data reliability: ok"},
+    )
+
+    assert result == "# 📅 每日机会扫描"
+
+
+def test_normalize_daily_opportunity_report_rewrites_header_suffix() -> None:
+    loop = _mk_loop()
+
+    class _FakeProcessor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "daily-market-opportunity"}]}
+
+    loop.processor = _FakeProcessor()
+
+    result = loop._normalize_daily_opportunity_report(
+        "# 📅 每日机会扫描 | 2026-03-22 (周日)\n\n## 1. Market Regime\n- ok"
+    )
+
+    assert result is not None
+    assert result.splitlines()[0] == "# 📅 每日机会扫描"
+
+
+def test_normalize_daily_opportunity_report_backfills_required_sections() -> None:
+    loop = _mk_loop()
+
+    class _FakeProcessor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "daily-market-opportunity"}]}
+
+    loop.processor = _FakeProcessor()
+
+    result = loop._normalize_daily_opportunity_report("# 市场机会扫描 | 2026-03-22\n\n正文")
+
+    assert result is not None
+    assert result.startswith("# 📅 每日机会扫描")
+    assert "## 1. Market Regime" in result
+    assert "## 2. High-Conviction Setups" in result
+    assert "## 3. Watchlist" in result
+    assert "## 4. Invalidations" in result
+    assert "## 5. Data Gaps" in result
 
 
 def test_match_daily_opportunity_report_query() -> None:
@@ -423,3 +563,22 @@ def test_persist_local_report_if_needed_skips_meta_queries(tmp_path) -> None:
     )
 
     assert report_path is None
+
+
+def test_normalize_daily_opportunity_report_rewrites_pseudo_tool_output() -> None:
+    loop = _mk_loop()
+
+    class _FakeProcessor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "daily-market-opportunity"}]}
+
+    loop.processor = _FakeProcessor()
+
+    normalized = loop._normalize_daily_opportunity_report(
+        "<minimax:tool_call>\n<invoke name=\"market_brief\"></invoke>\n</minimax:tool_call>"
+    )
+
+    assert normalized is not None
+    assert "<minimax:tool_call>" not in normalized
+    assert "今日无高置信机会" in normalized
