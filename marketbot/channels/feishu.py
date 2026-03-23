@@ -541,6 +541,7 @@ class FeishuChannel(BaseChannel):
 
     # Max length for plain text format
     _TEXT_MAX_LEN = 200
+    _TEXT_FALLBACK_CHUNK = 1500
 
     # Max length for post (rich text) format; beyond this, use card
     _POST_MAX_LEN = 2000
@@ -813,6 +814,36 @@ class FeishuChannel(BaseChannel):
             logger.error("Error sending Feishu {} message: {}", msg_type, e)
             return False
 
+    @classmethod
+    def _split_text_fallback_chunks(cls, text: str, chunk_size: int | None = None) -> list[str]:
+        """Split long fallback text into Feishu-safe chunks without dropping content."""
+        normalized = str(text or "").strip()
+        if not normalized:
+            return []
+        limit = chunk_size or cls._TEXT_FALLBACK_CHUNK
+        chunks: list[str] = []
+        remaining = normalized
+        while len(remaining) > limit:
+            cut = remaining.rfind("\n", 0, limit)
+            if cut <= 0:
+                cut = limit
+            chunks.append(remaining[:cut].rstrip())
+            remaining = remaining[cut:].lstrip()
+        if remaining:
+            chunks.append(remaining)
+        return chunks
+
+    def _send_text_fallback_sync(self, receive_id_type: str, receive_id: str, text: str) -> bool:
+        """Fallback to plain text chunks when rich Feishu message delivery fails."""
+        chunks = self._split_text_fallback_chunks(text)
+        if not chunks:
+            return True
+        ok = True
+        for chunk in chunks:
+            text_body = json.dumps({"text": chunk}, ensure_ascii=False)
+            ok = self._send_message_sync(receive_id_type, receive_id, "text", text_body) and ok
+        return ok
+
     async def send(self, msg: OutboundMessage) -> None:
         """Send a message through Feishu, including media (images/files) if present."""
         if not self._client:
@@ -864,19 +895,33 @@ class FeishuChannel(BaseChannel):
                 elif fmt == "post":
                     # Medium content with links – send as rich-text post
                     post_body = self._markdown_to_post(text)
-                    await loop.run_in_executor(
+                    sent = await loop.run_in_executor(
                         None, self._send_message_sync,
                         receive_id_type, msg.chat_id, "post", post_body,
                     )
+                    if not sent:
+                        logger.warning("Feishu post send failed, falling back to plain text")
+                        await loop.run_in_executor(
+                            None, self._send_text_fallback_sync,
+                            receive_id_type, msg.chat_id, text,
+                        )
 
                 else:
                     # Complex / long content – send as interactive card
                     elements = self._build_card_elements(text)
+                    sent_all = True
                     for chunk in self._split_elements_by_table_limit(elements):
                         card = {"config": {"wide_screen_mode": True}, "elements": chunk}
-                        await loop.run_in_executor(
+                        sent = await loop.run_in_executor(
                             None, self._send_message_sync,
                             receive_id_type, msg.chat_id, "interactive", json.dumps(card, ensure_ascii=False),
+                        )
+                        sent_all = sent_all and sent
+                    if not sent_all:
+                        logger.warning("Feishu interactive send failed, falling back to plain text")
+                        await loop.run_in_executor(
+                            None, self._send_text_fallback_sync,
+                            receive_id_type, msg.chat_id, text,
                         )
 
         except Exception as e:
