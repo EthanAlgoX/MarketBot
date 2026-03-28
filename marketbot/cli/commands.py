@@ -37,6 +37,13 @@ from rich.text import Text
 from marketbot import __logo__, __version__
 from marketbot.agent.skills import SkillsLoader
 from marketbot.cli.chat_runtime import run_agent_interactive, run_agent_once
+from marketbot.cli.gateway_runtime import (
+    create_cron_job_handler,
+    create_heartbeat_execute_handler,
+    create_heartbeat_notify_handler,
+    pick_heartbeat_target,
+    run_gateway_services,
+)
 from marketbot.cli.intel_runtime import (
     build_cron_schedule,
     build_intel_daily_digest,
@@ -1908,7 +1915,6 @@ def gateway(
     """Start the marketbot gateway."""
     from marketbot.channels.manager import ChannelManager
     from marketbot.config.loader import load_config
-    from marketbot.cron.types import CronJob
     from marketbot.heartbeat.service import HeartbeatService
     from marketbot.session.manager import SessionManager
 
@@ -1941,199 +1947,40 @@ def gateway(
     cron = runtime.cron
     agent = runtime.agent_loop
 
-    # Set cron callback (needs agent)
-    async def on_cron_job(job: CronJob) -> str | None:
-        """Execute a cron job through the agent."""
-        from marketbot.agent.tools.cron import CronTool
-        from marketbot.agent.tools.message import MessageTool
-        if job.payload.kind == "intel_collect":
-            _, intel_conn = open_intel_db(config_path)
-            try:
-                results = await collect_intel_sources(
-                    intel_conn,
-                    scope=job.payload.scope,
-                    scope_key=job.payload.scope_key,
-                )
-                return render_intel_collect_summary(results)
-            finally:
-                intel_conn.close()
-
-        if job.payload.kind == "intel_digest_daily":
-            _, intel_conn = open_intel_db(config_path)
-            try:
-                _, digest = build_intel_daily_digest(
-                    intel_conn,
-                    scope=job.payload.scope,
-                    scope_key=job.payload.scope_key,
-                    hours=job.payload.hours,
-                    limit=job.payload.limit,
-                )
-                if job.payload.deliver and job.payload.to:
-                    from marketbot.bus.events import OutboundMessage
-
-                    await bus.publish_outbound(
-                        OutboundMessage(
-                            channel=job.payload.channel or "cli",
-                            chat_id=job.payload.to,
-                            content=digest.body_markdown,
-                        )
-                    )
-                    return digest.body_markdown
-                return digest.body_markdown
-            finally:
-                intel_conn.close()
-
-        reminder_note = (
-            "[Scheduled Task] Timer finished.\n\n"
-            f"Task '{job.name}' has been triggered.\n"
-            f"Scheduled instruction: {job.payload.message}"
-        )
-
-        # Prevent the agent from scheduling new cron jobs during execution
-        cron_tool = agent.tools.get("cron")
-        cron_token = None
-        if isinstance(cron_tool, CronTool):
-            cron_token = cron_tool.set_cron_context(True)
-        try:
-            response = await agent.process_direct(
-                reminder_note,
-                session_key=f"cron:{job.id}",
-                channel=job.payload.channel or "cli",
-                chat_id=job.payload.to or "direct",
-            )
-        finally:
-            if isinstance(cron_tool, CronTool) and cron_token is not None:
-                cron_tool.reset_cron_context(cron_token)
-
-        message_tool = agent.tools.get("message")
-        if isinstance(message_tool, MessageTool) and message_tool._sent_in_turn:
-            return response
-
-        if job.payload.deliver and job.payload.to and response:
-            from marketbot.bus.events import OutboundMessage
-            await bus.publish_outbound(OutboundMessage(
-                channel=job.payload.channel or "cli",
-                chat_id=job.payload.to,
-                content=response
-            ))
-        return response
-    cron.on_job = on_cron_job
+    cron.on_job = create_cron_job_handler(
+        config_path=config_path,
+        bus=bus,
+        agent=agent,
+        open_intel_db=open_intel_db,
+        collect_intel_sources=collect_intel_sources,
+        render_intel_collect_summary=render_intel_collect_summary,
+        build_intel_daily_digest=build_intel_daily_digest,
+    )
 
     # Create channel manager
     channels = ChannelManager(config, bus)
 
     def _pick_heartbeat_target() -> tuple[str, str]:
-        """Pick a routable channel/chat target for heartbeat-triggered messages."""
-        enabled = set(channels.enabled_channels)
-        # Prefer the most recently updated non-internal session on an enabled channel.
-        for item in session_manager.list_sessions():
-            key = item.get("key") or ""
-            if ":" not in key:
-                continue
-            channel, chat_id = key.split(":", 1)
-            if channel in {"cli", "system"}:
-                continue
-            if channel in enabled and chat_id:
-                return channel, chat_id
-        # Fallback keeps prior behavior but remains explicit.
-        return "cli", "direct"
+        return pick_heartbeat_target(channels=channels, session_manager=session_manager)
 
     # Create heartbeat service
     heartbeat_delivery: dict[str, object] = {}
 
-    async def on_heartbeat_execute(tasks: str) -> str:
-        """Phase 2: execute heartbeat tasks through the full agent loop."""
-        from marketbot.agent.tools.market import MarketBriefTool
-
-        heartbeat_delivery.clear()
-        heartbeat_path = config.workspace_path / "HEARTBEAT.md"
-        if heartbeat_path.exists():
-            try:
-                heartbeat_content = heartbeat_path.read_text(encoding="utf-8")
-            except Exception:
-                heartbeat_content = ""
-            heartbeat_spec = extract_market_heartbeat_spec(heartbeat_content)
-            if heartbeat_spec:
-                tool = MarketBriefTool(config.tools.market)
-                payload = json.loads(
-                    await tool.execute(
-                        symbols=list(heartbeat_spec["symbols"]),
-                        includeNews=True,
-                        includeMacro=True,
-                        includeSocial=True,
-                    )
-                )
-                report_markdown = render_market_report_document(
-                    payload,
-                    symbols=list(heartbeat_spec["symbols"]),
-                    headline="",
-                    session=str(heartbeat_spec["session"]),
-                    timezone_name=str(heartbeat_spec["timezone"]),
-                )
-                report_path = default_market_report_path(
-                    config.workspace_path,
-                    str(heartbeat_spec["session"]),
-                    str(heartbeat_spec["timezone"]),
-                )
-                report_path.parent.mkdir(parents=True, exist_ok=True)
-                report_path.write_text(report_markdown, encoding="utf-8")
-                heartbeat_delivery.update(
-                    {
-                        "kind": "market-report",
-                        "payload": payload,
-                        "symbols": list(heartbeat_spec["symbols"]),
-                        "session": str(heartbeat_spec["session"]),
-                        "timezone": str(heartbeat_spec["timezone"]),
-                        "report_path": str(report_path),
-                    }
-                )
-                return report_markdown
-
-        channel, chat_id = _pick_heartbeat_target()
-
-        async def _silent(*_args, **_kwargs):
-            pass
-
-        return await agent.process_direct(
-            tasks,
-            session_key="heartbeat",
-            channel=channel,
-            chat_id=chat_id,
-            on_progress=_silent,
-        )
-
-    async def on_heartbeat_notify(response: str) -> None:
-        """Deliver a heartbeat response to the user's channel."""
-        from marketbot.bus.events import OutboundMessage
-        channel, chat_id = _pick_heartbeat_target()
-        if channel == "cli":
-            return  # No external channel available to deliver to
-        if heartbeat_delivery.get("kind") == "market-report":
-            payload = dict(heartbeat_delivery.get("payload") or {})
-            symbols = list(heartbeat_delivery.get("symbols") or [])
-            session = str(heartbeat_delivery.get("session") or "intraday")
-            timezone_name = str(heartbeat_delivery.get("timezone") or "America/New_York")
-            report_path = Path(str(heartbeat_delivery.get("report_path") or ""))
-            summary = render_market_report_notification(
-                payload,
-                symbols=symbols,
-                session=session,
-                timezone_name=timezone_name,
-                report_path=report_path,
-                channel=channel,
-            )
-            await bus.publish_outbound(
-                OutboundMessage(
-                    channel=channel,
-                    chat_id=chat_id,
-                    content=summary,
-                    media=[str(report_path)] if report_path.is_file() else [],
-                    metadata={"market_report": {"session": session, "path": str(report_path)}},
-                )
-            )
-            return
-
-        await bus.publish_outbound(OutboundMessage(channel=channel, chat_id=chat_id, content=response))
+    on_heartbeat_execute = create_heartbeat_execute_handler(
+        config=config,
+        agent=agent,
+        heartbeat_delivery=heartbeat_delivery,
+        pick_target=_pick_heartbeat_target,
+        extract_market_heartbeat_spec=extract_market_heartbeat_spec,
+        render_market_report_document=render_market_report_document,
+        default_market_report_path=default_market_report_path,
+    )
+    on_heartbeat_notify = create_heartbeat_notify_handler(
+        bus=bus,
+        heartbeat_delivery=heartbeat_delivery,
+        pick_target=_pick_heartbeat_target,
+        render_market_report_notification=render_market_report_notification,
+    )
 
     hb_cfg = config.gateway.heartbeat
     heartbeat = HeartbeatService(
@@ -2157,24 +2004,15 @@ def gateway(
 
     console.print(f"[green]✓[/green] Heartbeat: every {hb_cfg.interval_s}s")
 
-    async def run():
-        try:
-            await cron.start()
-            await heartbeat.start()
-            await asyncio.gather(
-                agent.run(),
-                channels.start_all(),
-            )
-        except KeyboardInterrupt:
-            console.print("\nShutting down...")
-        finally:
-            await agent.close_mcp()
-            heartbeat.stop()
-            cron.stop()
-            agent.stop()
-            await channels.stop_all()
-
-    asyncio.run(run())
+    asyncio.run(
+        run_gateway_services(
+            agent=agent,
+            channels=channels,
+            cron=cron,
+            heartbeat=heartbeat,
+            console=console,
+        )
+    )
 
 
 
