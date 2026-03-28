@@ -36,6 +36,13 @@ from rich.text import Text
 
 from marketbot import __logo__, __version__
 from marketbot.agent.skills import SkillsLoader
+from marketbot.cli.auth_runtime import (
+    get_bridge_dir,
+    login_github_copilot,
+    login_openai_codex,
+    run_channels_login,
+    run_provider_login,
+)
 from marketbot.cli.chat_runtime import run_agent_interactive, run_agent_once
 from marketbot.cli.gateway_runtime import (
     create_cron_job_handler,
@@ -3208,85 +3215,17 @@ def channels_status():
 
 def _get_bridge_dir() -> Path:
     """Get the bridge directory, setting it up if needed."""
-    import shutil
-    import subprocess
-
-    # User's bridge location
-    user_bridge = Path.home() / ".marketbot" / "bridge"
-
-    # Check if already built
-    if (user_bridge / "dist" / "index.js").exists():
-        return user_bridge
-
-    # Check for npm
-    if not shutil.which("npm"):
-        console.print("[red]npm not found. Please install Node.js >= 18.[/red]")
-        raise typer.Exit(1)
-
-    # Find source bridge: first check package data, then source dir
-    pkg_bridge = Path(__file__).parent.parent / "bridge"  # marketbot/bridge (installed)
-    src_bridge = Path(__file__).parent.parent.parent / "bridge"  # repo root/bridge (dev)
-
-    source = None
-    if (pkg_bridge / "package.json").exists():
-        source = pkg_bridge
-    elif (src_bridge / "package.json").exists():
-        source = src_bridge
-
-    if not source:
-        console.print("[red]Bridge source not found.[/red]")
-        console.print("Try reinstalling: pip install --force-reinstall marketbot")
-        raise typer.Exit(1)
-
-    console.print(f"{__logo__} Setting up bridge...")
-
-    # Copy to user directory
-    user_bridge.parent.mkdir(parents=True, exist_ok=True)
-    if user_bridge.exists():
-        shutil.rmtree(user_bridge)
-    shutil.copytree(source, user_bridge, ignore=shutil.ignore_patterns("node_modules", "dist"))
-
-    # Install and build
-    try:
-        console.print("  Installing dependencies...")
-        subprocess.run(["npm", "install"], cwd=user_bridge, check=True, capture_output=True)
-
-        console.print("  Building...")
-        subprocess.run(["npm", "run", "build"], cwd=user_bridge, check=True, capture_output=True)
-
-        console.print("[green]✓[/green] Bridge ready\n")
-    except subprocess.CalledProcessError as e:
-        console.print(f"[red]Build failed: {e}[/red]")
-        if e.stderr:
-            console.print(f"[dim]{e.stderr.decode()[:500]}[/dim]")
-        raise typer.Exit(1)
-
-    return user_bridge
+    return get_bridge_dir(console=console, logo=__logo__, commands_file=Path(__file__))
 
 
 @channels_app.command("login")
 def channels_login():
     """Link device via QR code."""
-    import subprocess
-
     from marketbot.config.loader import load_config
 
     config = load_config()
     bridge_dir = _get_bridge_dir()
-
-    console.print(f"{__logo__} Starting bridge...")
-    console.print("Scan the QR code to connect.\n")
-
-    env = {**os.environ}
-    if config.channels.whatsapp.bridge_token:
-        env["BRIDGE_TOKEN"] = config.channels.whatsapp.bridge_token
-
-    try:
-        subprocess.run(["npm", "start"], cwd=bridge_dir, check=True, env=env)
-    except subprocess.CalledProcessError as e:
-        console.print(f"[red]Bridge failed: {e}[/red]")
-    except FileNotFoundError:
-        console.print("[red]npm not found. Please install Node.js.[/red]")
+    run_channels_login(config=config, bridge_dir=bridge_dir, console=console, logo=__logo__)
 
 
 # ============================================================================
@@ -3346,63 +3285,23 @@ def provider_login(
 ):
     """Authenticate with an OAuth provider."""
     from marketbot.providers.registry import PROVIDERS
-
-    key = provider.replace("-", "_")
-    spec = next((s for s in PROVIDERS if s.name == key and s.is_oauth), None)
-    if not spec:
-        names = ", ".join(s.name.replace("_", "-") for s in PROVIDERS if s.is_oauth)
-        console.print(f"[red]Unknown OAuth provider: {provider}[/red]  Supported: {names}")
-        raise typer.Exit(1)
-
-    handler = _LOGIN_HANDLERS.get(spec.name)
-    if not handler:
-        console.print(f"[red]Login not implemented for {spec.label}[/red]")
-        raise typer.Exit(1)
-
-    console.print(f"{__logo__} OAuth Login - {spec.label}\n")
-    handler()
+    run_provider_login(
+        provider=provider,
+        providers=list(PROVIDERS),
+        login_handlers=_LOGIN_HANDLERS,
+        console=console,
+        logo=__logo__,
+    )
 
 
 @_register_login("openai_codex")
 def _login_openai_codex() -> None:
-    try:
-        from oauth_cli_kit import get_token, login_oauth_interactive
-        token = None
-        try:
-            token = get_token()
-        except Exception:
-            pass
-        if not (token and token.access):
-            console.print("[cyan]Starting interactive OAuth login...[/cyan]\n")
-            token = login_oauth_interactive(
-                print_fn=lambda s: console.print(s),
-                prompt_fn=lambda s: typer.prompt(s),
-            )
-        if not (token and token.access):
-            console.print("[red]✗ Authentication failed[/red]")
-            raise typer.Exit(1)
-        console.print(f"[green]✓ Authenticated with OpenAI Codex[/green]  [dim]{token.account_id}[/dim]")
-    except ImportError:
-        console.print("[red]oauth_cli_kit not installed. Run: pip install oauth-cli-kit[/red]")
-        raise typer.Exit(1)
+    login_openai_codex(console=console, prompt_fn=typer.prompt)
 
 
 @_register_login("github_copilot")
 def _login_github_copilot() -> None:
-    import asyncio
-
-    console.print("[cyan]Starting GitHub Copilot device flow...[/cyan]\n")
-
-    async def _trigger():
-        from litellm import acompletion
-        await acompletion(model="github_copilot/gpt-4o", messages=[{"role": "user", "content": "hi"}], max_tokens=1)
-
-    try:
-        asyncio.run(_trigger())
-        console.print("[green]✓ Authenticated with GitHub Copilot[/green]")
-    except Exception as e:
-        console.print(f"[red]Authentication error: {e}[/red]")
-        raise typer.Exit(1)
+    login_github_copilot(console=console)
 
 
 if __name__ == "__main__":
