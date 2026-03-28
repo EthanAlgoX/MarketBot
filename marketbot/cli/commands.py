@@ -36,6 +36,17 @@ from rich.text import Text
 
 from marketbot import __logo__, __version__
 from marketbot.agent.skills import SkillsLoader
+from marketbot.cli.intel_runtime import (
+    build_cron_schedule,
+    build_intel_daily_digest,
+    build_source_config_json,
+    collect_intel_sources,
+    load_intel_cron_service,
+    open_intel_db,
+    render_intel_collect_summary,
+    schedule_intel_job,
+)
+from marketbot.cli.runtime import build_agent_runtime, make_provider
 from marketbot.config.schema import Config
 from marketbot.market_reporting import (
     default_market_report_path,
@@ -1496,200 +1507,7 @@ def onboard():
 
 def _make_provider(config: Config):
     """Create the appropriate LLM provider from config."""
-    from marketbot.providers.openai_codex_provider import OpenAICodexProvider
-    from marketbot.providers.azure_openai_provider import AzureOpenAIProvider
-
-    model = config.agents.defaults.model
-    provider_name = config.get_provider_name(model)
-    p = config.get_provider(model)
-
-    # OpenAI Codex (OAuth)
-    if provider_name == "openai_codex" or model.startswith("openai-codex/"):
-        return OpenAICodexProvider(default_model=model)
-
-    # Custom: direct OpenAI-compatible endpoint, bypasses LiteLLM
-    from marketbot.providers.custom_provider import CustomProvider
-    if provider_name == "custom":
-        return CustomProvider(
-            api_key=p.api_key if p else "no-key",
-            api_base=config.get_api_base(model) or "http://localhost:8000/v1",
-            default_model=model,
-        )
-
-    # Azure OpenAI: direct Azure OpenAI endpoint with deployment name
-    if provider_name == "azure_openai":
-        if not p or not p.api_key or not p.api_base:
-            console.print("[red]Error: Azure OpenAI requires api_key and api_base.[/red]")
-            console.print("Set them in ~/.marketbot/config.json under providers.azure_openai section")
-            console.print("Use the model field to specify the deployment name.")
-            raise typer.Exit(1)
-        
-        return AzureOpenAIProvider(
-            api_key=p.api_key,
-            api_base=p.api_base,
-            default_model=model,
-        )
-
-    from marketbot.providers.litellm_provider import LiteLLMProvider
-    from marketbot.providers.registry import find_by_name
-    spec = find_by_name(provider_name)
-    if not model.startswith("bedrock/") and not (p and p.api_key) and not (spec and spec.is_oauth):
-        console.print("[red]Error: No API key configured.[/red]")
-        console.print("Set one in ~/.marketbot/config.json under providers section")
-        raise typer.Exit(1)
-
-    return LiteLLMProvider(
-        api_key=p.api_key if p else None,
-        api_base=config.get_api_base(model),
-        default_model=model,
-        extra_headers=p.extra_headers if p else None,
-        provider_name=provider_name,
-    )
-
-
-def _open_intel_db(config_path: Path | None = None):
-    """Open and initialize the intel database for the configured workspace."""
-    from marketbot.config.loader import load_config
-    from marketbot.domain.intel.storage import connect_intel_db, init_intel_schema
-
-    config = load_config(config_path)
-    conn = connect_intel_db(config.workspace_path)
-    init_intel_schema(conn)
-    return config, conn
-
-
-async def _collect_intel_sources(conn, *, scope: str, scope_key: str):
-    """Collect items for active intel sources in a scope."""
-    from marketbot.domain.intel.collector import IntelCollectorService, utc_now_iso
-    from marketbot.domain.intel.models import CollectResult
-    from marketbot.domain.intel.storage import insert_raw_items, list_sources, mark_source_collected
-
-    service = IntelCollectorService()
-    sources = list_sources(conn, scope=scope, scope_key=scope_key, active_only=True)
-    results = []
-    for source in sources:
-        collected_at = utc_now_iso()
-        try:
-            items = await service.collect_source(source)
-            inserted = insert_raw_items(conn, items)
-            mark_source_collected(conn, int(source.id or 0), collected_at=collected_at)
-            results.append(
-                CollectResult(
-                    source_id=int(source.id or 0),
-                    ok=True,
-                    items_collected=len(items),
-                    items_inserted=inserted,
-                )
-            )
-        except Exception as exc:
-            mark_source_collected(
-                conn,
-                int(source.id or 0),
-                collected_at=collected_at,
-                error=str(exc),
-            )
-            results.append(CollectResult(source_id=int(source.id or 0), ok=False, error=str(exc)))
-    return results
-
-
-def _render_intel_collect_summary(results) -> str:
-    """Render a compact summary for intel collection runs."""
-    total_sources = len(results)
-    ok_count = sum(1 for item in results if item.ok)
-    inserted = sum(int(getattr(item, "items_inserted", 0) or 0) for item in results)
-    lines = [
-        f"Intel collect completed: {ok_count}/{total_sources} sources ok.",
-        f"Inserted items: {inserted}",
-    ]
-    errors = [item for item in results if not item.ok and item.error]
-    if errors:
-        lines.append("Errors:")
-        lines.extend(f"- source #{item.source_id}: {item.error}" for item in errors[:5])
-    return "\n".join(lines)
-
-
-def _build_intel_daily_digest(conn, *, scope: str, scope_key: str, hours: int, limit: int):
-    """Build and load the latest daily digest for a scope."""
-    from marketbot.domain.intel.digest import build_daily_digest
-    from marketbot.domain.intel.storage import list_digests
-
-    digest_id = build_daily_digest(conn, scope=scope, scope_key=scope_key, hours=hours, limit=limit)
-    digest = list_digests(
-        conn,
-        digest_type="daily",
-        scope=scope,
-        scope_key=scope_key,
-        limit=1,
-    )[0]
-    return digest_id, digest
-
-
-def _build_cron_schedule(
-    *,
-    every_minutes: int | None,
-    cron_expr: str | None,
-    tz: str | None,
-):
-    """Build a cron schedule from simple CLI options."""
-    from marketbot.cron.types import CronSchedule
-
-    if every_minutes and cron_expr:
-        raise typer.BadParameter("use either --every-minutes or --cron-expr, not both")
-    if every_minutes is not None:
-        if every_minutes <= 0:
-            raise typer.BadParameter("--every-minutes must be > 0")
-        return CronSchedule(kind="every", every_ms=every_minutes * 60 * 1000)
-    if cron_expr:
-        return CronSchedule(kind="cron", expr=cron_expr, tz=tz)
-    raise typer.BadParameter("one of --every-minutes or --cron-expr is required")
-
-
-def _schedule_intel_job(
-    *,
-    config_path: Path | None,
-    name: str,
-    schedule,
-    payload_kind: str,
-    scope: str,
-    scope_key: str,
-    deliver: bool = False,
-    channel: str | None = None,
-    to: str | None = None,
-    hours: int = 24,
-    limit: int = 12,
-):
-    """Create a cron job and rewrite its payload for intel execution."""
-    from marketbot.config.loader import load_config
-    from marketbot.cron.service import CronService
-
-    config = load_config(config_path)
-    cron_store_path = config.workspace_path / "cron" / "jobs.json"
-    cron = CronService(cron_store_path)
-    job = cron.add_job(
-        name=name,
-        schedule=schedule,
-        message=name,
-        deliver=deliver,
-        channel=channel,
-        to=to,
-    )
-    job.payload.kind = payload_kind
-    job.payload.scope = scope
-    job.payload.scope_key = scope_key
-    job.payload.hours = hours
-    job.payload.limit = limit
-    cron._save_store()
-    return job
-
-
-def _load_intel_cron_service(config_path: Path | None = None):
-    """Load the workspace cron service used by intel scheduled jobs."""
-    from marketbot.config.loader import load_config
-    from marketbot.cron.service import CronService
-
-    config = load_config(config_path)
-    cron_store_path = config.workspace_path / "cron" / "jobs.json"
-    return CronService(cron_store_path)
+    return make_provider(config, console)
 
 
 @intel_app.command("source-add")
@@ -1706,14 +1524,14 @@ def intel_source_add(
     from marketbot.domain.intel.storage import add_source
 
     config_path = Path(config) if config else None
-    _, conn = _open_intel_db(config_path)
+    _, conn = open_intel_db(config_path)
     try:
         source_id = add_source(
             conn,
             IntelSource(
                 name=name,
                 source_type=source_type.strip().lower(),
-                config_json=json.dumps({"url": url}, ensure_ascii=False),
+                config_json=build_source_config_json(url),
                 scope=scope,
                 scope_key=scope_key,
             ),
@@ -1733,7 +1551,7 @@ def intel_source_list(
     from marketbot.domain.intel.storage import list_sources
 
     config_path = Path(config) if config else None
-    _, conn = _open_intel_db(config_path)
+    _, conn = open_intel_db(config_path)
     try:
         sources = list_sources(conn, scope=scope, scope_key=scope_key, active_only=True)
     finally:
@@ -1766,9 +1584,9 @@ def intel_collect(
 ):
     """Collect items for all active intel sources in a scope."""
     config_path = Path(config) if config else None
-    _, conn = _open_intel_db(config_path)
+    _, conn = open_intel_db(config_path)
     try:
-        results = asyncio.run(_collect_intel_sources(conn, scope=scope, scope_key=scope_key))
+        results = asyncio.run(collect_intel_sources(conn, scope=scope, scope_key=scope_key))
     finally:
         conn.close()
 
@@ -1804,9 +1622,9 @@ def intel_digest_daily(
     from marketbot.config.loader import load_config
 
     config_path = Path(config) if config else None
-    _, conn = _open_intel_db(config_path)
+    _, conn = open_intel_db(config_path)
     try:
-        digest_id, digest = _build_intel_daily_digest(
+        digest_id, digest = build_intel_daily_digest(
             conn,
             scope=scope,
             scope_key=scope_key,
@@ -1840,7 +1658,7 @@ def intel_digest_list(
     from marketbot.domain.intel.storage import list_digests
 
     config_path = Path(config) if config else None
-    _, conn = _open_intel_db(config_path)
+    _, conn = open_intel_db(config_path)
     try:
         digests = list_digests(
             conn,
@@ -1878,7 +1696,7 @@ def intel_digest_show(
     from marketbot.domain.intel.storage import get_digest
 
     config_path = Path(config) if config else None
-    _, conn = _open_intel_db(config_path)
+    _, conn = open_intel_db(config_path)
     try:
         digest = get_digest(conn, digest_id)
     finally:
@@ -1903,12 +1721,12 @@ def intel_schedule_collect(
 ):
     """Schedule recurring intel source collection."""
     config_path = Path(config) if config else None
-    schedule = _build_cron_schedule(
+    schedule = build_cron_schedule(
         every_minutes=every_minutes,
         cron_expr=cron_expr,
         tz=tz,
     )
-    job = _schedule_intel_job(
+    job = schedule_intel_job(
         config_path=config_path,
         name=f"intel collect [{scope}:{scope_key}]",
         schedule=schedule,
@@ -1937,12 +1755,12 @@ def intel_schedule_daily(
     if deliver and (not channel or not to):
         raise typer.BadParameter("--channel and --to are required when --deliver is set")
     config_path = Path(config) if config else None
-    schedule = _build_cron_schedule(
+    schedule = build_cron_schedule(
         every_minutes=every_minutes,
         cron_expr=cron_expr,
         tz=tz,
     )
-    job = _schedule_intel_job(
+    job = schedule_intel_job(
         config_path=config_path,
         name=f"intel daily digest [{scope}:{scope_key}]",
         schedule=schedule,
@@ -1976,17 +1794,17 @@ def intel_schedule_latest_daily(
     if deliver and (not channel or not to):
         raise typer.BadParameter("--channel and --to are required when --deliver is set")
     config_path = Path(config) if config else None
-    collect_schedule = _build_cron_schedule(
+    collect_schedule = build_cron_schedule(
         every_minutes=None,
         cron_expr=collect_cron_expr,
         tz=tz,
     )
-    digest_schedule = _build_cron_schedule(
+    digest_schedule = build_cron_schedule(
         every_minutes=None,
         cron_expr=digest_cron_expr,
         tz=tz,
     )
-    collect_job = _schedule_intel_job(
+    collect_job = schedule_intel_job(
         config_path=config_path,
         name=f"intel collect [{scope}:{scope_key}]",
         schedule=collect_schedule,
@@ -1994,7 +1812,7 @@ def intel_schedule_latest_daily(
         scope=scope,
         scope_key=scope_key,
     )
-    digest_job = _schedule_intel_job(
+    digest_job = schedule_intel_job(
         config_path=config_path,
         name=f"intel daily digest [{scope}:{scope_key}]",
         schedule=digest_schedule,
@@ -2019,7 +1837,7 @@ def intel_schedule_list(
 ):
     """List scheduled intel cron jobs."""
     config_path = Path(config) if config else None
-    cron = _load_intel_cron_service(config_path)
+    cron = load_intel_cron_service(config_path)
     jobs = [
         job
         for job in cron.list_jobs(include_disabled=True)
@@ -2060,7 +1878,7 @@ def intel_schedule_remove(
 ):
     """Remove a scheduled intel cron job."""
     config_path = Path(config) if config else None
-    cron = _load_intel_cron_service(config_path)
+    cron = load_intel_cron_service(config_path)
     jobs = {job.id: job for job in cron.list_jobs(include_disabled=True)}
     job = jobs.get(job_id)
     if not job or job.payload.kind not in {"intel_collect", "intel_digest_daily"}:
@@ -2087,11 +1905,8 @@ def gateway(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     """Start the marketbot gateway."""
-    from marketbot.agent.loop import AgentLoop
-    from marketbot.bus.queue import MessageBus
     from marketbot.channels.manager import ChannelManager
     from marketbot.config.loader import load_config
-    from marketbot.cron.service import CronService
     from marketbot.cron.types import CronJob
     from marketbot.heartbeat.service import HeartbeatService
     from marketbot.session.manager import SessionManager
@@ -2111,39 +1926,19 @@ def gateway(
     console.print(f"{__logo__} Starting marketbot gateway on port {port}...")
     console.print(f"[dim]{_format_browser_runtime_summary(config)}[/dim]")
     sync_workspace_templates(config.workspace_path)
-    bus = MessageBus()
-    provider = _make_provider(config)
     session_manager = SessionManager(config.workspace_path)
 
-    # Create cron service first (callback set after agent creation)
-    # Use workspace path for per-instance cron store
     cron_store_path = config.workspace_path / "cron" / "jobs.json"
-    cron = CronService(cron_store_path)
-
-    # Create agent with cron service
-    agent = AgentLoop(
-        bus=bus,
-        provider=provider,
-        workspace=config.workspace_path,
-        model=config.agents.defaults.model,
-        temperature=config.agents.defaults.temperature,
-        max_tokens=config.agents.defaults.max_tokens,
-        max_iterations=config.agents.defaults.max_tool_iterations,
-        memory_window=config.agents.defaults.memory_window,
-        reasoning_effort=config.agents.defaults.reasoning_effort,
-        brave_api_key=config.tools.web.search.api_key or None,
-        web_proxy=config.tools.web.proxy or None,
-        browser_config=config.tools.browser,
-        exec_config=config.tools.exec,
-        cron_service=cron,
-        restrict_to_workspace=config.tools.restrict_to_workspace,
+    runtime = build_agent_runtime(
+        config,
+        console=console,
+        cron_store_path=cron_store_path,
         session_manager=session_manager,
-        mcp_servers=config.tools.mcp_servers,
-        channels_config=config.channels,
-        market_config=config.tools.market,
-        memory_layer=config.agents.defaults.memory_layer,
-        layered_consolidation=config.agents.defaults.layered_consolidation,
     )
+    bus = runtime.bus
+    provider = runtime.provider
+    cron = runtime.cron
+    agent = runtime.agent_loop
 
     # Set cron callback (needs agent)
     async def on_cron_job(job: CronJob) -> str | None:
@@ -2151,21 +1946,21 @@ def gateway(
         from marketbot.agent.tools.cron import CronTool
         from marketbot.agent.tools.message import MessageTool
         if job.payload.kind == "intel_collect":
-            _, intel_conn = _open_intel_db(config_path)
+            _, intel_conn = open_intel_db(config_path)
             try:
-                results = await _collect_intel_sources(
+                results = await collect_intel_sources(
                     intel_conn,
                     scope=job.payload.scope,
                     scope_key=job.payload.scope_key,
                 )
-                return _render_intel_collect_summary(results)
+                return render_intel_collect_summary(results)
             finally:
                 intel_conn.close()
 
         if job.payload.kind == "intel_digest_daily":
-            _, intel_conn = _open_intel_db(config_path)
+            _, intel_conn = open_intel_db(config_path)
             try:
-                _, digest = _build_intel_daily_digest(
+                _, digest = build_intel_daily_digest(
                     intel_conn,
                     scope=job.payload.scope,
                     scope_key=job.payload.scope_key,
@@ -2398,48 +2193,24 @@ def agent(
     """Interact with the agent directly."""
     from loguru import logger
 
-    from marketbot.agent.loop import AgentLoop
-    from marketbot.bus.queue import MessageBus
     from marketbot.config.loader import get_data_dir, load_config
-    from marketbot.cron.service import CronService
 
     config = load_config()
     sync_workspace_templates(config.workspace_path)
-
-    bus = MessageBus()
-    provider = _make_provider(config)
-
-    # Create cron service for tool usage (no callback needed for CLI unless running)
     cron_store_path = get_data_dir() / "cron" / "jobs.json"
-    cron = CronService(cron_store_path)
 
     if logs:
         logger.enable("marketbot")
     else:
         logger.disable("marketbot")
 
-    agent_loop = AgentLoop(
-        bus=bus,
-        provider=provider,
-        workspace=config.workspace_path,
-        model=config.agents.defaults.model,
-        temperature=config.agents.defaults.temperature,
-        max_tokens=config.agents.defaults.max_tokens,
-        max_iterations=config.agents.defaults.max_tool_iterations,
-        memory_window=config.agents.defaults.memory_window,
-        reasoning_effort=config.agents.defaults.reasoning_effort,
-        brave_api_key=config.tools.web.search.api_key or None,
-        web_proxy=config.tools.web.proxy or None,
-        browser_config=config.tools.browser,
-        exec_config=config.tools.exec,
-        cron_service=cron,
-        restrict_to_workspace=config.tools.restrict_to_workspace,
-        mcp_servers=config.tools.mcp_servers,
-        channels_config=config.channels,
-        market_config=config.tools.market,
-        memory_layer=config.agents.defaults.memory_layer,
-        layered_consolidation=config.agents.defaults.layered_consolidation,
+    runtime = build_agent_runtime(
+        config,
+        console=console,
+        cron_store_path=cron_store_path,
     )
+    bus = runtime.bus
+    agent_loop = runtime.agent_loop
 
     # Show spinner when logs are off (no output to miss); skip when logs are on
     def _thinking_ctx():

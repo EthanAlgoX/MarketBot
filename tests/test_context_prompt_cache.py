@@ -41,6 +41,34 @@ def test_system_prompt_stays_stable_when_clock_changes(tmp_path, monkeypatch) ->
     assert prompt1 == prompt2
 
 
+def test_bootstrap_files_are_cached_until_workspace_files_change(tmp_path, monkeypatch) -> None:
+    workspace = _make_workspace(tmp_path)
+    (workspace / "AGENTS.md").write_text("agent rules", encoding="utf-8")
+    builder = ContextBuilder(workspace)
+
+    read_calls: list[str] = []
+    original_read_text = Path.read_text
+
+    def _tracked_read_text(self: Path, *args, **kwargs):
+        if self == workspace / "AGENTS.md":
+            read_calls.append(self.name)
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", _tracked_read_text)
+
+    prompt1 = builder.build_system_prompt()
+    prompt2 = builder.build_system_prompt()
+
+    assert prompt1 == prompt2
+    assert read_calls == ["AGENTS.md"]
+
+    (workspace / "AGENTS.md").write_text("updated agent rules", encoding="utf-8")
+    prompt3 = builder.build_system_prompt()
+
+    assert "updated agent rules" in prompt3
+    assert read_calls == ["AGENTS.md", "AGENTS.md"]
+
+
 def test_runtime_context_is_separate_untrusted_user_message(tmp_path) -> None:
     """Runtime metadata should be merged with the user message."""
     workspace = _make_workspace(tmp_path)

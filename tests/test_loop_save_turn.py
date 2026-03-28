@@ -1,7 +1,9 @@
 from pathlib import Path
+import asyncio
 
 from marketbot.agent.context import ContextBuilder
 from marketbot.agent.loop import AgentLoop
+from marketbot.bus.events import InboundMessage
 from marketbot.session.manager import Session
 from marketbot.providers.base import ToolCallRequest
 from marketbot.providers.base import LLMResponse
@@ -446,6 +448,163 @@ def test_append_saved_report_path_includes_local_path() -> None:
     result = AgentLoop._append_saved_report_path("report body", Path("/tmp/report.md"))
 
     assert result == "report body\n\n已保存到本地: /tmp/report.md"
+
+
+def test_build_response_metadata_collects_optional_fields() -> None:
+    loop = _mk_loop()
+
+    class _Processor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "market-report"}]}
+
+    loop.processor = _Processor()
+
+    metadata = loop._build_response_metadata(
+        msg_metadata={"message_id": "abc"},
+        usage={"total_tokens": 42},
+        explainability={"summary": "ok"},
+        external_skill_suggestions=[{"name": "k8s-release"}],
+        report_path=Path("/tmp/report.md"),
+    )
+
+    assert metadata["message_id"] == "abc"
+    assert metadata["usage"] == {"total_tokens": 42}
+    assert metadata["skill_routing"] == {"selected": [{"name": "market-report"}]}
+    assert metadata["explainability"] == {"summary": "ok"}
+    assert metadata["skill_install_suggestions"] == [{"name": "k8s-release"}]
+    assert metadata["saved_report_path"] == "/tmp/report.md"
+
+
+def test_finalize_response_content_applies_empty_fallback() -> None:
+    loop = _mk_loop()
+    loop._build_chat_explainability = lambda *_args, **_kwargs: None
+    loop._build_external_skill_install_suggestions = lambda: []
+    loop._append_chat_explainability = lambda content, _exp: content
+    loop._append_external_skill_suggestions = lambda content, _sug: content
+    loop._persist_local_report_if_needed = lambda content, request_text=None: None
+    loop._append_saved_report_path = lambda content, _path: content
+
+    final_content, explainability, suggestions, report_path = loop._finalize_response_content(
+        None,
+        all_msgs=[],
+        channel="cli",
+        request_text="hello",
+        append_inline_explainability=True,
+        empty_fallback="fallback text",
+    )
+
+    assert final_content == "fallback text"
+    assert explainability is None
+    assert suggestions == []
+    assert report_path is None
+
+
+def test_preview_message_content_truncates_long_inputs() -> None:
+    preview = AgentLoop._preview_message_content("A" * 90)
+
+    assert preview == ("A" * 80) + "..."
+
+
+def test_prepare_system_turn_sets_context_and_builds_messages() -> None:
+    loop = _mk_loop()
+    calls: list[tuple] = []
+
+    class _Processor:
+        @staticmethod
+        def get_recent_history(session):
+            calls.append(("history", session.key))
+            return [{"role": "user", "content": "old"}]
+
+        @staticmethod
+        def build_messages(**kwargs):
+            calls.append(("build", kwargs["current_message"], kwargs["channel"], kwargs["chat_id"]))
+            return [{"role": "system", "content": "prompt"}]
+
+    loop.processor = _Processor()
+    loop._set_tool_context = lambda channel, chat_id, message_id=None: calls.append(
+        ("context", channel, chat_id, message_id)
+    )
+    session = Session(key="cli:direct")
+
+    history, messages = loop._prepare_system_turn(
+        session=session,
+        channel="cli",
+        chat_id="direct",
+        current_message="ping",
+        message_id="m1",
+    )
+
+    assert history == [{"role": "user", "content": "old"}]
+    assert messages == [{"role": "system", "content": "prompt"}]
+    assert calls == [
+        ("context", "cli", "direct", "m1"),
+        ("history", "cli:direct"),
+        ("build", "ping", "cli", "direct"),
+    ]
+
+
+def test_build_bus_progress_callback_marks_progress_metadata() -> None:
+    loop = _mk_loop()
+    published = []
+
+    class _Bus:
+        @staticmethod
+        async def publish_outbound(msg):
+            published.append(msg)
+
+    loop.bus = _Bus()
+    msg = InboundMessage(channel="cli", sender_id="user", chat_id="direct", content="hello", metadata={"m": 1})
+
+    callback = loop._build_bus_progress_callback(msg=msg)
+    asyncio.run(callback("working", tool_hint=True))
+
+    assert len(published) == 1
+    outbound = published[0]
+    assert outbound.content == "working"
+    assert outbound.metadata["m"] == 1
+    assert outbound.metadata["_progress"] is True
+    assert outbound.metadata["_tool_hint"] is True
+
+
+def test_run_user_turn_uses_shared_finalize_pipeline() -> None:
+    loop = _mk_loop()
+    session = Session(key="cli:direct")
+    msg = InboundMessage(channel="cli", sender_id="user", chat_id="direct", content="hello")
+    calls = []
+
+    async def _fake_run_agent_loop(messages, on_progress=None):
+        calls.append(("run", messages, on_progress is not None))
+        return ("draft", None, [{"role": "assistant", "content": "draft"}], {"total_tokens": 3})
+
+    loop._run_agent_loop = _fake_run_agent_loop
+    loop._normalize_daily_opportunity_report = lambda content: f"normalized:{content}"
+    loop._finalize_response_content = lambda *args, **kwargs: ("final", {"summary": "ok"}, [{"name": "x"}], Path("/tmp/r.md"))
+    loop._record_completed_turn = lambda **kwargs: calls.append(("record", kwargs["history_len"], kwargs["usage"]))
+
+    class _Processor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "market-report"}]}
+
+    loop.processor = _Processor()
+
+    final_content, metadata = asyncio.run(
+        loop._run_user_turn(
+            msg=msg,
+            session=session,
+            history=[{"role": "user", "content": "old"}],
+            initial_messages=[{"role": "system", "content": "prompt"}],
+        )
+    )
+
+    assert final_content == "final"
+    assert metadata["usage"] == {"total_tokens": 3}
+    assert metadata["explainability"] == {"summary": "ok"}
+    assert metadata["skill_install_suggestions"] == [{"name": "x"}]
+    assert metadata["saved_report_path"] == "/tmp/r.md"
+    assert calls[0] == ("run", [{"role": "system", "content": "prompt"}], True)
+    assert calls[1] == ("record", 1, {"total_tokens": 3})
 
 
 def test_append_chat_explainability_skips_daily_opportunity_inline_footer() -> None:

@@ -29,6 +29,8 @@ class ContextBuilder:
         self.market_runtime_profile: dict[str, dict[str, list[str]]] | None = None
         self.browser_adapter_catalog: list[str] = []
         self.last_skill_routing: dict[str, Any] | None = None
+        self._bootstrap_cache_key: tuple[tuple[str, int, int], ...] | None = None
+        self._bootstrap_cache_content: str = ""
 
     def set_memory_layer(self, layer: str) -> None:
         """Set the memory layer to use (L0/L1/L2)."""
@@ -247,15 +249,28 @@ If evidence is mixed, reduce conviction and default to `watch`."""
 
     def _load_bootstrap_files(self) -> str:
         """Load all bootstrap files from workspace."""
-        parts = []
+        cache_key: list[tuple[str, int, int]] = []
 
         for filename in self.BOOTSTRAP_FILES:
             file_path = self.workspace / filename
             if file_path.exists():
-                content = file_path.read_text(encoding="utf-8")
-                parts.append(f"## {filename}\n\n{content}")
+                stat = file_path.stat()
+                cache_key.append((filename, stat.st_mtime_ns, stat.st_size))
 
-        return "\n\n".join(parts) if parts else ""
+        normalized_key = tuple(cache_key)
+        if self._bootstrap_cache_key == normalized_key:
+            return self._bootstrap_cache_content
+
+        parts = []
+        for filename, _, _ in normalized_key:
+            file_path = self.workspace / filename
+            content = file_path.read_text(encoding="utf-8")
+            parts.append(f"## {filename}\n\n{content}")
+
+        content = "\n\n".join(parts) if parts else ""
+        self._bootstrap_cache_key = normalized_key
+        self._bootstrap_cache_content = content
+        return content
 
     def build_messages(
         self,

@@ -394,6 +394,172 @@ class AgentLoop:
             return final_content
         return f"{final_content.rstrip()}\n\n{block}"
 
+    def _build_response_metadata(
+        self,
+        *,
+        msg_metadata: dict[str, Any] | None,
+        usage: dict[str, Any] | None,
+        explainability: dict[str, Any] | None,
+        external_skill_suggestions: list[dict[str, str]] | None,
+        report_path: Path | None,
+    ) -> dict[str, Any]:
+        """Build outbound metadata for completed turns."""
+        metadata = dict(msg_metadata or {})
+        if usage:
+            metadata["usage"] = usage
+        if skill_routing := self.processor.get_last_skill_routing():
+            metadata["skill_routing"] = skill_routing
+        if explainability:
+            metadata["explainability"] = explainability
+        if external_skill_suggestions:
+            metadata["skill_install_suggestions"] = external_skill_suggestions
+        if report_path is not None:
+            metadata["saved_report_path"] = str(report_path)
+        return metadata
+
+    def _finalize_response_content(
+        self,
+        final_content: str | None,
+        *,
+        all_msgs: list[dict[str, Any]],
+        channel: str,
+        request_text: str,
+        append_inline_explainability: bool,
+        empty_fallback: str | None = None,
+    ) -> tuple[str | None, dict[str, Any] | None, list[dict[str, str]], Path | None]:
+        """Apply response post-processing shared by system and normal message flows."""
+        content = final_content
+        if content is None and empty_fallback is not None:
+            content = empty_fallback
+        explainability = self._build_chat_explainability(all_msgs, channel=channel)
+        if append_inline_explainability:
+            content = self._append_chat_explainability(content, explainability)
+        external_skill_suggestions = self._build_external_skill_install_suggestions()
+        content = self._append_external_skill_suggestions(content, external_skill_suggestions)
+        report_path = self._persist_local_report_if_needed(content, request_text=request_text)
+        content = self._append_saved_report_path(content, report_path)
+        return content, explainability, external_skill_suggestions, report_path
+
+    def _record_completed_turn(
+        self,
+        *,
+        session: Session,
+        history_len: int,
+        all_msgs: list[dict[str, Any]],
+        usage: dict[str, Any] | None,
+    ) -> None:
+        """Persist usage metadata and session history for a completed turn."""
+        if usage:
+            session.metadata["last_usage"] = usage
+        self._save_turn(session, all_msgs, 1 + history_len)
+        self.sessions.save(session)
+
+    def _prepare_system_turn(
+        self,
+        *,
+        session: Session,
+        channel: str,
+        chat_id: str,
+        current_message: str,
+        message_id: str | None,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Prepare session history and prompt messages for a system-triggered turn."""
+        self._set_tool_context(channel, chat_id, message_id)
+        history = self.processor.get_recent_history(session)
+        messages = self.processor.build_messages(
+            session=session,
+            current_message=current_message,
+            channel=channel,
+            chat_id=chat_id,
+        )
+        return history, messages
+
+    async def _prepare_user_turn(
+        self,
+        *,
+        session: Session,
+        msg: InboundMessage,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Prepare session state and prompt messages for a user turn."""
+        await self.processor.schedule_consolidation(session)
+        self._set_tool_context(msg.channel, msg.chat_id, msg.metadata.get("message_id"))
+        if message_tool := self.tools.get("message"):
+            if isinstance(message_tool, MessageTool):
+                message_tool.start_turn()
+        history = self.processor.get_recent_history(session)
+        messages = self.processor.build_messages(
+            session=session,
+            current_message=msg.content,
+            media=msg.media if msg.media else None,
+            channel=msg.channel,
+            chat_id=msg.chat_id,
+        )
+        return history, messages
+
+    @staticmethod
+    def _preview_message_content(content: str) -> str:
+        """Build a short log preview for message content."""
+        return content[:80] + "..." if len(content) > 80 else content
+
+    def _build_bus_progress_callback(
+        self,
+        *,
+        msg: InboundMessage,
+    ) -> Callable[[str], Awaitable[None]]:
+        """Create a progress publisher bound to the current inbound message."""
+        async def _bus_progress(content: str, *, tool_hint: bool = False) -> None:
+            meta = dict(msg.metadata or {})
+            meta["_progress"] = True
+            meta["_tool_hint"] = tool_hint
+            await self.bus.publish_outbound(
+                OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content=content,
+                    metadata=meta,
+                )
+            )
+
+        return _bus_progress
+
+    async def _run_user_turn(
+        self,
+        *,
+        msg: InboundMessage,
+        session: Session,
+        history: list[dict[str, Any]],
+        initial_messages: list[dict[str, Any]],
+        on_progress: Callable[[str], Awaitable[None]] | None = None,
+    ) -> tuple[str | None, dict[str, Any]]:
+        """Execute a normal user turn and return finalized content plus metadata."""
+        final_content, _, all_msgs, usage = await self._run_agent_loop(
+            initial_messages,
+            on_progress=on_progress or self._build_bus_progress_callback(msg=msg),
+        )
+        final_content = self._normalize_daily_opportunity_report(final_content)
+        final_content, explainability, external_skill_suggestions, report_path = self._finalize_response_content(
+            final_content,
+            all_msgs=all_msgs,
+            channel=msg.channel,
+            request_text=msg.content,
+            append_inline_explainability=(msg.channel == "cli"),
+            empty_fallback="I've completed processing but have no response to give.",
+        )
+        self._record_completed_turn(
+            session=session,
+            history_len=len(history),
+            all_msgs=all_msgs,
+            usage=usage,
+        )
+        metadata = self._build_response_metadata(
+            msg_metadata=msg.metadata,
+            usage=usage,
+            explainability=explainability,
+            external_skill_suggestions=external_skill_suggestions,
+            report_path=report_path,
+        )
+        return final_content, metadata
+
     def _selected_skill_names(self) -> set[str]:
         """Return the set of currently routed skill names."""
         processor = getattr(self, "processor", None)
@@ -1053,40 +1219,38 @@ class AgentLoop:
             logger.info("Processing system message from {}", msg.sender_id)
             key = f"{channel}:{chat_id}"
             session = self.processor.get_session(key)
-            self._set_tool_context(channel, chat_id, msg.metadata.get("message_id"))
-            history = self.processor.get_recent_history(session)
-            messages = self.processor.build_messages(
+            history, messages = self._prepare_system_turn(
                 session=session,
-                current_message=msg.content,
                 channel=channel,
                 chat_id=chat_id,
+                current_message=msg.content,
+                message_id=msg.metadata.get("message_id"),
             )
             final_content, _, all_msgs, usage = await self._run_agent_loop(messages)
-            explainability = self._build_chat_explainability(all_msgs, channel=channel)
-            final_content = self._append_chat_explainability(final_content, explainability)
-            external_skill_suggestions = self._build_external_skill_install_suggestions()
-            final_content = self._append_external_skill_suggestions(final_content, external_skill_suggestions)
-            report_path = self._persist_local_report_if_needed(final_content, request_text=msg.content)
-            final_content = self._append_saved_report_path(final_content, report_path)
-            if usage:
-                session.metadata["last_usage"] = usage
-            self._save_turn(session, all_msgs, 1 + len(history))
-            self.sessions.save(session)
-            metadata = dict(msg.metadata or {})
-            if usage:
-                metadata["usage"] = usage
-            if skill_routing := self.processor.get_last_skill_routing():
-                metadata["skill_routing"] = skill_routing
-            if explainability:
-                metadata["explainability"] = explainability
-            if external_skill_suggestions:
-                metadata["skill_install_suggestions"] = external_skill_suggestions
-            if report_path is not None:
-                metadata["saved_report_path"] = str(report_path)
+            final_content, explainability, external_skill_suggestions, report_path = self._finalize_response_content(
+                final_content,
+                all_msgs=all_msgs,
+                channel=channel,
+                request_text=msg.content,
+                append_inline_explainability=True,
+            )
+            self._record_completed_turn(
+                session=session,
+                history_len=len(history),
+                all_msgs=all_msgs,
+                usage=usage,
+            )
+            metadata = self._build_response_metadata(
+                msg_metadata=msg.metadata,
+                usage=usage,
+                explainability=explainability,
+                external_skill_suggestions=external_skill_suggestions,
+                report_path=report_path,
+            )
             return OutboundMessage(channel=channel, chat_id=chat_id,
                                   content=final_content or "Background task completed.", metadata=metadata)
 
-        preview = msg.content[:80] + "..." if len(msg.content) > 80 else msg.content
+        preview = self._preview_message_content(msg.content)
         logger.info("Processing message from {}:{}: {}", msg.channel, msg.sender_id, preview)
 
         if self._match_daily_opportunity_report_query(msg.content):
@@ -1106,66 +1270,20 @@ class AgentLoop:
             if response is not None:
                 return response
 
-        await self.processor.schedule_consolidation(session)
-
-        self._set_tool_context(msg.channel, msg.chat_id, msg.metadata.get("message_id"))
-        if message_tool := self.tools.get("message"):
-            if isinstance(message_tool, MessageTool):
-                message_tool.start_turn()
-
-        history = self.processor.get_recent_history(session)
-        initial_messages = self.processor.build_messages(
+        history, initial_messages = await self._prepare_user_turn(session=session, msg=msg)
+        final_content, metadata = await self._run_user_turn(
+            msg=msg,
             session=session,
-            current_message=msg.content,
-            media=msg.media if msg.media else None,
-            channel=msg.channel,
-            chat_id=msg.chat_id,
+            history=history,
+            initial_messages=initial_messages,
+            on_progress=on_progress,
         )
-
-        async def _bus_progress(content: str, *, tool_hint: bool = False) -> None:
-            meta = dict(msg.metadata or {})
-            meta["_progress"] = True
-            meta["_tool_hint"] = tool_hint
-            await self.bus.publish_outbound(OutboundMessage(
-                channel=msg.channel, chat_id=msg.chat_id, content=content, metadata=meta,
-            ))
-
-        final_content, _, all_msgs, usage = await self._run_agent_loop(
-            initial_messages, on_progress=on_progress or _bus_progress,
-        )
-
-        if final_content is None:
-            final_content = "I've completed processing but have no response to give."
-        final_content = self._normalize_daily_opportunity_report(final_content)
-        explainability = self._build_chat_explainability(all_msgs, channel=msg.channel)
-        if msg.channel == "cli":
-            final_content = self._append_chat_explainability(final_content, explainability)
-        external_skill_suggestions = self._build_external_skill_install_suggestions()
-        final_content = self._append_external_skill_suggestions(final_content, external_skill_suggestions)
-        report_path = self._persist_local_report_if_needed(final_content, request_text=msg.content)
-        final_content = self._append_saved_report_path(final_content, report_path)
-
-        if usage:
-            session.metadata["last_usage"] = usage
-        self._save_turn(session, all_msgs, 1 + len(history))
-        self.sessions.save(session)
 
         if (mt := self.tools.get("message")) and isinstance(mt, MessageTool) and mt._sent_in_turn:
             return None
 
         preview = final_content[:120] + "..." if len(final_content) > 120 else final_content
         logger.info("Response to {}:{}: {}", msg.channel, msg.sender_id, preview)
-        metadata = dict(msg.metadata or {})
-        if usage:
-            metadata["usage"] = usage
-        if skill_routing := self.processor.get_last_skill_routing():
-            metadata["skill_routing"] = skill_routing
-        if explainability:
-            metadata["explainability"] = explainability
-        if external_skill_suggestions:
-            metadata["skill_install_suggestions"] = external_skill_suggestions
-        if report_path is not None:
-            metadata["saved_report_path"] = str(report_path)
         return OutboundMessage(
             channel=msg.channel, chat_id=msg.chat_id, content=final_content,
             metadata=metadata,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 from typing import Any
 
 from loguru import logger
@@ -11,6 +12,24 @@ from marketbot.bus.events import OutboundMessage
 from marketbot.bus.queue import MessageBus
 from marketbot.channels.base import BaseChannel
 from marketbot.config.schema import Config
+
+
+def _telegram_kwargs(config: Config, _bus: MessageBus) -> dict[str, Any]:
+    return {"groq_api_key": config.providers.groq.api_key}
+
+
+CHANNEL_SPECS: tuple[tuple[str, str, str, str, Any], ...] = (
+    ("telegram", "telegram", "marketbot.channels.telegram", "TelegramChannel", _telegram_kwargs),
+    ("whatsapp", "whatsapp", "marketbot.channels.whatsapp", "WhatsAppChannel", None),
+    ("discord", "discord", "marketbot.channels.discord", "DiscordChannel", None),
+    ("feishu", "feishu", "marketbot.channels.feishu", "FeishuChannel", None),
+    ("mochat", "mochat", "marketbot.channels.mochat", "MochatChannel", None),
+    ("dingtalk", "dingtalk", "marketbot.channels.dingtalk", "DingTalkChannel", None),
+    ("email", "email", "marketbot.channels.email", "EmailChannel", None),
+    ("slack", "slack", "marketbot.channels.slack", "SlackChannel", None),
+    ("qq", "qq", "marketbot.channels.qq", "QQChannel", None),
+    ("matrix", "matrix", "marketbot.channels.matrix", "MatrixChannel", None),
+)
 
 
 class ChannelManager:
@@ -33,121 +52,18 @@ class ChannelManager:
 
     def _init_channels(self) -> None:
         """Initialize channels based on config."""
-
-        # Telegram channel
-        if self.config.channels.telegram.enabled:
+        for name, config_attr, module_name, class_name, kwargs_factory in CHANNEL_SPECS:
+            channel_config = getattr(self.config.channels, config_attr)
+            if not channel_config.enabled:
+                continue
             try:
-                from marketbot.channels.telegram import TelegramChannel
-                self.channels["telegram"] = TelegramChannel(
-                    self.config.channels.telegram,
-                    self.bus,
-                    groq_api_key=self.config.providers.groq.api_key,
-                )
-                logger.info("Telegram channel enabled")
+                module = importlib.import_module(module_name)
+                channel_cls = getattr(module, class_name)
+                extra_kwargs = kwargs_factory(self.config, self.bus) if kwargs_factory else {}
+                self.channels[name] = channel_cls(channel_config, self.bus, **extra_kwargs)
+                logger.info("{} channel enabled", class_name.replace("Channel", ""))
             except ImportError as e:
-                logger.warning("Telegram channel not available: {}", e)
-
-        # WhatsApp channel
-        if self.config.channels.whatsapp.enabled:
-            try:
-                from marketbot.channels.whatsapp import WhatsAppChannel
-                self.channels["whatsapp"] = WhatsAppChannel(
-                    self.config.channels.whatsapp, self.bus
-                )
-                logger.info("WhatsApp channel enabled")
-            except ImportError as e:
-                logger.warning("WhatsApp channel not available: {}", e)
-
-        # Discord channel
-        if self.config.channels.discord.enabled:
-            try:
-                from marketbot.channels.discord import DiscordChannel
-                self.channels["discord"] = DiscordChannel(
-                    self.config.channels.discord, self.bus
-                )
-                logger.info("Discord channel enabled")
-            except ImportError as e:
-                logger.warning("Discord channel not available: {}", e)
-
-        # Feishu channel
-        if self.config.channels.feishu.enabled:
-            try:
-                from marketbot.channels.feishu import FeishuChannel
-                self.channels["feishu"] = FeishuChannel(
-                    self.config.channels.feishu, self.bus
-                )
-                logger.info("Feishu channel enabled")
-            except ImportError as e:
-                logger.warning("Feishu channel not available: {}", e)
-
-        # Mochat channel
-        if self.config.channels.mochat.enabled:
-            try:
-                from marketbot.channels.mochat import MochatChannel
-
-                self.channels["mochat"] = MochatChannel(
-                    self.config.channels.mochat, self.bus
-                )
-                logger.info("Mochat channel enabled")
-            except ImportError as e:
-                logger.warning("Mochat channel not available: {}", e)
-
-        # DingTalk channel
-        if self.config.channels.dingtalk.enabled:
-            try:
-                from marketbot.channels.dingtalk import DingTalkChannel
-                self.channels["dingtalk"] = DingTalkChannel(
-                    self.config.channels.dingtalk, self.bus
-                )
-                logger.info("DingTalk channel enabled")
-            except ImportError as e:
-                logger.warning("DingTalk channel not available: {}", e)
-
-        # Email channel
-        if self.config.channels.email.enabled:
-            try:
-                from marketbot.channels.email import EmailChannel
-                self.channels["email"] = EmailChannel(
-                    self.config.channels.email, self.bus
-                )
-                logger.info("Email channel enabled")
-            except ImportError as e:
-                logger.warning("Email channel not available: {}", e)
-
-        # Slack channel
-        if self.config.channels.slack.enabled:
-            try:
-                from marketbot.channels.slack import SlackChannel
-                self.channels["slack"] = SlackChannel(
-                    self.config.channels.slack, self.bus
-                )
-                logger.info("Slack channel enabled")
-            except ImportError as e:
-                logger.warning("Slack channel not available: {}", e)
-
-        # QQ channel
-        if self.config.channels.qq.enabled:
-            try:
-                from marketbot.channels.qq import QQChannel
-                self.channels["qq"] = QQChannel(
-                    self.config.channels.qq,
-                    self.bus,
-                )
-                logger.info("QQ channel enabled")
-            except ImportError as e:
-                logger.warning("QQ channel not available: {}", e)
-
-        # Matrix channel
-        if self.config.channels.matrix.enabled:
-            try:
-                from marketbot.channels.matrix import MatrixChannel
-                self.channels["matrix"] = MatrixChannel(
-                    self.config.channels.matrix,
-                    self.bus,
-                )
-                logger.info("Matrix channel enabled")
-            except ImportError as e:
-                logger.warning("Matrix channel not available: {}", e)
+                logger.warning("{} channel not available: {}", class_name.replace("Channel", ""), e)
 
         self._validate_allow_from()
 

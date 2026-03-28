@@ -21,6 +21,10 @@ from marketbot.domain.market.services import (
     MarketMacroService,
     MarketNewsService,
     MarketSnapshotService,
+    eastmoney_secid,
+    is_a_share_symbol,
+    is_hk_symbol,
+    is_us_symbol,
     normalize_a_share_symbol,
     preferred_a_share_symbol,
     to_tickflow_symbol,
@@ -74,59 +78,6 @@ def _lexicon_sentiment(text: str) -> float:
     pos = sum(1 for term in _POSITIVE_SENTIMENT_TERMS if term in lower)
     neg = sum(1 for term in _NEGATIVE_SENTIMENT_TERMS if term in lower)
     return _clamp((pos - neg) / 4.0, -1.0, 1.0)
-
-
-def _is_a_share_symbol(symbol: str) -> bool:
-    """Return True for mainland China stock / ETF tickers accepted by Eastmoney."""
-    text = str(symbol or "").strip().upper()
-    if not text:
-        return False
-    if re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", text):
-        return True
-    if text.startswith(("SH", "SZ")) and len(text) == 8 and text[2:].isdigit():
-        return True
-    return len(text) == 6 and text.isdigit()
-
-
-def _normalize_a_share_symbol(symbol: str) -> str:
-    """Normalize mainland China symbol to a 6-digit code."""
-    text = str(symbol or "").strip().upper()
-    if re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", text):
-        return text.split(".", 1)[0]
-    if text.startswith(("SH", "SZ")) and len(text) == 8 and text[2:].isdigit():
-        return text[2:]
-    return text
-
-
-def _eastmoney_secid(symbol: str) -> str | None:
-    """Convert A-share / ETF ticker into Eastmoney secid format."""
-    code = _normalize_a_share_symbol(symbol)
-    if len(code) != 6 or not code.isdigit():
-        return None
-    if code.startswith(("600", "601", "603", "605", "688", "689", "510", "511", "512", "513", "515", "518", "520", "560", "580")):
-        market = "1"
-    else:
-        market = "0"
-    return f"{market}.{code}"
-
-
-def _is_hk_symbol(symbol: str) -> bool:
-    """Return True for Hong Kong tickers supported by Tencent HK quotes."""
-    text = str(symbol or "").strip().upper()
-    if not text:
-        return False
-    if text.startswith("HK") and 1 <= len(text[2:]) <= 5 and text[2:].isdigit():
-        return True
-    if text.endswith(".HK"):
-        code = text[:-3]
-        return 1 <= len(code) <= 5 and code.isdigit()
-    return 1 <= len(text) <= 5 and text.isdigit()
-
-
-def _is_us_symbol(symbol: str) -> bool:
-    """Return True for plain US stock / ETF tickers supported by Tencent US quotes."""
-    text = str(symbol or "").strip().upper()
-    return bool(re.fullmatch(r"[A-Z]{1,6}", text))
 
 
 def _weighted_price_band(points: list[tuple[float, float]], lower_q: float, upper_q: float) -> tuple[float, float]:
@@ -245,9 +196,9 @@ class MarketSnapshotTool(Tool):
             return json.dumps({"error": "no valid symbols provided"}, ensure_ascii=False)
 
         self._service.reset_health()
-        use_cn_tencent = any(_is_a_share_symbol(symbol) for symbol in normalized)
-        use_hk_tencent = any(_is_hk_symbol(symbol) for symbol in normalized)
-        use_us_tencent = any(_is_us_symbol(symbol) for symbol in normalized)
+        use_cn_tencent = any(is_a_share_symbol(symbol) for symbol in normalized)
+        use_hk_tencent = any(is_hk_symbol(symbol) for symbol in normalized)
+        use_us_tencent = any(is_us_symbol(symbol) for symbol in normalized)
         if self._source == "yahoo" and use_cn_tencent:
             effective_source = "tencent_cn"
         elif self._source == "yahoo" and use_hk_tencent:
@@ -523,7 +474,7 @@ class MarketSourcePlanTool(Tool):
     @staticmethod
     def _market_for_symbols(symbols: list[str]) -> str:
         clean = [str(symbol or "").strip().upper() for symbol in symbols if str(symbol or "").strip()]
-        if any(_is_a_share_symbol(symbol) for symbol in clean):
+        if any(is_a_share_symbol(symbol) for symbol in clean):
             return "a-share"
         if any(symbol.startswith("HK") or symbol.endswith(".HK") or (symbol.isdigit() and len(symbol) == 5) for symbol in clean):
             return "hong-kong"
@@ -802,7 +753,7 @@ class MarketChipDistributionTool(Tool):
         self._ut = "fa5fd1943c7b386f172d6893dbfba10b"
 
     async def _fetch_kline(self, symbol: str, lookback_days: int) -> tuple[list[str], str | None]:
-        secid = _eastmoney_secid(symbol)
+        secid = eastmoney_secid(symbol)
         if not secid:
             return [], "unsupported symbol for chip distribution"
         params = {
@@ -900,7 +851,7 @@ class MarketChipDistributionTool(Tool):
 
     async def execute(self, symbol: str, lookbackDays: int = 90, **kwargs: Any) -> str:
         clean_symbol = str(symbol or "").strip().upper()
-        if not _is_a_share_symbol(clean_symbol):
+        if not is_a_share_symbol(clean_symbol):
             return json.dumps(
                 {
                     "error": "chip distribution currently supports A-share symbols only",
@@ -921,7 +872,7 @@ class MarketChipDistributionTool(Tool):
         stats = self._estimate_distribution(bars)
         result = {
             "asOf": _utc_now_iso(),
-            "symbol": _normalize_a_share_symbol(clean_symbol),
+            "symbol": normalize_a_share_symbol(clean_symbol),
             "source": "eastmoney-kline-local-cyq",
             "method": "turnover_decay_v1",
             "lookbackDays": lookback,
@@ -973,7 +924,7 @@ class MarketFundamentalsTool(Tool):
         return round(number, 4)
 
     async def _fetch_eastmoney(self, symbol: str) -> tuple[dict[str, Any] | None, str | None]:
-        secid = _eastmoney_secid(symbol)
+        secid = eastmoney_secid(symbol)
         if not secid:
             return None, "unsupported symbol for eastmoney fundamentals"
         params = {
@@ -999,7 +950,7 @@ class MarketFundamentalsTool(Tool):
         if not data:
             return None, "empty eastmoney fundamentals payload"
         return {
-            "symbol": str(data.get("f57") or _normalize_a_share_symbol(symbol)).upper(),
+            "symbol": str(data.get("f57") or normalize_a_share_symbol(symbol)).upper(),
             "name": data.get("f58"),
             "marketCap": data.get("f116"),
             "floatMarketCap": data.get("f117"),
@@ -1143,7 +1094,7 @@ class MarketFundamentalsTool(Tool):
         if not clean_symbols:
             return json.dumps({"error": "no valid symbols"}, ensure_ascii=False)
 
-        a_share_symbols = [symbol for symbol in clean_symbols if _is_a_share_symbol(symbol)]
+        a_share_symbols = [symbol for symbol in clean_symbols if is_a_share_symbol(symbol)]
         global_symbols = [symbol for symbol in clean_symbols if symbol not in a_share_symbols]
         rows: list[dict[str, Any]] = []
         warnings: list[str] = []
@@ -1832,7 +1783,7 @@ class MarketBriefTool(Tool):
         if includeChips:
             for row in quotes:
                 symbol = str(row.get("symbol", "")).upper()
-                if not _is_a_share_symbol(symbol):
+                if not is_a_share_symbol(symbol):
                     continue
                 chip_payload = json.loads(await self._chips.execute(symbol=symbol))
                 if chip_payload.get("error"):
