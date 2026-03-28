@@ -560,6 +560,45 @@ class AgentLoop:
         )
         return final_content, metadata
 
+    async def _run_system_turn(
+        self,
+        *,
+        msg: InboundMessage,
+        session: Session,
+        history: list[dict[str, Any]],
+        messages: list[dict[str, Any]],
+        channel: str,
+        chat_id: str,
+    ) -> OutboundMessage:
+        """Execute a system-triggered turn and return the outbound response."""
+        final_content, _, all_msgs, usage = await self._run_agent_loop(messages)
+        final_content, explainability, external_skill_suggestions, report_path = self._finalize_response_content(
+            final_content,
+            all_msgs=all_msgs,
+            channel=channel,
+            request_text=msg.content,
+            append_inline_explainability=True,
+        )
+        self._record_completed_turn(
+            session=session,
+            history_len=len(history),
+            all_msgs=all_msgs,
+            usage=usage,
+        )
+        metadata = self._build_response_metadata(
+            msg_metadata=msg.metadata,
+            usage=usage,
+            explainability=explainability,
+            external_skill_suggestions=external_skill_suggestions,
+            report_path=report_path,
+        )
+        return OutboundMessage(
+            channel=channel,
+            chat_id=chat_id,
+            content=final_content or "Background task completed.",
+            metadata=metadata,
+        )
+
     def _selected_skill_names(self) -> set[str]:
         """Return the set of currently routed skill names."""
         processor = getattr(self, "processor", None)
@@ -1226,29 +1265,14 @@ class AgentLoop:
                 current_message=msg.content,
                 message_id=msg.metadata.get("message_id"),
             )
-            final_content, _, all_msgs, usage = await self._run_agent_loop(messages)
-            final_content, explainability, external_skill_suggestions, report_path = self._finalize_response_content(
-                final_content,
-                all_msgs=all_msgs,
-                channel=channel,
-                request_text=msg.content,
-                append_inline_explainability=True,
-            )
-            self._record_completed_turn(
+            return await self._run_system_turn(
+                msg=msg,
                 session=session,
-                history_len=len(history),
-                all_msgs=all_msgs,
-                usage=usage,
+                history=history,
+                messages=messages,
+                channel=channel,
+                chat_id=chat_id,
             )
-            metadata = self._build_response_metadata(
-                msg_metadata=msg.metadata,
-                usage=usage,
-                explainability=explainability,
-                external_skill_suggestions=external_skill_suggestions,
-                report_path=report_path,
-            )
-            return OutboundMessage(channel=channel, chat_id=chat_id,
-                                  content=final_content or "Background task completed.", metadata=metadata)
 
         preview = self._preview_message_content(msg.content)
         logger.info("Processing message from {}:{}: {}", msg.channel, msg.sender_id, preview)

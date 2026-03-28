@@ -607,6 +607,47 @@ def test_run_user_turn_uses_shared_finalize_pipeline() -> None:
     assert calls[1] == ("record", 1, {"total_tokens": 3})
 
 
+def test_run_system_turn_uses_shared_finalize_pipeline() -> None:
+    loop = _mk_loop()
+    session = Session(key="cli:direct")
+    msg = InboundMessage(channel="system", sender_id="system", chat_id="cli:direct", content="hello")
+    calls = []
+
+    async def _fake_run_agent_loop(messages):
+        calls.append(("run", messages))
+        return (None, None, [{"role": "assistant", "content": ""}], {"total_tokens": 5})
+
+    loop._run_agent_loop = _fake_run_agent_loop
+    loop._finalize_response_content = lambda *args, **kwargs: ("final system", {"summary": "ok"}, [{"name": "x"}], Path("/tmp/s.md"))
+    loop._record_completed_turn = lambda **kwargs: calls.append(("record", kwargs["history_len"], kwargs["usage"]))
+
+    class _Processor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "market-report"}]}
+
+    loop.processor = _Processor()
+
+    outbound = asyncio.run(
+        loop._run_system_turn(
+            msg=msg,
+            session=session,
+            history=[{"role": "user", "content": "old"}],
+            messages=[{"role": "system", "content": "prompt"}],
+            channel="cli",
+            chat_id="direct",
+        )
+    )
+
+    assert outbound.content == "final system"
+    assert outbound.metadata["usage"] == {"total_tokens": 5}
+    assert outbound.metadata["explainability"] == {"summary": "ok"}
+    assert outbound.metadata["skill_install_suggestions"] == [{"name": "x"}]
+    assert outbound.metadata["saved_report_path"] == "/tmp/s.md"
+    assert calls[0] == ("run", [{"role": "system", "content": "prompt"}])
+    assert calls[1] == ("record", 1, {"total_tokens": 5})
+
+
 def test_append_chat_explainability_skips_daily_opportunity_inline_footer() -> None:
     loop = _mk_loop()
 
