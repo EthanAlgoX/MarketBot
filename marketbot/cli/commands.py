@@ -36,6 +36,7 @@ from rich.text import Text
 
 from marketbot import __logo__, __version__
 from marketbot.agent.skills import SkillsLoader
+from marketbot.cli.chat_runtime import run_agent_interactive, run_agent_once
 from marketbot.cli.intel_runtime import (
     build_cron_schedule,
     build_intel_daily_digest,
@@ -2212,42 +2213,24 @@ def agent(
     bus = runtime.bus
     agent_loop = runtime.agent_loop
 
-    # Show spinner when logs are off (no output to miss); skip when logs are on
-    def _thinking_ctx():
-        if logs:
-            from contextlib import nullcontext
-            return nullcontext()
-        # Animated spinner is safe to use with prompt_toolkit input handling
-        return console.status("[dim]marketbot is thinking...[/dim]", spinner="dots")
-
-    async def _cli_progress(content: str, *, tool_hint: bool = False) -> None:
-        ch = agent_loop.channels_config
-        if ch and tool_hint and not ch.send_tool_hints:
-            return
-        if ch and not tool_hint and not ch.send_progress:
-            return
-        console.print(f"  [dim]↳ {content}[/dim]")
-
     if message:
         # Single message mode — direct call, no bus needed
-        async def run_once():
-            with _thinking_ctx():
-                response = await agent_loop.process_direct(message, session_id, on_progress=_cli_progress)
-            _print_agent_response(response, render_markdown=markdown)
-            await agent_loop.close_mcp()
-
-        asyncio.run(run_once())
+        asyncio.run(
+            run_agent_once(
+                agent_loop=agent_loop,
+                message=message,
+                session_id=session_id,
+                markdown=markdown,
+                logs=logs,
+                console=console,
+                print_response=_print_agent_response,
+            )
+        )
     else:
         # Interactive mode — route through bus like other channels
-        from marketbot.bus.events import InboundMessage
         _init_prompt_session()
         console.print(f"{__logo__} Interactive mode (type [bold]exit[/bold] or [bold]Ctrl+C[/bold] to quit)")
         console.print(f"[dim]{_format_browser_runtime_summary(config)}[/dim]\n")
-
-        if ":" in session_id:
-            cli_channel, cli_chat_id = session_id.split(":", 1)
-        else:
-            cli_channel, cli_chat_id = "cli", session_id
 
         def _handle_signal(signum, frame):
             sig_name = signal.Signals(signum).name
@@ -2264,84 +2247,21 @@ def agent(
         # SIGPIPE is not available on Windows
         if hasattr(signal, 'SIGPIPE'):
             signal.signal(signal.SIGPIPE, signal.SIG_IGN)
-
-        async def run_interactive():
-            bus_task = asyncio.create_task(agent_loop.run())
-            turn_done = asyncio.Event()
-            turn_done.set()
-            turn_response: list[str] = []
-
-            async def _consume_outbound():
-                while True:
-                    try:
-                        msg = await asyncio.wait_for(bus.consume_outbound(), timeout=1.0)
-                        if msg.metadata.get("_progress"):
-                            is_tool_hint = msg.metadata.get("_tool_hint", False)
-                            ch = agent_loop.channels_config
-                            if ch and is_tool_hint and not ch.send_tool_hints:
-                                pass
-                            elif ch and not is_tool_hint and not ch.send_progress:
-                                pass
-                            else:
-                                console.print(f"  [dim]↳ {msg.content}[/dim]")
-                        elif not turn_done.is_set():
-                            if msg.content:
-                                turn_response.append(msg.content)
-                            turn_done.set()
-                        elif msg.content:
-                            console.print()
-                            _print_agent_response(msg.content, render_markdown=markdown)
-                    except asyncio.TimeoutError:
-                        continue
-                    except asyncio.CancelledError:
-                        break
-
-            outbound_task = asyncio.create_task(_consume_outbound())
-
-            try:
-                while True:
-                    try:
-                        _flush_pending_tty_input()
-                        user_input = await _read_interactive_input_async()
-                        command = user_input.strip()
-                        if not command:
-                            continue
-
-                        if _is_exit_command(command):
-                            _restore_terminal()
-                            console.print("\nGoodbye!")
-                            break
-
-                        turn_done.clear()
-                        turn_response.clear()
-
-                        await bus.publish_inbound(InboundMessage(
-                            channel=cli_channel,
-                            sender_id="user",
-                            chat_id=cli_chat_id,
-                            content=user_input,
-                        ))
-
-                        with _thinking_ctx():
-                            await turn_done.wait()
-
-                        if turn_response:
-                            _print_agent_response(turn_response[0], render_markdown=markdown)
-                    except KeyboardInterrupt:
-                        _restore_terminal()
-                        console.print("\nGoodbye!")
-                        break
-                    except EOFError:
-                        _restore_terminal()
-                        console.print("\nGoodbye!")
-                        break
-            finally:
-                agent_loop.stop()
-                outbound_task.cancel()
-                await asyncio.gather(bus_task, outbound_task, return_exceptions=True)
-                await agent_loop.close_mcp()
-
-        asyncio.run(run_interactive())
+        asyncio.run(
+            run_agent_interactive(
+                bus=bus,
+                agent_loop=agent_loop,
+                session_id=session_id,
+                markdown=markdown,
+                logs=logs,
+                console=console,
+                print_response=_print_agent_response,
+                read_input_async=_read_interactive_input_async,
+                flush_pending_tty_input=_flush_pending_tty_input,
+                restore_terminal=_restore_terminal,
+                is_exit_command=_is_exit_command,
+            )
+        )
 
 
 # ============================================================================
