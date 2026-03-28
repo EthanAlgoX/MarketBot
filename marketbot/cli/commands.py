@@ -61,6 +61,7 @@ from marketbot.cli.intel_runtime import (
     render_intel_collect_summary,
     schedule_intel_job,
 )
+from marketbot.cli.market_runtime import run_market_report
 from marketbot.cli.runtime import build_agent_runtime, make_provider
 from marketbot.cli.status_runtime import (
     build_status_payload,
@@ -2144,77 +2145,30 @@ def market_report(
     from marketbot.agent.tools.market import MarketBriefTool
     from marketbot.config.loader import load_config
 
-    normalized_session = session.strip().lower() or "auto"
-    if normalized_session not in {"auto", "premarket", "intraday", "close"}:
-        typer.echo("session must be one of: auto, premarket, intraday, close")
-        raise typer.BadParameter("session must be one of: auto, premarket, intraday, close")
-
     config = load_config()
-    notify_target: tuple[str, str] | None = None
-    if notify:
-        notify_target = _pick_notify_target(
-            config,
-            preferred_channel=notify_channel,
-            preferred_chat_id=chat_id,
-        )
-    selected_symbols = _parse_symbol_csv(symbols) or config.tools.market.default_symbols
-    tool = MarketBriefTool(config.tools.market)
-
-    async def run_once() -> dict:
-        raw = await tool.execute(
-            symbols=selected_symbols,
-            headline=headline,
-            body=body,
-            includeNews=True,
-            includeMacro=True,
-            includeSocial=True,
-        )
-        return json.loads(raw)
-
-    payload = asyncio.run(run_once())
-    brief_markdown = payload.get("briefMarkdown", "")
-    resolved_session = (
-        infer_market_report_session(datetime.now(resolve_market_timezone(timezone)))
-        if normalized_session == "auto"
-        else normalized_session
-    )
-    report_markdown = render_market_report_document(
-        payload,
-        symbols=selected_symbols,
+    run_market_report(
+        config=config,
+        symbols=symbols,
         headline=headline,
-        session=resolved_session,
-        timezone_name=timezone,
+        body=body,
+        timezone=timezone,
+        session=session,
+        json_output=json_output,
+        save=save,
+        notify=notify,
+        notify_channel=notify_channel,
+        chat_id=chat_id,
+        console=console,
+        parse_symbol_csv=_parse_symbol_csv,
+        pick_notify_target=_pick_notify_target,
+        send_message_once=_send_message_once,
+        market_brief_tool_factory=MarketBriefTool,
+        infer_market_report_session=infer_market_report_session,
+        resolve_market_timezone=resolve_market_timezone,
+        render_market_report_document=render_market_report_document,
+        default_market_report_path=default_market_report_path,
+        render_market_report_notification=render_market_report_notification,
     )
-    report_path: Path | None = None
-
-    if (save or notify) and report_markdown:
-        report_path = default_market_report_path(config.workspace_path, resolved_session, timezone)
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(report_markdown, encoding="utf-8")
-        if save:
-            console.print(f"[green]✓[/green] Saved report to {report_path}")
-
-    if notify:
-        if notify_target is None:
-            raise typer.BadParameter("notify target resolution failed")
-        channel_name, target_chat_id = notify_target
-        if report_path is None:
-            raise typer.BadParameter("notify requires a generated report")
-        notify_text = render_market_report_notification(
-            payload,
-            symbols=selected_symbols,
-            session=resolved_session,
-            timezone_name=timezone,
-            report_path=report_path,
-            channel=channel_name,
-        )
-        asyncio.run(_send_message_once(config, channel_name, target_chat_id, notify_text, [str(report_path)]))
-        console.print(f"[green]✓[/green] Sent report to {channel_name}:{target_chat_id}")
-
-    if json_output:
-        console.print_json(data=payload)
-    else:
-        console.print(Markdown(brief_markdown or "No market brief generated."))
 
 
 @market_app.command("heartbeat-setup")
