@@ -62,6 +62,13 @@ from marketbot.cli.intel_runtime import (
     schedule_intel_job,
 )
 from marketbot.cli.market_runtime import run_market_report
+from marketbot.cli.rl_runtime import (
+    run_rl_build_dataset,
+    run_rl_collect,
+    run_rl_evaluate,
+    run_rl_export_openclaw,
+    run_rl_train,
+)
 from marketbot.cli.runtime import build_agent_runtime, make_provider
 from marketbot.cli.status_runtime import (
     build_status_payload,
@@ -2212,57 +2219,21 @@ def rl_evaluate(
 ):
     """Evaluate a single offline market episode with the local RL environment."""
     from marketbot.rl.env.market_env import LocalMarketEnv
-
-    if task_file is not None:
-        task_payload = json.loads(task_file.read_text(encoding="utf-8"))
-        resolved_key = str(task_payload.get("task_key") or task_key)
-        task_meta = dict(task_payload)
-        task_meta.pop("task_key", None)
-    else:
-        clean_symbol = symbol.strip().upper()
-        parsed_prices = _parse_float_csv(prices)
-        if not clean_symbol:
-            raise typer.BadParameter("--symbol is required when --task-file is not provided")
-        if len(parsed_prices) < 2:
-            raise typer.BadParameter("--prices must contain at least two values")
-        resolved_key = task_key
-        task_meta = {
-            "symbol": clean_symbol,
-            "prices": parsed_prices,
-            "instruction": f"Trade {clean_symbol} for offline evaluation.",
-            "drawdown_coef": drawdown_coef,
-            "turnover_coef": turnover_coef,
-            "slippage_bps": slippage_bps,
-        }
-
-    env = LocalMarketEnv(task_catalog={resolved_key: task_meta})
-    lease = asyncio.run(env.allocate(resolved_key, request_id="cli"))
-    lease_id = str(lease["lease_id"])
-    asyncio.run(env.reset(lease_id, task_meta=task_meta, run_ctx={"uid": "cli"}))
-    if action.strip().lower() != "watch" or position_pct > 0:
-        asyncio.run(
-            env.exec_tool(
-                lease_id,
-                "submit_trade_action",
-                {"action": action.strip().lower(), "position_pct": position_pct},
-            )
-        )
-    advance_steps = steps if steps > 0 else max(len(task_meta.get("prices", [])) - 1, 1)
-    asyncio.run(env.exec_tool(lease_id, "advance_time", {"steps": advance_steps}))
-    details = env.evaluate_details(lease_id)
-    asyncio.run(env.close(lease_id))
-
-    if json_output:
-        console.print_json(json.dumps(details, ensure_ascii=False))
-        return
-
-    reward = details["reward"]
-    console.print("[bold]Offline RL Evaluation[/bold]")
-    console.print(f"Task: {details['taskKey']} | Symbol: {details['symbol']}")
-    console.print(
-        "Reward: "
-        f"{reward['score']:.4f} | Return: {reward['realized_return']:.4f} | "
-        f"MaxDD: {details['maxDrawdown']:.4f} | Turnover: {details['turnover']:.4f}"
+    run_rl_evaluate(
+        symbol=symbol,
+        prices=prices,
+        task_file=task_file,
+        task_key=task_key,
+        action=action,
+        position_pct=position_pct,
+        steps=steps,
+        drawdown_coef=drawdown_coef,
+        turnover_coef=turnover_coef,
+        slippage_bps=slippage_bps,
+        json_output=json_output,
+        console=console,
+        parse_float_csv=_parse_float_csv,
+        local_market_env_factory=LocalMarketEnv,
     )
 
 
@@ -2282,29 +2253,18 @@ def rl_build_dataset(
         write_jsonl,
     )
 
-    config = load_config()
-    workspace = config.workspace_path
-    default_input = workspace / config.tools.market.policy.rollout_log_path
-    source = input_path or default_input
-    requested_type = dataset_type.strip().lower() or "auto"
-    if requested_type not in {"auto", "signal", "episode"}:
-        raise typer.BadParameter("--type must be one of: auto, signal, episode")
-
-    events = load_market_signal_rollouts(source)
-    if not events:
-        raise typer.BadParameter(f"no rollout events found in {source}")
-    resolved_type = detect_rollout_type(events) if requested_type == "auto" else requested_type
-    if resolved_type == "episode":
-        records = build_market_episode_dataset_records(events)
-        default_output = workspace / "rl" / "datasets" / "market_episode_dataset.jsonl"
-    else:
-        records = build_market_signal_dataset_records(events)
-        default_output = workspace / "rl" / "datasets" / "market_signal_dataset.jsonl"
-    target = output_path or default_output
-    if not records:
-        raise typer.BadParameter(f"no dataset records could be built from {source}")
-    written = write_jsonl(target, records)
-    console.print(f"[green]✓[/green] Wrote {len(records)} {resolved_type} records to {written}")
+    run_rl_build_dataset(
+        config=load_config(),
+        input_path=input_path,
+        output_path=output_path,
+        dataset_type=dataset_type,
+        console=console,
+        load_market_signal_rollouts=load_market_signal_rollouts,
+        detect_rollout_type=detect_rollout_type,
+        build_market_episode_dataset_records=build_market_episode_dataset_records,
+        build_market_signal_dataset_records=build_market_signal_dataset_records,
+        write_jsonl=write_jsonl,
+    )
 
 
 @rl_app.command("collect")
@@ -2324,48 +2284,24 @@ def rl_collect(
     """Collect one offline episode by mapping market_signal into the RL environment."""
     from marketbot.config.loader import load_config
     from marketbot.rl.collector import append_episode_log, collect_market_signal_episode
-
-    config = load_config()
-    workspace = config.workspace_path
-    clean_symbol = symbol.strip().upper()
-    parsed_prices = _parse_float_csv(prices)
-    if len(parsed_prices) < 2:
-        raise typer.BadParameter("--prices must contain at least two values")
-    evidence_items = [item.strip() for item in evidence.split(";") if item.strip()]
-    event = collect_market_signal_episode(
-        config=config,
-        workspace=workspace,
-        symbol=clean_symbol,
-        prices=parsed_prices,
+    run_rl_collect(
+        config=load_config(),
+        symbol=symbol,
+        prices=prices,
         price_change_pct=price_change_pct,
         news_sentiment=news_sentiment,
         social_sentiment=social_sentiment,
         macro_risk=macro_risk,
-        evidence=evidence_items,
+        evidence=evidence,
         task_key=task_key,
         steps=steps,
+        output_path=output_path,
+        json_output=json_output,
+        console=console,
+        parse_float_csv=_parse_float_csv,
+        collect_market_signal_episode=collect_market_signal_episode,
+        append_episode_log=append_episode_log,
     )
-    target = output_path or (workspace / "rl" / "episodes" / "market_signal_episodes.jsonl")
-    written = append_episode_log(target, event)
-
-    if json_output:
-        console.print_json(json.dumps(event, ensure_ascii=False))
-        return
-
-    evaluation = event["environment"]["evaluation"]
-    reward = evaluation["reward"]
-    signal = event["signal"]
-    console.print("[bold]Collected RL Episode[/bold]")
-    console.print(
-        f"Signal: {signal['action'].upper()} | Position: {signal['positionPct']:.4f} | "
-        f"Confidence: {signal['confidence']:.4f}"
-    )
-    console.print(
-        "Reward: "
-        f"{reward['score']:.4f} | Return: {reward['realized_return']:.4f} | "
-        f"MaxDD: {evaluation['maxDrawdown']:.4f} | Turnover: {evaluation['turnover']:.4f}"
-    )
-    console.print(f"[green]✓[/green] Appended episode to {written}")
 
 
 @rl_app.command("train")
@@ -2380,35 +2316,17 @@ def rl_train(
     """Export a dataset into a trainer-ready artifact format."""
     from marketbot.config.loader import load_config
     from marketbot.rl.trainer.adapter import get_trainer_adapter
-
-    config = load_config()
-    workspace = config.workspace_path
-    source = dataset_path or (workspace / "rl" / "datasets" / "market_signal_dataset.jsonl")
-    if not source.exists():
-        raise typer.BadParameter(f"dataset not found: {source}")
-    target_dir = output_dir or (workspace / "rl" / "training" / adapter_name)
-    adapter = get_trainer_adapter(adapter_name)
-    summary = adapter.train(source, target_dir, dry_run=dry_run)
-    if emit_slime_script:
-        if not hasattr(adapter, "emit_script_template"):
-            raise typer.BadParameter(f"adapter does not support --emit-slime-script: {adapter_name}")
-        script_path = target_dir / "run_slime_train.sh"
-        written_script = adapter.emit_script_template(summary, script_path)
-        summary.script_path = str(written_script)
-
-    if json_output:
-        console.print_json(json.dumps(summary.to_dict(), ensure_ascii=False))
-        return
-
-    console.print("[bold]RL Train Export[/bold]")
-    console.print(f"Adapter: {summary.adapter}")
-    console.print(f"Examples: {summary.example_count}")
-    console.print(f"Artifacts: {summary.artifact_path}")
-    console.print(f"Manifest: {summary.manifest_path}")
-    if summary.script_path:
-        console.print(f"Script: {summary.script_path}")
-    if summary.dry_run:
-        console.print("[dim]Dry-run only: no external trainer was invoked.[/dim]")
+    run_rl_train(
+        config=load_config(),
+        dataset_path=dataset_path,
+        adapter_name=adapter_name,
+        output_dir=output_dir,
+        dry_run=dry_run,
+        emit_slime_script=emit_slime_script,
+        json_output=json_output,
+        console=console,
+        get_trainer_adapter=get_trainer_adapter,
+    )
 
 
 @rl_app.command("export-openclaw")
@@ -2422,42 +2340,18 @@ def rl_export_openclaw(
     """Export a Slime/OpenClaw-compatible bundle with generate shim and launch script."""
     from marketbot.config.loader import load_config
     from marketbot.rl.trainer.openclaw_export import detect_openclaw_root, export_openclaw_bundle
-
-    config = load_config()
-    workspace = config.workspace_path
-    source = dataset_path or (workspace / "rl" / "datasets" / "market_signal_dataset.jsonl")
-    if not source.exists():
-        raise typer.BadParameter(f"dataset not found: {source}")
-    target_dir = output_dir or (workspace / "rl" / "training" / "openclaw_export")
-    marketbot_root = Path(__file__).resolve().parents[2]
-    resolved_openclaw_root = openclaw_root or detect_openclaw_root(marketbot_root)
-    summary = export_openclaw_bundle(
-        source,
-        target_dir,
-        marketbot_root=marketbot_root,
-        openclaw_root=resolved_openclaw_root,
+    run_rl_export_openclaw(
+        commands_file=Path(__file__),
+        config=load_config(),
+        dataset_path=dataset_path,
+        output_dir=output_dir,
+        openclaw_root=openclaw_root,
         dry_run=dry_run,
+        json_output=json_output,
+        console=console,
+        detect_openclaw_root=detect_openclaw_root,
+        export_openclaw_bundle=export_openclaw_bundle,
     )
-
-    if json_output:
-        console.print_json(json.dumps(summary.to_dict(), ensure_ascii=False))
-        return
-
-    console.print("[bold]OpenClaw Export[/bold]")
-    console.print(f"Examples: {summary.adapter_summary.example_count}")
-    console.print(f"Artifacts: {summary.adapter_summary.artifact_path}")
-    console.print(f"Manifest: {summary.adapter_summary.manifest_path}")
-    console.print(f"Generate Shim: {summary.generate_path}")
-    console.print(f"Script: {summary.script_path}")
-    console.print(f"README: {summary.readme_path}")
-    console.print(f"OpenClaw Root: {summary.openclaw_root}")
-    console.print(f"OpenClaw Launcher: {summary.terminal_script_path}")
-    console.print(f"Env Script: {summary.env_script_path}")
-    console.print(f"Remote Script: {summary.remote_script_path}")
-    console.print(f"Task Catalog: {summary.task_catalog_path}")
-    console.print(f"Env Template: {summary.env_example_path}")
-    if summary.adapter_summary.dry_run:
-        console.print("[dim]Dry-run only: no external trainer was invoked.[/dim]")
 
 
 @rl_app.command("serve-env")
