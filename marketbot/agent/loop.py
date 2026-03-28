@@ -18,16 +18,12 @@ from marketbot.agent.processor import MessageProcessor
 from marketbot.agent.recursive_retriever import RecursiveRetriever
 from marketbot.agent.subagent import SubagentManager
 import marketbot.agent.turn_runtime as turn_runtime
+import marketbot.agent.response_postprocess as response_postprocess
 from marketbot.agent.tools.message import MessageTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.bus.queue import MessageBus
 from marketbot.domain.market import MarketDomainPlugin, build_market_runtime_profile
-from marketbot.market_reporting import (
-    render_analysis_explainability,
-    render_analysis_explainability_summary,
-    render_chat_explainability_footer_for_channel,
-)
 from marketbot.providers.base import LLMProvider
 from marketbot.runtime.bootstrap import ToolBootstrapContext, register_core_tools
 from marketbot.session.manager import Session, SessionManager
@@ -276,32 +272,11 @@ class AgentLoop:
     @staticmethod
     def _extract_market_brief_payload(messages: list[dict]) -> dict[str, Any]:
         """Extract the latest structured market brief payload from tool results, if present."""
-        for message in reversed(messages):
-            if message.get("role") != "tool" or message.get("name") != "market_brief":
-                continue
-            content = message.get("content")
-            if not isinstance(content, str):
-                continue
-            try:
-                payload = json.loads(content)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(payload, dict):
-                return payload
-        return {}
+        return response_postprocess.extract_market_brief_payload(messages)
 
     def _append_chat_explainability(self, final_content: str | None, explainability: dict[str, Any] | None) -> str | None:
         """Append explainability footer for inline-only entrypoints like CLI/system."""
-        if not final_content or not isinstance(explainability, dict):
-            return final_content
-        if self._DAILY_OPPORTUNITY_SKILL in self._selected_skill_names():
-            return final_content
-        if str(explainability.get("delivery", "")).strip().lower() != "inline":
-            return final_content
-        footer = str(explainability.get("inline_footer", "")).strip()
-        if not footer or footer in final_content:
-            return final_content
-        return f"{final_content.rstrip()}\n\n{footer}"
+        return response_postprocess.append_chat_explainability(self, final_content, explainability)
 
     def _resolve_explainability_mode(self, channel: str) -> str:
         """Resolve explainability policy for the current outbound channel."""
@@ -327,49 +302,11 @@ class AgentLoop:
 
     def _build_chat_explainability(self, messages: list[dict], *, channel: str) -> dict[str, Any] | None:
         """Build a structured explainability bundle for the current reply."""
-        skill_routing = self.processor.get_last_skill_routing()
-        payload = self._extract_market_brief_payload(messages)
-        mode = self._resolve_explainability_mode(channel)
-        delivery = self._resolve_explainability_delivery(channel)
-        inline_footer = render_chat_explainability_footer_for_channel(
-            payload,
-            skill_routing=skill_routing,
-            channel=channel,
-            mode=mode,
-        )
-        summary = render_analysis_explainability_summary(payload, skill_routing=skill_routing)
-        details = render_analysis_explainability(payload, skill_routing=skill_routing)
-        if not any((inline_footer, summary, details)):
-            return None
-        return {
-            "channel": channel,
-            "mode": mode,
-            "delivery": delivery,
-            "inline_footer": inline_footer,
-            "summary": summary,
-            "details": details,
-        }
+        return response_postprocess.build_chat_explainability(self, messages, channel=channel)
 
     def _build_external_skill_install_suggestions(self) -> list[dict[str, str]]:
         """Convert routed external skill suggestions into install-ready suggestions."""
-        routing = self.processor.get_last_skill_routing() or {}
-        suggestions = routing.get("externalSuggestions", []) or []
-        results: list[dict[str, str]] = []
-        for item in suggestions[:3]:
-            name = str(item.get("name", "")).strip()
-            if not name:
-                continue
-            results.append(
-                {
-                    "name": name,
-                    "title": str(item.get("title", "")).strip(),
-                    "description": str(item.get("description", "")).strip(),
-                    "category": str(item.get("category", "")).strip(),
-                    "url": str(item.get("url", "")).strip(),
-                    "install_command": f"marketbot skills install {name}",
-                }
-            )
-        return results
+        return response_postprocess.build_external_skill_install_suggestions(self)
 
     @staticmethod
     def _append_external_skill_suggestions(
@@ -377,23 +314,7 @@ class AgentLoop:
         suggestions: list[dict[str, str]] | None,
     ) -> str | None:
         """Append install-ready external skill suggestions to the final reply."""
-        if not final_content or not suggestions:
-            return final_content
-        lines = ["## External Skill Suggestions"]
-        for item in suggestions[:3]:
-            name = item.get("name", "").strip()
-            command = item.get("install_command", "").strip()
-            description = item.get("description", "").strip()
-            if not name or not command:
-                continue
-            line = f"- `{name}`: install with `{command}`"
-            if description:
-                line += f" — {description}"
-            lines.append(line)
-        block = "\n".join(lines)
-        if block in final_content:
-            return final_content
-        return f"{final_content.rstrip()}\n\n{block}"
+        return response_postprocess.append_external_skill_suggestions(final_content, suggestions)
 
     def _build_response_metadata(
         self,
@@ -656,35 +577,11 @@ class AgentLoop:
         request_text: str | None = None,
     ) -> Path | None:
         """Persist markdown reports for fixed daily opportunity scans."""
-        if not final_content or "daily-market-opportunity" not in self._selected_skill_names():
-            return None
-        if self._match_daily_opportunity_report_query(request_text):
-            return None
-        normalized = final_content.strip()
-        if not normalized:
-            return None
-        if self._looks_like_daily_opportunity_failure(normalized):
-            return None
-        if not any(
-            marker in normalized
-            for marker in ("每日机会", "高置信", "观察名单", "Watchlist", "Market Regime")
-        ):
-            return None
-        report_dir = self.workspace / "reports" / "daily-market-opportunity"
-        report_dir.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        report_path = report_dir / f"{stamp}-daily-market-opportunity.md"
-        header = [
-            "# Daily Market Opportunity",
-            "",
-            f"- generated_at: {datetime.now().isoformat()}",
-        ]
-        clean_request = str(request_text or "").strip()
-        if clean_request:
-            header.append(f"- request: {clean_request}")
-        header.extend(["", "---", "", final_content.rstrip(), ""])
-        report_path.write_text("\n".join(header), encoding="utf-8")
-        return report_path
+        return response_postprocess.persist_local_report_if_needed(
+            self,
+            final_content,
+            request_text=request_text,
+        )
 
     @staticmethod
     def _looks_like_daily_opportunity_failure(content: str) -> bool:
@@ -714,12 +611,7 @@ class AgentLoop:
     @staticmethod
     def _append_saved_report_path(final_content: str | None, report_path: Path | None) -> str | None:
         """Append the local markdown path when a report was persisted."""
-        if not final_content or report_path is None:
-            return final_content
-        note = f"已保存到本地: {report_path}"
-        if note in final_content:
-            return final_content
-        return f"{final_content.rstrip()}\n\n{note}"
+        return response_postprocess.append_saved_report_path(final_content, report_path)
 
     def _match_daily_opportunity_report_query(self, text: str | None) -> bool:
         """Return True when the user is asking for saved daily-opportunity report locations."""
