@@ -17,6 +17,7 @@ from marketbot.agent.memory import MemoryStore
 from marketbot.agent.processor import MessageProcessor
 from marketbot.agent.recursive_retriever import RecursiveRetriever
 from marketbot.agent.subagent import SubagentManager
+import marketbot.agent.turn_runtime as turn_runtime
 from marketbot.agent.tools.message import MessageTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.bus.events import InboundMessage, OutboundMessage
@@ -404,18 +405,14 @@ class AgentLoop:
         report_path: Path | None,
     ) -> dict[str, Any]:
         """Build outbound metadata for completed turns."""
-        metadata = dict(msg_metadata or {})
-        if usage:
-            metadata["usage"] = usage
-        if skill_routing := self.processor.get_last_skill_routing():
-            metadata["skill_routing"] = skill_routing
-        if explainability:
-            metadata["explainability"] = explainability
-        if external_skill_suggestions:
-            metadata["skill_install_suggestions"] = external_skill_suggestions
-        if report_path is not None:
-            metadata["saved_report_path"] = str(report_path)
-        return metadata
+        return turn_runtime.build_response_metadata(
+            self,
+            msg_metadata=msg_metadata,
+            usage=usage,
+            explainability=explainability,
+            external_skill_suggestions=external_skill_suggestions,
+            report_path=report_path,
+        )
 
     def _finalize_response_content(
         self,
@@ -428,17 +425,15 @@ class AgentLoop:
         empty_fallback: str | None = None,
     ) -> tuple[str | None, dict[str, Any] | None, list[dict[str, str]], Path | None]:
         """Apply response post-processing shared by system and normal message flows."""
-        content = final_content
-        if content is None and empty_fallback is not None:
-            content = empty_fallback
-        explainability = self._build_chat_explainability(all_msgs, channel=channel)
-        if append_inline_explainability:
-            content = self._append_chat_explainability(content, explainability)
-        external_skill_suggestions = self._build_external_skill_install_suggestions()
-        content = self._append_external_skill_suggestions(content, external_skill_suggestions)
-        report_path = self._persist_local_report_if_needed(content, request_text=request_text)
-        content = self._append_saved_report_path(content, report_path)
-        return content, explainability, external_skill_suggestions, report_path
+        return turn_runtime.finalize_response_content(
+            self,
+            final_content,
+            all_msgs=all_msgs,
+            channel=channel,
+            request_text=request_text,
+            append_inline_explainability=append_inline_explainability,
+            empty_fallback=empty_fallback,
+        )
 
     def _record_completed_turn(
         self,
@@ -449,10 +444,13 @@ class AgentLoop:
         usage: dict[str, Any] | None,
     ) -> None:
         """Persist usage metadata and session history for a completed turn."""
-        if usage:
-            session.metadata["last_usage"] = usage
-        self._save_turn(session, all_msgs, 1 + history_len)
-        self.sessions.save(session)
+        turn_runtime.record_completed_turn(
+            self,
+            session=session,
+            history_len=history_len,
+            all_msgs=all_msgs,
+            usage=usage,
+        )
 
     def _prepare_system_turn(
         self,
@@ -464,15 +462,14 @@ class AgentLoop:
         message_id: str | None,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Prepare session history and prompt messages for a system-triggered turn."""
-        self._set_tool_context(channel, chat_id, message_id)
-        history = self.processor.get_recent_history(session)
-        messages = self.processor.build_messages(
+        return turn_runtime.prepare_system_turn(
+            self,
             session=session,
-            current_message=current_message,
             channel=channel,
             chat_id=chat_id,
+            current_message=current_message,
+            message_id=message_id,
         )
-        return history, messages
 
     async def _prepare_user_turn(
         self,
@@ -481,25 +478,16 @@ class AgentLoop:
         msg: InboundMessage,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Prepare session state and prompt messages for a user turn."""
-        await self.processor.schedule_consolidation(session)
-        self._set_tool_context(msg.channel, msg.chat_id, msg.metadata.get("message_id"))
-        if message_tool := self.tools.get("message"):
-            if isinstance(message_tool, MessageTool):
-                message_tool.start_turn()
-        history = self.processor.get_recent_history(session)
-        messages = self.processor.build_messages(
+        return await turn_runtime.prepare_user_turn(
+            self,
             session=session,
-            current_message=msg.content,
-            media=msg.media if msg.media else None,
-            channel=msg.channel,
-            chat_id=msg.chat_id,
+            msg=msg,
         )
-        return history, messages
 
     @staticmethod
     def _preview_message_content(content: str) -> str:
         """Build a short log preview for message content."""
-        return content[:80] + "..." if len(content) > 80 else content
+        return turn_runtime.preview_message_content(content)
 
     def _build_bus_progress_callback(
         self,
@@ -507,20 +495,7 @@ class AgentLoop:
         msg: InboundMessage,
     ) -> Callable[[str], Awaitable[None]]:
         """Create a progress publisher bound to the current inbound message."""
-        async def _bus_progress(content: str, *, tool_hint: bool = False) -> None:
-            meta = dict(msg.metadata or {})
-            meta["_progress"] = True
-            meta["_tool_hint"] = tool_hint
-            await self.bus.publish_outbound(
-                OutboundMessage(
-                    channel=msg.channel,
-                    chat_id=msg.chat_id,
-                    content=content,
-                    metadata=meta,
-                )
-            )
-
-        return _bus_progress
+        return turn_runtime.build_bus_progress_callback(self, msg=msg)
 
     async def _run_user_turn(
         self,
@@ -532,33 +507,14 @@ class AgentLoop:
         on_progress: Callable[[str], Awaitable[None]] | None = None,
     ) -> tuple[str | None, dict[str, Any]]:
         """Execute a normal user turn and return finalized content plus metadata."""
-        final_content, _, all_msgs, usage = await self._run_agent_loop(
-            initial_messages,
-            on_progress=on_progress or self._build_bus_progress_callback(msg=msg),
-        )
-        final_content = self._normalize_daily_opportunity_report(final_content)
-        final_content, explainability, external_skill_suggestions, report_path = self._finalize_response_content(
-            final_content,
-            all_msgs=all_msgs,
-            channel=msg.channel,
-            request_text=msg.content,
-            append_inline_explainability=(msg.channel == "cli"),
-            empty_fallback="I've completed processing but have no response to give.",
-        )
-        self._record_completed_turn(
+        return await turn_runtime.run_user_turn(
+            self,
+            msg=msg,
             session=session,
-            history_len=len(history),
-            all_msgs=all_msgs,
-            usage=usage,
+            history=history,
+            initial_messages=initial_messages,
+            on_progress=on_progress,
         )
-        metadata = self._build_response_metadata(
-            msg_metadata=msg.metadata,
-            usage=usage,
-            explainability=explainability,
-            external_skill_suggestions=external_skill_suggestions,
-            report_path=report_path,
-        )
-        return final_content, metadata
 
     async def _run_system_turn(
         self,
@@ -571,32 +527,14 @@ class AgentLoop:
         chat_id: str,
     ) -> OutboundMessage:
         """Execute a system-triggered turn and return the outbound response."""
-        final_content, _, all_msgs, usage = await self._run_agent_loop(messages)
-        final_content, explainability, external_skill_suggestions, report_path = self._finalize_response_content(
-            final_content,
-            all_msgs=all_msgs,
-            channel=channel,
-            request_text=msg.content,
-            append_inline_explainability=True,
-        )
-        self._record_completed_turn(
+        return await turn_runtime.run_system_turn(
+            self,
+            msg=msg,
             session=session,
-            history_len=len(history),
-            all_msgs=all_msgs,
-            usage=usage,
-        )
-        metadata = self._build_response_metadata(
-            msg_metadata=msg.metadata,
-            usage=usage,
-            explainability=explainability,
-            external_skill_suggestions=external_skill_suggestions,
-            report_path=report_path,
-        )
-        return OutboundMessage(
+            history=history,
+            messages=messages,
             channel=channel,
             chat_id=chat_id,
-            content=final_content or "Background task completed.",
-            metadata=metadata,
         )
 
     def _selected_skill_names(self) -> set[str]:
