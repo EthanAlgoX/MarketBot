@@ -55,6 +55,12 @@ from marketbot.cli.intel_runtime import (
     schedule_intel_job,
 )
 from marketbot.cli.runtime import build_agent_runtime, make_provider
+from marketbot.cli.status_runtime import (
+    build_status_payload,
+    format_browser_runtime_summary,
+    render_channels_status_table,
+    render_status,
+)
 from marketbot.config.schema import Config
 from marketbot.market_reporting import (
     default_market_report_path,
@@ -3197,91 +3203,7 @@ def channels_status():
     from marketbot.config.loader import load_config
 
     config = load_config()
-
-    table = Table(title="Channel Status")
-    table.add_column("Channel", style="cyan")
-    table.add_column("Enabled", style="green")
-    table.add_column("Configuration", style="yellow")
-
-    # WhatsApp
-    wa = config.channels.whatsapp
-    table.add_row(
-        "WhatsApp",
-        "✓" if wa.enabled else "✗",
-        wa.bridge_url
-    )
-
-    dc = config.channels.discord
-    table.add_row(
-        "Discord",
-        "✓" if dc.enabled else "✗",
-        dc.gateway_url
-    )
-
-    # Feishu
-    fs = config.channels.feishu
-    fs_config = f"app_id: {fs.app_id[:10]}..." if fs.app_id else "[dim]not configured[/dim]"
-    table.add_row(
-        "Feishu",
-        "✓" if fs.enabled else "✗",
-        fs_config
-    )
-
-    # Mochat
-    mc = config.channels.mochat
-    mc_base = mc.base_url or "[dim]not configured[/dim]"
-    table.add_row(
-        "Mochat",
-        "✓" if mc.enabled else "✗",
-        mc_base
-    )
-
-    # Telegram
-    tg = config.channels.telegram
-    tg_config = f"token: {tg.token[:10]}..." if tg.token else "[dim]not configured[/dim]"
-    table.add_row(
-        "Telegram",
-        "✓" if tg.enabled else "✗",
-        tg_config
-    )
-
-    # Slack
-    slack = config.channels.slack
-    slack_config = "socket" if slack.app_token and slack.bot_token else "[dim]not configured[/dim]"
-    table.add_row(
-        "Slack",
-        "✓" if slack.enabled else "✗",
-        slack_config
-    )
-
-    # DingTalk
-    dt = config.channels.dingtalk
-    dt_config = f"client_id: {dt.client_id[:10]}..." if dt.client_id else "[dim]not configured[/dim]"
-    table.add_row(
-        "DingTalk",
-        "✓" if dt.enabled else "✗",
-        dt_config
-    )
-
-    # QQ
-    qq = config.channels.qq
-    qq_config = f"app_id: {qq.app_id[:10]}..." if qq.app_id else "[dim]not configured[/dim]"
-    table.add_row(
-        "QQ",
-        "✓" if qq.enabled else "✗",
-        qq_config
-    )
-
-    # Email
-    em = config.channels.email
-    em_config = em.imap_host if em.imap_host else "[dim]not configured[/dim]"
-    table.add_row(
-        "Email",
-        "✓" if em.enabled else "✗",
-        em_config
-    )
-
-    console.print(table)
+    console.print(render_channels_status_table(config))
 
 
 def _get_bridge_dir() -> Path:
@@ -3381,156 +3303,23 @@ def status(
 
     config_path = get_config_path()
     config = load_config()
-    workspace = config.workspace_path
     payload = _build_status_payload(config, config_path)
 
     if json_output:
         console.print_json(data=payload)
         return
 
-    console.print(f"{__logo__} marketbot Status\n")
-
-    console.print(f"Config: {config_path} {'[green]✓[/green]' if config_path.exists() else '[red]✗[/red]'}")
-    console.print(f"Workspace: {workspace} {'[green]✓[/green]' if workspace.exists() else '[red]✗[/red]'}")
-
-    browser_cfg = config.tools.browser
-    browser_enabled = bool(browser_cfg.enabled)
-    browser_command = str(browser_cfg.command or "bb-browser").strip() or "bb-browser"
-    browser_binary = shutil.which(browser_command) if browser_enabled else None
-    browser_status = "[green]✓[/green]" if browser_enabled else "[dim]disabled[/dim]"
-    if browser_enabled and not browser_binary:
-        browser_status = "[yellow]! command not found[/yellow]"
-    console.print(f"Browser: {browser_status}")
-    if browser_enabled:
-        console.print(f"Browser mode: {browser_cfg.mode}")
-        console.print(f"Browser command: {browser_command}")
-        console.print("Browser eval: " + ("[red]enabled[/red]" if browser_cfg.allow_eval else "[dim]disabled[/dim]"))
-        console.print(
-            "Browser request capture: "
-            + ("[yellow]enabled[/yellow]" if browser_cfg.allow_request_capture else "[dim]disabled[/dim]")
-        )
-        console.print(
-            "Browser request bodies: "
-            + ("[red]enabled[/red]" if browser_cfg.allow_request_bodies else "[dim]disabled[/dim]")
-        )
-        if browser_cfg.allow_sites:
-            console.print(f"Browser allowSites: {', '.join(browser_cfg.allow_sites)}")
-        if browser_cfg.allow_adapters:
-            console.print(f"Browser allowAdapters: {', '.join(browser_cfg.allow_adapters)}")
-        if browser_cfg.allow_domains:
-            console.print(f"Browser allowDomains: {', '.join(browser_cfg.allow_domains)}")
-        if browser_cfg.allow_url_prefixes:
-            console.print(f"Browser allowUrlPrefixes: {', '.join(browser_cfg.allow_url_prefixes)}")
-
-    if config_path.exists():
-        from marketbot.providers.registry import PROVIDERS
-
-        console.print(f"Model: {config.agents.defaults.model}")
-
-        # Check API keys from registry
-        for spec in PROVIDERS:
-            p = getattr(config.providers, spec.name, None)
-            if p is None:
-                continue
-            if spec.is_oauth:
-                console.print(f"{spec.label}: [green]✓ (OAuth)[/green]")
-            elif spec.is_local:
-                # Local deployments show api_base instead of api_key
-                if p.api_base:
-                    console.print(f"{spec.label}: [green]✓ {p.api_base}[/green]")
-                else:
-                    console.print(f"{spec.label}: [dim]not set[/dim]")
-            else:
-                has_key = bool(p.api_key)
-                console.print(f"{spec.label}: {'[green]✓[/green]' if has_key else '[dim]not set[/dim]'}")
+    render_status(console, logo=__logo__, config=config, config_path=config_path)
 
 
 def _build_status_payload(config: Config, config_path: Path) -> dict[str, Any]:
     """Build machine-readable status payload for CLI and automation."""
-    workspace = config.workspace_path
-    browser_cfg = config.tools.browser
-    browser_enabled = bool(browser_cfg.enabled)
-    browser_command = str(browser_cfg.command or "bb-browser").strip() or "bb-browser"
-    browser_binary = shutil.which(browser_command) if browser_enabled else None
-
-    payload: dict[str, Any] = {
-        "config": {
-            "path": str(config_path),
-            "exists": config_path.exists(),
-        },
-        "workspace": {
-            "path": str(workspace),
-            "exists": workspace.exists(),
-        },
-        "agent": {
-            "model": config.agents.defaults.model,
-        },
-        "browser": {
-            "enabled": browser_enabled,
-            "mode": browser_cfg.mode,
-            "command": browser_command,
-            "commandFound": bool(browser_binary),
-            "allowEval": bool(browser_cfg.allow_eval),
-            "allowRequestCapture": bool(browser_cfg.allow_request_capture),
-            "allowRequestBodies": bool(browser_cfg.allow_request_bodies),
-            "allowSites": list(browser_cfg.allow_sites),
-            "allowAdapters": list(browser_cfg.allow_adapters),
-            "allowDomains": list(browser_cfg.allow_domains),
-            "allowUrlPrefixes": list(browser_cfg.allow_url_prefixes),
-        },
-        "providers": [],
-    }
-
-    from marketbot.providers.registry import PROVIDERS
-
-    providers: list[dict[str, Any]] = []
-    for spec in PROVIDERS:
-        p = getattr(config.providers, spec.name, None)
-        if p is None:
-            continue
-        entry: dict[str, Any] = {
-            "name": spec.name,
-            "label": spec.label,
-            "type": "oauth" if spec.is_oauth else "local" if spec.is_local else "api",
-            "configured": False,
-        }
-        if spec.is_oauth:
-            entry["configured"] = True
-        elif spec.is_local:
-            entry["configured"] = bool(p.api_base)
-            if p.api_base:
-                entry["apiBase"] = p.api_base
-        else:
-            entry["configured"] = bool(p.api_key)
-        providers.append(entry)
-    payload["providers"] = providers
-
-    return payload
+    return build_status_payload(config, config_path)
 
 
 def _format_browser_runtime_summary(config: Config) -> str:
     """Render a compact browser safety summary for startup logs."""
-    browser = _build_status_payload(config, Path("."))["browser"]
-    if not browser["enabled"]:
-        return "Browser: disabled"
-
-    bits = [
-        f"mode={browser['mode']}",
-        f"command={browser['command']}",
-        f"command_found={'yes' if browser['commandFound'] else 'no'}",
-        f"eval={'on' if browser['allowEval'] else 'off'}",
-        f"request_capture={'on' if browser['allowRequestCapture'] else 'off'}",
-        f"request_bodies={'on' if browser['allowRequestBodies'] else 'off'}",
-    ]
-    if browser["allowSites"]:
-        bits.append(f"sites={len(browser['allowSites'])}")
-    if browser["allowAdapters"]:
-        bits.append(f"adapters={len(browser['allowAdapters'])}")
-    if browser["allowDomains"]:
-        bits.append(f"domains={len(browser['allowDomains'])}")
-    if browser["allowUrlPrefixes"]:
-        bits.append(f"url_prefixes={len(browser['allowUrlPrefixes'])}")
-    return "Browser: " + " | ".join(bits)
+    return format_browser_runtime_summary(config)
 
 
 # ============================================================================

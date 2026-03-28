@@ -1,0 +1,42 @@
+from pathlib import Path
+
+from rich.console import Console
+
+from marketbot.cli.status_runtime import build_status_payload, render_channels_status_table
+from marketbot.config.schema import Config
+
+
+def test_build_status_payload_reports_browser_and_provider_configuration(tmp_path) -> None:
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    config.agents.defaults.model = "openrouter/openai/gpt-4.1-mini"
+    config.tools.browser.enabled = True
+    config.tools.browser.command = "bb-browser"
+    config.providers.openrouter.api_key = "sk-test"
+
+    payload = build_status_payload(config, tmp_path / "config.json")
+
+    assert payload["workspace"]["path"] == str(tmp_path)
+    assert payload["agent"]["model"] == "openrouter/openai/gpt-4.1-mini"
+    assert payload["browser"]["enabled"] is True
+    assert payload["browser"]["command"] == "bb-browser"
+    assert any(p["name"] == "openrouter" and p["configured"] is True for p in payload["providers"])
+
+
+def test_render_channels_status_table_contains_enabled_and_masked_values() -> None:
+    config = Config()
+    config.channels.telegram.enabled = True
+    config.channels.telegram.token = "1234567890abcdef"
+    config.channels.feishu.app_id = "cli_app_id_123456"
+
+    table = render_channels_status_table(config)
+    console = Console(record=True, width=120)
+    console.print(table)
+    rendered = console.export_text()
+
+    assert "Channel Status" in rendered
+    assert "Configuration" in rendered
+    assert "Telegram" in rendered
+    assert "token: 1234567890" in rendered
+    assert "Feishu" in rendered
+    assert "app_id: cli_app_id" in rendered
