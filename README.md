@@ -180,8 +180,9 @@ marketbot onboard
 
 - `allowWrite: false` 时只允许查询类操作，默认阻止发消息、创建文档、写表格、改任务
 - `allowAuth: false` 时禁止 agent 触发 `lark-cli auth ...`
-- 启用后，agent 会获得 `lark_cli`、`lark_im`、`lark_doc`、`lark_sheets`、`lark_task` 这些工具
+- 启用后，agent 会获得 `lark_cli`、`lark_im`、`lark_doc`、`lark_sheets`、`lark_task`、`lark_base` 这些工具
 - 这层集成补的是飞书办公能力，不替代现有 `channels.feishu` 消息通道
+- 下面有单独的 `Lark CLI 集成` 章节，包含安装、授权、`marketbot status` 校验和使用示例
 
 ### 4. 直接开始用
 
@@ -456,6 +457,229 @@ marketbot skills --help
 - `allowDomains` / `allowUrlPrefixes` 用来约束 `browser_page(open)` 和 `browser_network(fetch)`
 - `allowEval` 默认建议关闭，只有明确需要页面脚本求值时再打开
 - `allowRequestCapture` 与 `allowRequestBodies` 默认建议关闭
+
+## Lark CLI 集成
+
+如果你希望 agent 直接读取或操作飞书/Lark 的消息、文档、表格、任务、多维表格，可以把本地 [`lark-cli`](https://github.com/larksuite/cli) 接到 MarketBot。当前推荐方式是：
+
+1. 先在本机把 `lark-cli` 配好并确认单独可用
+2. 再把它挂到 `tools.larkCli`
+3. 最后用 `marketbot status` 和一条真实 agent 请求验证
+
+这条集成的定位是“飞书办公执行层”，不替代 `channels.feishu` 的消息收发通道。
+
+### 1. 安装 `lark-cli`
+
+先确认本机有可执行的 `lark-cli` 命令。你可以自行选择安装方式，但对 MarketBot 来说最重要的是两点：
+
+- `marketbot` 运行时必须能找到这个命令
+- 最好把 `command` 配成绝对路径，避免 PATH 差异
+
+例如：
+
+```json
+{
+  "tools": {
+    "larkCli": {
+      "enabled": true,
+      "command": "/absolute/path/to/lark-cli",
+      "timeoutS": 45,
+      "configDir": "~/.lark-cli",
+      "allowWrite": false,
+      "allowAuth": false
+    }
+  }
+}
+```
+
+建议：
+
+- `command` 优先写绝对路径，不要依赖 shell PATH
+- `configDir` 推荐显式指定，例如 `~/.lark-cli`
+- 初次接入时先保持 `allowWrite=false`
+- 初次接入时先保持 `allowAuth=false`
+
+### 2. 初始化 `lark-cli`
+
+先单独完成 CLI 初始化和登录，不要一开始就让 agent 代替你走授权流程。
+
+```bash
+lark-cli config init --new
+lark-cli auth login
+```
+
+说明：
+
+- `config init --new` 会创建 `~/.lark-cli/config.json` 一类的本地配置
+- `auth login` 通常会进入浏览器或 device-code 授权流程
+- macOS 上如果 CLI 使用系统钥匙串，终端里可能会弹出 Keychain 访问确认
+
+完成后先做最小自检：
+
+```bash
+lark-cli auth status
+lark-cli doctor
+lark-cli contact +get-user
+```
+
+如果这三条都正常，再接 MarketBot。
+
+### 3. 配置 MarketBot
+
+在 `~/.marketbot/config.json` 中加入：
+
+```json
+{
+  "tools": {
+    "larkCli": {
+      "enabled": true,
+      "command": "/absolute/path/to/lark-cli",
+      "timeoutS": 45,
+      "configDir": "~/.lark-cli",
+      "allowWrite": false,
+      "allowAuth": false
+    }
+  }
+}
+```
+
+字段说明：
+
+- `enabled`: 是否启用 `lark-cli` 工具层
+- `command`: `lark-cli` 可执行文件路径；推荐绝对路径
+- `timeoutS`: 单次命令超时，默认 `45`
+- `configDir`: `lark-cli` 配置目录；如果 CLI 已经在别处初始化，要和真实目录保持一致
+- `allowWrite`: 是否允许写操作；关闭时会阻止发消息、建文档、写表格、改任务等
+- `allowAuth`: 是否允许 agent 触发 `auth` 流程；通常建议关闭
+
+### 4. 用 `marketbot status` 验证接入
+
+配置后先不要直接问复杂问题，先看运行态：
+
+```bash
+marketbot status
+```
+
+你应该能在输出里看到类似信息：
+
+- `Lark CLI: ✓`
+- `Lark CLI command: /absolute/path/to/lark-cli`
+- `Lark CLI configDir: ~/.lark-cli`
+- `Lark CLI writes: disabled`
+- `Lark CLI auth: disabled`
+
+如果看到 `command not found`，优先检查：
+
+- `tools.larkCli.command` 是否写成了错误路径
+- 该路径下的 `lark-cli` 是否有执行权限
+- 你配置的 `configDir` 是否真的是 CLI 在使用的目录
+
+### 5. Agent 会获得哪些工具
+
+启用后，运行时会注册这些工具：
+
+- `lark_cli`: 通用兜底入口，适合少量结构化工具暂未覆盖的只读查询
+- `lark_im`: 飞书消息、群聊搜索与读取
+- `lark_doc`: 飞书文档搜索与读取
+- `lark_sheets`: 普通电子表格读取
+- `lark_task`: 任务读取与更新
+- `lark_base`: 多维表格 / Base / Bitable 的表、字段、记录读取
+
+建议：
+
+- 优先让 agent 使用 `lark_im`、`lark_doc`、`lark_sheets`、`lark_task`、`lark_base`
+- `lark_cli` 只作为兜底
+- 如果资源本质上是多维表格，不要走 `lark_sheets`，而要走 `lark_base`
+
+### 6. 支持的典型场景
+
+当前比较稳定的只读链路包括：
+
+- 搜索飞书文档
+- 搜索群聊和消息
+- 读取普通电子表格
+- 读取我的任务
+- 读取多维表格的表名、字段、记录
+
+在 Base/Bitable 场景下，当前已支持：
+
+- `table_list`
+- `field_list`
+- `record_list`
+- `record_get`
+- `record_list` 指定 `fields`
+- `record_list` 按 `field_filters` 做简单过滤或 DSL 过滤
+- `table_name -> table_id` 自动解析
+
+### 7. 示例请求
+
+先验证 CLI 自身：
+
+```bash
+lark-cli docs +search --query 市场 --format json
+lark-cli im +chat-search --query 市场 --format json
+lark-cli base +table-list --base-token YOUR_BASE_TOKEN --format json
+```
+
+再验证 MarketBot：
+
+```bash
+marketbot agent -m "帮我搜索飞书里标题包含市场的文档，只返回前 3 条。"
+marketbot agent -m "查一下飞书里和市场相关的群聊。"
+marketbot agent -m "列出飞书 Base XdkhbJehDazQKtscNpLchLXSnac 的所有表名。"
+marketbot agent -m "读取飞书 Base XdkhbJehDazQKtscNpLchLXSnac 中名为需求调研的表，返回前 2 条记录的 编号、AI 情感打标、您的年龄范围？ 三列。"
+marketbot agent -m "读取飞书 Base XdkhbJehDazQKtscNpLchLXSnac 中名为需求调研的表，只返回 AI 情感打标 为 负向 的记录。"
+```
+
+### 8. Base / Bitable 使用建议
+
+飞书里“普通电子表格”和“多维表格”是两套资源，不要混用：
+
+- 普通电子表格：走 `lark_sheets`
+- 多维表格 / Base / Bitable：走 `lark_base`
+
+如果你已经知道 `base_token`，现在可以直接按表名读取，不一定要先手动查 `table_id`。如果表名有歧义，工具会返回结构化候选表名，方便 agent 继续澄清。
+
+### 9. 安全边界
+
+默认安全策略是偏保守的：
+
+- 默认禁用写操作
+- 默认禁用 `auth`
+- 阻止长时间运行的事件订阅类命令
+- 阻止直接输出到本地文件的危险参数
+- 对明确的飞书办公请求，运行时会优先使用结构化 `lark_*` 工具，而不是回退到 `exec`
+
+如果你确实要让 agent 写飞书内容，再显式打开：
+
+```json
+{
+  "tools": {
+    "larkCli": {
+      "allowWrite": true
+    }
+  }
+}
+```
+
+建议只在受控环境里打开，并先验证最小操作范围。
+
+### 10. 常见问题
+
+- `marketbot status` 里显示 `Lark CLI: disabled`
+  原因：`tools.larkCli.enabled` 没开。
+
+- `marketbot status` 里显示 `command not found`
+  原因：`command` 路径错误，或者 CLI 不在 PATH。
+
+- `lark-cli auth status` 在某些受限运行环境里报错
+  原因：CLI 可能依赖本机钥匙串或系统凭据；先在你自己的终端确认 CLI 单独可用。
+
+- 文档或表格能在飞书里打开，但工具返回权限错误
+  原因：通常是缺 scope。先给 `lark-cli` 补对应权限，再回来验证 MarketBot。
+
+- 一个资源看起来像表格，但 `lark_sheets` 读不出来
+  原因：它可能其实是 Bitable；改走 `lark_base`。
 
 ## Xiaohongshu CLI 集成
 

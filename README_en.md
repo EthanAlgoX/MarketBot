@@ -154,6 +154,31 @@ Notes:
 - `macroSource: fred` requires a FRED API key; without one, the system should degrade explicitly
 - `explainabilityMode` controls whether capability and reliability notes are attached
 
+Optional: if you want the agent to work directly with Feishu/Lark messages, docs, sheets, tasks, and Base/Bitable data, enable the local `lark-cli` tool layer:
+
+```json
+{
+  "tools": {
+    "larkCli": {
+      "enabled": true,
+      "command": "lark-cli",
+      "timeoutS": 45,
+      "configDir": "~/.lark-cli",
+      "allowWrite": false,
+      "allowAuth": false
+    }
+  }
+}
+```
+
+Notes:
+
+- `allowWrite: false` keeps the integration read-only by default
+- `allowAuth: false` prevents the agent from triggering `lark-cli auth ...`
+- enabling this registers `lark_cli`, `lark_im`, `lark_doc`, `lark_sheets`, `lark_task`, and `lark_base`
+- this augments office-automation workflows and does not replace the existing `channels.feishu` message channel
+- a dedicated `Lark CLI Integration` section below covers install, auth, validation, and examples
+
 ### 4. Start using it
 
 The 4 commands most people need first:
@@ -373,6 +398,230 @@ Key points:
 - `allowDomains` / `allowUrlPrefixes` bound `browser_page(open)` and `browser_network(fetch)`
 - `allowEval` should stay off unless page-side script evaluation is explicitly needed
 - `allowRequestCapture` and `allowRequestBodies` should stay off unless explicitly needed
+
+## Lark CLI Integration
+
+If you want the agent to read or operate on Feishu/Lark messages, docs, spreadsheets, tasks, or Base/Bitable resources, you can wire local [`lark-cli`](https://github.com/larksuite/cli) into MarketBot. The recommended flow is:
+
+1. install and verify `lark-cli` locally
+2. complete CLI config and login outside MarketBot
+3. enable `tools.larkCli`
+4. validate with `marketbot status` and one real agent request
+
+This integration is the office-execution layer. It does not replace `channels.feishu`, which remains the inbound/outbound chat channel integration.
+
+### 1. Install `lark-cli`
+
+Make sure the machine running MarketBot has a working `lark-cli` binary. The exact install method is up to you; what matters to MarketBot is:
+
+- the runtime can execute the command
+- `tools.larkCli.command` should ideally point to an absolute path
+
+Example:
+
+```json
+{
+  "tools": {
+    "larkCli": {
+      "enabled": true,
+      "command": "/absolute/path/to/lark-cli",
+      "timeoutS": 45,
+      "configDir": "~/.lark-cli",
+      "allowWrite": false,
+      "allowAuth": false
+    }
+  }
+}
+```
+
+Recommended defaults:
+
+- use an absolute `command` path instead of relying on shell PATH
+- set `configDir` explicitly, for example `~/.lark-cli`
+- keep `allowWrite=false` during initial rollout
+- keep `allowAuth=false` during initial rollout
+
+### 2. Initialize and log in
+
+Complete the CLI setup first instead of asking the agent to drive the auth flow:
+
+```bash
+lark-cli config init --new
+lark-cli auth login
+```
+
+Notes:
+
+- `config init --new` creates the local CLI config, typically under `~/.lark-cli/`
+- `auth login` usually opens a browser or device-code authorization flow
+- on macOS, the CLI may rely on Keychain access
+
+Then run a minimal self-check:
+
+```bash
+lark-cli auth status
+lark-cli doctor
+lark-cli contact +get-user
+```
+
+If those work, MarketBot can usually use the same CLI context.
+
+### 3. Configure MarketBot
+
+Add this to `~/.marketbot/config.json`:
+
+```json
+{
+  "tools": {
+    "larkCli": {
+      "enabled": true,
+      "command": "/absolute/path/to/lark-cli",
+      "timeoutS": 45,
+      "configDir": "~/.lark-cli",
+      "allowWrite": false,
+      "allowAuth": false
+    }
+  }
+}
+```
+
+Field reference:
+
+- `enabled`: enables the `lark-cli` tool layer
+- `command`: executable path to `lark-cli`; absolute path is preferred
+- `timeoutS`: per-command timeout, default `45`
+- `configDir`: CLI config directory; it must match the real directory used by `lark-cli`
+- `allowWrite`: enables write operations such as sending messages, creating docs, or writing sheets
+- `allowAuth`: allows the agent to invoke `auth` commands; usually leave this off
+
+### 4. Validate with `marketbot status`
+
+Before asking a complex question, check runtime visibility:
+
+```bash
+marketbot status
+```
+
+You should see lines like:
+
+- `Lark CLI: ✓`
+- `Lark CLI command: /absolute/path/to/lark-cli`
+- `Lark CLI configDir: ~/.lark-cli`
+- `Lark CLI writes: disabled`
+- `Lark CLI auth: disabled`
+
+If you see `command not found`, check:
+
+- whether `tools.larkCli.command` points to the correct binary
+- whether that binary is executable
+- whether `configDir` matches the actual CLI config location
+
+### 5. What tools the agent gets
+
+When enabled, the runtime registers:
+
+- `lark_cli`: generic fallback entry point for structured read-only queries not yet covered by specialized tools
+- `lark_im`: chat and message search/read workflows
+- `lark_doc`: document search and reads
+- `lark_sheets`: normal spreadsheet reads
+- `lark_task`: task reads and updates
+- `lark_base`: Base/Bitable table, field, and record reads
+
+Recommendation:
+
+- prefer `lark_im`, `lark_doc`, `lark_sheets`, `lark_task`, and `lark_base`
+- keep `lark_cli` as a fallback
+- if the resource is really a Bitable/Base object, use `lark_base`, not `lark_sheets`
+
+### 6. Stable use cases
+
+The most stable read paths right now are:
+
+- document search
+- chat and message search
+- normal spreadsheet reads
+- task reads
+- Base/Bitable table, field, and record reads
+
+For Base/Bitable, the current integration supports:
+
+- `table_list`
+- `field_list`
+- `record_list`
+- `record_get`
+- `record_list` with selected `fields`
+- `record_list` with `field_filters` using either a simple dictionary or a small DSL
+- automatic `table_name -> table_id` resolution
+
+### 7. Example commands
+
+Validate the CLI itself first:
+
+```bash
+lark-cli docs +search --query market --format json
+lark-cli im +chat-search --query market --format json
+lark-cli base +table-list --base-token YOUR_BASE_TOKEN --format json
+```
+
+Then validate through MarketBot:
+
+```bash
+marketbot agent -m "Search Feishu docs for titles related to market and return only the top 3."
+marketbot agent -m "Find Feishu chats related to market."
+marketbot agent -m "List all table names in Feishu Base XdkhbJehDazQKtscNpLchLXSnac."
+marketbot agent -m "Read the table named 需求调研 in Feishu Base XdkhbJehDazQKtscNpLchLXSnac and return the first 2 records with only 编号, AI 情感打标, and 您的年龄范围？."
+marketbot agent -m "Read the table named 需求调研 in Feishu Base XdkhbJehDazQKtscNpLchLXSnac and return only records where AI 情感打标 is 负向."
+```
+
+### 8. Base / Bitable guidance
+
+Feishu spreadsheets and Feishu Base/Bitable are different resource types. Do not treat them as interchangeable:
+
+- normal spreadsheets: use `lark_sheets`
+- Base / Bitable resources: use `lark_base`
+
+If you already know the `base_token`, you can now read by `table_name` directly instead of manually resolving `table_id` first. If the table name is ambiguous, the tool returns structured candidate names.
+
+### 9. Safety boundaries
+
+The default posture is intentionally conservative:
+
+- write operations are disabled by default
+- auth flows are disabled by default
+- long-running event subscriptions are blocked
+- file-output style flags are blocked
+- for explicit Feishu/Lark office requests, the runtime prefers structured `lark_*` tools over shell `exec`
+
+If you do need write access, enable it explicitly:
+
+```json
+{
+  "tools": {
+    "larkCli": {
+      "allowWrite": true
+    }
+  }
+}
+```
+
+Only do this in a controlled environment.
+
+### 10. Common issues
+
+- `marketbot status` shows `Lark CLI: disabled`
+  Cause: `tools.larkCli.enabled` is still off.
+
+- `marketbot status` shows `command not found`
+  Cause: the configured binary path is wrong, or the command is not on PATH.
+
+- `lark-cli auth status` fails in a restricted environment
+  Cause: the CLI may depend on local Keychain or system credential access. Verify it in your normal terminal first.
+
+- docs or sheets open fine in Feishu but tool calls return permission errors
+  Cause: missing scopes. Fix the `lark-cli` authorization scopes first, then retry MarketBot.
+
+- a resource looks like a sheet but `lark_sheets` cannot read it
+  Cause: it may actually be a Bitable/Base resource. Use `lark_base`.
 
 ## Xiaohongshu CLI Integration
 
