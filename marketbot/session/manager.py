@@ -236,3 +236,15 @@ class SessionManager:
                 continue
 
         return sorted(sessions, key=lambda x: x.get("updated_at", ""), reverse=True)
+
+    def stats(self) -> dict[str, Any]:
+        """Return lightweight observability stats for session storage and cache."""
+        session_files = list(self.sessions_dir.glob("*.jsonl"))
+        cached_sessions = list(self._cache.values())
+        cached_messages = sum(len(session.messages) for session in cached_sessions)
+        return {
+            "workspacePath": str(self.sessions_dir),
+            "storedSessions": len(session_files),
+            "cachedSessions": len(cached_sessions),
+            "cachedMessages": cached_messages,
+        }

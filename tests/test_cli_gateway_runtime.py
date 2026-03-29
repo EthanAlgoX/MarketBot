@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 
 from marketbot.cli.gateway_runtime import (
-    build_bus_delivery_metadata,
+    build_runtime_delivery_metadata,
     create_heartbeat_notify_handler,
     format_bus_runtime_summary,
     pick_heartbeat_target,
@@ -64,6 +64,7 @@ def test_create_heartbeat_notify_handler_publishes_market_report_summary(tmp_pat
             "timezone": "America/New_York",
             "report_path": str(report_path),
         },
+        session_manager=None,
         pick_target=lambda: ("telegram", "chat-1"),
         render_market_report_notification=lambda *args, **kwargs: "summary body",
     )
@@ -94,9 +95,15 @@ def test_create_heartbeat_notify_handler_attaches_bus_stats_for_plain_messages()
                 "outbound": {"size": 1, "maxsize": 10, "published": 2, "publish_wait_s": 0.2},
             }
 
+    class _Sessions:
+        @staticmethod
+        def stats():
+            return {"storedSessions": 2, "cachedSessions": 1, "cachedMessages": 5}
+
     handler = create_heartbeat_notify_handler(
         bus=_Bus(),
         heartbeat_delivery={},
+        session_manager=_Sessions(),
         pick_target=lambda: ("telegram", "chat-1"),
         render_market_report_notification=lambda *args, **kwargs: "unused",
     )
@@ -106,6 +113,7 @@ def test_create_heartbeat_notify_handler_attaches_bus_stats_for_plain_messages()
     assert len(published) == 1
     assert published[0].content == "plain response"
     assert published[0].metadata["bus"]["outbound"]["published"] == 2
+    assert published[0].metadata["sessions"]["storedSessions"] == 2
 
 
 def test_run_gateway_services_stops_everything_cleanly() -> None:
@@ -189,5 +197,5 @@ def test_format_bus_runtime_summary_handles_missing_stats() -> None:
     assert format_bus_runtime_summary(None) == "Bus: unavailable"
 
 
-def test_build_bus_delivery_metadata_handles_missing_stats() -> None:
-    assert build_bus_delivery_metadata(None) == {}
+def test_build_runtime_delivery_metadata_handles_missing_stats() -> None:
+    assert build_runtime_delivery_metadata() == {}

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from rich.table import Table
-from marketbot.runtime.diagnostics import collect_bus_diagnostics
+from marketbot.runtime.diagnostics import collect_runtime_diagnostics
 
 
 def render_channels_status_table(config: Any) -> Table:
@@ -53,7 +53,13 @@ def render_channels_status_table(config: Any) -> Table:
     return table
 
 
-def build_status_payload(config: Any, config_path: Path, *, bus: Any | None = None) -> dict[str, Any]:
+def build_status_payload(
+    config: Any,
+    config_path: Path,
+    *,
+    bus: Any | None = None,
+    session_manager: Any | None = None,
+) -> dict[str, Any]:
     """Build machine-readable status payload for CLI and automation."""
     workspace = config.workspace_path
     browser_cfg = config.tools.browser
@@ -88,7 +94,7 @@ def build_status_payload(config: Any, config_path: Path, *, bus: Any | None = No
         },
         "providers": [],
     }
-    payload.update(collect_bus_diagnostics(bus))
+    payload.update(collect_runtime_diagnostics(bus=bus, session_manager=session_manager))
 
     from marketbot.providers.registry import PROVIDERS
 
@@ -142,9 +148,17 @@ def format_browser_runtime_summary(config: Any) -> str:
     return "Browser: " + " | ".join(bits)
 
 
-def render_status(console: Any, *, logo: str, config: Any, config_path: Path, bus: Any | None = None) -> None:
+def render_status(
+    console: Any,
+    *,
+    logo: str,
+    config: Any,
+    config_path: Path,
+    bus: Any | None = None,
+    session_manager: Any | None = None,
+) -> None:
     """Render the human-readable status command output."""
-    payload = build_status_payload(config, config_path, bus=bus)
+    payload = build_status_payload(config, config_path, bus=bus, session_manager=session_manager)
     workspace = config.workspace_path
     browser = payload["browser"]
 
@@ -202,4 +216,12 @@ def render_status(console: Any, *, logo: str, config: Any, config_path: Path, bu
             "Queue outbound: "
             + f"{outbound['size']}/{outbound['maxsize']} "
             + f"(published={outbound['published']}, wait={outbound['publish_wait_s']:.3f}s)"
+        )
+    if payload.get("sessions"):
+        sessions = payload["sessions"]
+        console.print(
+            "Sessions: "
+            + f"stored={sessions['storedSessions']} "
+            + f"cached={sessions['cachedSessions']} "
+            + f"cached_messages={sessions['cachedMessages']}"
         )

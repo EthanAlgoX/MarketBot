@@ -109,3 +109,16 @@ def test_session_manager_compacts_after_many_metadata_appends(tmp_path: Path) ->
 
     assert len(metadata_lines) == 1
     assert metadata_lines[0]["metadata"]["tick"] == 7
+
+
+def test_session_manager_stats_reports_stored_and_cached_counts(tmp_path: Path) -> None:
+    manager = SessionManager(tmp_path)
+    session = Session(key="telegram:stats")
+    session.add_message("user", "hi")
+    manager.save(session)
+
+    stats = manager.stats()
+
+    assert stats["storedSessions"] == 1
+    assert stats["cachedSessions"] == 1
+    assert stats["cachedMessages"] == 1

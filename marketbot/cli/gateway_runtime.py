@@ -7,12 +7,12 @@ import json
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from marketbot.runtime.diagnostics import collect_bus_diagnostics, format_bus_runtime_summary
+from marketbot.runtime.diagnostics import collect_runtime_diagnostics, format_bus_runtime_summary
 
 
-def build_bus_delivery_metadata(bus: Any) -> dict[str, Any]:
-    """Build outbound metadata carrying queue/runtime stats when available."""
-    return collect_bus_diagnostics(bus)
+def build_runtime_delivery_metadata(*, bus: Any = None, session_manager: Any = None) -> dict[str, Any]:
+    """Build outbound metadata carrying shared runtime diagnostics when available."""
+    return collect_runtime_diagnostics(bus=bus, session_manager=session_manager)
 
 
 def pick_heartbeat_target(*, channels: Any, session_manager: Any) -> tuple[str, str]:
@@ -199,6 +199,7 @@ def create_heartbeat_notify_handler(
     *,
     bus: Any,
     heartbeat_delivery: dict[str, object],
+    session_manager: Any | None,
     pick_target: Callable[[], tuple[str, str]],
     render_market_report_notification: Callable[..., str],
 ):
@@ -232,7 +233,7 @@ def create_heartbeat_notify_handler(
                     media=[str(report_path)] if report_path.is_file() else [],
                     metadata={
                         "market_report": {"session": session, "path": str(report_path)},
-                        **build_bus_delivery_metadata(bus),
+                        **build_runtime_delivery_metadata(bus=bus, session_manager=session_manager),
                     },
                 )
             )
@@ -243,7 +244,7 @@ def create_heartbeat_notify_handler(
                 channel=channel,
                 chat_id=chat_id,
                 content=response,
-                metadata=build_bus_delivery_metadata(bus),
+                metadata=build_runtime_delivery_metadata(bus=bus, session_manager=session_manager),
             )
         )
 

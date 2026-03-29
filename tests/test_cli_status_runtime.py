@@ -56,3 +56,18 @@ async def test_build_status_payload_includes_bus_stats(tmp_path) -> None:
     assert payload["bus"]["inbound"]["size"] == 1
     assert payload["bus"]["inbound"]["maxsize"] == 2
     assert payload["bus"]["outbound"]["maxsize"] == 3
+
+
+def test_build_status_payload_includes_session_stats(tmp_path) -> None:
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+
+    class _Sessions:
+        @staticmethod
+        def stats():
+            return {"storedSessions": 2, "cachedSessions": 1, "cachedMessages": 5}
+
+    payload = build_status_payload(config, tmp_path / "config.json", session_manager=_Sessions())
+
+    assert payload["sessions"]["storedSessions"] == 2
+    assert payload["sessions"]["cachedMessages"] == 5

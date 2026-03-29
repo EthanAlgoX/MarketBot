@@ -1347,6 +1347,7 @@ def gateway(
     on_heartbeat_notify = create_heartbeat_notify_handler(
         bus=bus,
         heartbeat_delivery=heartbeat_delivery,
+        session_manager=session_manager,
         pick_target=_pick_heartbeat_target,
         render_market_report_notification=render_market_report_notification,
     )
@@ -2049,18 +2050,27 @@ def status(
 
     config_path = get_config_path()
     config = load_config()
-    payload = _build_status_payload(config, config_path)
+    from marketbot.session.manager import SessionManager
+
+    session_manager = SessionManager(config.workspace_path)
+    payload = _build_status_payload(config, config_path, session_manager=session_manager)
 
     if json_output:
         console.print_json(data=payload)
         return
 
-    render_status(console, logo=__logo__, config=config, config_path=config_path)
+    render_status(console, logo=__logo__, config=config, config_path=config_path, session_manager=session_manager)
 
 
-def _build_status_payload(config: Config, config_path: Path) -> dict[str, Any]:
+def _build_status_payload(
+    config: Config,
+    config_path: Path,
+    *,
+    bus: Any | None = None,
+    session_manager: Any | None = None,
+) -> dict[str, Any]:
     """Build machine-readable status payload for CLI and automation."""
-    return build_status_payload(config, config_path)
+    return build_status_payload(config, config_path, bus=bus, session_manager=session_manager)
 
 
 def _format_browser_runtime_summary(config: Config) -> str:
