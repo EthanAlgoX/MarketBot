@@ -1,10 +1,9 @@
 """Context builder for assembling agent prompts."""
 
-import platform
 from pathlib import Path
 from typing import Any
 
-from marketbot.agent import context_messages, context_skills
+from marketbot.agent import context_messages, context_prompt, context_skills
 from marketbot.agent.memory import MemoryStore
 from marketbot.agent.skills import SkillsLoader
 from marketbot.market_routing import classify_market_request
@@ -88,150 +87,27 @@ class ContextBuilder:
         active_skill_char_budget: int | None = 400,
     ) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
-        parts = [self._get_identity()]
-
-        bootstrap = self._load_bootstrap_files()
-        if bootstrap:
-            parts.append(bootstrap)
-
-        memory = self.memory.get_context(layer=self.memory_layer) if include_memory else ""
-        if memory:
-            layer_label = {"L0": "Abstract", "L1": "Overview", "L2": "Details"}.get(self.memory_layer, "Details")
-            parts.append(f"# Memory ({layer_label})\n\n{memory}")
-
-        if include_market_playbook:
-            parts.append(self._market_analysis_playbook())
-
-        selected_skills = self._normalize_skill_names(skill_names)
-        if selected_skills:
-            selected_content = self.skills.load_skills_for_context(
-                selected_skills,
-                max_chars_per_skill=selected_skill_char_budget,
-            )
-            if selected_content:
-                parts.append(f"# Selected Skills\n\n{selected_content}")
-
-        intel_scheduler_note = self._format_intel_scheduler_note(
+        return context_prompt.build_system_prompt(
+            self,
+            skill_names,
             current_message=current_message,
-            selected_skills=selected_skills,
+            skill_diagnostics=skill_diagnostics,
+            external_skill_suggestions=external_skill_suggestions,
+            include_market_playbook=include_market_playbook,
+            include_memory=include_memory,
+            include_skills_summary=include_skills_summary,
+            selected_skill_char_budget=selected_skill_char_budget,
+            active_skill_char_budget=active_skill_char_budget,
         )
-        if intel_scheduler_note:
-            parts.append(intel_scheduler_note)
-
-        diagnostics_block = self._format_skill_diagnostics(skill_diagnostics)
-        if diagnostics_block:
-            parts.append(diagnostics_block)
-
-        external_suggestions_block = self._format_external_skill_suggestions(external_skill_suggestions)
-        if external_suggestions_block:
-            parts.append(external_suggestions_block)
-
-        always_skills = self.skills.get_always_skills()
-        if always_skills:
-            always_content = self.skills.load_skills_for_context(
-                always_skills,
-                max_chars_per_skill=active_skill_char_budget,
-            )
-            if always_content:
-                parts.append(f"# Active Skills\n\n{always_content}")
-
-        browser_catalog = self._format_browser_adapter_catalog()
-        if browser_catalog:
-            parts.append(browser_catalog)
-
-        skills_summary = (
-            self.skills.build_skills_summary(
-                available_tools=self.available_tools,
-                browser_adapter_catalog=self.browser_adapter_catalog,
-            )
-            if include_skills_summary
-            else ""
-        )
-        if skills_summary:
-            parts.append(f"""# Skills
-
-The following skills extend your capabilities. To use a skill, read its SKILL.md file using the read_file tool.
-Skills with available="false" need dependencies installed first - you can try installing them with apt/brew.
-If a skill already appears under `# Selected Skills` or `# Active Skills`, use that inlined content first and only read the file path if you need more detail.
-
-{skills_summary}""")
-
-        return "\n\n---\n\n".join(parts)
 
     def _get_identity(self) -> str:
         """Get the core identity section."""
-        workspace_path = str(self.workspace.expanduser().resolve())
-        system = platform.system()
-        runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"
-
-        return f"""# marketbot 🐂
-
-You are marketbot, a helpful AI assistant.
-
-## Runtime
-{runtime}
-
-## Workspace
-Your workspace is at: {workspace_path}
-- Long-term memory: {workspace_path}/memory/MEMORY.md (write important facts here)
-- History log: {workspace_path}/memory/HISTORY.md (grep-searchable). Each entry starts with [YYYY-MM-DD HH:MM].
-- Custom skills: {workspace_path}/skills/{{skill-name}}/SKILL.md
-- Built-in skills: {workspace_path}/marketbot/skills/{{skill-name}}/SKILL.md
-
-## marketbot Guidelines
-- State intent before tool calls, but NEVER predict or claim results before receiving them.
-- When multiple independent read-only tools are needed, batch them into the same assistant turn instead of calling one tool per turn.
-- Before modifying a file, read it first. Do not assume files or directories exist.
-- After writing or editing a file, re-read it if accuracy matters.
-- If a tool call fails, analyze the error before retrying with a different approach.
-- Ask for clarification when the request is ambiguous.
-- For market analysis tasks, output a clear signal card:
-  Conclusion, Evidence, Confidence (0-1), Key Risks, and Suggested Action.
-- If confidence is low (<0.58) or evidence is weak, default to "watch" instead of forcing buy/sell.
-- Never present analysis as guaranteed returns; always include risk conditions and invalidation triggers.
-- For live market analysis, do not reuse stale provider failures or prices from earlier conversation turns. Verify with current tool output first.
-- If current tool output does not confirm a provider-specific failure, say `live data unavailable` instead of naming a provider or HTTP error.
-- In user-facing market opportunity scans, do not mention provider names, APIs, or HTTP status codes unless the user explicitly asks for data routing or debugging details.
-
-Reply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel."""
+        return context_prompt.get_identity(self.workspace)
 
     @staticmethod
     def _market_analysis_playbook() -> str:
         """Get the built-in playbook for single-asset market analysis."""
-        return """# Market Analysis Playbook
-
-When the user asks for analysis of a specific asset or trade setup, prefer this workflow:
-
-1. Gather evidence with market tools:
-   - If multiple evidence inputs are independent, request them in one tool-calling turn so you can synthesize with fewer loops
-   - `market_source_plan` when source routing, A/H/US coverage, or fallback choice matters
-   - `market_snapshot` for price, momentum, and flow hints
-   - `market_chip_distribution` for A-share chip structure, average cost, and trapped/profitable supply
-   - `market_fundamentals` for valuation, market cap, and profile basics
-   - `market_news` and `market_social_sentiment` for narrative and crowd context
-   - `market_macro` for regime and macro risk
-   - `market_event_extract` when a headline or catalyst is driving the move
-   - `market_signal` for explicit confidence, sizing, and invalidation
-   - `market_brief` when the user wants an end-to-end brief quickly
-2. Load the most relevant skills with `read_file`:
-   - `market-report` for the final structured write-up
-   - `catalyst-tracker` for event calendars and drivers
-   - `risk-checklist` for guardrails and position sizing
-   - `stock-data-sourcing` when source selection, fallback routing, or A/H/US coverage matters
-3. In the final answer, separate facts from assumptions and include:
-   - Conclusion
-   - Evidence
-   - Confidence
-   - Key risks
-   - Suggested action
-4. For live market requests:
-   - Treat earlier conversation turns as stale unless current tool output confirms them
-   - Do not mention provider-specific failures such as `Yahoo 429` unless they appear in current warnings or source-health data
-   - If live data is missing, explicitly say `live data unavailable`
-   - For broad market scans, keep user-facing wording generic: `unverified`, `price unavailable`, or `live data unavailable`
-   - Only mention provider names or HTTP errors when the user explicitly asks for routing/debugging
-
-If evidence is mixed, reduce conviction and default to `watch`."""
+        return context_prompt.market_analysis_playbook()
 
     @staticmethod
     def _build_runtime_context(channel: str | None, chat_id: str | None) -> str:
@@ -240,28 +116,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
 
     def _load_bootstrap_files(self) -> str:
         """Load all bootstrap files from workspace."""
-        cache_key: list[tuple[str, int, int]] = []
-
-        for filename in self.BOOTSTRAP_FILES:
-            file_path = self.workspace / filename
-            if file_path.exists():
-                stat = file_path.stat()
-                cache_key.append((filename, stat.st_mtime_ns, stat.st_size))
-
-        normalized_key = tuple(cache_key)
-        if self._bootstrap_cache_key == normalized_key:
-            return self._bootstrap_cache_content
-
-        parts = []
-        for filename, _, _ in normalized_key:
-            file_path = self.workspace / filename
-            content = file_path.read_text(encoding="utf-8")
-            parts.append(f"## {filename}\n\n{content}")
-
-        content = "\n\n".join(parts) if parts else ""
-        self._bootstrap_cache_key = normalized_key
-        self._bootstrap_cache_content = content
-        return content
+        return context_prompt.load_bootstrap_files(self)
 
     def build_messages(
         self,
