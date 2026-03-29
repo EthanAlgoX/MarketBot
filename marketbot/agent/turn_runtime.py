@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -58,7 +59,7 @@ def finalize_response_content(
     return content, explainability, external_skill_suggestions, report_path
 
 
-def record_completed_turn(
+async def record_completed_turn(
     loop,
     *,
     session: Session,
@@ -70,7 +71,7 @@ def record_completed_turn(
     if usage:
         session.metadata["last_usage"] = usage
     loop._save_turn(session, all_msgs, 1 + history_len)
-    loop.sessions.save(session)
+    await loop.sessions.save_async(session)
 
 
 def prepare_system_turn(
@@ -168,12 +169,14 @@ async def run_user_turn(
         append_inline_explainability=(msg.channel == "cli"),
         empty_fallback="I've completed processing but have no response to give.",
     )
-    loop._record_completed_turn(
+    record_result = loop._record_completed_turn(
         session=session,
         history_len=len(history),
         all_msgs=all_msgs,
         usage=usage,
     )
+    if inspect.isawaitable(record_result):
+        await record_result
     metadata = loop._build_response_metadata(
         msg_metadata=msg.metadata,
         usage=usage,
@@ -203,12 +206,14 @@ async def run_system_turn(
         request_text=msg.content,
         append_inline_explainability=True,
     )
-    loop._record_completed_turn(
+    record_result = loop._record_completed_turn(
         session=session,
         history_len=len(history),
         all_msgs=all_msgs,
         usage=usage,
     )
+    if inspect.isawaitable(record_result):
+        await record_result
     metadata = loop._build_response_metadata(
         msg_metadata=msg.metadata,
         usage=usage,

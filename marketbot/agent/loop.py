@@ -358,7 +358,7 @@ class AgentLoop:
             empty_fallback=empty_fallback,
         )
 
-    def _record_completed_turn(
+    async def _record_completed_turn(
         self,
         *,
         session: Session,
@@ -367,7 +367,7 @@ class AgentLoop:
         usage: dict[str, Any] | None,
     ) -> None:
         """Persist usage metadata and session history for a completed turn."""
-        turn_runtime.record_completed_turn(
+        await turn_runtime.record_completed_turn(
             self,
             session=session,
             history_len=history_len,

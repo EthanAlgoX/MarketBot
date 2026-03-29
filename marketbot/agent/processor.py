@@ -145,7 +145,7 @@ class MessageProcessor:
             self._consolidating.discard(session.key)
 
         session.clear()
-        self.sessions.save(session)
+        await self.sessions.save_async(session)
         self.sessions.invalidate(session.key)
         return OutboundMessage(channel=channel, chat_id=chat_id, content="New session started.")
 

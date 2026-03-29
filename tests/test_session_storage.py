@@ -1,6 +1,8 @@
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
+from marketbot.session.manager import Session, SessionManager
 from marketbot.session import storage
 
 
@@ -55,3 +57,15 @@ def test_load_session_index_reads_metadata_line(tmp_path: Path) -> None:
     assert data is not None
     assert data["key"] == "telegram:test"
     assert data["_type"] == "metadata"
+
+
+def test_session_manager_save_async_persists_session(tmp_path: Path) -> None:
+    manager = SessionManager(tmp_path)
+    session = Session(key="telegram:async")
+    session.add_message("user", "hi")
+
+    asyncio.run(manager.save_async(session))
+
+    reloaded = manager.get_or_create("telegram:async")
+    assert reloaded.messages[-1]["content"] == "hi"
+    assert manager._cache["telegram:async"] is session

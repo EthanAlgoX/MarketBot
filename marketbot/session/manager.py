@@ -1,5 +1,6 @@
 """Session management for conversation history."""
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -148,6 +149,24 @@ class SessionManager:
 
     def save(self, session: Session) -> None:
         """Save a session to disk."""
+        self._save_to_disk(session)
+        self._cache[session.key] = session
+
+    async def save_async(self, session: Session) -> None:
+        """Save a session to disk without blocking the event loop."""
+        snapshot = Session(
+            key=session.key,
+            messages=[dict(message) for message in session.messages],
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+            metadata=dict(session.metadata),
+            last_consolidated=session.last_consolidated,
+        )
+        await asyncio.to_thread(self._save_to_disk, snapshot)
+        self._cache[session.key] = session
+
+    def _save_to_disk(self, session: Session) -> None:
+        """Persist a session snapshot to disk."""
         path = self._get_session_path(session.key)
         storage.save_session_jsonl(
             path,
@@ -158,8 +177,6 @@ class SessionManager:
             last_consolidated=session.last_consolidated,
             messages=session.messages,
         )
-
-        self._cache[session.key] = session
 
     def invalidate(self, key: str) -> None:
         """Remove a session from the in-memory cache."""
