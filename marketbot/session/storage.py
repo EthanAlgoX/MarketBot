@@ -39,6 +39,7 @@ def load_session_jsonl(path: Path) -> dict[str, Any]:
     created_at = None
     updated_at = None
     last_consolidated = 0
+    metadata_records = 0
 
     with open(path, encoding="utf-8") as handle:
         for line in handle:
@@ -48,6 +49,7 @@ def load_session_jsonl(path: Path) -> dict[str, Any]:
 
             data = json.loads(line)
             if data.get("_type") == "metadata":
+                metadata_records += 1
                 metadata = data.get("metadata", {})
                 created_at = datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
                 updated_at = datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None
@@ -61,6 +63,7 @@ def load_session_jsonl(path: Path) -> dict[str, Any]:
         "created_at": created_at,
         "updated_at": updated_at,
         "last_consolidated": last_consolidated,
+        "metadata_records": metadata_records,
     }
 
 
@@ -76,26 +79,70 @@ def save_session_jsonl(
 ) -> None:
     """Persist a session to the canonical JSONL layout."""
     with open(path, "w", encoding="utf-8") as handle:
-        metadata_line = {
-            "_type": "metadata",
-            "key": key,
-            "created_at": created_at.isoformat(),
-            "updated_at": updated_at.isoformat(),
-            "metadata": metadata,
-            "last_consolidated": last_consolidated,
-        }
+        metadata_line = build_metadata_line(
+            key=key,
+            created_at=created_at,
+            updated_at=updated_at,
+            metadata=metadata,
+            last_consolidated=last_consolidated,
+        )
+        handle.write(json.dumps(metadata_line, ensure_ascii=False) + "\n")
+        for message in messages:
+            handle.write(json.dumps(message, ensure_ascii=False) + "\n")
+
+
+def append_session_jsonl(
+    path: Path,
+    *,
+    key: str,
+    created_at: datetime,
+    updated_at: datetime,
+    metadata: dict[str, Any],
+    last_consolidated: int,
+    messages: list[dict[str, Any]],
+) -> None:
+    """Append a new metadata record plus only the newly added messages."""
+    with open(path, "a", encoding="utf-8") as handle:
+        metadata_line = build_metadata_line(
+            key=key,
+            created_at=created_at,
+            updated_at=updated_at,
+            metadata=metadata,
+            last_consolidated=last_consolidated,
+        )
         handle.write(json.dumps(metadata_line, ensure_ascii=False) + "\n")
         for message in messages:
             handle.write(json.dumps(message, ensure_ascii=False) + "\n")
 
 
 def load_session_index(path: Path) -> dict[str, Any] | None:
-    """Read just the first metadata line for session listing."""
+    """Read the latest metadata line for session listing."""
     with open(path, encoding="utf-8") as handle:
-        first_line = handle.readline().strip()
-        if not first_line:
-            return None
-        data = json.loads(first_line)
-        if data.get("_type") != "metadata":
-            return None
-        return data
+        latest = None
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            data = json.loads(line)
+            if data.get("_type") == "metadata":
+                latest = data
+        return latest
+
+
+def build_metadata_line(
+    *,
+    key: str,
+    created_at: datetime,
+    updated_at: datetime,
+    metadata: dict[str, Any],
+    last_consolidated: int,
+) -> dict[str, Any]:
+    """Build the canonical session metadata line payload."""
+    return {
+        "_type": "metadata",
+        "key": key,
+        "created_at": created_at.isoformat(),
+        "updated_at": updated_at.isoformat(),
+        "metadata": metadata,
+        "last_consolidated": last_consolidated,
+    }

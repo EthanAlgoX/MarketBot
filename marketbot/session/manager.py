@@ -30,6 +30,8 @@ class Session:
     updated_at: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
     last_consolidated: int = 0  # Number of messages already consolidated to files
+    _persisted_messages: int = field(default=0, repr=False, compare=False)
+    _metadata_records: int = field(default=0, repr=False, compare=False)
 
     def add_message(self, role: str, content: str, **kwargs: Any) -> None:
         """Add a message to the session."""
@@ -142,6 +144,8 @@ class SessionManager:
                 updated_at=payload["updated_at"] or datetime.now(),
                 metadata=payload["metadata"],
                 last_consolidated=payload["last_consolidated"],
+                _persisted_messages=len(payload["messages"]),
+                _metadata_records=payload.get("metadata_records", 1),
             )
         except Exception as e:
             logger.warning("Failed to load session {}: {}", key, e)
@@ -161,22 +165,48 @@ class SessionManager:
             updated_at=session.updated_at,
             metadata=dict(session.metadata),
             last_consolidated=session.last_consolidated,
+            _persisted_messages=session._persisted_messages,
+            _metadata_records=session._metadata_records,
         )
         await asyncio.to_thread(self._save_to_disk, snapshot)
+        session._persisted_messages = snapshot._persisted_messages
+        session._metadata_records = snapshot._metadata_records
         self._cache[session.key] = session
 
     def _save_to_disk(self, session: Session) -> None:
         """Persist a session snapshot to disk."""
         path = self._get_session_path(session.key)
-        storage.save_session_jsonl(
+        should_compact = (
+            not path.exists()
+            or session._persisted_messages > len(session.messages)
+            or session._metadata_records >= 8
+        )
+        if should_compact:
+            storage.save_session_jsonl(
+                path,
+                key=session.key,
+                created_at=session.created_at,
+                updated_at=session.updated_at,
+                metadata=session.metadata,
+                last_consolidated=session.last_consolidated,
+                messages=session.messages,
+            )
+            session._persisted_messages = len(session.messages)
+            session._metadata_records = 1
+            return
+
+        new_messages = session.messages[session._persisted_messages:]
+        storage.append_session_jsonl(
             path,
             key=session.key,
             created_at=session.created_at,
             updated_at=session.updated_at,
             metadata=session.metadata,
             last_consolidated=session.last_consolidated,
-            messages=session.messages,
+            messages=new_messages,
         )
+        session._persisted_messages = len(session.messages)
+        session._metadata_records += 1
 
     def invalidate(self, key: str) -> None:
         """Remove a session from the in-memory cache."""

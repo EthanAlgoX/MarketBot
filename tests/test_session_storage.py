@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -69,3 +70,42 @@ def test_session_manager_save_async_persists_session(tmp_path: Path) -> None:
     reloaded = manager.get_or_create("telegram:async")
     assert reloaded.messages[-1]["content"] == "hi"
     assert manager._cache["telegram:async"] is session
+
+
+def test_session_manager_appends_only_new_messages(tmp_path: Path) -> None:
+    manager = SessionManager(tmp_path)
+    session = Session(key="telegram:append")
+    session.add_message("user", "first")
+    manager.save(session)
+
+    path = manager._get_session_path(session.key)
+    first_lines = path.read_text(encoding="utf-8").splitlines()
+    assert len(first_lines) == 2
+
+    session.add_message("assistant", "second")
+    manager.save(session)
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 4
+    assert json.loads(lines[-1])["content"] == "second"
+
+    reloaded = manager.invalidate(session.key) or manager.get_or_create("telegram:append")
+    assert [item["content"] for item in reloaded.messages] == ["first", "second"]
+
+
+def test_session_manager_compacts_after_many_metadata_appends(tmp_path: Path) -> None:
+    manager = SessionManager(tmp_path)
+    session = Session(key="telegram:compact")
+    session.add_message("user", "seed")
+    manager.save(session)
+
+    for i in range(8):
+        session.metadata["tick"] = i
+        manager.save(session)
+
+    path = manager._get_session_path(session.key)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    metadata_lines = [json.loads(line) for line in lines if json.loads(line).get("_type") == "metadata"]
+
+    assert len(metadata_lines) == 1
+    assert metadata_lines[0]["metadata"]["tick"] == 7
