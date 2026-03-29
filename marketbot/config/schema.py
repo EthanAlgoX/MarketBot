@@ -326,6 +326,17 @@ class BrowserToolsConfig(Base):
     adapter_catalog: list[str] = Field(default_factory=list)
 
 
+class XiaohongshuCliToolsConfig(Base):
+    """Local xiaohongshu-cli wrapper configuration."""
+
+    enabled: bool = False
+    command: str = "xhs"
+    timeout_s: int = Field(45, ge=1, le=180)
+    cookie_source: str = "auto"
+    home_dir: str = ""
+    allow_write: bool = False
+
+
 class ExecToolConfig(Base):
     """Shell exec tool configuration."""
 
@@ -410,6 +421,7 @@ class ToolsConfig(Base):
 
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
     browser: BrowserToolsConfig = Field(default_factory=BrowserToolsConfig)
+    xiaohongshu_cli: XiaohongshuCliToolsConfig = Field(default_factory=XiaohongshuCliToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
     market: MarketToolsConfig = Field(default_factory=MarketToolsConfig)
     restrict_to_workspace: bool = False  # If true, restrict all tool access to workspace directory

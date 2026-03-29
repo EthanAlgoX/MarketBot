@@ -66,4 +66,15 @@ def _migrate_config(data: dict) -> dict:
     exec_cfg = tools.get("exec", {})
     if "restrictToWorkspace" in exec_cfg and "restrictToWorkspace" not in tools:
         tools["restrictToWorkspace"] = exec_cfg.pop("restrictToWorkspace")
+
+    # Move legacy top-level market search keys into tools.market.
+    market_cfg = tools.get("market", {})
+    for legacy_key in ("tavily_api_key", "bocha_api_key", "brave_api_key", "serpapi_api_key", "fred_api_key"):
+        legacy_value = data.pop(legacy_key, None)
+        if legacy_value and legacy_key not in market_cfg:
+            market_cfg[legacy_key] = legacy_value
+    if market_cfg:
+        tools["market"] = market_cfg
+    if tools:
+        data["tools"] = tools
     return data

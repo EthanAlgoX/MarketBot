@@ -656,6 +656,22 @@ def test_skills_summary_marks_missing_runtime_tools(tmp_path):
     assert "Tool: market_signal" in summary
 
 
+def test_xiaohongshu_skill_accepts_alternative_runtime_tool(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    capabilities = loader.get_skill_capabilities("xiaohongshu-browser-research")
+    assert capabilities["required_tools"] == ["xiaohongshu_cli"]
+    assert capabilities["alternative_required_tools"] == ["browser_site"]
+
+    xhs_only = loader.build_skills_summary(available_tools={"xiaohongshu_cli"})
+    assert '<name>xiaohongshu-browser-research</name>' in xhs_only
+    assert 'available="true"' in xhs_only
+
+    browser_only = loader.build_skills_summary(available_tools={"browser_site"})
+    assert '<name>xiaohongshu-browser-research</name>' in browser_only
+    assert 'available="true"' in browser_only
+
+
 def test_skills_summary_includes_browser_adapter_catalog(tmp_path):
     loader = SkillsLoader(tmp_path)
 

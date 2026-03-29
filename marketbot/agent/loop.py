@@ -33,6 +33,7 @@ from marketbot.session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
     from marketbot.config.schema import BrowserToolsConfig, ChannelsConfig, ExecToolConfig, MarketToolsConfig
+    from marketbot.config.schema import XiaohongshuCliToolsConfig
     from marketbot.cron.service import CronService
 
 
@@ -98,6 +99,7 @@ class AgentLoop:
         brave_api_key: str | None = None,
         web_proxy: str | None = None,
         browser_config: BrowserToolsConfig | None = None,
+        xiaohongshu_cli_config: XiaohongshuCliToolsConfig | None = None,
         exec_config: ExecToolConfig | None = None,
         cron_service: CronService | None = None,
         restrict_to_workspace: bool = False,
@@ -122,6 +124,7 @@ class AgentLoop:
         self.brave_api_key = brave_api_key
         self.web_proxy = web_proxy
         self.browser_config = browser_config
+        self.xiaohongshu_cli_config = xiaohongshu_cli_config
         self.exec_config = exec_config or ExecToolConfig()
         self.cron_service = cron_service
         self.restrict_to_workspace = restrict_to_workspace
@@ -146,6 +149,7 @@ class AgentLoop:
             brave_api_key=brave_api_key,
             web_proxy=web_proxy,
             browser_config=browser_config,
+            xiaohongshu_cli_config=xiaohongshu_cli_config,
             exec_config=self.exec_config,
             restrict_to_workspace=restrict_to_workspace,
         )
@@ -196,6 +200,7 @@ class AgentLoop:
             brave_api_key=self.brave_api_key,
             web_proxy=self.web_proxy,
             browser_config=self.browser_config,
+            xiaohongshu_cli_config=self.xiaohongshu_cli_config,
             cron_service=self.cron_service,
             market_config=self.market_config,
         )
@@ -720,6 +725,11 @@ class AgentLoop:
     def _is_broad_market_scan_request(cls, messages: list[dict[str, Any]] | None) -> bool:
         """Return True when the turn is a generic daily market-opportunity scan."""
         return request_policy.is_broad_market_scan_request(cls, messages)
+
+    @staticmethod
+    def _is_xiaohongshu_request(messages: list[dict[str, Any]] | None) -> bool:
+        """Return True when the turn explicitly asks for Xiaohongshu research."""
+        return request_policy.is_xiaohongshu_request(messages)
 
     def _tool_policy_result(self, tool_name: str) -> str | None:
         """Return a synthetic result when policy blocks a tool for the active request."""

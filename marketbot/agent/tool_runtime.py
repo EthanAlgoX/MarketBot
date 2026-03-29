@@ -185,10 +185,13 @@ async def run_agent_loop(
     loop._active_request_flags = {
         "broad_market_scan": loop._is_broad_market_scan_request(initial_messages),
         "daily_opportunity_scan": loop._DAILY_OPPORTUNITY_SKILL in loop._selected_skill_names(),
+        "xiaohongshu_request": loop._is_xiaohongshu_request(initial_messages),
+        "xiaohongshu_research": "xiaohongshu-browser-research" in loop._selected_skill_names(),
     }
     try:
         while iteration < loop.max_iterations:
             iteration += 1
+            loop._current_tool_rounds = tool_rounds
             tools_for_call = loop._tool_definitions_for_request()
             if loop._active_request_flags.get("broad_market_scan") and tool_rounds >= 1:
                 tools_for_call = []
@@ -270,6 +273,7 @@ async def run_agent_loop(
                 final_content = clean
                 break
     finally:
+        loop._current_tool_rounds = 0
         loop._active_request_flags = {}
 
     if final_content is None and iteration >= loop.max_iterations:

@@ -99,6 +99,7 @@ def build_agent_runtime(
         brave_api_key=config.tools.web.search.api_key or None,
         web_proxy=config.tools.web.proxy or None,
         browser_config=config.tools.browser,
+        xiaohongshu_cli_config=config.tools.xiaohongshu_cli,
         exec_config=config.tools.exec,
         cron_service=cron,
         restrict_to_workspace=config.tools.restrict_to_workspace,

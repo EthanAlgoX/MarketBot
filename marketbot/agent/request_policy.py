@@ -204,13 +204,61 @@ def is_broad_market_scan_request(cls: Any, messages: list[dict[str, Any]] | None
     return False
 
 
+def is_xiaohongshu_request(messages: list[dict[str, Any]] | None) -> bool:
+    """Return True when the user explicitly asks for Xiaohongshu/Rednote research."""
+    if not isinstance(messages, list):
+        return False
+    markers = ("xiaohongshu", "小红书", "rednote")
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    value = item.get("text")
+                    if isinstance(value, str):
+                        parts.append(value)
+            text = "\n".join(parts)
+        else:
+            continue
+        lowered = text.lower()
+        return any(marker in lowered for marker in markers)
+    return False
+
+
 def tool_policy_result(loop: Any, tool_name: str) -> str | None:
     """Return a synthetic result when policy blocks a tool for the active request."""
-    if tool_name == "exec" and loop._active_request_flags.get("broad_market_scan"):
+    request_flags = getattr(loop, "_active_request_flags", {}) or {}
+    if tool_name == "exec" and request_flags.get("broad_market_scan"):
         return (
             "Error: exec disabled for generic daily market scans. "
             "Use native market tools already in context and report data gaps explicitly."
         )
+    selected_skills = set(getattr(loop, "_selected_skill_names", lambda: [])() or [])
+    available_tools = set(getattr(getattr(loop, "context", None), "available_tools", set()) or set())
+    if (
+        ("xiaohongshu-browser-research" in selected_skills or request_flags.get("xiaohongshu_request"))
+        and "xiaohongshu_cli" in available_tools
+    ):
+        if tool_name in {"read_file", "list_dir"}:
+            return (
+                f"Error: {tool_name} disabled for xiaohongshu-browser-research when xiaohongshu_cli is available. "
+                "Use xiaohongshu_cli to fetch live Xiaohongshu data instead of local memory or cache files."
+            )
+        if tool_name == "exec":
+            return (
+                "Error: exec disabled for xiaohongshu-browser-research when xiaohongshu_cli is available. "
+                "Use xiaohongshu_cli outputs directly instead of inspecting local cache files."
+            )
+        if tool_name == "browser_site":
+            return (
+                "Error: browser_site disabled for xiaohongshu-browser-research when xiaohongshu_cli is available. "
+                "Use xiaohongshu_cli unless it explicitly fails for the requested read path."
+            )
     return None
 
 
@@ -244,7 +292,21 @@ def normalize_tool_arguments_for_request(
 def tool_definitions_for_request(loop: Any) -> list[dict[str, Any]]:
     """Return the tool definitions visible to the model for the active request."""
     definitions = loop.tools.get_definitions()
-    if not loop._active_request_flags.get("broad_market_scan"):
+    request_flags = getattr(loop, "_active_request_flags", {}) or {}
+    if request_flags.get("xiaohongshu_request"):
+        available_tools = set(getattr(getattr(loop, "context", None), "available_tools", set()) or set())
+        if "xiaohongshu_cli" in available_tools:
+            if getattr(loop, "_current_tool_rounds", 0) >= 2:
+                return []
+            filtered = []
+            for definition in definitions:
+                function = definition.get("function")
+                if isinstance(function, dict) and str(function.get("name") or "").strip() == "xiaohongshu_cli":
+                    filtered.append(definition)
+            return filtered
+    if not request_flags.get("broad_market_scan"):
+        if request_flags.get("xiaohongshu_research") and getattr(loop, "_current_tool_rounds", 0) >= 2:
+            return []
         return definitions
     filtered: list[dict[str, Any]] = []
     for definition in definitions:

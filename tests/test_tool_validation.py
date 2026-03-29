@@ -1,10 +1,12 @@
+import json
 from typing import Any
 
 from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.base import Tool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
-from marketbot.config.schema import BrowserToolsConfig
+from marketbot.agent.tools.xiaohongshu import XiaohongshuCliTool
+from marketbot.config.schema import BrowserToolsConfig, XiaohongshuCliToolsConfig
 
 
 class SampleTool(Tool):
@@ -510,6 +512,133 @@ async def test_browser_site_catalog_overrides_legacy_allowlists() -> None:
     allowed_shape = await tool.execute(adapter="xueqiu/hot-stock", args=["--bad"])
     assert "adapter blocked by allowlist" in blocked
     assert "must not include raw CLI flags" in allowed_shape
+
+
+async def test_xiaohongshu_cli_search_builds_expected_command() -> None:
+    tool = XiaohongshuCliTool(
+        XiaohongshuCliToolsConfig(enabled=True, command="xhs", cookie_source="chrome")
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str]) -> tuple[int, str, str]:
+        assert args == [
+            "--cookie-source",
+            "chrome",
+            "search",
+            "咖啡",
+            "--sort",
+            "popular",
+            "--type",
+            "video",
+            "--page",
+            "2",
+            "--json",
+        ]
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        operation="search",
+        keyword="咖啡",
+        sort="popular",
+        note_type="video",
+        page=2,
+    )
+
+    assert '"operation": "search"' in result
+    assert '"counts"' in result
+
+
+async def test_xiaohongshu_cli_compacts_search_payload_for_model_consumption() -> None:
+    tool = XiaohongshuCliTool(XiaohongshuCliToolsConfig(enabled=True, command="xhs"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    tool._run_command = _async_return(
+        (
+            0,
+            json.dumps(
+                {
+                    "ok": True,
+                    "schema_version": "1",
+                    "data": {
+                        "has_more": True,
+                        "items": [
+                            {
+                                "id": "note-1",
+                                "model_type": "note",
+                                "note_card": {
+                                    "display_title": "瑞幸陶喆联名值得冲吗",
+                                    "type": "normal",
+                                    "user": {"nickname": "咖啡脑袋", "user_id": "user-1"},
+                                    "interact_info": {
+                                        "liked_count": "38112",
+                                        "comment_count": "8482",
+                                        "collected_count": "2151",
+                                        "shared_count": "19259",
+                                    },
+                                    "corner_tag_info": [{"type": "publish_time", "text": "1天前"}],
+                                },
+                            },
+                            {
+                                "id": "hot-1",
+                                "model_type": "hot_query",
+                                "hot_query": {
+                                    "queries": [
+                                        {"name": "瑞幸咖啡陶喆联名"},
+                                        {"name": "瑞幸咖啡最好喝的前三名"},
+                                    ]
+                                },
+                            },
+                        ],
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            "",
+        )
+    )  # type: ignore[method-assign]
+
+    result = await tool.execute(operation="search", keyword="瑞幸咖啡", sort="popular")
+
+    assert '"operation": "search"' in result
+    assert '"max_likes": 38112' in result
+    assert '"hot_queries": ["瑞幸咖啡陶喆联名", "瑞幸咖啡最好喝的前三名"]' in result
+    assert '"title": "瑞幸陶喆联名值得冲吗"' in result
+    assert '"image_list"' not in result
+
+
+async def test_xiaohongshu_cli_requires_keyword_for_search() -> None:
+    tool = XiaohongshuCliTool(XiaohongshuCliToolsConfig(enabled=True, command="xhs"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    result = await tool.execute(operation="search")
+    assert "keyword is required" in result
+
+
+async def test_xiaohongshu_cli_surfaces_structured_stdout_on_failure() -> None:
+    tool = XiaohongshuCliTool(XiaohongshuCliToolsConfig(enabled=True, command="xhs"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    tool._run_command = _async_return((1, '{"ok":false,"error":{"code":"not_authenticated"}}', ""))  # type: ignore[method-assign]
+
+    result = await tool.execute(operation="status")
+
+    assert '"not_authenticated"' in result
+
+
+async def test_xiaohongshu_cli_sets_home_env_when_configured() -> None:
+    tool = XiaohongshuCliTool(
+        XiaohongshuCliToolsConfig(enabled=True, command="xhs", home_dir="/tmp/xhs-home")
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str]) -> tuple[int, str, str]:
+        assert tool.home_dir == "/tmp/xhs-home"
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(operation="status")
+
+    assert result == '{"ok":true}'
 
 
 def test_cast_params_invalid_string_to_int() -> None:

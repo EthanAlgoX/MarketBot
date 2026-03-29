@@ -882,7 +882,7 @@ def test_browser_bilibili_message_auto_injects_bilibili_skill(tmp_path) -> None:
 def test_browser_xiaohongshu_message_auto_injects_xiaohongshu_skill(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)
-    builder.set_available_tools({"browser_site"})
+    builder.set_available_tools({"xiaohongshu_cli"})
 
     messages = builder.build_messages(
         history=[],

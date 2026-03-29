@@ -374,6 +374,77 @@ Key points:
 - `allowEval` should stay off unless page-side script evaluation is explicitly needed
 - `allowRequestCapture` and `allowRequestBodies` should stay off unless explicitly needed
 
+## Xiaohongshu CLI Integration
+
+If [`xiaohongshu-cli`](https://github.com/jackwener/xiaohongshu-cli) is installed locally, you can expose it to the agent as a read-only tool. The recommended flow is: make sure `xhs` works locally first, then wire it into MarketBot.
+
+### 1. Install and log in
+
+Install `xiaohongshu-cli` into your Python environment and confirm the `xhs` command works. Then complete one login flow:
+
+```bash
+xhs login
+# or
+xhs login --qrcode
+```
+
+If you use browser-cookie login on macOS, Keychain may ask for access to Chrome storage. That prompt expects your macOS account password, not your Xiaohongshu password.
+
+### 2. Configure MarketBot
+
+Add this to `~/.marketbot/config.json`:
+
+```json
+{
+  "tools": {
+    "xiaohongshuCli": {
+      "enabled": true,
+      "command": "xhs",
+      "timeoutS": 45,
+      "cookieSource": "auto",
+      "homeDir": "~/.marketbot",
+      "allowWrite": false
+    }
+  }
+}
+```
+
+Recommendations:
+
+- Prefer an absolute path for `command`, for example `"/Users/you/project/.venv/bin/xhs"`, so runtime behavior does not depend on the shell PATH
+- Set `homeDir` to a dedicated writable directory if you want isolated cookie/cache state
+- Keep `allowWrite` set to `false`
+
+### 3. Verify the path
+
+Verify the CLI first:
+
+```bash
+xhs status --json
+xhs search "luckin coffee" --sort popular --json
+```
+
+Then verify MarketBot:
+
+```bash
+marketbot agent -m "Use Xiaohongshu to analyze Luckin Coffee's recent heat, discussion themes, and overall sentiment. Keep it concise."
+```
+
+### 4. Runtime behavior
+
+- The current integration is intentionally read-only and only exposes `status / search / read / comments / feed / hot / topics / search-user / user / user-posts`
+- The built-in `xiaohongshu-browser-research` skill prefers `xiaohongshu_cli` and only falls back to `browser_site` when the CLI is unavailable
+- For default brand-analysis requests, runtime prefers `search(popular)` and only adds one freshness pass when needed; it no longer defaults to `exec`, local cache inspection, or browser-side Xiaohongshu scraping
+- `xiaohongshu_cli` now compresses large search payloads into model-friendly summaries before returning them to the agent
+- `homeDir` is optional; when set, MarketBot runs the CLI with `HOME` pointed at that directory so cookies/cache can live in an isolated location
+
+### 5. Scope and risk
+
+- It is useful for brand heat, consumer narratives, note/comment inspection, and creator-content research, not as direct proof of revenue or sell-through
+- `allowWrite` is kept as an explicit safety switch, but MarketBot does not currently expose like/comment/favorite/post/follow operations
+- The CLI still depends on local browser cookies or QR login; if `xhs status` fails, fix CLI authentication first instead of debugging MarketBot
+- Treat Xiaohongshu output as consumer-attention context, not as a replacement for filings, channel checks, sales data, or official disclosures
+
 ## Skill Search and Install
 
 Search local skills first, then fall back to curated external catalogs:

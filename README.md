@@ -433,6 +433,77 @@ marketbot skills --help
 - `allowEval` 默认建议关闭，只有明确需要页面脚本求值时再打开
 - `allowRequestCapture` 与 `allowRequestBodies` 默认建议关闭
 
+## Xiaohongshu CLI 集成
+
+如果本机已经安装 [`xiaohongshu-cli`](https://github.com/jackwener/xiaohongshu-cli)，可以把它作为只读工具接入给 agent 使用。当前推荐流程是：先在本机确认 `xhs` 可登录、可查询，再把它挂到 MarketBot。
+
+### 1. 安装与登录
+
+先在你自己的 Python 环境里安装 `xiaohongshu-cli`，并确认 `xhs` 命令可执行。然后完成一次登录：
+
+```bash
+xhs login
+# 或
+xhs login --qrcode
+```
+
+如果使用浏览器 cookie 登录，macOS 可能会弹出钥匙串访问确认；这里输入的是当前 macOS 账户的登录密码，不是小红书密码。
+
+### 2. 配置 MarketBot
+
+在 `~/.marketbot/config.json` 中加入：
+
+```json
+{
+  "tools": {
+    "xiaohongshuCli": {
+      "enabled": true,
+      "command": "xhs",
+      "timeoutS": 45,
+      "cookieSource": "auto",
+      "homeDir": "~/.marketbot",
+      "allowWrite": false
+    }
+  }
+}
+```
+
+建议：
+
+- `command` 最好写成绝对路径，例如 `"/Users/you/project/.venv/bin/xhs"`，避免 PATH 差异导致运行时找不到命令
+- `homeDir` 建议单独指定一个可写目录，用来隔离 `xiaohongshu-cli` 的 cookie 和缓存
+- `allowWrite` 保持 `false`
+
+### 3. 验证链路
+
+先验证 CLI 自身：
+
+```bash
+xhs status --json
+xhs search "瑞幸咖啡" --sort popular --json
+```
+
+如果上面正常，再验证 MarketBot：
+
+```bash
+marketbot agent -m "用小红书分析瑞幸咖啡最近的热度、用户讨论重点和整体情绪，只给我简明结论。"
+```
+
+### 4. 运行时行为
+
+- 默认按只读模式设计，当前接入只开放 `status / search / read / comments / feed / hot / topics / search-user / user / user-posts`
+- 现有 `xiaohongshu-browser-research` skill 会优先使用 `xiaohongshu_cli`，缺失时再回退到 `browser_site`
+- 在默认品牌分析请求下，运行时会优先走 `search(popular)`，必要时再补一轮 `search(latest)`，不会再优先走 `exec`、本地缓存文件或浏览器抓取旁路
+- `xiaohongshu_cli` 会先把搜索结果压缩成适合模型消费的摘要，而不是把整块大 JSON 直接塞回上下文
+- `homeDir` 可选；配置后会把 CLI 的 `HOME` 指向该目录，适合把 `xiaohongshu-cli` 的 cookie/cache 隔离到专用位置
+
+### 5. 边界与风险
+
+- 适合做品牌热度、消费叙事、笔记评论、用户内容等研究，不适合作为交易事实或销量事实的直接证明
+- `allowWrite` 目前保留为显式安全开关，但当前 MarketBot 接入未开放点赞、评论、收藏、发帖等写操作
+- 该 CLI 本质上依赖本机浏览器 cookie 或二维码登录；如果 `xhs status` 不可用，先修复 CLI 登录态，不要先排查 MarketBot
+- 小红书数据更适合用来观察消费者讨论和品牌声量，不应替代成交、财报、渠道销售或官方披露数据
+
 ## Skill 搜索与安装
 
 可以先搜本地 skill，不够再回退到外部 curated skill 目录：

@@ -217,11 +217,18 @@ class SkillsLoader:
 
     @staticmethod
     def _has_required_tools(capabilities: dict, available_tools: set[str] | None) -> bool:
-        """Return True when runtime tool availability satisfies required_tools."""
+        """Return True when runtime tool availability satisfies required or alternative tools."""
         if available_tools is None:
             return True
         required = {str(name).strip() for name in capabilities.get("required_tools", []) if str(name).strip()}
-        return required.issubset(available_tools)
+        alternatives = {
+            str(name).strip() for name in capabilities.get("alternative_required_tools", []) if str(name).strip()
+        }
+        if required and required.issubset(available_tools):
+            return True
+        if alternatives and alternatives.issubset(available_tools):
+            return True
+        return not required and not alternatives
 
     @classmethod
     def _get_missing_tools(cls, capabilities: dict, available_tools: set[str] | None) -> str:
@@ -229,7 +236,20 @@ class SkillsLoader:
         if available_tools is None:
             return ""
         required = [str(name).strip() for name in capabilities.get("required_tools", []) if str(name).strip()]
-        missing = [name for name in required if name not in available_tools]
+        alternatives = [
+            str(name).strip() for name in capabilities.get("alternative_required_tools", []) if str(name).strip()
+        ]
+        missing_required = [name for name in required if name not in available_tools]
+        missing_alternatives = [name for name in alternatives if name not in available_tools]
+        if required and not missing_required:
+            return ""
+        if alternatives and not missing_alternatives:
+            return ""
+        if required and alternatives:
+            required_text = ", ".join(f"Tool: {name}" for name in (missing_required or required))
+            alternative_text = ", ".join(f"Tool: {name}" for name in (missing_alternatives or alternatives))
+            return f"One of ({required_text}) or ({alternative_text})"
+        missing = missing_required or missing_alternatives
         if not missing:
             return ""
         return ", ".join(f"Tool: {name}" for name in missing)
@@ -396,6 +416,7 @@ class SkillsLoader:
             "freshness": meta.get("freshness"),
             "tools": self._normalize_metadata_list(meta.get("tools", [])),
             "required_tools": self._normalize_metadata_list(meta.get("required_tools", [])),
+            "alternative_required_tools": self._normalize_metadata_list(meta.get("alternative_required_tools", [])),
             "markets": self._normalize_metadata_list(meta.get("markets", [])),
             "asset_classes": self._normalize_metadata_list(meta.get("asset_classes", [])),
             "task_type": str(meta.get("task_type", "") or "").strip(),
@@ -725,7 +746,16 @@ class SkillsLoader:
         if available_tools is None:
             return []
         required = [str(name).strip() for name in capabilities.get("required_tools", []) if str(name).strip()]
-        return [name for name in required if name not in available_tools]
+        alternatives = [
+            str(name).strip() for name in capabilities.get("alternative_required_tools", []) if str(name).strip()
+        ]
+        if required and set(required).issubset(available_tools):
+            return []
+        if alternatives and set(alternatives).issubset(available_tools):
+            return []
+        if required and alternatives:
+            return [*required, *alternatives]
+        return [name for name in (required or alternatives) if name not in available_tools]
 
     @staticmethod
     def _profile_mismatch_reason(capabilities: dict, profile: dict[str, list[str]]) -> str | None:

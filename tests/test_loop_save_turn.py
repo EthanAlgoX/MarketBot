@@ -158,6 +158,90 @@ def test_execute_tool_calls_allows_exec_outside_broad_market_scan() -> None:
     assert results == [(tool_call, "exec:echo hi")]
 
 
+def test_execute_tool_calls_blocks_exec_for_xiaohongshu_skill_when_cli_available() -> None:
+    import asyncio
+
+    loop = _mk_loop()
+    loop._active_request_flags = {}
+    loop._selected_skill_names = lambda: ["xiaohongshu-browser-research"]
+    loop.context = SimpleNamespace(available_tools={"xiaohongshu_cli"})
+
+    class _FakeRegistry:
+        async def execute(self, name: str, params: dict) -> str:
+            raise AssertionError("exec should be blocked before tool execution")
+
+    loop.tools = _FakeRegistry()
+    tool_call = ToolCallRequest(id="1", name="exec", arguments={"command": "echo hi"})
+
+    results = asyncio.run(loop._execute_tool_calls([tool_call]))
+
+    assert len(results) == 1
+    assert "exec disabled for xiaohongshu-browser-research" in results[0][1]
+
+
+def test_execute_tool_calls_blocks_read_file_for_xiaohongshu_skill_when_cli_available() -> None:
+    import asyncio
+
+    loop = _mk_loop()
+    loop._active_request_flags = {}
+    loop._selected_skill_names = lambda: ["xiaohongshu-browser-research"]
+    loop.context = SimpleNamespace(available_tools={"xiaohongshu_cli", "read_file"})
+
+    class _FakeRegistry:
+        async def execute(self, name: str, params: dict) -> str:
+            raise AssertionError("read_file should be blocked before tool execution")
+
+    loop.tools = _FakeRegistry()
+    tool_call = ToolCallRequest(id="1", name="read_file", arguments={"path": "/tmp/demo.txt"})
+
+    results = asyncio.run(loop._execute_tool_calls([tool_call]))
+
+    assert len(results) == 1
+    assert "read_file disabled for xiaohongshu-browser-research" in results[0][1]
+
+
+def test_execute_tool_calls_blocks_list_dir_for_xiaohongshu_skill_when_cli_available() -> None:
+    import asyncio
+
+    loop = _mk_loop()
+    loop._active_request_flags = {}
+    loop._selected_skill_names = lambda: ["xiaohongshu-browser-research"]
+    loop.context = SimpleNamespace(available_tools={"xiaohongshu_cli", "list_dir"})
+
+    class _FakeRegistry:
+        async def execute(self, name: str, params: dict) -> str:
+            raise AssertionError("list_dir should be blocked before tool execution")
+
+    loop.tools = _FakeRegistry()
+    tool_call = ToolCallRequest(id="1", name="list_dir", arguments={"path": "/tmp"})
+
+    results = asyncio.run(loop._execute_tool_calls([tool_call]))
+
+    assert len(results) == 1
+    assert "list_dir disabled for xiaohongshu-browser-research" in results[0][1]
+
+
+def test_execute_tool_calls_blocks_browser_site_for_xiaohongshu_skill_when_cli_available() -> None:
+    import asyncio
+
+    loop = _mk_loop()
+    loop._active_request_flags = {}
+    loop._selected_skill_names = lambda: ["xiaohongshu-browser-research"]
+    loop.context = SimpleNamespace(available_tools={"xiaohongshu_cli", "browser_site"})
+
+    class _FakeRegistry:
+        async def execute(self, name: str, params: dict) -> str:
+            raise AssertionError("browser_site should be blocked before tool execution")
+
+    loop.tools = _FakeRegistry()
+    tool_call = ToolCallRequest(id="1", name="browser_site", arguments={"adapter": "xiaohongshu/search"})
+
+    results = asyncio.run(loop._execute_tool_calls([tool_call]))
+
+    assert len(results) == 1
+    assert "browser_site disabled for xiaohongshu-browser-research" in results[0][1]
+
+
 def test_tool_definitions_for_broad_market_scan_only_exposes_market_pipeline() -> None:
     loop = _mk_loop()
     loop._active_request_flags = {"broad_market_scan": True}
@@ -190,6 +274,7 @@ def test_tool_definitions_for_broad_market_scan_only_exposes_market_pipeline() -
 def test_tool_definitions_for_normal_request_keep_full_set() -> None:
     loop = _mk_loop()
     loop._active_request_flags = {}
+    loop._current_tool_rounds = 0
 
     class _FakeRegistry:
         def get_definitions(self):
@@ -206,6 +291,46 @@ def test_tool_definitions_for_normal_request_keep_full_set() -> None:
         {"type": "function", "function": {"name": "market_snapshot"}},
         {"type": "function", "function": {"name": "web_search"}},
     ]
+
+
+def test_tool_definitions_for_xiaohongshu_request_disable_tools_after_two_rounds() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"xiaohongshu_request": True, "xiaohongshu_research": True}
+    loop._current_tool_rounds = 2
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "xiaohongshu_cli"}},
+                {"type": "function", "function": {"name": "exec"}},
+            ]
+
+    loop.tools = _FakeRegistry()
+
+    defs = loop._tool_definitions_for_request()
+
+    assert defs == []
+
+
+def test_tool_definitions_for_xiaohongshu_request_only_exposes_xiaohongshu_cli() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"xiaohongshu_request": True}
+    loop._current_tool_rounds = 0
+    loop.context = SimpleNamespace(available_tools={"xiaohongshu_cli", "exec", "browser_site"})
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "xiaohongshu_cli"}},
+                {"type": "function", "function": {"name": "exec"}},
+                {"type": "function", "function": {"name": "browser_site"}},
+            ]
+
+    loop.tools = _FakeRegistry()
+
+    defs = loop._tool_definitions_for_request()
+
+    assert defs == [{"type": "function", "function": {"name": "xiaohongshu_cli"}}]
 
 
 def test_normalize_market_brief_arguments_for_broad_market_scan() -> None:
@@ -332,6 +457,77 @@ def test_run_agent_loop_disables_tools_after_first_broad_market_scan_round() -> 
         "market_brief",
     ]
     assert loop.provider.chat.await_args_list[1].kwargs["tools"] == []
+
+
+def test_run_agent_loop_only_exposes_xiaohongshu_cli_for_xiaohongshu_request() -> None:
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    loop = _mk_loop()
+    loop.max_iterations = 3
+    loop.model = "test-model"
+    loop.temperature = 0.1
+    loop.max_tokens = 512
+    loop.reasoning_effort = None
+    loop._BROAD_MARKET_SCAN_MARKERS = ()
+    loop._DAILY_OPPORTUNITY_SKILL = "daily-market-opportunity"
+    loop._selected_skill_names = lambda: ["xiaohongshu-browser-research"]
+    loop._is_broad_market_scan_request = lambda messages: False
+    loop._is_xiaohongshu_request = lambda messages: True
+    loop._merge_usage = AgentLoop._merge_usage
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "xiaohongshu_cli"}},
+                {"type": "function", "function": {"name": "exec"}},
+                {"type": "function", "function": {"name": "browser_site"}},
+            ]
+
+        async def execute(self, name: str, params: dict) -> str:
+            return f"{name}:{params}"
+
+    class _FakeContext:
+        available_tools = {"xiaohongshu_cli", "exec", "browser_site"}
+
+        @staticmethod
+        def add_assistant_message(messages, content, tool_calls=None, **kwargs):
+            updated = list(messages)
+            entry = {"role": "assistant", "content": content}
+            if tool_calls is not None:
+                entry["tool_calls"] = tool_calls
+            updated.append(entry)
+            return updated
+
+        @staticmethod
+        def add_tool_result(messages, tool_call_id, tool_name, result):
+            updated = list(messages)
+            updated.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "name": tool_name,
+                    "content": result,
+                }
+            )
+            return updated
+
+    responses = iter([LLMResponse(content="final answer", tool_calls=[])])
+    loop.provider = MagicMock()
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+    loop.tools = _FakeRegistry()
+    loop.context = _FakeContext()
+
+    final_content, tools_used, _, _ = asyncio.run(
+        loop._run_agent_loop([{"role": "user", "content": "用小红书分析瑞幸咖啡"}])
+    )
+
+    assert final_content == "final answer"
+    assert tools_used == []
+    assert loop.provider.chat.await_count == 1
+    assert loop.provider.chat.await_args.kwargs["tools"] == [
+        {"type": "function", "function": {"name": "xiaohongshu_cli"}}
+    ]
 
 
 def test_run_agent_loop_auto_appends_market_brief_for_daily_opportunity() -> None:
