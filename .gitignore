@@ -82,6 +82,11 @@ marketbot-tech-news-digest.md
 # local tooling
 .serena/
 
+# local xiaohongshu cli caches
+marketbot/.xiaohongshu-cli/index_cache.json
+marketbot/.xiaohongshu-cli/search_sessions.json
+marketbot/.xiaohongshu-cli/token_cache.json
+
 # config backups
 marketbot.json.bak*
 
