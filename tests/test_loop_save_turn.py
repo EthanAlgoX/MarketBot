@@ -1299,6 +1299,74 @@ def test_run_user_turn_uses_shared_finalize_pipeline() -> None:
     assert calls[1] == ("record", 1, {"total_tokens": 3})
 
 
+def test_run_user_turn_feishu_twitter_publish_skips_explainability_footer() -> None:
+    loop = _mk_loop()
+    session = Session(key="feishu:direct")
+    msg = InboundMessage(
+        channel="feishu",
+        sender_id="user",
+        chat_id="chat",
+        content="发布一条推特，大概内容如下：\n\nMarketBot + 小红书 CLI\n总结：高价值场景聚焦",
+    )
+
+    class _FakeTools:
+        @staticmethod
+        def has(name: str) -> bool:
+            return name == "twitter_cli"
+
+        @staticmethod
+        async def execute(name: str, params: dict) -> str:
+            assert name == "twitter_cli"
+            assert params["operation"] == "post"
+            return '{"ok":true,"data":{"id":"1","url":"https://x.com/i/status/1"}}'
+
+    class _Processor:
+        @staticmethod
+        def get_last_skill_routing():
+            return {"selected": [{"name": "twitter-publisher"}]}
+
+    async def _fake_retry(**kwargs):
+        return [], None, None, None, {}
+
+    recorded = []
+    loop.tools = _FakeTools()
+    loop.processor = _Processor()
+    loop.workspace = Path("/tmp")
+    loop.max_iterations = 3
+    loop._run_agent_loop = lambda messages, on_progress=None: tool_runtime.run_agent_loop(loop, messages, on_progress=on_progress)
+    loop._classify_skill_outcome = lambda **kwargs: "success"
+    loop._retry_turn_with_fallback = _fake_retry
+    loop._normalize_daily_opportunity_report = lambda content: content
+    loop._build_chat_explainability = lambda messages, channel: AgentLoop._build_chat_explainability(loop, messages, channel=channel)
+    loop._append_chat_explainability = lambda content, explainability: AgentLoop._append_chat_explainability(loop, content, explainability)
+    loop._build_external_skill_install_suggestions = lambda: []
+    loop._append_external_skill_suggestions = lambda content, suggestions: content
+    loop._persist_local_report_if_needed = lambda content, request_text=None: None
+    loop._append_saved_report_path = lambda content, report_path: content
+    loop._finalize_response_content = lambda content, **kwargs: (
+        content,
+        loop._build_chat_explainability(kwargs["all_msgs"], channel=kwargs["channel"]),
+        [],
+        None,
+    )
+    loop._record_completed_turn = lambda **kwargs: recorded.append(kwargs)
+    loop._build_response_metadata = lambda **kwargs: AgentLoop._build_response_metadata(loop, **kwargs)
+    loop._build_bus_progress_callback = lambda **kwargs: (lambda *args, **kw: None)
+
+    final_content, metadata = asyncio.run(
+        loop._run_user_turn(
+            msg=msg,
+            session=session,
+            history=[],
+            initial_messages=[{"role": "user", "content": msg.content}],
+        )
+    )
+
+    assert "推特已发送成功" in str(final_content)
+    assert "explainability" not in metadata
+    assert recorded[0]["tools_used"] == ["twitter_cli"]
+
+
 def test_run_user_turn_retries_with_fallback_skill_after_primary_failure() -> None:
     loop = _mk_loop()
     session = Session(key="cli:direct")
