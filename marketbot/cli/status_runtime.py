@@ -52,7 +52,7 @@ def render_channels_status_table(config: Any) -> Table:
     return table
 
 
-def build_status_payload(config: Any, config_path: Path) -> dict[str, Any]:
+def build_status_payload(config: Any, config_path: Path, *, bus: Any | None = None) -> dict[str, Any]:
     """Build machine-readable status payload for CLI and automation."""
     workspace = config.workspace_path
     browser_cfg = config.tools.browser
@@ -87,6 +87,8 @@ def build_status_payload(config: Any, config_path: Path) -> dict[str, Any]:
         },
         "providers": [],
     }
+    if bus is not None and hasattr(bus, "stats"):
+        payload["bus"] = bus.stats()
 
     from marketbot.providers.registry import PROVIDERS
 
@@ -140,9 +142,9 @@ def format_browser_runtime_summary(config: Any) -> str:
     return "Browser: " + " | ".join(bits)
 
 
-def render_status(console: Any, *, logo: str, config: Any, config_path: Path) -> None:
+def render_status(console: Any, *, logo: str, config: Any, config_path: Path, bus: Any | None = None) -> None:
     """Render the human-readable status command output."""
-    payload = build_status_payload(config, config_path)
+    payload = build_status_payload(config, config_path, bus=bus)
     workspace = config.workspace_path
     browser = payload["browser"]
 
@@ -188,3 +190,16 @@ def render_status(console: Any, *, logo: str, config: Any, config_path: Path) ->
             else:
                 configured = bool(spec["configured"])
                 console.print(f"{spec['label']}: {'[green]✓[/green]' if configured else '[dim]not set[/dim]'}")
+    if payload.get("bus"):
+        inbound = payload["bus"]["inbound"]
+        outbound = payload["bus"]["outbound"]
+        console.print(
+            "Queue inbound: "
+            + f"{inbound['size']}/{inbound['maxsize']} "
+            + f"(published={inbound['published']}, wait={inbound['publish_wait_s']:.3f}s)"
+        )
+        console.print(
+            "Queue outbound: "
+            + f"{outbound['size']}/{outbound['maxsize']} "
+            + f"(published={outbound['published']}, wait={outbound['publish_wait_s']:.3f}s)"
+        )

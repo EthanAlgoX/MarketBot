@@ -2,6 +2,8 @@ from pathlib import Path
 
 from rich.console import Console
 
+from marketbot.bus.events import InboundMessage
+from marketbot.bus.queue import MessageBus
 from marketbot.cli.status_runtime import build_status_payload, render_channels_status_table
 from marketbot.config.schema import Config
 
@@ -40,3 +42,17 @@ def test_render_channels_status_table_contains_enabled_and_masked_values() -> No
     assert "token: 1234567890" in rendered
     assert "Feishu" in rendered
     assert "app_id: cli_app_id" in rendered
+
+
+async def test_build_status_payload_includes_bus_stats(tmp_path) -> None:
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    bus = MessageBus(inbound_maxsize=2, outbound_maxsize=3)
+
+    await bus.publish_inbound(InboundMessage(channel="cli", sender_id="u", chat_id="c", content="hello"))
+
+    payload = build_status_payload(config, tmp_path / "config.json", bus=bus)
+
+    assert payload["bus"]["inbound"]["size"] == 1
+    assert payload["bus"]["inbound"]["maxsize"] == 2
+    assert payload["bus"]["outbound"]["maxsize"] == 3
