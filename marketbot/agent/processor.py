@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from marketbot.agent import processor_runtime
+from marketbot.agent.processor_save import save_session_messages
 
 if TYPE_CHECKING:
     from marketbot.agent.context import ContextBuilder
@@ -176,40 +177,10 @@ class MessageProcessor:
 
     def save_session(self, session: "Session", messages: list[dict], skip: int) -> None:
         """Save new messages to session."""
-        from datetime import datetime
-        for m in messages[skip:]:
-            entry = dict(m)
-            role, content = entry.get("role"), entry.get("content")
-            if role == "assistant" and not content and not entry.get("tool_calls"):
-                continue
-            if role == "tool" and isinstance(content, str) and len(content) > self._TOOL_RESULT_MAX_CHARS:
-                entry["content"] = content[:self._TOOL_RESULT_MAX_CHARS] + "\n... (truncated)"
-            elif role == "user":
-                if isinstance(content, str) and content.startswith(self.context._RUNTIME_CONTEXT_TAG):
-                    parts = content.split("\n\n", 1)
-                    if len(parts) > 1 and parts[1].strip():
-                        entry["content"] = parts[1]
-                    else:
-                        continue
-                if isinstance(content, list):
-                    filtered = []
-                    for c in content:
-                        if (
-                            c.get("type") == "text"
-                            and isinstance(c.get("text"), str)
-                            and c["text"].startswith(self.context._RUNTIME_CONTEXT_TAG)
-                        ):
-                            continue
-                        if (
-                            c.get("type") == "image_url"
-                            and c.get("image_url", {}).get("url", "").startswith("data:image/")
-                        ):
-                            filtered.append({"type": "text", "text": "[image]"})
-                        else:
-                            filtered.append(c)
-                    if not filtered:
-                        continue
-                    entry["content"] = filtered
-            entry.setdefault("timestamp", datetime.now().isoformat())
-            session.messages.append(entry)
-        session.updated_at = datetime.now()
+        save_session_messages(
+            session=session,
+            messages=messages,
+            skip=skip,
+            runtime_context_tag=self.context._RUNTIME_CONTEXT_TAG,
+            tool_result_max_chars=self._TOOL_RESULT_MAX_CHARS,
+        )
