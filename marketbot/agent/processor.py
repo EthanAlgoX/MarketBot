@@ -6,6 +6,7 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
+from marketbot.agent import processor_consolidation
 from marketbot.agent import processor_runtime
 from marketbot.agent.processor_save import save_session_messages
 
@@ -100,45 +101,15 @@ class MessageProcessor:
 
     def should_consolidate(self, session: "Session") -> bool:
         """Check if memory consolidation should be triggered."""
-        unconsolidated = len(session.messages) - session.last_consolidated
-        return (unconsolidated >= self.memory_window 
-                and session.key not in self._consolidating)
+        return processor_consolidation.should_consolidate(self, session)
 
     async def schedule_consolidation(self, session: "Session") -> None:
         """Schedule memory consolidation for a session."""
-        if not self.should_consolidate(session):
-            return
-            
-        self._consolidating.add(session.key)
-        lock = self._consolidation_locks.setdefault(session.key, asyncio.Lock())
-
-        async def _consolidate_and_unlock():
-            try:
-                async with lock:
-                    await self._consolidate_memory(session)
-            finally:
-                self._consolidating.discard(session.key)
-                task = asyncio.current_task()
-                if task is not None:
-                    self._consolidation_tasks.discard(task)
-
-        task = asyncio.create_task(_consolidate_and_unlock())
-        self._consolidation_tasks.add(task)
+        await processor_consolidation.schedule_consolidation(self, session)
 
     async def _consolidate_memory(self, session: "Session", archive_all: bool = False) -> bool:
         """Delegate to MemoryStore.consolidate()."""
-        if self.consolidate_delegate is not None:
-            return await self.consolidate_delegate(session, archive_all)
-        if not self.provider:
-            return False
-        return await self.memory_store.consolidate(
-            session, 
-            provider=self.provider,
-            model=self.model,
-            archive_all=archive_all,
-            memory_window=self.memory_window,
-            layered=self.layered_consolidation,
-        )
+        return await processor_consolidation.consolidate_memory(self, session, archive_all=archive_all)
 
     def build_messages(
         self,
