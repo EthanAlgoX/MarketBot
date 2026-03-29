@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Protocol
 from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.cron import CronTool
 from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
+from marketbot.agent.tools.lark import LarkBaseTool, LarkCliTool, LarkDocTool, LarkIMTool, LarkSheetsTool, LarkTaskTool
 from marketbot.agent.tools.message import MessageTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
@@ -19,7 +20,7 @@ from marketbot.agent.tools.xiaohongshu import XiaohongshuCliTool
 if TYPE_CHECKING:
     from marketbot.agent.subagent import SubagentManager
     from marketbot.bus.queue import MessageBus
-    from marketbot.config.schema import BrowserToolsConfig, ExecToolConfig, MarketToolsConfig, XiaohongshuCliToolsConfig
+    from marketbot.config.schema import BrowserToolsConfig, ExecToolConfig, LarkCliToolsConfig, MarketToolsConfig, XiaohongshuCliToolsConfig
     from marketbot.cron.service import CronService
 
 
@@ -36,6 +37,7 @@ class ToolBootstrapContext:
     web_proxy: str | None = None
     browser_config: "BrowserToolsConfig | None" = None
     xiaohongshu_cli_config: "XiaohongshuCliToolsConfig | None" = None
+    lark_cli_config: "LarkCliToolsConfig | None" = None
     cron_service: "CronService | None" = None
     market_config: "MarketToolsConfig | None" = None
 
@@ -69,6 +71,13 @@ def register_core_tools(registry: ToolRegistry, ctx: ToolBootstrapContext) -> No
         registry.register(BrowserNetworkTool(browser_config=ctx.browser_config, workspace=ctx.workspace))
     if ctx.xiaohongshu_cli_config and ctx.xiaohongshu_cli_config.enabled:
         registry.register(XiaohongshuCliTool(xhs_config=ctx.xiaohongshu_cli_config, workspace=ctx.workspace))
+    if ctx.lark_cli_config and ctx.lark_cli_config.enabled:
+        registry.register(LarkCliTool(lark_config=ctx.lark_cli_config, workspace=ctx.workspace))
+        registry.register(LarkBaseTool(lark_config=ctx.lark_cli_config, workspace=ctx.workspace))
+        registry.register(LarkIMTool(lark_config=ctx.lark_cli_config, workspace=ctx.workspace))
+        registry.register(LarkDocTool(lark_config=ctx.lark_cli_config, workspace=ctx.workspace))
+        registry.register(LarkSheetsTool(lark_config=ctx.lark_cli_config, workspace=ctx.workspace))
+        registry.register(LarkTaskTool(lark_config=ctx.lark_cli_config, workspace=ctx.workspace))
     registry.register(MessageTool(send_callback=ctx.bus.publish_outbound))
     registry.register(SpawnTool(manager=ctx.subagents))
     if ctx.cron_service:

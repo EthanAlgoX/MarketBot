@@ -337,6 +337,17 @@ class XiaohongshuCliToolsConfig(Base):
     allow_write: bool = False
 
 
+class LarkCliToolsConfig(Base):
+    """Local lark-cli wrapper configuration."""
+
+    enabled: bool = False
+    command: str = "lark-cli"
+    timeout_s: int = Field(45, ge=1, le=180)
+    config_dir: str = ""
+    allow_write: bool = False
+    allow_auth: bool = False
+
+
 class ExecToolConfig(Base):
     """Shell exec tool configuration."""
 
@@ -422,6 +433,7 @@ class ToolsConfig(Base):
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
     browser: BrowserToolsConfig = Field(default_factory=BrowserToolsConfig)
     xiaohongshu_cli: XiaohongshuCliToolsConfig = Field(default_factory=XiaohongshuCliToolsConfig)
+    lark_cli: LarkCliToolsConfig = Field(default_factory=LarkCliToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
     market: MarketToolsConfig = Field(default_factory=MarketToolsConfig)
     restrict_to_workspace: bool = False  # If true, restrict all tool access to workspace directory

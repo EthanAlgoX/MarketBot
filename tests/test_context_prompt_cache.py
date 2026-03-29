@@ -148,6 +148,22 @@ def test_system_prompt_includes_browser_adapter_catalog_when_configured(tmp_path
     assert "- reddit/search" in prompt
 
 
+def test_system_prompt_includes_lark_tool_playbook_when_lark_tools_available(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"lark_cli", "lark_base", "lark_im", "lark_doc", "lark_sheets", "lark_task"})
+
+    prompt = builder.build_system_prompt()
+
+    assert "# Lark Tool Playbook" in prompt
+    assert "Use `lark_base`" in prompt
+    assert "Use `lark_im`" in prompt
+    assert "Use `lark_doc`" in prompt
+    assert "Use `lark_sheets`" in prompt
+    assert "Use `lark_task`" in prompt
+    assert "Use `lark_cli` only as a fallback" in prompt
+
+
 def test_system_prompt_skills_summary_includes_browser_adapter_catalog_when_no_skill_selected(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

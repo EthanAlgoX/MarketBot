@@ -3,10 +3,11 @@ from typing import Any
 
 from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.base import Tool
+from marketbot.agent.tools.lark import LarkBaseTool, LarkCliTool, LarkDocTool, LarkIMTool, LarkSheetsTool, LarkTaskTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
 from marketbot.agent.tools.xiaohongshu import XiaohongshuCliTool
-from marketbot.config.schema import BrowserToolsConfig, XiaohongshuCliToolsConfig
+from marketbot.config.schema import BrowserToolsConfig, LarkCliToolsConfig, XiaohongshuCliToolsConfig
 
 
 class SampleTool(Tool):
@@ -695,6 +696,694 @@ async def test_xiaohongshu_cli_sets_home_env_when_configured() -> None:
     result = await tool.execute(operation="status")
 
     assert result == '{"ok":true}'
+
+
+async def test_lark_cli_runs_read_command_with_expected_args() -> None:
+    tool = LarkCliTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        assert args == ["im", "+chat-search", "--query", "财报日历", "--format", "json"]
+        assert stdin == ""
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(args=["im", "+chat-search", "--query", "财报日历", "--format", "json"])
+
+    assert result == '{"ok":true}'
+
+
+async def test_lark_cli_blocks_write_operations_by_default() -> None:
+    tool = LarkCliTool(LarkCliToolsConfig(enabled=True, command="lark-cli", allow_write=False))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    result = await tool.execute(args=["docs", "+create", "--title", "日报"])
+
+    assert "write operations are disabled" in result
+
+
+async def test_lark_cli_blocks_auth_commands_by_default() -> None:
+    tool = LarkCliTool(LarkCliToolsConfig(enabled=True, command="lark-cli", allow_auth=False))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    result = await tool.execute(args=["auth", "status"])
+
+    assert "auth commands are disabled" in result
+
+
+async def test_lark_cli_injects_config_dir_env() -> None:
+    tool = LarkCliTool(
+        LarkCliToolsConfig(enabled=True, command="lark-cli", config_dir="/tmp/lark-cli-config")
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        assert tool.config_dir == "/tmp/lark-cli-config"
+        return 0, '{"ok":true,"data":{"items":[]}}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(args=["contact", "+search-user", "--query", "Ethan"])
+
+    assert result == '{"ok":true,"data":{"items":[]}}'
+
+
+async def test_lark_im_chat_search_builds_expected_command() -> None:
+    tool = LarkIMTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        assert args == ["im", "+chat-search", "--query", "财报", "--format", "json"]
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="chat_search", query="财报")
+    assert result == '{"ok":true}'
+
+
+async def test_lark_im_chat_search_summarizes_results() -> None:
+    tool = LarkIMTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "chats": [
+                    {
+                        "chat_id": "oc_123",
+                        "name": "市场讨论组",
+                        "description": "研究讨论",
+                        "chat_mode": "group",
+                        "owner_id": "ou_owner",
+                    }
+                ],
+                "total": 1,
+                "has_more": False,
+                "page_token": "",
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="chat_search", query="市场")
+
+    assert '"returned": 1' in result
+    assert '"name": "市场讨论组"' in result
+    assert '"chatId": "oc_123"' in result
+
+
+async def test_lark_im_messages_search_summarizes_results() -> None:
+    tool = LarkIMTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "messages": [
+                    {
+                        "message_id": "om_123",
+                        "chat_id": "oc_123",
+                        "chat_name": "市场讨论组",
+                        "chat_type": "group",
+                        "msg_type": "text",
+                        "content": "市场今天波动很大",
+                        "create_time": "2026-03-29T19:00:00+08:00",
+                        "sender": {"name": "Ethan"},
+                    }
+                ],
+                "total": 1,
+                "has_more": False,
+                "page_token": "",
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="messages_search", query="市场")
+
+    assert '"returned": 1' in result
+    assert '"messageId": "om_123"' in result
+    assert '"sender": "Ethan"' in result
+    assert '"content": "市场今天波动很大"' in result
+
+
+async def test_lark_im_send_message_respects_write_guard() -> None:
+    tool = LarkIMTool(LarkCliToolsConfig(enabled=True, command="lark-cli", allow_write=False))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    result = await tool.execute(action="send_message", chat_id="oc_xxx", text="hello")
+    assert "write operations are disabled" in result
+
+
+async def test_lark_doc_fetch_builds_expected_command() -> None:
+    tool = LarkDocTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        assert args == ["docs", "+fetch", "--doc-token", "doccn123", "--format", "json"]
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="fetch", doc_token="doccn123")
+    assert result == '{"ok":true}'
+
+
+async def test_lark_doc_search_supports_page_size() -> None:
+    tool = LarkDocTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        assert args == ["docs", "+search", "--query", "市场", "--page-size", "3", "--format", "json"]
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="search", query="市场", page_size=3)
+    assert result == '{"ok":true}'
+
+
+async def test_lark_doc_search_summarizes_results() -> None:
+    tool = LarkDocTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "total": 7,
+                "has_more": True,
+                "results": [
+                    {
+                        "entity_type": "DOC",
+                        "title_highlighted": "<h>市场</h>分析报告",
+                        "summary_highlighted": "关于<h>市场</h>趋势的总结",
+                        "result_meta": {
+                            "url": "https://www.feishu.cn/docx/abc",
+                            "token": "abc",
+                            "doc_types": "DOCX",
+                            "update_time_iso": "2026-03-29T19:00:00+08:00",
+                        },
+                    }
+                ],
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="search", query="市场", page_size=3)
+
+    assert '"returned": 1' in result
+    assert '"title": "市场分析报告"' in result
+    assert '"summary": "关于市场趋势的总结"' in result
+    assert '"url": "https://www.feishu.cn/docx/abc"' in result
+
+
+async def test_lark_sheets_append_requires_values_json() -> None:
+    tool = LarkSheetsTool(LarkCliToolsConfig(enabled=True, command="lark-cli", allow_write=True))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    result = await tool.execute(action="append", spreadsheet_token="sht123", range="sheet1!A1:B2")
+    assert "values_json is required" in result
+
+
+async def test_lark_sheets_read_builds_expected_command() -> None:
+    tool = LarkSheetsTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        assert args == [
+            "sheets",
+            "+read",
+            "--spreadsheet-token",
+            "sht123",
+            "--range",
+            "sheet1!A1:B2",
+        ]
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="read", spreadsheet_token="sht123", range="sheet1!A1:B2")
+    assert result == '{"ok":true}'
+
+
+async def test_lark_sheets_read_summarizes_results() -> None:
+    tool = LarkSheetsTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "valueRange": {
+                    "range": "sheet1!A1:B2",
+                    "values": [["标题", "链接"], ["市场分析", "https://example.com"]],
+                }
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="read", spreadsheet_token="sht123", range="sheet1!A1:B2")
+
+    assert '"range": "sheet1!A1:B2"' in result
+    assert '"rowCount": 2' in result
+    assert '"columnCount": 2' in result
+    assert '"rows": [["标题", "链接"], ["市场分析", "https://example.com"]]' in result
+
+
+async def test_lark_sheets_read_supports_sheet_id() -> None:
+    tool = LarkSheetsTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        assert args == [
+            "sheets",
+            "+read",
+            "--spreadsheet-token",
+            "sht123",
+            "--sheet-id",
+            "sheetABC",
+            "--range",
+            "A1:B2",
+        ]
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        action="read",
+        spreadsheet_token="sht123",
+        sheet_id="sheetABC",
+        range="A1:B2",
+    )
+    assert result == '{"ok":true}'
+
+
+async def test_lark_task_update_builds_expected_command() -> None:
+    tool = LarkTaskTool(LarkCliToolsConfig(enabled=True, command="lark-cli", allow_write=True))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        assert args == [
+            "task",
+            "+update",
+            "--task-id",
+            "task_123",
+            "--summary",
+            "更新标题",
+            "--due",
+            "+2d",
+            "--format",
+            "json",
+        ]
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="update", task_id="task_123", summary="更新标题", due="+2d")
+    assert result == '{"ok":true}'
+
+
+async def test_lark_task_list_summarizes_results() -> None:
+    tool = LarkTaskTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "items": [
+                    {
+                        "guid": "task_123",
+                        "summary": "更新市场周报",
+                        "url": "https://feishu.cn/task/task_123",
+                        "created_at": "2026-03-29T10:00:00Z",
+                        "due_at": "2026-03-30T10:00:00Z",
+                    }
+                ],
+                "has_more": False,
+                "page_token": "",
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="list", query="市场")
+
+    assert '"returned": 1' in result
+    assert '"taskId": "task_123"' in result
+    assert '"summary": "更新市场周报"' in result
+
+
+async def test_lark_base_table_list_builds_expected_command() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        assert args == ["base", "+table-list", "--base-token", "app123", "--limit", "5"]
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="table_list", base_token="app123", limit=5)
+    assert result == '{"ok":true}'
+
+
+async def test_lark_base_field_list_summarizes_results() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "items": [
+                    {"field_id": "fld1", "field_name": "名称", "type": 1, "is_primary": True},
+                    {"field_id": "fld2", "field_name": "状态", "type": 3, "is_primary": False},
+                ],
+                "has_more": False,
+                "page_token": "",
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="field_list", base_token="app123", table_id="tbl123")
+    assert '"returned": 2' in result
+    assert '"fieldName": "名称"' in result
+    assert '"isPrimary": true' in result
+
+
+async def test_lark_base_table_list_summarizes_table_name() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "items": [
+                    {"table_id": "tbl1", "table_name": "需求调研（ AI 分析）"},
+                ],
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(action="table_list", base_token="app123")
+    assert '"tableName": "需求调研（ AI 分析）"' in result
+    assert '"name": "需求调研（ AI 分析）"' in result
+
+
+async def test_lark_base_record_get_summarizes_result() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "record": {
+                    "record_id": "rec123",
+                    "fields": {"名称": "活动A", "状态": "进行中"},
+                }
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        action="record_get",
+        base_token="app123",
+        table_id="tbl123",
+        record_id="rec123",
+    )
+    assert '"recordId": "rec123"' in result
+    assert '"状态": "进行中"' in result
+
+
+async def test_lark_base_record_list_maps_field_names_to_objects() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "fields": ["名称", "状态"],
+                "data": [
+                    ["活动A", "进行中"],
+                    ["活动B", "已完成"],
+                ],
+                "record_id_list": ["rec1", "rec2"],
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        action="record_list",
+        base_token="app123",
+        table_id="tbl123",
+        limit=2,
+    )
+    assert '"returned": 2' in result
+    assert '"recordId": "rec1"' in result
+    assert '"名称": "活动A"' in result
+    assert '"状态": "已完成"' in result
+
+
+async def test_lark_base_record_list_filters_selected_fields() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "fields": ["名称", "状态", "年龄"],
+                "data": [
+                    ["活动A", "进行中", "25-34岁"],
+                ],
+                "record_id_list": ["rec1"],
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        action="record_list",
+        base_token="app123",
+        table_id="tbl123",
+        fields=["名称", "状态"],
+    )
+    assert '"名称": "活动A"' in result
+    assert '"状态": "进行中"' in result
+    assert '"年龄"' not in result
+
+
+async def test_lark_base_record_list_filters_records_by_field_value() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "fields": ["编号", "AI 情感打标", "您的年龄范围？"],
+                "data": [
+                    ["1", "负向", "45-54岁"],
+                    ["2", "正向", "25-34岁"],
+                ],
+                "record_id_list": ["rec1", "rec2"],
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        action="record_list",
+        base_token="app123",
+        table_id="tbl123",
+        field_filters={"AI 情感打标": "负向"},
+    )
+    assert '"returned": 1' in result
+    assert '"recordId": "rec1"' in result
+    assert '"recordId": "rec2"' not in result
+
+
+async def test_lark_base_record_list_supports_filter_dsl() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "fields": ["编号", "AI 情感打标", "您的年龄范围？"],
+                "data": [
+                    ["1", "负向", "45-54岁"],
+                    ["2", "正向", "25-34岁"],
+                    ["3", "负向", "18岁以下"],
+                ],
+                "record_id_list": ["rec1", "rec2", "rec3"],
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        action="record_list",
+        base_token="app123",
+        table_id="tbl123",
+        field_filters={
+            "conjunction": "and",
+            "conditions": [
+                {"field_name": "AI 情感打标", "operator": "is", "value": ["负向"]},
+                {"field_name": "您的年龄范围？", "operator": "contains", "value": "45-54"},
+            ],
+        },
+    )
+    assert '"returned": 1' in result
+    assert '"recordId": "rec1"' in result
+    assert '"recordId": "rec3"' not in result
+
+
+async def test_lark_base_field_list_resolves_table_name_to_table_id() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+    seen_args: list[list[str]] = []
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        seen_args.append(args)
+        if args[:2] == ["base", "+table-list"]:
+            payload = {
+                "ok": True,
+                "identity": "user",
+                "data": {
+                    "items": [
+                        {"table_id": "tbl123", "table_name": "需求调研（ AI 分析）"},
+                    ],
+                },
+            }
+            return 0, json.dumps(payload, ensure_ascii=False), ""
+        if args[:2] == ["base", "+field-list"]:
+            payload = {
+                "ok": True,
+                "identity": "user",
+                "data": {
+                    "items": [
+                        {"field_id": "fld1", "field_name": "名称", "type": 1, "is_primary": True},
+                    ],
+                },
+            }
+            return 0, json.dumps(payload, ensure_ascii=False), ""
+        return 1, "", "unexpected args"
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        action="field_list",
+        base_token="app123",
+        table_name="需求调研",
+    )
+    assert seen_args[0] == ["base", "+table-list", "--base-token", "app123"]
+    assert seen_args[1] == ["base", "+field-list", "--base-token", "app123", "--table-id", "tbl123"]
+    assert '"tableId": "tbl123"' in result
+    assert '"tableName": "需求调研（ AI 分析）"' in result
+
+
+async def test_lark_base_record_list_returns_error_when_table_name_not_found() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "items": [
+                    {"table_id": "tbl123", "table_name": "需求调研（ AI 分析）"},
+                    {"table_id": "tbl456", "table_name": "🛠️问卷管理员配置"},
+                ],
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        action="record_list",
+        base_token="app123",
+        table_name="不存在的表",
+    )
+    payload = json.loads(result)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "table_name_not_found"
+    assert payload["error"]["message"] == "table_name '不存在的表' was not found in base app123"
+    assert payload["data"]["candidates"] == ["需求调研（ AI 分析）", "🛠️问卷管理员配置"]
+
+
+async def test_lark_base_record_list_returns_ambiguity_error_for_multiple_table_name_matches() -> None:
+    tool = LarkBaseTool(LarkCliToolsConfig(enabled=True, command="lark-cli"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str], stdin: str = "") -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "identity": "user",
+            "data": {
+                "items": [
+                    {"table_id": "tbl123", "table_name": "需求调研（ AI 分析）"},
+                    {"table_id": "tbl456", "table_name": "需求调研（问卷回收）"},
+                    {"table_id": "tbl789", "table_name": "🛠️问卷管理员配置"},
+                ],
+            },
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        action="record_list",
+        base_token="app123",
+        table_name="需求调研",
+    )
+    payload = json.loads(result)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "ambiguous_table_name"
+    assert payload["error"]["message"] == "table_name '需求调研' matched multiple tables in base app123"
+    assert payload["data"]["candidates"] == ["需求调研（ AI 分析）", "需求调研（问卷回收）"]
 
 
 def test_cast_params_invalid_string_to_int() -> None:

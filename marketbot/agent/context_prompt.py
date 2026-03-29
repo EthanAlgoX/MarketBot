@@ -34,6 +34,10 @@ def build_system_prompt(
     if include_market_playbook:
         parts.append(market_analysis_playbook())
 
+    lark_guidance = lark_tool_playbook(builder.available_tools)
+    if lark_guidance:
+        parts.append(lark_guidance)
+
     selected_skills = builder._normalize_skill_names(skill_names)
     if selected_skills:
         selected_content = builder.skills.load_skills_for_context(
@@ -165,6 +169,42 @@ When the user asks for analysis of a specific asset or trade setup, prefer this 
    - Only mention provider names or HTTP errors when the user explicitly asks for routing/debugging
 
 If evidence is mixed, reduce conviction and default to `watch`."""
+
+
+def lark_tool_playbook(available_tools: set[str] | None) -> str:
+    """Get the built-in playbook for Lark tool selection when available."""
+    tools = set(available_tools or set())
+    structured = {"lark_base", "lark_im", "lark_doc", "lark_sheets", "lark_task"}
+    if not (tools & structured or "lark_cli" in tools):
+        return ""
+
+    lines = [
+        "# Lark Tool Playbook",
+        "",
+        "When the user asks to operate Lark/Feishu resources, prefer the structured tools first:",
+    ]
+    if "lark_im" in tools:
+        lines.append("- Use `lark_im` for chat search, message lookup, and sending messages.")
+    if "lark_base" in tools:
+        lines.append("- Use `lark_base` for Feishu Base/Bitable table, field, and record reads.")
+    if "lark_doc" in tools:
+        lines.append("- Use `lark_doc` for searching, fetching, creating, and updating docs.")
+    if "lark_sheets" in tools:
+        lines.append("- Use `lark_sheets` for reading, appending, writing, and creating spreadsheets.")
+    if "lark_task" in tools:
+        lines.append("- Use `lark_task` for listing, creating, updating, and commenting on tasks.")
+    if "lark_cli" in tools:
+        lines += [
+            "- Use `lark_cli` only as a fallback when the structured tools do not cover the requested Lark operation.",
+            "- Do not use `lark_cli` if one of the structured Lark tools already fits the request.",
+        ]
+    lines += [
+        "- Keep write actions narrowly scoped and only perform the requested mutation.",
+        "- For search or retrieval, prefer read actions before mutating documents, sheets, or tasks.",
+        "- If a structured Lark search succeeds, stop and answer from that result instead of retrying with fallback commands.",
+        "- When the user asks for only a few search results, pass the limit to the structured tool (for example `page_size=3`) and do not run extra exploratory queries.",
+    ]
+    return "\n".join(lines)
 
 
 def load_bootstrap_files(builder: Any) -> str:

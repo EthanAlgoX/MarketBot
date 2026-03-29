@@ -230,6 +230,44 @@ def is_xiaohongshu_request(messages: list[dict[str, Any]] | None) -> bool:
     return False
 
 
+def is_lark_request(messages: list[dict[str, Any]] | None) -> bool:
+    """Return True when the user explicitly asks for Feishu/Lark/Base office operations."""
+    if not isinstance(messages, list):
+        return False
+    markers = (
+        "feishu",
+        "lark",
+        "飞书",
+        "群聊",
+        "文档",
+        "表格",
+        "电子表格",
+        "多维表格",
+        "bitable",
+        "base",
+        "任务",
+    )
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    value = item.get("text")
+                    if isinstance(value, str):
+                        parts.append(value)
+            text = "\n".join(parts)
+        else:
+            continue
+        lowered = text.lower()
+        return any(marker in lowered for marker in markers)
+    return False
+
+
 def tool_policy_result(loop: Any, tool_name: str) -> str | None:
     """Return a synthetic result when policy blocks a tool for the active request."""
     request_flags = getattr(loop, "_active_request_flags", {}) or {}
@@ -240,6 +278,11 @@ def tool_policy_result(loop: Any, tool_name: str) -> str | None:
         )
     selected_skills = set(getattr(loop, "_selected_skill_names", lambda: [])() or [])
     available_tools = set(getattr(getattr(loop, "context", None), "available_tools", set()) or set())
+    if tool_name == "exec" and request_flags.get("lark_request"):
+        return (
+            "Error: exec disabled for Lark/Feishu structured requests. "
+            "Use lark_base, lark_im, lark_doc, lark_sheets, lark_task, or lark_cli directly."
+        )
     if (
         ("xiaohongshu-browser-research" in selected_skills or request_flags.get("xiaohongshu_request"))
         and "xiaohongshu_cli" in available_tools

@@ -25,6 +25,24 @@ def test_build_status_payload_reports_browser_and_provider_configuration(tmp_pat
     assert any(p["name"] == "openrouter" and p["configured"] is True for p in payload["providers"])
 
 
+def test_build_status_payload_reports_lark_cli_configuration(tmp_path) -> None:
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    config.tools.lark_cli.enabled = True
+    config.tools.lark_cli.command = "lark-cli"
+    config.tools.lark_cli.config_dir = "/tmp/lark-cli"
+    config.tools.lark_cli.allow_write = True
+    config.tools.lark_cli.allow_auth = False
+
+    payload = build_status_payload(config, tmp_path / "config.json")
+
+    assert payload["larkCli"]["enabled"] is True
+    assert payload["larkCli"]["command"] == "lark-cli"
+    assert payload["larkCli"]["configDir"] == "/tmp/lark-cli"
+    assert payload["larkCli"]["allowWrite"] is True
+    assert payload["larkCli"]["allowAuth"] is False
+
+
 def test_render_channels_status_table_contains_enabled_and_masked_values() -> None:
     config = Config()
     config.channels.telegram.enabled = True

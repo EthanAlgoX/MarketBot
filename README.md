@@ -159,6 +159,30 @@ marketbot onboard
 - `macroSource: fred` 需要 FRED API key；没有 key 时会明确降级
 - `explainabilityMode` 控制是否在结果里带能力和可靠性说明
 
+可选：如果你希望 agent 直接操作飞书/Lark 文档、消息、表格、任务，可以额外开启本地 `lark-cli` 工具层：
+
+```json
+{
+  "tools": {
+    "larkCli": {
+      "enabled": true,
+      "command": "lark-cli",
+      "timeoutS": 45,
+      "configDir": "~/.lark-cli",
+      "allowWrite": false,
+      "allowAuth": false
+    }
+  }
+}
+```
+
+说明：
+
+- `allowWrite: false` 时只允许查询类操作，默认阻止发消息、创建文档、写表格、改任务
+- `allowAuth: false` 时禁止 agent 触发 `lark-cli auth ...`
+- 启用后，agent 会获得 `lark_cli`、`lark_im`、`lark_doc`、`lark_sheets`、`lark_task` 这些工具
+- 这层集成补的是飞书办公能力，不替代现有 `channels.feishu` 消息通道
+
 ### 4. 直接开始用
 
 最常用的 4 条命令：

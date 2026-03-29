@@ -10,6 +10,7 @@ from loguru import logger
 
 from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
+from marketbot.agent.tools.lark import LarkBaseTool, LarkCliTool, LarkDocTool, LarkIMTool, LarkSheetsTool, LarkTaskTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
 from marketbot.agent.tools.web import WebFetchTool, WebSearchTool
@@ -36,6 +37,7 @@ class SubagentManager:
         web_proxy: str | None = None,
         browser_config: Any | None = None,
         xiaohongshu_cli_config: Any | None = None,
+        lark_cli_config: Any | None = None,
         exec_config: "ExecToolConfig | None" = None,
         restrict_to_workspace: bool = False,
     ):
@@ -51,6 +53,7 @@ class SubagentManager:
         self.web_proxy = web_proxy
         self.browser_config = browser_config
         self.xiaohongshu_cli_config = xiaohongshu_cli_config
+        self.lark_cli_config = lark_cli_config
         self.exec_config = exec_config or ExecToolConfig()
         self.restrict_to_workspace = restrict_to_workspace
         self._running_tasks: dict[str, asyncio.Task[None]] = {}
@@ -120,6 +123,13 @@ class SubagentManager:
                 tools.register(BrowserNetworkTool(browser_config=self.browser_config, workspace=self.workspace))
             if self.xiaohongshu_cli_config and getattr(self.xiaohongshu_cli_config, "enabled", False):
                 tools.register(XiaohongshuCliTool(xhs_config=self.xiaohongshu_cli_config, workspace=self.workspace))
+            if self.lark_cli_config and getattr(self.lark_cli_config, "enabled", False):
+                tools.register(LarkCliTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+                tools.register(LarkBaseTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+                tools.register(LarkIMTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+                tools.register(LarkDocTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+                tools.register(LarkSheetsTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+                tools.register(LarkTaskTool(lark_config=self.lark_cli_config, workspace=self.workspace))
             
             system_prompt = self._build_subagent_prompt()
             messages: list[dict[str, Any]] = [

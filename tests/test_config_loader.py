@@ -72,3 +72,33 @@ def test_load_config_reads_xiaohongshu_cli_tool_settings(tmp_path):
     assert config.tools.xiaohongshu_cli.timeout_s == 90
     assert config.tools.xiaohongshu_cli.cookie_source == "chrome"
     assert config.tools.xiaohongshu_cli.home_dir == "/tmp/xhs-home"
+
+
+def test_load_config_reads_lark_cli_tool_settings(tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "tools": {
+                    "larkCli": {
+                        "enabled": True,
+                        "command": "/usr/local/bin/lark-cli",
+                        "timeoutS": 75,
+                        "configDir": "/tmp/lark-cli-home",
+                        "allowWrite": True,
+                        "allowAuth": False,
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.tools.lark_cli.enabled is True
+    assert config.tools.lark_cli.command == "/usr/local/bin/lark-cli"
+    assert config.tools.lark_cli.timeout_s == 75
+    assert config.tools.lark_cli.config_dir == "/tmp/lark-cli-home"
+    assert config.tools.lark_cli.allow_write is True
+    assert config.tools.lark_cli.allow_auth is False

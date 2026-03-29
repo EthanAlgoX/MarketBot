@@ -9,6 +9,130 @@ from typing import Any, Awaitable, Callable
 from loguru import logger
 
 
+def _fallback_preview(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (str, int, float, bool)):
+        text = str(value)
+        return text if len(text) <= 120 else text[:117] + "..."
+    if isinstance(value, list):
+        return f"{len(value)} item(s)"
+    if isinstance(value, dict):
+        keys = ", ".join(list(value.keys())[:4])
+        return f"{{{keys}}}"
+    return str(value)
+
+
+def _summarize_tool_payload(tool_name: str, result: str) -> str | None:
+    try:
+        payload = json.loads(result)
+    except Exception:
+        text = result.strip()
+        return text[:800] if text else None
+
+    if not isinstance(payload, dict):
+        text = json.dumps(payload, ensure_ascii=False)
+        return text[:800]
+
+    if payload.get("ok") is False:
+        error = payload.get("error")
+        if isinstance(error, dict):
+            message = error.get("message") or error.get("type")
+            if message:
+                return f"{tool_name}: {message}"
+        return json.dumps(payload, ensure_ascii=False)[:800]
+
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return json.dumps(payload, ensure_ascii=False)[:800]
+
+    list_key = next((key for key in ("results", "items", "messages", "chats", "rows") if isinstance(data.get(key), list)), None)
+    if list_key:
+        items = data.get(list_key) or []
+        lines = [f"Latest {tool_name} result:"]
+        if isinstance(data.get("total"), int):
+            lines[0] += f" total={data['total']}"
+        for index, item in enumerate(items[:3], start=1):
+            if isinstance(item, dict):
+                label = (
+                    item.get("title")
+                    or item.get("name")
+                    or item.get("tableName")
+                    or item.get("summary")
+                    or item.get("fieldName")
+                    or item.get("taskId")
+                    or item.get("recordId")
+                    or item.get("chatName")
+                    or item.get("messageId")
+                )
+                detail = (
+                    item.get("url")
+                    or item.get("content")
+                    or item.get("type")
+                    or _fallback_preview(item.get("fields"))
+                )
+                segment = f"{index}. {_fallback_preview(label) or _fallback_preview(item)}"
+                if detail and detail != label:
+                    segment += f" | { _fallback_preview(detail) }"
+                lines.append(segment)
+            else:
+                lines.append(f"{index}. {_fallback_preview(item)}")
+        return "\n".join(lines)
+
+    if isinstance(data.get("record"), dict):
+        record = data["record"]
+        return (
+            f"Latest {tool_name} record: "
+            f"{_fallback_preview(record.get('recordId') or record.get('record_id'))} | "
+            f"{_fallback_preview(record.get('fields'))}"
+        )
+
+    if isinstance(data.get("range"), str) and isinstance(data.get("rows"), list):
+        rows = data.get("rows") or []
+        return (
+            f"Latest {tool_name} range {data['range']}: "
+            f"{len(rows)} row(s), {data.get('columnCount', 0)} column(s). "
+            f"First row: {_fallback_preview(rows[0]) if rows else ''}"
+        ).strip()
+
+    return json.dumps(payload, ensure_ascii=False)[:800]
+
+
+def build_provider_error_fallback(messages: list[dict[str, Any]], tools_used: list[str], provider_error: str) -> str | None:
+    """Build a user-facing fallback when the provider fails after successful tool calls."""
+    if not tools_used:
+        return None
+
+    trailing_tool_messages: list[dict[str, Any]] = []
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            if trailing_tool_messages:
+                break
+            continue
+        trailing_tool_messages.append(message)
+    if not trailing_tool_messages:
+        return None
+
+    trailing_tool_messages.reverse()
+    summaries: list[str] = []
+    for message in trailing_tool_messages[-3:]:
+        tool_name = str(message.get("name", "tool"))
+        content = str(message.get("content", "") or "")
+        summary = _summarize_tool_payload(tool_name, content)
+        if summary:
+            summaries.append(summary)
+
+    if not summaries:
+        return None
+
+    error_line = provider_error.strip().splitlines()[0][:180]
+    return (
+        "The AI provider failed while composing the final answer, but the latest tool call succeeded.\n\n"
+        + "\n\n".join(summaries)
+        + f"\n\nProvider error: {error_line}"
+    )
+
+
 def compress_tool_result(cls: Any, tool_name: str, result: str) -> str:
     """Trim low-value tool output before feeding it back into the next LLM call."""
     if not isinstance(result, str):
@@ -187,6 +311,7 @@ async def run_agent_loop(
         "daily_opportunity_scan": loop._DAILY_OPPORTUNITY_SKILL in loop._selected_skill_names(),
         "xiaohongshu_request": loop._is_xiaohongshu_request(initial_messages),
         "xiaohongshu_research": "xiaohongshu-browser-research" in loop._selected_skill_names(),
+        "lark_request": loop._is_lark_request(initial_messages),
     }
     try:
         while iteration < loop.max_iterations:
@@ -262,7 +387,8 @@ async def run_agent_loop(
                 # poison the context and cause permanent 400 loops (#1303).
                 if response.finish_reason == "error":
                     logger.error("LLM returned error: {}", (clean or "")[:200])
-                    final_content = clean or "Sorry, I encountered an error calling the AI model."
+                    fallback = build_provider_error_fallback(messages, tools_used, clean or "")
+                    final_content = fallback or clean or "Sorry, I encountered an error calling the AI model."
                     break
                 messages = loop.context.add_assistant_message(
                     messages,

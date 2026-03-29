@@ -66,6 +66,10 @@ def build_status_payload(
     browser_enabled = bool(browser_cfg.enabled)
     browser_command = str(browser_cfg.command or "bb-browser").strip() or "bb-browser"
     browser_binary = shutil.which(browser_command) if browser_enabled else None
+    lark_cfg = config.tools.lark_cli
+    lark_enabled = bool(lark_cfg.enabled)
+    lark_command = str(lark_cfg.command or "lark-cli").strip() or "lark-cli"
+    lark_binary = shutil.which(lark_command) if lark_enabled else None
 
     payload: dict[str, Any] = {
         "config": {
@@ -91,6 +95,14 @@ def build_status_payload(
             "allowAdapters": list(browser_cfg.allow_adapters),
             "allowDomains": list(browser_cfg.allow_domains),
             "allowUrlPrefixes": list(browser_cfg.allow_url_prefixes),
+        },
+        "larkCli": {
+            "enabled": lark_enabled,
+            "command": lark_command,
+            "commandFound": bool(lark_binary),
+            "configDir": str(lark_cfg.config_dir or ""),
+            "allowWrite": bool(lark_cfg.allow_write),
+            "allowAuth": bool(lark_cfg.allow_auth),
         },
         "providers": [],
     }
@@ -161,6 +173,7 @@ def render_status(
     payload = build_status_payload(config, config_path, bus=bus, session_manager=session_manager)
     workspace = config.workspace_path
     browser = payload["browser"]
+    lark_cli = payload["larkCli"]
 
     console.print(f"{logo} marketbot Status\n")
     console.print(f"Config: {config_path} {'[green]✓[/green]' if config_path.exists() else '[red]✗[/red]'}")
@@ -190,6 +203,21 @@ def render_status(
             console.print(f"Browser allowDomains: {', '.join(browser['allowDomains'])}")
         if browser["allowUrlPrefixes"]:
             console.print(f"Browser allowUrlPrefixes: {', '.join(browser['allowUrlPrefixes'])}")
+
+    lark_status = "[green]✓[/green]" if lark_cli["enabled"] else "[dim]disabled[/dim]"
+    if lark_cli["enabled"] and not lark_cli["commandFound"]:
+        lark_status = "[yellow]! command not found[/yellow]"
+    console.print(f"Lark CLI: {lark_status}")
+    if lark_cli["enabled"]:
+        console.print(f"Lark CLI command: {lark_cli['command']}")
+        if lark_cli["configDir"]:
+            console.print(f"Lark CLI configDir: {lark_cli['configDir']}")
+        console.print(
+            "Lark CLI writes: " + ("[yellow]enabled[/yellow]" if lark_cli["allowWrite"] else "[dim]disabled[/dim]")
+        )
+        console.print(
+            "Lark CLI auth: " + ("[yellow]enabled[/yellow]" if lark_cli["allowAuth"] else "[dim]disabled[/dim]")
+        )
 
     if config_path.exists():
         console.print(f"Model: {config.agents.defaults.model}")

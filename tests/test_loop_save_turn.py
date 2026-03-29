@@ -3,6 +3,7 @@ import asyncio
 from types import SimpleNamespace
 
 from marketbot.agent.context import ContextBuilder
+from marketbot.agent import tool_runtime
 from marketbot.agent.loop import AgentLoop
 from marketbot.bus.events import InboundMessage
 from marketbot.session.manager import Session
@@ -179,6 +180,26 @@ def test_execute_tool_calls_blocks_exec_for_xiaohongshu_skill_when_cli_available
     assert "exec disabled for xiaohongshu-browser-research" in results[0][1]
 
 
+def test_execute_tool_calls_blocks_exec_for_lark_request_when_lark_tools_available() -> None:
+    import asyncio
+
+    loop = _mk_loop()
+    loop._active_request_flags = {"lark_request": True}
+    loop.context = SimpleNamespace(available_tools={"lark_base", "exec"})
+
+    class _FakeRegistry:
+        async def execute(self, name: str, params: dict) -> str:
+            raise AssertionError("exec should be blocked before tool execution")
+
+    loop.tools = _FakeRegistry()
+    tool_call = ToolCallRequest(id="1", name="exec", arguments={"command": "echo hi"})
+
+    results = asyncio.run(loop._execute_tool_calls([tool_call]))
+
+    assert len(results) == 1
+    assert "exec disabled for Lark/Feishu structured requests" in results[0][1]
+
+
 def test_execute_tool_calls_blocks_read_file_for_xiaohongshu_skill_when_cli_available() -> None:
     import asyncio
 
@@ -331,6 +352,28 @@ def test_tool_definitions_for_xiaohongshu_request_only_exposes_xiaohongshu_cli()
     defs = loop._tool_definitions_for_request()
 
     assert defs == [{"type": "function", "function": {"name": "xiaohongshu_cli"}}]
+
+
+def test_tool_definitions_for_lark_request_keep_full_set() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"lark_request": True}
+    loop._current_tool_rounds = 0
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "lark_base"}},
+                {"type": "function", "function": {"name": "exec"}},
+            ]
+
+    loop.tools = _FakeRegistry()
+
+    defs = loop._tool_definitions_for_request()
+
+    assert defs == [
+        {"type": "function", "function": {"name": "lark_base"}},
+        {"type": "function", "function": {"name": "exec"}},
+    ]
 
 
 def test_normalize_market_brief_arguments_for_broad_market_scan() -> None:
@@ -611,6 +654,92 @@ def test_run_agent_loop_auto_appends_market_brief_for_daily_opportunity() -> Non
         "market_brief",
     ]
     assert loop.provider.chat.await_args_list[1].kwargs["tools"] == []
+
+
+def test_build_provider_error_fallback_uses_latest_tool_results() -> None:
+    messages = [
+        {"role": "user", "content": "查表结构"},
+        {
+            "role": "tool",
+            "name": "lark_base",
+            "content": '{"ok":true,"data":{"returned":2,"items":[{"name":"需求调研（ AI 分析）"},{"name":"🛠️问卷管理员配置"}]}}',
+        },
+    ]
+
+    result = tool_runtime.build_provider_error_fallback(
+        messages,
+        tools_used=["lark_base"],
+        provider_error="Error: Client error '403 Forbidden'",
+    )
+
+    assert result is not None
+    assert "latest tool call succeeded" in result
+    assert "需求调研（ AI 分析）" in result
+    assert "403 Forbidden" in result
+
+
+def test_run_agent_loop_returns_tool_fallback_when_provider_errors_after_tool_call() -> None:
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    loop = _mk_loop()
+    loop.max_iterations = 3
+    loop.model = "test-model"
+    loop.temperature = 0.1
+    loop.max_tokens = 512
+    loop.reasoning_effort = None
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [{"type": "function", "function": {"name": "lark_base"}}]
+
+        async def execute(self, name: str, params: dict) -> str:
+            return '{"ok":true,"data":{"returned":2,"items":[{"name":"表A"},{"name":"表B"}]}}'
+
+    class _FakeContext:
+        @staticmethod
+        def add_assistant_message(messages, content, tool_calls=None, **kwargs):
+            updated = list(messages)
+            entry = {"role": "assistant", "content": content}
+            if tool_calls is not None:
+                entry["tool_calls"] = tool_calls
+            updated.append(entry)
+            return updated
+
+        @staticmethod
+        def add_tool_result(messages, tool_call_id, tool_name, result):
+            updated = list(messages)
+            updated.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "name": tool_name,
+                    "content": result,
+                }
+            )
+            return updated
+
+    responses = iter(
+        [
+            LLMResponse(
+                content="",
+                tool_calls=[ToolCallRequest(id="1", name="lark_base", arguments={"action": "table_list"})],
+            ),
+            LLMResponse(content="Error: Client error '403 Forbidden'", tool_calls=[], finish_reason="error"),
+        ]
+    )
+    loop.provider = MagicMock()
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+    loop.tools = _FakeRegistry()
+    loop.context = _FakeContext()
+
+    final_content, tools_used, _, _ = asyncio.run(
+        loop._run_agent_loop([{"role": "user", "content": "读 base 表"}])
+    )
+
+    assert tools_used == ["lark_base"]
+    assert "latest tool call succeeded" in final_content
+    assert "表A" in final_content
 
 
 def test_persist_local_report_if_needed_writes_daily_market_markdown(tmp_path) -> None:
