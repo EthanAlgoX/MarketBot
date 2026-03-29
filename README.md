@@ -58,6 +58,60 @@ marketbot agent -m "根据我的持仓生成未来两周的热点事件监控清
 | `Tools` | `marketbot/agent/tools/market.py` 等 | 原子能力层，例如 `market_snapshot`、`market_news`、`market_macro`、`market_brief` |
 | `Reporting / Delivery` | `marketbot/market_reporting.py`、`marketbot/channels/*` | 把结构化结果渲染成 CLI 回复、保存报告、通知摘要和渠道消息 |
 
+## 运行时设计架构
+
+当前 `marketbot` 不是单一的大 prompt 循环，而是一个分层的 agent runtime：
+
+1. `Channels / CLI / Cron / Heartbeat`
+   负责把外部输入送进统一消息总线；聊天渠道回包也走同一套 outbound bus。
+2. `Session + Context`
+   `session` 负责 JSONL 持久化，`context` 负责拼装历史、memory、skills、runtime metadata。
+3. `Router`
+   先把请求分类成 `direct_react`、`planned_task`、`market_fast_path`、`scheduled_task`。
+4. `Planner`
+   对复杂任务生成结构化 plan，把任务拆成若干 step，并为每一步限制 `allowed_tools`。
+5. `Executor`
+   保留 ReAct 式工具调用循环，但执行范围被限制在当前 step，避免工具无边界漫游。
+6. `Verifier + Plan Runtime`
+   判断 step 是否完成、是否需要 retry / replan，并把计划状态推进和落盘。
+7. `Reporting / Delivery`
+   把最终结果渲染成 CLI 回复、保存报告、通知摘要或聊天消息。
+
+可以把主路径理解成：
+
+`Inbound -> MessageBus -> AgentLoop -> Router -> (Planner) -> Step Executor(ReAct) -> Verifier -> Outbound`
+
+对应代码位置：
+
+- `marketbot/agent/loop.py`
+- `marketbot/agent/router.py`
+- `marketbot/agent/planner.py`
+- `marketbot/agent/executor.py`
+- `marketbot/agent/verifier.py`
+- `marketbot/agent/plan_runtime.py`
+- `marketbot/channels/*`
+
+### 为什么是 Planning + Bounded ReAct
+
+- 简单问题继续直接走 ReAct，保证 CLI 和聊天场景的响应速度
+- 复杂任务先做 planning，再做 step-scoped execution，降低长链路工具调用的漂移
+- tool health 会在 prompt 暴露前先过滤掉不健康工具，避免模型频繁调用半坏工具
+- `subagent` 也对齐了同一套 route / plan / verify 逻辑，减少主从执行路径漂移
+
+### 与旧式单环 ReAct 的区别
+
+- 不是所有请求都直接丢进一个大 loop
+- 复杂任务不再完全依赖模型自己决定“下一步做什么”
+- 工具不再默认全量暴露，而是按健康状态和 step 白名单收缩
+- plan 会写到 `workspace/plans/*.json`，便于恢复、调试和审计
+
+### 渠道与 Gateway
+
+- `marketbot agent` 只负责本地 CLI 交互
+- `marketbot gateway` 才会启动 `channels.* + outbound dispatcher + agent loop`
+- 飞书 / Telegram / Slack / Discord 等聊天渠道必须依赖 `gateway` 常驻运行
+- 对飞书来说，当前实现使用 WebSocket 长连接，不需要公网 webhook，但必须保持 `gateway` 进程在线
+
 常见内置 skill：
 
 | Skill | 作用 |

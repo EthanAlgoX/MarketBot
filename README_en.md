@@ -55,6 +55,60 @@ marketbot agent -m "Build a two-week catalyst watchlist for NVDA, UNH, 07709, 07
 | `Tools` | `marketbot/agent/tools/market.py` and related modules | Atomic capabilities such as `market_snapshot`, `market_news`, `market_macro`, and `market_brief` |
 | `Reporting / Delivery` | `marketbot/market_reporting.py`, `marketbot/channels/*` | Render structured analysis into CLI replies, saved reports, notification summaries, and channel messages |
 
+## Runtime Architecture
+
+`marketbot` no longer relies on a single unbounded prompt loop. The current runtime is layered:
+
+1. `Channels / CLI / Cron / Heartbeat`
+   External entrypoints push work into one shared message bus, and outbound replies use the same bus.
+2. `Session + Context`
+   `session` persists JSONL history; `context` assembles history, memory, skills, and runtime metadata.
+3. `Router`
+   Classifies requests into `direct_react`, `planned_task`, `market_fast_path`, or `scheduled_task`.
+4. `Planner`
+   Builds a structured execution plan for complex tasks and limits each step with `allowed_tools`.
+5. `Executor`
+   Keeps the ReAct-style tool loop, but scopes execution to the current step instead of exposing the whole tool graph.
+6. `Verifier + Plan Runtime`
+   Decides whether a step is complete, should retry, or should replan; advances and persists plan state.
+7. `Reporting / Delivery`
+   Renders the final result into CLI responses, saved reports, notifications, or chat messages.
+
+The main path is:
+
+`Inbound -> MessageBus -> AgentLoop -> Router -> (Planner) -> Step Executor(ReAct) -> Verifier -> Outbound`
+
+Relevant modules:
+
+- `marketbot/agent/loop.py`
+- `marketbot/agent/router.py`
+- `marketbot/agent/planner.py`
+- `marketbot/agent/executor.py`
+- `marketbot/agent/verifier.py`
+- `marketbot/agent/plan_runtime.py`
+- `marketbot/channels/*`
+
+### Why Planning + Bounded ReAct
+
+- simple requests still go through direct ReAct for low latency
+- complex tasks use planning first, then step-scoped execution, which is more stable across long tool chains
+- tool health filters unhealthy tools before they are exposed to the model
+- `subagent` now follows the same route / plan / verify flow, reducing drift between main-agent and sub-agent behavior
+
+### How This Differs From A Single Big ReAct Loop
+
+- not every request is dropped into one monolithic loop
+- complex tasks no longer depend entirely on the model deciding all next actions implicitly
+- tools are not exposed in one large set by default; they are filtered by health and by step allowlists
+- plans are persisted under `workspace/plans/*.json` for recovery, debugging, and auditability
+
+### Channels And Gateway
+
+- `marketbot agent` is for local CLI interaction only
+- `marketbot gateway` starts `channels.* + outbound dispatcher + agent loop`
+- Feishu, Telegram, Slack, Discord, and other chat channels require the gateway process to stay online
+- the current Feishu integration uses a WebSocket long connection instead of a public webhook, but it still depends on a running `gateway`
+
 Common built-in skills:
 
 | Skill | What it does |
