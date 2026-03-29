@@ -7,31 +7,12 @@ import json
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-
-def format_bus_runtime_summary(bus: Any) -> str:
-    """Render a compact queue/backpressure summary for gateway logs."""
-    if bus is None or not hasattr(bus, "stats"):
-        return "Bus: unavailable"
-    stats = bus.stats()
-    inbound = stats.get("inbound", {})
-    outbound = stats.get("outbound", {})
-    return (
-        "Bus: "
-        + f"in={inbound.get('size', 0)}/{inbound.get('maxsize', 0)}"
-        + f" published={inbound.get('published', 0)}"
-        + f" wait={float(inbound.get('publish_wait_s', 0.0)):.3f}s"
-        + " | "
-        + f"out={outbound.get('size', 0)}/{outbound.get('maxsize', 0)}"
-        + f" published={outbound.get('published', 0)}"
-        + f" wait={float(outbound.get('publish_wait_s', 0.0)):.3f}s"
-    )
+from marketbot.runtime.diagnostics import collect_bus_diagnostics, format_bus_runtime_summary
 
 
 def build_bus_delivery_metadata(bus: Any) -> dict[str, Any]:
     """Build outbound metadata carrying queue/runtime stats when available."""
-    if bus is None or not hasattr(bus, "stats"):
-        return {}
-    return {"bus": bus.stats()}
+    return collect_bus_diagnostics(bus)
 
 
 def pick_heartbeat_target(*, channels: Any, session_manager: Any) -> tuple[str, str]:

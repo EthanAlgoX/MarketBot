@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from rich.table import Table
+from marketbot.runtime.diagnostics import collect_bus_diagnostics
 
 
 def render_channels_status_table(config: Any) -> Table:
@@ -87,8 +88,7 @@ def build_status_payload(config: Any, config_path: Path, *, bus: Any | None = No
         },
         "providers": [],
     }
-    if bus is not None and hasattr(bus, "stats"):
-        payload["bus"] = bus.stats()
+    payload.update(collect_bus_diagnostics(bus))
 
     from marketbot.providers.registry import PROVIDERS
 
