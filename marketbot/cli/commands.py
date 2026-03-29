@@ -63,6 +63,7 @@ from marketbot.cli.intel_runtime import (
 )
 from marketbot.cli.market_runtime import run_market_report
 from marketbot.cli.openclaw_runtime import (
+    run_openclaw_launch,
     run_latest_openclaw_metrics,
     run_latest_openclaw_report,
     run_openclaw_compare_runs,
@@ -2401,218 +2402,29 @@ def rl_launch_openclaw(
     json_output: bool = typer.Option(False, "--json", help="Print raw JSON summary"),
 ):
     """Export a bundle and launch the matching OpenClaw wrapper."""
-    import os
-    import subprocess
-
     from marketbot.config.loader import load_config
     from marketbot.rl.trainer.openclaw_export import detect_openclaw_root, export_openclaw_bundle
-
-    config = load_config()
-    workspace = config.workspace_path
-    source = dataset_path or (workspace / "rl" / "datasets" / "market_signal_dataset.jsonl")
-    if not source.exists():
-        raise typer.BadParameter(f"dataset not found: {source}")
-    target_dir = output_dir or (workspace / "rl" / "training" / "openclaw_export")
-    marketbot_root = Path(__file__).resolve().parents[2]
-    resolved_openclaw_root = openclaw_root or detect_openclaw_root(marketbot_root)
-    summary = export_openclaw_bundle(
-        source,
-        target_dir,
-        marketbot_root=marketbot_root,
-        openclaw_root=resolved_openclaw_root,
+    run_openclaw_launch(
+        commands_file=Path(__file__),
+        config=load_config(),
+        dataset_path=dataset_path,
+        output_dir=output_dir,
+        openclaw_root=openclaw_root,
+        remote_env=remote_env,
+        env_wait_s=env_wait_s,
         dry_run=dry_run,
+        json_output=json_output,
+        console=console,
+        detect_openclaw_root=detect_openclaw_root,
+        export_openclaw_bundle=export_openclaw_bundle,
+        resolve_openclaw_report_paths=_resolve_openclaw_report_paths,
+        wait_for_http_health=_wait_for_http_health,
+        tail_text=_tail_text,
+        classify_openclaw_launch_error=_classify_openclaw_launch_error,
+        build_openclaw_run_report=_build_openclaw_run_report,
+        append_openclaw_runs_index=_append_openclaw_runs_index,
+        write_openclaw_runs_archive=_write_openclaw_runs_archive,
     )
-
-    launch_script = Path(summary.remote_script_path if remote_env else summary.script_path)
-    logs_dir = Path(summary.bundle_dir) / "logs"
-    env_stdout_path = logs_dir / "env.stdout.log"
-    env_stderr_path = logs_dir / "env.stderr.log"
-    train_stdout_path = logs_dir / "train.stdout.log"
-    train_stderr_path = logs_dir / "train.stderr.log"
-    summary_path = Path(summary.bundle_dir) / "run_summary.json"
-    training_report_path = Path(summary.bundle_dir) / "training_report.json"
-    reports_index_path = Path(summary.bundle_dir).parent / "runs_index.jsonl"
-    report_archive_paths = _resolve_openclaw_report_paths(reports_index_path)
-    payload = summary.to_dict()
-    payload["launchMode"] = "remote-env" if remote_env else "local-env"
-    payload["launchScriptPath"] = str(launch_script)
-    payload["envScriptPath"] = summary.env_script_path if remote_env else None
-    payload["envWaitSeconds"] = env_wait_s
-    payload["envHealthUrl"] = None
-    if remote_env:
-        default_env_host = str(os.environ.get("MARKETBOT_ENV_HOST", "127.0.0.1"))
-        default_env_port = str(os.environ.get("MARKETBOT_ENV_PORT", "18080"))
-        payload["envHealthUrl"] = (
-            str(os.environ.get("ENV_SERVER_URL") or f"http://{default_env_host}:{default_env_port}").rstrip("/")
-            + "/healthz"
-        )
-    payload["logPaths"] = {
-        "envStdout": str(env_stdout_path) if remote_env else None,
-        "envStderr": str(env_stderr_path) if remote_env else None,
-        "trainStdout": str(train_stdout_path),
-        "trainStderr": str(train_stderr_path),
-    }
-    payload["summaryPath"] = str(summary_path)
-    payload["trainingReportPath"] = str(training_report_path)
-    payload["reportArchive"] = {key: str(value) for key, value in report_archive_paths.items()}
-    payload["runOutcome"] = "planned"
-    payload["failureReason"] = None
-    payload["exitCode"] = None
-    payload["logTail"] = {
-        "envStdout": None,
-        "envStderr": None,
-        "trainStdout": None,
-        "trainStderr": None,
-    }
-
-    if dry_run:
-        if json_output:
-            console.print_json(json.dumps(payload, ensure_ascii=False))
-            return
-        console.print("[bold]OpenClaw Launch Plan[/bold]")
-        console.print(f"Mode: {payload['launchMode']}")
-        console.print(f"Bundle: {summary.bundle_dir}")
-        if remote_env:
-            console.print(f"Env Script: {summary.env_script_path}")
-            console.print(f"Health URL: {payload['envHealthUrl']}")
-            console.print(f"Env Logs: {env_stdout_path} | {env_stderr_path}")
-        console.print(f"Train Script: {launch_script}")
-        console.print(f"Train Logs: {train_stdout_path} | {train_stderr_path}")
-        console.print(f"Training Report: {training_report_path}")
-        console.print(f"Runs Index: {Path(summary.bundle_dir).parent / 'runs_index.jsonl'}")
-        console.print(f"Report Markdown: {report_archive_paths['summaryMarkdown']}")
-        console.print(f"Report CSV: {report_archive_paths['summaryCsv']}")
-        console.print("[dim]Dry-run only: no processes were started.[/dim]")
-        return
-
-    env = os.environ.copy()
-    env_process = None
-    env_stdout_handle = None
-    env_stderr_handle = None
-    train_stdout_handle = None
-    train_stderr_handle = None
-    launch_error: BaseException | None = None
-    launch_failure_reason: str | None = None
-    try:
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        if remote_env:
-            env_host = str(env.get("MARKETBOT_ENV_HOST", "127.0.0.1"))
-            env_port = str(env.get("MARKETBOT_ENV_PORT", "18080"))
-            payload["envHealthUrl"] = str(env.get("ENV_SERVER_URL") or f"http://{env_host}:{env_port}").rstrip("/") + "/healthz"
-            env_stdout_handle = env_stdout_path.open("a", encoding="utf-8")
-            env_stderr_handle = env_stderr_path.open("a", encoding="utf-8")
-            env_process = subprocess.Popen(
-                ["bash", summary.env_script_path],
-                cwd=summary.bundle_dir,
-                env=env,
-                stdout=env_stdout_handle,
-                stderr=env_stderr_handle,
-            )
-            payload["envPid"] = env_process.pid
-            if not _wait_for_http_health(str(payload["envHealthUrl"]), env_wait_s):
-                launch_failure_reason = "env_unhealthy"
-                console.print(
-                    f"[red]Env server did not become healthy within {env_wait_s:.1f}s: {payload['envHealthUrl']}[/red]"
-                )
-                raise typer.Exit(1)
-        train_stdout_handle = train_stdout_path.open("a", encoding="utf-8")
-        train_stderr_handle = train_stderr_path.open("a", encoding="utf-8")
-        subprocess.run(
-            ["bash", str(launch_script)],
-            cwd=summary.bundle_dir,
-            env=env,
-            check=True,
-            stdout=train_stdout_handle,
-            stderr=train_stderr_handle,
-        )
-    except BaseException as exc:
-        launch_error = exc
-    finally:
-        if env_process is not None and env_process.poll() is None:
-            env_process.terminate()
-            try:
-                env_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                env_process.kill()
-        for handle in (env_stdout_handle, env_stderr_handle, train_stdout_handle, train_stderr_handle):
-            if handle is not None:
-                handle.close()
-        payload["logTail"] = {
-            "envStdout": _tail_text(env_stdout_path) if remote_env else None,
-            "envStderr": _tail_text(env_stderr_path) if remote_env else None,
-            "trainStdout": _tail_text(train_stdout_path),
-            "trainStderr": _tail_text(train_stderr_path),
-        }
-
-    if launch_error is not None:
-        payload.update(_classify_openclaw_launch_error(launch_error, launch_failure_reason))
-        payload["status"] = "failed"
-        payload["completedAt"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        payload["error"] = str(launch_error)
-        summary_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        report_payload = _build_openclaw_run_report(Path(summary.bundle_dir))
-        training_report_path.write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        runs_index_path = _append_openclaw_runs_index(report_payload)
-        report_archive = _write_openclaw_runs_archive(runs_index_path, completed_at=payload["completedAt"])
-        if json_output:
-            console.print_json(json.dumps(payload, ensure_ascii=False))
-            raise typer.Exit(1)
-        console.print("[bold red]OpenClaw Launch Failed[/bold red]")
-        console.print(f"Mode: {payload['launchMode']}")
-        console.print(f"Bundle: {summary.bundle_dir}")
-        if remote_env and "envPid" in payload:
-            console.print(f"Env PID: {payload['envPid']}")
-            console.print(f"Health URL: {payload['envHealthUrl']}")
-            console.print(f"Env Logs: {env_stdout_path} | {env_stderr_path}")
-        console.print(f"Train Script: {launch_script}")
-        console.print(f"Train Logs: {train_stdout_path} | {train_stderr_path}")
-        console.print(f"Training Report: {training_report_path}")
-        console.print(f"Runs Index: {runs_index_path}")
-        console.print(f"Report Markdown: {report_archive['summaryMarkdown']}")
-        console.print(f"Report CSV: {report_archive['summaryCsv']}")
-        train_stderr_tail = str(payload["logTail"].get("trainStderr") or "").strip()
-        if train_stderr_tail:
-            console.print("[red]Train stderr tail:[/red]")
-            console.print(train_stderr_tail)
-        raise typer.Exit(1)
-
-    payload["status"] = "completed"
-    payload["runOutcome"] = "succeeded"
-    payload["failureReason"] = None
-    payload["exitCode"] = 0
-    payload["completedAt"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    summary_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    report_payload = _build_openclaw_run_report(Path(summary.bundle_dir))
-    training_report_path.write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    runs_index_path = _append_openclaw_runs_index(report_payload)
-    report_archive = _write_openclaw_runs_archive(runs_index_path, completed_at=payload["completedAt"])
-    if json_output:
-        console.print_json(json.dumps(payload, ensure_ascii=False))
-        return
-
-    console.print("[bold]OpenClaw Launch[/bold]")
-    console.print(f"Mode: {payload['launchMode']}")
-    console.print(f"Bundle: {summary.bundle_dir}")
-    if remote_env and "envPid" in payload:
-        console.print(f"Env PID: {payload['envPid']}")
-        console.print(f"Health URL: {payload['envHealthUrl']}")
-        console.print(f"Env Logs: {env_stdout_path} | {env_stderr_path}")
-        env_tail = str(payload["logTail"].get("envStdout") or "").strip()
-        if env_tail:
-            console.print("[dim]Env stdout tail:[/dim]")
-            console.print(env_tail)
-    console.print(f"Train Script: {launch_script}")
-    console.print(f"Train Logs: {train_stdout_path} | {train_stderr_path}")
-    console.print(f"Summary: {summary_path}")
-    console.print(f"Training Report: {training_report_path}")
-    console.print(f"Runs Index: {runs_index_path}")
-    console.print(f"Report Markdown: {report_archive['summaryMarkdown']}")
-    console.print(f"Report CSV: {report_archive['summaryCsv']}")
-    train_tail = str(payload["logTail"].get("trainStdout") or "").strip()
-    if train_tail:
-        console.print("[dim]Train stdout tail:[/dim]")
-        console.print(train_tail)
-    console.print("[green]✓[/green] Launch sequence completed.")
 
 
 @rl_app.command("inspect-openclaw-run")
