@@ -1376,6 +1376,7 @@ def gateway(
     asyncio.run(
         run_gateway_services(
             agent=agent,
+            bus=bus,
             channels=channels,
             cron=cron,
             heartbeat=heartbeat,

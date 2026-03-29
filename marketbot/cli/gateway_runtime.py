@@ -8,6 +8,25 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 
+def format_bus_runtime_summary(bus: Any) -> str:
+    """Render a compact queue/backpressure summary for gateway logs."""
+    if bus is None or not hasattr(bus, "stats"):
+        return "Bus: unavailable"
+    stats = bus.stats()
+    inbound = stats.get("inbound", {})
+    outbound = stats.get("outbound", {})
+    return (
+        "Bus: "
+        + f"in={inbound.get('size', 0)}/{inbound.get('maxsize', 0)}"
+        + f" published={inbound.get('published', 0)}"
+        + f" wait={float(inbound.get('publish_wait_s', 0.0)):.3f}s"
+        + " | "
+        + f"out={outbound.get('size', 0)}/{outbound.get('maxsize', 0)}"
+        + f" published={outbound.get('published', 0)}"
+        + f" wait={float(outbound.get('publish_wait_s', 0.0)):.3f}s"
+    )
+
+
 def pick_heartbeat_target(*, channels: Any, session_manager: Any) -> tuple[str, str]:
     """Pick a routable channel/chat target for heartbeat-triggered messages."""
     enabled = set(channels.enabled_channels)
@@ -236,6 +255,7 @@ def create_heartbeat_notify_handler(
 async def run_gateway_services(
     *,
     agent: Any,
+    bus: Any,
     channels: Any,
     cron: Any,
     heartbeat: Any,
@@ -243,6 +263,7 @@ async def run_gateway_services(
 ) -> None:
     """Run the gateway service bundle and stop it cleanly."""
     try:
+        console.print(f"[dim]{format_bus_runtime_summary(bus)}[/dim]")
         await cron.start()
         await heartbeat.start()
         await asyncio.gather(

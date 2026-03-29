@@ -3,6 +3,7 @@ from pathlib import Path
 
 from marketbot.cli.gateway_runtime import (
     create_heartbeat_notify_handler,
+    format_bus_runtime_summary,
     pick_heartbeat_target,
     run_gateway_services,
 )
@@ -71,6 +72,7 @@ def test_create_heartbeat_notify_handler_publishes_market_report_summary(tmp_pat
 
 def test_run_gateway_services_stops_everything_cleanly() -> None:
     events = []
+    printed = []
 
     class _Agent:
         async def run(self):
@@ -107,12 +109,22 @@ def test_run_gateway_services_stops_everything_cleanly() -> None:
 
     class _Console:
         @staticmethod
-        def print(_msg):
+        def print(msg):
+            printed.append(msg)
             events.append("console.print")
+
+    class _Bus:
+        @staticmethod
+        def stats():
+            return {
+                "inbound": {"size": 1, "maxsize": 10, "published": 2, "publish_wait_s": 0.5},
+                "outbound": {"size": 0, "maxsize": 10, "published": 3, "publish_wait_s": 0.25},
+            }
 
     asyncio.run(
         run_gateway_services(
             agent=_Agent(),
+            bus=_Bus(),
             channels=_Channels(),
             cron=_Cron(),
             heartbeat=_Heartbeat(),
@@ -120,7 +132,9 @@ def test_run_gateway_services_stops_everything_cleanly() -> None:
         )
     )
 
+    assert printed[0] == "[dim]Bus: in=1/10 published=2 wait=0.500s | out=0/10 published=3 wait=0.250s[/dim]"
     assert events == [
+        "console.print",
         "cron.start",
         "heartbeat.start",
         "agent.run",
@@ -131,3 +145,7 @@ def test_run_gateway_services_stops_everything_cleanly() -> None:
         "agent.stop",
         "channels.stop_all",
     ]
+
+
+def test_format_bus_runtime_summary_handles_missing_stats() -> None:
+    assert format_bus_runtime_summary(None) == "Bus: unavailable"
