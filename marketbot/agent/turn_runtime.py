@@ -6,6 +6,7 @@ import inspect
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+from marketbot.agent import response_postprocess
 from marketbot.agent.tools.message import MessageTool
 from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.session.manager import Session
@@ -58,6 +59,8 @@ def finalize_response_content(
     explainability = loop._build_chat_explainability(all_msgs, channel=channel)
     if append_inline_explainability:
         content = loop._append_chat_explainability(content, explainability)
+    if response_postprocess.is_publish_result_message(content):
+        explainability = None
     external_skill_suggestions = loop._build_external_skill_install_suggestions()
     content = loop._append_external_skill_suggestions(content, external_skill_suggestions)
     report_path = loop._persist_local_report_if_needed(content, request_text=request_text)

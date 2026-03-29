@@ -37,12 +37,26 @@ def append_chat_explainability(loop, final_content: str | None, explainability: 
         return final_content
     if loop._DAILY_OPPORTUNITY_SKILL in loop._selected_skill_names():
         return final_content
+    if is_publish_result_message(final_content):
+        return final_content
     if str(explainability.get("delivery", "")).strip().lower() != "inline":
         return final_content
     footer = str(explainability.get("inline_footer", "")).strip()
     if not footer or footer in final_content:
         return final_content
     return f"{final_content.rstrip()}\n\n{footer}"
+
+
+def is_publish_result_message(content: str | None) -> bool:
+    """Return True when content is a terminal publisher status message."""
+    normalized = str(content or "").strip()
+    publish_prefixes = (
+        "推特已发送",
+        "推特发送失败",
+        "小红书已发送",
+        "小红书发送失败",
+    )
+    return bool(normalized) and normalized.startswith(publish_prefixes)
 
 
 def build_chat_explainability(loop, messages: list[dict], *, channel: str) -> dict[str, Any] | None:

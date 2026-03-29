@@ -1193,6 +1193,33 @@ def test_finalize_response_content_applies_empty_fallback() -> None:
     assert report_path is None
 
 
+def test_finalize_response_content_drops_explainability_for_publish_result() -> None:
+    loop = _mk_loop()
+    loop._build_chat_explainability = lambda *_args, **_kwargs: {
+        "delivery": "inline",
+        "inline_footer": "_Capability & Data_: Skills: xiaohongshu-browser-research",
+    }
+    loop._build_external_skill_install_suggestions = lambda: []
+    loop._append_chat_explainability = lambda content, exp: AgentLoop._append_chat_explainability(loop, content, exp)
+    loop._append_external_skill_suggestions = lambda content, _sug: content
+    loop._persist_local_report_if_needed = lambda content, request_text=None: None
+    loop._append_saved_report_path = lambda content, _path: content
+
+    final_content, explainability, suggestions, report_path = loop._finalize_response_content(
+        "推特发送失败：Twitter API error (HTTP 0): Twitter API returned errors: Authorization: Tweet needs to be a bit shorter. (186)",
+        all_msgs=[],
+        channel="feishu",
+        request_text="发布一条推特",
+        append_inline_explainability=False,
+        empty_fallback=None,
+    )
+
+    assert final_content == "推特发送失败：Twitter API error (HTTP 0): Twitter API returned errors: Authorization: Tweet needs to be a bit shorter. (186)"
+    assert explainability is None
+    assert suggestions == []
+    assert report_path is None
+
+
 def test_preview_message_content_truncates_long_inputs() -> None:
     preview = AgentLoop._preview_message_content("A" * 90)
 
@@ -1368,6 +1395,249 @@ def test_run_user_turn_feishu_twitter_publish_skips_explainability_footer() -> N
     assert recorded[0]["tools_used"] == ["twitter_cli"]
 
 
+def test_run_user_turn_feishu_twitter_publish_retries_with_shorter_cjk_text() -> None:
+    loop = _mk_loop()
+    session = Session(key="feishu:retry")
+    msg = InboundMessage(
+        channel="feishu",
+        sender_id="user",
+        chat_id="chat",
+        content=(
+            "发布一条推特，大概内容如下：\n\n"
+            "MarketBot + 小红书 CLI\n"
+            "总结：高价值场景聚焦\n"
+            "舆情驱动交易：实时捕捉散户行为和热点，优化短线策略\n"
+            "趋势挖掘与早期机会发现：新品、概念股、行业趋势\n"
+            "散户心理分析：理解非理性行为，辅助量化和风控\n"
+            "市场研究和投研辅助：产品设计、策略验证、闭环实验\n"
+            "数据自动化和多模态融合：降低人工成本，拓展信号维度"
+        ),
+    )
+
+    attempts: list[str] = []
+
+    class _FakeTools:
+        @staticmethod
+        def has(name: str) -> bool:
+            return name == "twitter_cli"
+
+        @staticmethod
+        async def execute(name: str, params: dict) -> str:
+            assert name == "twitter_cli"
+            if params["operation"] == "tweet":
+                return '{"ok":true,"data":{"id":"2","media":[{"type":"photo"}]}}'
+            assert params["operation"] == "post"
+            attempts.append(params["text"])
+            if len(attempts) == 1:
+                return '{"ok":false,"error":{"message":"Twitter API error (HTTP 0): Twitter API returned errors: Authorization: Tweet needs to be a bit shorter. (186)"}}'
+            return '{"ok":true,"data":{"id":"2","url":"https://x.com/i/status/2"}}'
+
+    loop.tools = _FakeTools()
+
+    result = asyncio.run(
+        tool_runtime._direct_twitter_publish(loop, [{"role": "user", "content": msg.content}])
+    )
+
+    assert result is not None
+    assert "推特已发送成功" in result
+    assert len(attempts) == 2
+    assert tool_runtime._twitter_weighted_length(attempts[1]) < tool_runtime._twitter_weighted_length(attempts[0])
+    assert tool_runtime._twitter_weighted_length(attempts[1]) <= 240
+    assert "｜" not in attempts[1]
+    assert "\n" in attempts[1]
+    assert "• " in attempts[1]
+
+
+def test_direct_twitter_publish_attaches_auto_generated_image_by_default(tmp_path) -> None:
+    loop = _mk_loop()
+    loop.workspace = tmp_path
+    calls: list[dict] = []
+
+    class _FakeTools:
+        @staticmethod
+        def has(name: str) -> bool:
+            return name == "twitter_cli"
+
+        @staticmethod
+        async def execute(name: str, params: dict) -> str:
+            calls.append({"name": name, "params": dict(params)})
+            if params["operation"] == "tweet":
+                return '{"ok":true,"data":{"id":"3","media":[{"type":"photo"}]}}'
+            return '{"ok":true,"data":{"id":"3","url":"https://x.com/i/status/3"}}'
+
+    async def _fake_render(workspace: Path, text: str) -> tuple[Path, Path]:
+        assert workspace == tmp_path
+        assert "MarketBot + Twitter CLI" in text
+        image_path = tmp_path / "generated" / "twitter" / "poster.png"
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+        image_path.write_bytes(b"png")
+        return tmp_path / "generated" / "twitter" / "poster.html", image_path
+
+    loop.tools = _FakeTools()
+    original_render = tool_runtime._render_twitter_poster
+    tool_runtime._render_twitter_poster = _fake_render
+    try:
+        result = asyncio.run(
+            tool_runtime._direct_twitter_publish(
+                loop,
+                [{
+                    "role": "user",
+                    "content": "发布一条推特，内容如下：\n\nMarketBot + Twitter CLI\n总结：高价值场景聚焦",
+                }],
+            )
+        )
+    finally:
+        tool_runtime._render_twitter_poster = original_render
+
+    assert result is not None
+    assert "推特已发送成功" in result
+    assert calls == [
+        {
+            "name": "twitter_cli",
+            "params": {
+                "operation": "post",
+                "text": "MarketBot + Twitter CLI\n• 总结：高价值场景聚焦",
+                "images": [str(tmp_path / "generated" / "twitter" / "poster.png")],
+            },
+        },
+        {
+            "name": "twitter_cli",
+            "params": {
+                "operation": "tweet",
+                "target": "3",
+                "full_text": True,
+                "max_count": 1,
+            },
+        },
+    ]
+
+
+def test_auto_generate_twitter_image_matches_natural_language_request() -> None:
+    assert tool_runtime._should_auto_generate_twitter_image("发布这条推特，并自动生成一张 Twitter 配图")
+    assert tool_runtime._should_auto_generate_twitter_image("发图文版推文，给这条内容配图")
+    assert tool_runtime._should_auto_generate_twitter_image("post to twitter with an auto-generated poster")
+    assert tool_runtime._should_auto_generate_twitter_image("发布一条推特，内容如下：NVDA demand still looks strong")
+    assert not tool_runtime._should_auto_generate_twitter_image("发布一条推特，纯文本发，不要图，内容如下：NVDA demand still looks strong")
+
+
+def test_direct_twitter_publish_retries_duplicate_with_small_text_variant(tmp_path) -> None:
+    loop = _mk_loop()
+    loop.workspace = tmp_path
+    attempts: list[dict] = []
+
+    class _FakeTools:
+        @staticmethod
+        def has(name: str) -> bool:
+            return name == "twitter_cli"
+
+        @staticmethod
+        async def execute(name: str, params: dict) -> str:
+            attempts.append(dict(params))
+            if params["operation"] == "tweet":
+                return '{"ok":true,"data":{"id":"4","media":[{"type":"photo"}]}}'
+            if len(attempts) == 1:
+                return '{"ok":false,"error":{"message":"Twitter API error (HTTP 0): Twitter API returned errors: Authorization: Status is a duplicate. (187)"}}'
+            return '{"ok":true,"data":{"id":"4","url":"https://x.com/i/status/4"}}'
+
+    async def _fake_render(workspace: Path, text: str) -> tuple[Path, Path]:
+        image_path = tmp_path / "generated" / "twitter" / "poster.png"
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+        image_path.write_bytes(b"png")
+        return tmp_path / "generated" / "twitter" / "poster.html", image_path
+
+    loop.tools = _FakeTools()
+    original_render = tool_runtime._render_twitter_poster
+    tool_runtime._render_twitter_poster = _fake_render
+    try:
+        result = asyncio.run(
+            tool_runtime._direct_twitter_publish(
+                loop,
+                [{
+                    "role": "user",
+                    "content": "发布一条推特，内容如下：\n\nMarketBot + Twitter CLI\n总结：高价值场景聚焦",
+                }],
+            )
+        )
+    finally:
+        tool_runtime._render_twitter_poster = original_render
+
+    assert result is not None
+    assert "推特已发送成功" in result
+    assert len(attempts) == 3
+    assert attempts[0]["images"] == attempts[1]["images"]
+    assert attempts[1]["text"].endswith("#MarketBot")
+    assert attempts[2]["operation"] == "tweet"
+
+
+def test_direct_twitter_publish_warns_when_media_verification_missing(tmp_path) -> None:
+    loop = _mk_loop()
+    loop.workspace = tmp_path
+
+    class _FakeTools:
+        @staticmethod
+        def has(name: str) -> bool:
+            return name == "twitter_cli"
+
+        @staticmethod
+        async def execute(name: str, params: dict) -> str:
+            if params["operation"] == "tweet":
+                return '{"ok":true,"data":{"id":"5","text":"hello"}}'
+            return '{"ok":true,"data":{"id":"5","url":"https://x.com/i/status/5"}}'
+
+    async def _fake_render(workspace: Path, text: str) -> tuple[Path, Path]:
+        image_path = tmp_path / "generated" / "twitter" / "poster.png"
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+        image_path.write_bytes(b"png")
+        return tmp_path / "generated" / "twitter" / "poster.html", image_path
+
+    loop.tools = _FakeTools()
+    original_render = tool_runtime._render_twitter_poster
+    tool_runtime._render_twitter_poster = _fake_render
+    try:
+        result = asyncio.run(
+            tool_runtime._direct_twitter_publish(
+                loop,
+                [{
+                    "role": "user",
+                    "content": "发布一条推特，内容如下：\n\nMarketBot + Twitter CLI\n总结：高价值场景聚焦",
+                }],
+            )
+        )
+    finally:
+        tool_runtime._render_twitter_poster = original_render
+
+    assert result is not None
+    assert "未校验到配图已挂载" in result
+
+
+def test_extract_twitter_publish_text_formats_title_and_bullets() -> None:
+    text = tool_runtime._extract_twitter_publish_text(
+        "发布一条推特，大概内容如下：\n\n"
+        "MarketBot + 小红书 CLI\n"
+        "总结：高价值场景聚焦\n"
+        "舆情驱动交易：实时捕捉散户行为和热点，优化短线策略\n"
+        "趋势挖掘与早期机会发现：新品、概念股、行业趋势\n"
+    )
+
+    assert text == (
+        "MarketBot + 小红书 CLI\n\n"
+        "• 总结：高价值场景聚焦\n"
+        "• 舆情驱动交易：实时捕捉散户行为和热点，优化短线策略\n"
+        "• 趋势挖掘与早期机会发现：新品、概念股、行业趋势"
+    )
+
+
+def test_extract_twitter_publish_text_ignores_auto_image_instruction() -> None:
+    text = tool_runtime._extract_twitter_publish_text(
+        "发布一条推特，自动生图，内容如下：\n\n"
+        "MarketBot + Twitter CLI\n"
+        "自动生成推特图片\n"
+        "总结：高价值场景聚焦\n"
+    )
+
+    assert text == "MarketBot + Twitter CLI\n\n• 总结：高价值场景聚焦"
+
+
 def test_run_user_turn_retries_with_fallback_skill_after_primary_failure() -> None:
     loop = _mk_loop()
     session = Session(key="cli:direct")
@@ -1513,6 +1783,16 @@ def test_append_chat_explainability_skips_daily_opportunity_inline_footer() -> N
     )
 
     assert result == "# 📅 每日机会扫描"
+
+
+def test_append_chat_explainability_skips_publish_result_inline_footer() -> None:
+    loop = _mk_loop()
+    result = loop._append_chat_explainability(
+        "推特发送失败：Twitter API error (HTTP 0): Tweet needs to be a bit shorter. (186)",
+        {"delivery": "inline", "inline_footer": "_Capability & Data_: Skills: xiaohongshu-browser-research"},
+    )
+
+    assert result == "推特发送失败：Twitter API error (HTTP 0): Tweet needs to be a bit shorter. (186)"
 
 
 def test_normalize_daily_opportunity_report_rewrites_header_suffix() -> None:

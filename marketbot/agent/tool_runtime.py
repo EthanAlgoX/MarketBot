@@ -65,6 +65,8 @@ def _is_xiaohongshu_publish_request(text: str) -> bool:
         "小红书发布",
         "小红书发帖",
         "发到小红书",
+        "发送小红书",
+        "发送一条小红书",
         "直接发送小红书",
         "publish to xiaohongshu",
         "post to xiaohongshu",
@@ -93,6 +95,10 @@ def _is_twitter_publish_request(text: str) -> bool:
         "发 x ",
         "发到 twitter",
         "发到 x",
+        "发送推特",
+        "发送一条推特",
+        "发送推文",
+        "发送一条推文",
         "发布到 twitter",
         "发布到 x",
         "tweet this",
@@ -119,6 +125,73 @@ def _direct_twitter_publish_fallback(messages: list[dict[str, Any]]) -> str | No
     if not _is_twitter_publish_request(text):
         return None
     return text
+
+
+def _is_xiaohongshu_research_request(text: str) -> bool:
+    lowered = str(text or "").lower()
+    platform_markers = ("xiaohongshu", "小红书", "rednote")
+    intent_markers = ("搜索", "热门", "帖子", "风格", "内容", "search", "hot", "style", "content")
+    return any(marker in lowered for marker in platform_markers) and any(marker in lowered for marker in intent_markers)
+
+
+def _direct_xiaohongshu_research_fallback(messages: list[dict[str, Any]]) -> str | None:
+    """Short-circuit explicit Xiaohongshu research requests before any LLM call."""
+    text, _ = _latest_user_content(messages)
+    if _is_xiaohongshu_publish_request(text):
+        return None
+    if not _is_xiaohongshu_research_request(text):
+        return None
+    return text
+
+
+def _should_disable_twitter_auto_image(text: str) -> bool:
+    """Return True when the publish request explicitly asks for a text-only tweet."""
+    lowered = str(text or "").lower()
+    markers = (
+        "纯文本",
+        "纯文字",
+        "不要图",
+        "不带图",
+        "无需配图",
+        "不要配图",
+        "仅发文字",
+        "text only",
+        "text-only",
+        "without image",
+        "no image",
+        "no poster",
+    )
+    return any(marker in lowered for marker in markers)
+
+
+def _should_auto_generate_twitter_image(text: str) -> bool:
+    """Return True when the publish request should include an auto-generated Twitter image."""
+    lowered = str(text or "").lower()
+    if _should_disable_twitter_auto_image(lowered):
+        return False
+    markers = (
+        "自动生图",
+        "自动配图",
+        "自动生成图片",
+        "自动生成推特图片",
+        "自动生成推文图片",
+        "带图发",
+        "配图发",
+        "生成海报",
+        "生成卡片",
+        "auto image",
+        "auto poster",
+        "auto card",
+        "with image",
+        "with poster",
+    )
+    if any(marker in lowered for marker in markers):
+        return True
+    visual_terms = ("图片", "配图", "带图", "海报", "卡片", "image", "poster", "card", "visual")
+    intent_terms = ("自动", "生成", "附", "配", "带", "auto", "generate", "attach", "include", "with")
+    if any(term in lowered for term in visual_terms) and any(term in lowered for term in intent_terms):
+        return True
+    return _is_twitter_publish_request(lowered)
 
 
 def _extract_xiaohongshu_publish_payload(raw_text: str) -> tuple[str, str] | None:
@@ -172,36 +245,217 @@ def _extract_twitter_publish_text(raw_text: str) -> str | None:
             continue
         if _is_twitter_publish_request(line):
             continue
+        if _should_auto_generate_twitter_image(line):
+            continue
         if line.startswith(("已收到，正在分析", "当前请求已识别为", "_Capability & Data_:", "Error:")):
             break
         lines.append(line)
-    content = "\n".join(lines).strip()
-    return content or None
+    return _normalize_twitter_publish_text(lines)
 
 
-def _shorten_twitter_text(text: str, limit: int = 260) -> str:
-    """Compress tweet text deterministically for a one-shot retry."""
+def _extract_xiaohongshu_research_keyword(raw_text: str) -> str:
+    """Choose a deterministic Xiaohongshu search keyword from the request."""
+    text = str(raw_text or "")
+    keyword_map = (
+        ("金融", "金融"),
+        ("财经", "财经"),
+        ("理财", "理财"),
+        ("股票", "股票"),
+        ("基金", "基金"),
+        ("港股", "港股"),
+        ("a股", "A股"),
+        ("美股", "美股"),
+        ("交易", "交易"),
+    )
+    lowered = text.lower()
+    for marker, keyword in keyword_map:
+        if marker.lower() in lowered:
+            return keyword
+    return "金融"
+
+
+def _normalize_twitter_publish_text(lines: list[str]) -> str | None:
+    """Normalize tweet copy into a readable title-plus-bullets layout."""
+    normalized_lines = [str(line).strip(" \t") for line in lines if str(line).strip()]
+    if not normalized_lines:
+        return None
+    title = normalized_lines[0].strip()
+    bullets = [_normalize_twitter_bullet(line) for line in normalized_lines[1:]]
+    bullets = [line for line in bullets if line]
+    if not bullets:
+        return title or None
+    return "\n".join([title, "", *bullets]).strip()
+
+
+def _normalize_twitter_bullet(line: str) -> str:
+    """Normalize a single tweet bullet while preserving its meaning."""
+    text = str(line or "").strip()
+    if not text:
+        return ""
+    if text.startswith(("•", "-", "*")):
+        text = text[1:].strip()
+    text = re.sub(r"\s+", " ", text)
+    return f"• {text}"
+
+
+def _twitter_weighted_length(text: str) -> int:
+    """Approximate Twitter weighted length conservatively for mixed CJK text."""
+    total = 0
+    for char in str(text or ""):
+        if char == "\n":
+            total += 1
+        elif ord(char) < 128:
+            total += 1
+        else:
+            total += 2
+    return total
+
+
+def _truncate_twitter_text(text: str, limit: int) -> str:
+    """Truncate text by conservative Twitter-weighted length."""
+    if not text:
+        return ""
+    ellipsis = "…"
+    budget = max(1, limit - _twitter_weighted_length(ellipsis))
+    result: list[str] = []
+    used = 0
+    for char in str(text):
+        weight = 1 if char == "\n" or ord(char) < 128 else 2
+        if used + weight > budget:
+            break
+        result.append(char)
+        used += weight
+    compact = "".join(result).rstrip(" ｜|,-、，。")
+    return compact + ellipsis if compact else ellipsis
+
+
+def _append_twitter_segment(base: str, segment: str) -> str:
+    """Append a segment preserving multiline tweet layout."""
+    if not base:
+        return segment
+    separator = "\n\n" if "\n" not in base else "\n"
+    return f"{base}{separator}{segment}"
+
+
+def _shorten_twitter_text(text: str, limit: int = 240) -> str:
+    """Compress tweet text deterministically while preserving readable layout."""
     normalized_lines = [line.strip(" -•\t") for line in str(text or "").splitlines() if line.strip()]
     if not normalized_lines:
         return ""
     title = normalized_lines[0]
     bullets = normalized_lines[1:]
-    compact = title
-    if bullets:
-        compact += "\n" + "｜".join(bullets)
-    compact = re.sub(r"\s+", " ", compact).strip()
-    if len(compact) <= limit:
+    compact = "\n".join([title, *[f"• {bullet}" for bullet in bullets]]).strip()
+    if _twitter_weighted_length(compact) <= limit:
         return compact
-    prioritized = [title]
+    compact = title.strip()
+    included_bullets = 0
     for bullet in bullets:
-        candidate = "｜".join(prioritized + [bullet])
-        if len(candidate) > limit - 1:
+        bullet_line = f"• {bullet}".strip()
+        candidate = _append_twitter_segment(compact, bullet_line)
+        if _twitter_weighted_length(candidate) > limit:
+            if included_bullets == 0:
+                return _append_twitter_segment(compact, _truncate_twitter_text(bullet_line, max(40, limit - _twitter_weighted_length(compact) - 2)))
             break
-        prioritized.append(bullet)
-    compact = "｜".join(prioritized).strip()
-    if len(compact) <= limit:
+        compact = candidate
+        included_bullets += 1
+    if compact and _twitter_weighted_length(compact) <= limit:
         return compact
-    return compact[: limit - 1].rstrip() + "…"
+    if title and _twitter_weighted_length(title) > limit:
+        return _truncate_twitter_text(title, limit)
+    if title and bullets:
+        first_focus = _append_twitter_segment(title, f"• {bullets[0]}")
+        if _twitter_weighted_length(first_focus) <= limit:
+            return first_focus
+        return _truncate_twitter_text(first_focus, limit)
+    return _truncate_twitter_text(compact, limit)
+
+
+def _twitter_retry_candidates(text: str) -> list[str]:
+    """Build progressively shorter retry bodies for Twitter length errors."""
+    normalized_lines = [line.strip(" -•\t") for line in str(text or "").splitlines() if line.strip()]
+    if not normalized_lines:
+        return []
+    title = normalized_lines[0]
+    bullets = normalized_lines[1:]
+    candidates: list[str] = []
+    for candidate in (
+        _shorten_twitter_text(text, limit=240),
+        _shorten_twitter_text(text, limit=210),
+        _shorten_twitter_text(title if not bullets else "\n".join([title, bullets[0]]), limit=180),
+        _truncate_twitter_text(title, 120),
+    ):
+        normalized = candidate.strip()
+        if normalized and normalized != text and normalized not in candidates:
+            candidates.append(normalized)
+    return candidates
+
+
+def _twitter_duplicate_retry_candidates(text: str) -> list[str]:
+    """Build minimal variants for Twitter duplicate-content rejections."""
+    base = str(text or "").strip()
+    if not base:
+        return []
+    candidates: list[str] = []
+    variants = (
+        f"{base}\n\n#MarketBot",
+        f"{base}\n\nvia MarketBot",
+        f"{base}\n\n更新版",
+    )
+    for candidate in variants:
+        normalized = candidate.strip()
+        if (
+            normalized
+            and normalized != base
+            and normalized not in candidates
+            and _twitter_weighted_length(normalized) <= 280
+        ):
+            candidates.append(normalized)
+    return candidates
+
+
+def _prepare_twitter_post_text(text: str, *, with_image: bool) -> str:
+    """Prepare final tweet text for publish mode."""
+    normalized = str(text or "").strip()
+    if not normalized:
+        return ""
+    if not with_image:
+        return normalized
+    return _shorten_twitter_text(normalized, limit=180)
+
+
+def _extract_twitter_publish_id(result: str) -> str | None:
+    """Extract tweet id from a twitter publish result payload."""
+    try:
+        payload = json.loads(str(result or "").strip())
+    except Exception:
+        return None
+    if not isinstance(payload, dict) or payload.get("ok") is not True:
+        return None
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return None
+    tweet_id = str(data.get("id") or data.get("tweet_id") or data.get("rest_id") or "").strip()
+    return tweet_id or None
+
+
+def _tweet_payload_has_media(result: str) -> bool:
+    """Return True when a fetched tweet payload includes media entries."""
+    try:
+        payload = json.loads(str(result or "").strip())
+    except Exception:
+        return False
+    if not isinstance(payload, dict) or payload.get("ok") is not True:
+        return False
+    data = payload.get("data")
+    if isinstance(data, dict):
+        media = data.get("media")
+        return isinstance(media, list) and bool(media)
+    if isinstance(data, list) and data:
+        first = data[0]
+        if isinstance(first, dict):
+            media = first.get("media")
+            return isinstance(media, list) and bool(media)
+    return False
 
 
 def _format_xiaohongshu_publish_result(result: str) -> str:
@@ -260,6 +514,86 @@ def _format_twitter_publish_result(result: str) -> str:
         if detail:
             return f"推特发送失败：{detail}"
     return text
+
+
+def _summarize_xiaohongshu_titles(notes: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
+    """Infer style and content themes from note titles."""
+    titles = [str((note or {}).get("title") or "").strip() for note in notes if str((note or {}).get("title") or "").strip()]
+    joined = "\n".join(titles)
+    style: list[str] = []
+    content: list[str] = []
+
+    if any(token in joined for token in ("复盘", "总结", "周记", "月报")):
+        style.append("复盘总结型")
+    if any(token in joined for token in ("教程", "方法", "步骤", "入门", "建议")):
+        style.append("方法教程型")
+    if any(token in joined for token in ("避坑", "不要", "提醒", "风险")):
+        style.append("避坑提醒型")
+    if any(token in joined for token in ("清单", "盘点", "合集", "模板")):
+        style.append("清单模板型")
+    if any(char in joined for char in ("？", "!", "！")) or any(token in joined for token in ("为什么", "如何", "到底")):
+        style.append("问题钩子标题")
+    if any(any(ch.isdigit() for ch in title) for title in titles):
+        style.append("数字结果导向")
+    if not style:
+        style.append("经验分享型")
+
+    if any(token in joined for token in ("副业", "赚钱", "变现", "收入")):
+        content.append("个人赚钱路径与副业变现")
+    if any(token in joined for token in ("理财", "存钱", "基金", "资产配置")):
+        content.append("个人理财与资产配置")
+    if any(token in joined for token in ("股票", "A股", "港股", "美股", "交易")):
+        content.append("股票市场观察与交易经验")
+    if any(token in joined for token in ("风险", "回撤", "仓位", "止损")):
+        content.append("风险控制与仓位管理")
+    if any(token in joined for token in ("心态", "认知", "情绪", "复盘")):
+        content.append("交易心态与认知复盘")
+    if not content:
+        content.append("金融入门、理财经验和市场热点解读")
+
+    return style[:4], content[:4]
+
+
+def _format_xiaohongshu_research_result(keyword: str, result: str) -> str:
+    """Turn compact xiaohongshu_cli search JSON into a concise user-facing analysis."""
+    text = str(result or "").strip()
+    try:
+        payload = json.loads(text)
+    except Exception:
+        return text
+    if not isinstance(payload, dict):
+        return text
+    if payload.get("ok") is not True:
+        error = payload.get("error")
+        if isinstance(error, dict):
+            detail = str(error.get("message") or error.get("type") or "").strip()
+            if detail:
+                return f"小红书搜索失败：{detail}"
+        return text
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    notes = data.get("notes") if isinstance(data.get("notes"), list) else []
+    titles = [str((note or {}).get("title") or "").strip() for note in notes if str((note or {}).get("title") or "").strip()]
+    style, content = _summarize_xiaohongshu_titles(notes)
+    engagement = data.get("engagement") if isinstance(data.get("engagement"), dict) else {}
+    lines = [f"小红书热门“{keyword}”相关帖子，当前更像这几种风格："]
+    lines.extend(f"- {item}" for item in style)
+    lines.append("")
+    lines.append("内容方向主要集中在：")
+    lines.extend(f"- {item}" for item in content)
+    if titles:
+        lines.append("")
+        lines.append("样本标题：")
+        lines.extend(f"- {title}" for title in titles[:4])
+    sample_size = engagement.get("sample_size")
+    avg_likes = engagement.get("avg_likes")
+    if sample_size:
+        lines.append("")
+        lines.append(f"样本量: {sample_size}")
+        if isinstance(avg_likes, (int, float)):
+            lines.append(f"平均点赞: {avg_likes}")
+    lines.append("")
+    lines.append("判断依据：以上结论基于热门标题样本的归纳，不是全文内容分析。")
+    return "\n".join(lines)
 
 
 def _build_xiaohongshu_poster_html(title: str, body: str) -> str:
@@ -373,8 +707,8 @@ def _build_xiaohongshu_poster_html(title: str, body: str) -> str:
 """
 
 
-async def _render_xiaohongshu_poster(workspace: Path, title: str, body: str) -> tuple[Path, Path]:
-    """Render the poster HTML to a 1080x1800 PNG through headless Chrome."""
+def _resolve_local_chrome() -> Path:
+    """Return a local Chrome/Chromium binary suitable for headless screenshot rendering."""
     candidates = (
         Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
         Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
@@ -382,20 +716,32 @@ async def _render_xiaohongshu_poster(workspace: Path, title: str, body: str) -> 
     chrome = next((path for path in candidates if path.exists()), None)
     if chrome is None:
         raise RuntimeError("Chrome not found at /Applications/Google Chrome.app")
+    return chrome
 
-    output_dir = workspace / "generated" / "xiaohongshu"
+
+async def _render_html_to_png(
+    *,
+    workspace: Path,
+    scope: str,
+    html: str,
+    width: int,
+    height: int,
+) -> tuple[Path, Path]:
+    """Render HTML to PNG through local headless Chrome."""
+    chrome = _resolve_local_chrome()
+    output_dir = workspace / "generated" / scope
     output_dir.mkdir(parents=True, exist_ok=True)
     slug = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid4().hex[:8]
     html_path = output_dir / f"{slug}.html"
     png_path = output_dir / f"{slug}.png"
-    html_path.write_text(_build_xiaohongshu_poster_html(title, body), encoding="utf-8")
+    html_path.write_text(html, encoding="utf-8")
 
     process = await asyncio.create_subprocess_exec(
         str(chrome),
         "--headless=new",
         "--disable-gpu",
         "--hide-scrollbars",
-        "--window-size=1080,1800",
+        f"--window-size={width},{height}",
         f"--screenshot={png_path}",
         html_path.resolve().as_uri(),
         stdout=asyncio.subprocess.PIPE,
@@ -406,6 +752,171 @@ async def _render_xiaohongshu_poster(workspace: Path, title: str, body: str) -> 
         details = (stderr or stdout).decode("utf-8", errors="replace").strip()
         raise RuntimeError(details or "Chrome screenshot failed")
     return html_path, png_path
+
+
+async def _render_xiaohongshu_poster(workspace: Path, title: str, body: str) -> tuple[Path, Path]:
+    """Render the poster HTML to a 1080x1800 PNG through headless Chrome."""
+    return await _render_html_to_png(
+        workspace=workspace,
+        scope="xiaohongshu",
+        html=_build_xiaohongshu_poster_html(title, body),
+        width=1080,
+        height=1800,
+    )
+
+
+def _resolve_publish_workspace(loop: Any) -> Path:
+    """Resolve a writable workspace for generated publisher assets."""
+    value = getattr(loop, "workspace", None)
+    return Path(value) if value else Path("/tmp")
+
+
+def _build_twitter_poster_html(title: str, body: str) -> str:
+    """Render a concise Twitter/X card style poster."""
+    lines = [segment.strip("• ").strip() for segment in body.splitlines() if segment.strip()]
+    bullet_html = "".join(f"<li>{escape(line)}</li>" for line in lines[:5])
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1600, initial-scale=1" />
+  <style>
+    :root {{
+      --bg0: #0b1220;
+      --bg1: #14213d;
+      --ink: #f3f6fb;
+      --muted: #9fb2c8;
+      --line: rgba(255,255,255,0.08);
+      --accent: #4fd1c5;
+      --accent2: #60a5fa;
+      --card: rgba(10, 17, 30, 0.66);
+    }}
+    * {{ box-sizing: border-box; }}
+    html, body {{
+      width: 1600px;
+      height: 900px;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top left, rgba(96,165,250,0.22), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(79,209,197,0.18), transparent 28%),
+        linear-gradient(145deg, var(--bg0) 0%, var(--bg1) 100%);
+      color: var(--ink);
+      font-family: "SF Pro Display", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    }}
+    body {{ padding: 54px; }}
+    .card {{
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 36px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.28);
+      padding: 48px 56px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }}
+    .top {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }}
+    .brand {{
+      font-size: 24px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }}
+    .badge {{
+      font-size: 22px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(79,209,197,0.12);
+      color: #a8fff7;
+      border: 1px solid rgba(79,209,197,0.28);
+    }}
+    h1 {{
+      margin: 0;
+      max-width: 1180px;
+      font-size: 72px;
+      line-height: 1.05;
+      letter-spacing: -0.045em;
+    }}
+    ul {{
+      margin: 30px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 28px;
+    }}
+    li {{
+      font-size: 31px;
+      line-height: 1.24;
+      color: var(--ink);
+      padding: 20px 22px;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }}
+    .footer {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 24px;
+      letter-spacing: 0.02em;
+    }}
+    .line {{
+      width: 220px;
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <section>
+      <div class="top">
+        <div class="brand">MarketBot</div>
+        <div class="badge">X Post Visual</div>
+      </div>
+      <h1>{escape(title)}</h1>
+      <ul>{bullet_html}</ul>
+    </section>
+    <footer class="footer">
+      <div class="line"></div>
+      <div>twitter-cli auto image</div>
+    </footer>
+  </main>
+</body>
+</html>
+"""
+
+
+def _extract_twitter_poster_payload(text: str) -> tuple[str, str]:
+    """Split normalized tweet text into poster title/body."""
+    normalized_lines = [line.strip() for line in str(text or "").splitlines() if line.strip()]
+    title = normalized_lines[0] if normalized_lines else "MarketBot"
+    bullets = [line for line in normalized_lines[1:] if line]
+    body = "\n".join(bullets[:5]) or title
+    return title, body
+
+
+async def _render_twitter_poster(workspace: Path, text: str) -> tuple[Path, Path]:
+    """Render a Twitter/X share image from normalized tweet text."""
+    title, body = _extract_twitter_poster_payload(text)
+    return await _render_html_to_png(
+        workspace=workspace,
+        scope="twitter",
+        html=_build_twitter_poster_html(title, body),
+        width=1600,
+        height=900,
+    )
 
 
 async def _direct_xiaohongshu_publish(loop: Any, messages: list[dict[str, Any]]) -> str | None:
@@ -420,7 +931,7 @@ async def _direct_xiaohongshu_publish(loop: Any, messages: list[dict[str, Any]])
         return "Error: 未能解析小红书标题和正文，请在“内容如下”后提供标题和正文。"
     title, body = payload
     try:
-        _, image_path = await _render_xiaohongshu_poster(Path(loop.workspace), title, body)
+        _, image_path = await _render_xiaohongshu_poster(_resolve_publish_workspace(loop), title, body)
     except Exception as exc:
         return f"Error: 自动生成小红书图片失败: {exc}"
     result = await loop.tools.execute(
@@ -445,25 +956,86 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
     content = _extract_twitter_publish_text(raw_text)
     if not content:
         return "Error: 未能解析推文正文，请在“内容如下”后提供正文。"
+    images: list[str] = []
+    if _should_auto_generate_twitter_image(raw_text):
+        try:
+            _, image_path = await _render_twitter_poster(_resolve_publish_workspace(loop), content)
+        except Exception as exc:
+            return f"Error: 自动生成推特图片失败: {exc}"
+        images.append(str(image_path))
+    post_text = _prepare_twitter_post_text(content, with_image=bool(images))
     result = await loop.tools.execute(
         "twitter_cli",
         {
             "operation": "post",
-            "text": content,
+            "text": post_text,
+            "images": images,
         },
     )
     lowered = str(result or "").lower()
     if "(186)" in lowered or "bit shorter" in lowered:
-        shortened = _shorten_twitter_text(content)
-        if shortened and shortened != content:
+        for shortened in _twitter_retry_candidates(post_text):
             result = await loop.tools.execute(
                 "twitter_cli",
                 {
                     "operation": "post",
                     "text": shortened,
+                    "images": images,
                 },
             )
-    return _format_twitter_publish_result(result)
+            lowered = str(result or "").lower()
+            if "(186)" not in lowered and "bit shorter" not in lowered:
+                break
+    lowered = str(result or "").lower()
+    if "(187)" in lowered or "duplicate" in lowered:
+        for variant in _twitter_duplicate_retry_candidates(post_text):
+            result = await loop.tools.execute(
+                "twitter_cli",
+                {
+                    "operation": "post",
+                    "text": variant,
+                    "images": images,
+                },
+            )
+            lowered = str(result or "").lower()
+            if "(187)" not in lowered and "duplicate" not in lowered:
+                break
+    formatted = _format_twitter_publish_result(result)
+    tweet_id = _extract_twitter_publish_id(result)
+    if images and tweet_id:
+        verify = await loop.tools.execute(
+            "twitter_cli",
+            {
+                "operation": "tweet",
+                "target": tweet_id,
+                "full_text": True,
+                "max_count": 1,
+            },
+        )
+        if not _tweet_payload_has_media(verify):
+            return f"{formatted}\n注意：发推成功，但未校验到配图已挂载，请打开链接确认。"
+    return formatted
+
+
+async def _direct_xiaohongshu_research(loop: Any, messages: list[dict[str, Any]]) -> str | None:
+    """Execute explicit Xiaohongshu research without going through LLM routing."""
+    raw_text = _direct_xiaohongshu_research_fallback(messages)
+    if raw_text is None:
+        return None
+    if not loop.tools.has("xiaohongshu_cli"):
+        return "Error: xiaohongshu_cli tool is not available."
+    keyword = _extract_xiaohongshu_research_keyword(raw_text)
+    result = await loop.tools.execute(
+        "xiaohongshu_cli",
+        {
+            "operation": "search",
+            "keyword": keyword,
+            "sort": "popular",
+            "note_type": "image",
+            "page": 1,
+        },
+    )
+    return _format_xiaohongshu_research_result(keyword, result)
 
 
 def _summarize_tool_payload(tool_name: str, result: str) -> str | None:
@@ -746,6 +1318,9 @@ async def run_agent_loop(
     direct_publish = await _direct_xiaohongshu_publish(loop, initial_messages)
     if direct_publish is not None:
         return direct_publish, ["xiaohongshu_cli"], initial_messages, {}
+    direct_xhs_research = await _direct_xiaohongshu_research(loop, initial_messages)
+    if direct_xhs_research is not None:
+        return direct_xhs_research, ["xiaohongshu_cli"], initial_messages, {}
     direct_twitter_publish = await _direct_twitter_publish(loop, initial_messages)
     if direct_twitter_publish is not None:
         return direct_twitter_publish, ["twitter_cli"], initial_messages, {}

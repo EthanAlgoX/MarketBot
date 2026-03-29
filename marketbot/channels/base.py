@@ -7,6 +7,7 @@ from loguru import logger
 
 from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.bus.queue import MessageBus
+from marketbot.agent.response_postprocess import is_publish_result_message
 
 
 class BaseChannel(ABC):
@@ -62,6 +63,8 @@ class BaseChannel(ABC):
         """Compose final text content, optionally inlining explainability notes."""
         text = msg.content or ""
         if not text:
+            return text
+        if is_publish_result_message(text):
             return text
         meta = msg.metadata or {}
         if meta.get("_progress"):

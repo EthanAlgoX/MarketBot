@@ -17,6 +17,8 @@ Use this skill only when the user explicitly asks to publish or interact on Twit
    - quote: `twitter_cli(operation="quote", target="<tweet-id-or-url>", text="...")`
 3. Optional:
    - `images=["/abs/path/a.png"]` for post, reply, or quote
+   - By default, publish requests may render a local Twitter poster image and attach it automatically.
+   - If the user explicitly asks for `纯文本` / `不要图` / `text-only`, skip the auto-generated image and send text only.
 4. After a successful action, report success briefly and include the returned structured result when useful.
 
 ## Rules
@@ -26,3 +28,4 @@ Use this skill only when the user explicitly asks to publish or interact on Twit
 - If `allowWrite` is disabled, say that controlled posting is available but the safety switch is off.
 - Do not silently publish. The user must explicitly ask to post or interact.
 - For reply or quote, require an explicit tweet id or tweet URL.
+- Auto-generated Twitter images are the default publish mode unless the user explicitly asks for text only.
