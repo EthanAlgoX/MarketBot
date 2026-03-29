@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from marketbot.agent import processor_consolidation
+from marketbot.agent import processor_messages
 from marketbot.agent import processor_runtime
 from marketbot.agent.processor_save import save_session_messages
 
@@ -120,31 +121,22 @@ class MessageProcessor:
         chat_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build messages for LLM from session and current input."""
-        history = self.get_recent_history(session)
-        original_message = current_message
-        current_message = self.rewrite_sensitive_market_shortcuts(current_message)
-        messages = self.context.build_messages(
-            history=history,
+        return processor_messages.build_messages(
+            self,
+            session=session,
             current_message=current_message,
-            routing_message=original_message,
             media=media,
             channel=channel,
             chat_id=chat_id,
         )
-        if routing := self.context.get_last_skill_routing():
-            session.metadata["last_skill_routing"] = routing
-        return messages
 
     def get_recent_history(self, session: "Session") -> list[dict[str, Any]]:
         """Return a bounded history window tuned for token efficiency."""
-        return session.get_history(
-            max_messages=self.memory_window,
-            max_turns=self.history_turn_window,
-        )
+        return processor_messages.get_recent_history(self, session)
 
     def get_last_skill_routing(self) -> dict[str, Any] | None:
         """Expose structured skill-routing metadata for downstream renderers."""
-        return self.context.get_last_skill_routing()
+        return processor_messages.get_last_skill_routing(self)
 
     def save_session(self, session: "Session", messages: list[dict], skip: int) -> None:
         """Save new messages to session."""
