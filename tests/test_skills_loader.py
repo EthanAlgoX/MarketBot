@@ -680,6 +680,30 @@ def test_xiaohongshu_skill_accepts_alternative_runtime_tool(tmp_path):
     assert 'available="true"' in publish_summary
 
 
+def test_twitter_skill_accepts_alternative_runtime_tool(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    capabilities = loader.get_skill_capabilities("twitter-browser-research")
+    assert capabilities["required_tools"] == ["twitter_cli"]
+    assert capabilities["alternative_required_tools"] == ["browser_site"]
+
+    twitter_only = loader.build_skills_summary(available_tools={"twitter_cli"})
+    assert '<name>twitter-browser-research</name>' in twitter_only
+    assert 'available="true"' in twitter_only
+
+    browser_only = loader.build_skills_summary(available_tools={"browser_site"})
+    assert '<name>twitter-browser-research</name>' in browser_only
+    assert 'available="true"' in browser_only
+
+    publish_capabilities = loader.get_skill_capabilities("twitter-publisher")
+    assert "post to twitter" in publish_capabilities["triggers"]
+    assert publish_capabilities["required_tools"] == ["twitter_cli"]
+
+    publish_summary = loader.build_skills_summary(available_tools={"twitter_cli"})
+    assert '<name>twitter-publisher</name>' in publish_summary
+    assert 'available="true"' in publish_summary
+
+
 def test_skills_summary_includes_browser_adapter_catalog(tmp_path):
     loader = SkillsLoader(tmp_path)
 

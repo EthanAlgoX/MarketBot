@@ -948,6 +948,39 @@ def test_browser_twitter_message_auto_injects_twitter_skill(tmp_path) -> None:
     assert "### Skill: sentiment-analysis" not in prompt
 
 
+def test_twitter_cli_message_auto_injects_twitter_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"twitter_cli"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Search Twitter thread discussion and FinTwit commentary for this ticker.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: twitter-browser-research" in prompt
+
+
+def test_publish_twitter_message_auto_injects_publisher_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"twitter_cli"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="Please post to Twitter: NVDA demand still looks strong.",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: twitter-publisher" in prompt
+    assert "### Skill: twitter-browser-research" not in prompt
+
+
 def test_browser_x_thread_message_auto_injects_twitter_skill(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

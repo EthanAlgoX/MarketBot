@@ -337,6 +337,19 @@ class XiaohongshuCliToolsConfig(Base):
     allow_write: bool = False
 
 
+class TwitterCliToolsConfig(Base):
+    """Local twitter-cli wrapper configuration."""
+
+    enabled: bool = False
+    command: str = "twitter"
+    timeout_s: int = Field(45, ge=1, le=180)
+    browser: str = ""
+    chrome_profile: str = ""
+    proxy: str = ""
+    home_dir: str = ""
+    allow_write: bool = False
+
+
 class LarkCliToolsConfig(Base):
     """Local lark-cli wrapper configuration."""
 
@@ -433,6 +446,7 @@ class ToolsConfig(Base):
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
     browser: BrowserToolsConfig = Field(default_factory=BrowserToolsConfig)
     xiaohongshu_cli: XiaohongshuCliToolsConfig = Field(default_factory=XiaohongshuCliToolsConfig)
+    twitter_cli: TwitterCliToolsConfig = Field(default_factory=TwitterCliToolsConfig)
     lark_cli: LarkCliToolsConfig = Field(default_factory=LarkCliToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
     market: MarketToolsConfig = Field(default_factory=MarketToolsConfig)

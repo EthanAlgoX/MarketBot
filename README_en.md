@@ -179,6 +179,32 @@ Notes:
 - this augments office-automation workflows and does not replace the existing `channels.feishu` message channel
 - a dedicated `Lark CLI Integration` section below covers install, auth, validation, and examples
 
+Optional: if you want the agent to analyze Twitter/X search results, threads, and account activity through a native local tool path, enable the local `twitter-cli` layer:
+
+```json
+{
+  "tools": {
+    "twitterCli": {
+      "enabled": true,
+      "command": "twitter",
+      "timeoutS": 45,
+      "browser": "chrome",
+      "chromeProfile": "Profile 2",
+      "homeDir": "~/.marketbot",
+      "allowWrite": false
+    }
+  }
+}
+```
+
+Notes:
+
+- `browser` and `chromeProfile` let you pin cookie extraction to a specific browser/runtime profile
+- `homeDir` is useful if you want isolated local state for `twitter-cli`
+- `allowWrite: false` keeps the Twitter/X integration read-only by default
+- enabling this registers `twitter_cli` and makes `twitter-browser-research` prefer the CLI path over `browser_site`
+- a dedicated `Twitter CLI Integration` section below covers install, auth, validation, and examples
+
 ### 4. Start using it
 
 The 4 commands most people need first:
@@ -695,6 +721,86 @@ marketbot agent -m "Use Xiaohongshu to analyze Luckin Coffee's recent heat, disc
 - The only write operation currently exposed is `post`, and it only supports image-note publishing; like/comment/favorite/follow are still not exposed
 - The CLI still depends on local browser cookies or QR login; if `xhs status` fails, fix CLI authentication first instead of debugging MarketBot
 - Treat Xiaohongshu output as consumer-attention context, not as a replacement for filings, channel checks, sales data, or official disclosures
+
+## Twitter CLI Integration
+
+If you want the agent to read Twitter/X search results, threads, user profiles, and user posts through a native local tool path, or to post in a controlled mode, integrate `twitter-cli`.
+
+### 1. Install and authenticate `twitter-cli`
+
+Install `twitter-cli` in your Python environment and confirm that the `twitter` command is runnable. Then either keep your browser logged in to X/Twitter or set:
+
+```bash
+export TWITTER_AUTH_TOKEN=...
+export TWITTER_CT0=...
+```
+
+Before touching MarketBot, verify the CLI directly:
+
+```bash
+twitter status --json
+twitter search "NVDA guidance" --type Latest --max 10 --json
+```
+
+### 2. Configure MarketBot
+
+Add this to `~/.marketbot/config.json`:
+
+```json
+{
+  "tools": {
+    "twitterCli": {
+      "enabled": true,
+      "command": "twitter",
+      "timeoutS": 45,
+      "browser": "chrome",
+      "chromeProfile": "Profile 2",
+      "homeDir": "~/.marketbot",
+      "allowWrite": false
+    }
+  }
+}
+```
+
+Recommendations:
+
+- Prefer an absolute path for `command`, for example `"/Users/you/project/.venv/bin/twitter"`
+- Set `browser` only when you need to pin extraction order across multiple browsers; common values are `arc`, `chrome`, `edge`, `firefox`, `brave`
+- Set `chromeProfile` only when you want a specific Chromium profile such as `"Profile 2"`
+- Set `homeDir` to a dedicated writable directory if you want isolated local state
+- Keep `allowWrite` set to `false`
+
+### 3. Verify the path
+
+Verify the CLI first:
+
+```bash
+twitter status --json
+twitter user elonmusk --json
+twitter search "TSLA deliveries" --type Latest --max 10 --json
+```
+
+Then verify MarketBot:
+
+```bash
+marketbot status
+marketbot agent -m "Summarize the main Twitter discussion and overall sentiment around NVDA's latest guidance. Keep it concise."
+```
+
+### 4. Runtime behavior
+
+- The current read path exposes `status / whoami / search / tweet / article / user / user_posts / likes / followers / following / feed / bookmarks / list`
+- When `tools.twitterCli.allowWrite=true`, MarketBot also exposes controlled `post / reply / quote / like / unlike / retweet / unretweet / bookmark / unbookmark / follow / unfollow / delete`
+- The built-in `twitter-browser-research` skill prefers `twitter_cli` and only falls back to `browser_site` when the CLI is unavailable
+- For default Twitter/X analysis requests, runtime now prefers `twitter_cli` instead of `exec`, local cache inspection, or browser-side detours
+- `homeDir` is optional; when set, MarketBot runs the CLI with `HOME` pointed at that directory so cookies and local state can stay isolated
+
+### 5. Scope and risk
+
+- It is useful for market narratives, thread analysis, analyst/trader commentary, and fast-moving event reaction, not as a single source of truth
+- `allowWrite` is an explicit safety switch and should stay off unless you intentionally want the agent to post or interact
+- The CLI still depends on local browser cookies or environment-based auth; if `twitter status` fails, fix CLI authentication first instead of debugging MarketBot
+- Treat Twitter/X output as fast-signal context, not as a replacement for filings, exchange disclosures, or formal news sources
 
 ## Skill Search and Install
 

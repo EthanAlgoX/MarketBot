@@ -6,8 +6,9 @@ from marketbot.agent.tools.base import Tool
 from marketbot.agent.tools.lark import LarkBaseTool, LarkCliTool, LarkDocTool, LarkIMTool, LarkSheetsTool, LarkTaskTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
+from marketbot.agent.tools.twitter import TwitterCliTool
 from marketbot.agent.tools.xiaohongshu import XiaohongshuCliTool
-from marketbot.config.schema import BrowserToolsConfig, LarkCliToolsConfig, XiaohongshuCliToolsConfig
+from marketbot.config.schema import BrowserToolsConfig, LarkCliToolsConfig, TwitterCliToolsConfig, XiaohongshuCliToolsConfig
 
 
 class SampleTool(Tool):
@@ -696,6 +697,156 @@ async def test_xiaohongshu_cli_sets_home_env_when_configured() -> None:
     result = await tool.execute(operation="status")
 
     assert result == '{"ok":true}'
+
+
+async def test_twitter_cli_search_builds_expected_command() -> None:
+    tool = TwitterCliTool(TwitterCliToolsConfig(enabled=True, command="twitter"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str]) -> tuple[int, str, str]:
+        assert args == [
+            "search",
+            "NVDA guidance",
+            "--type",
+            "Latest",
+            "--from",
+            "sama",
+            "--lang",
+            "en",
+            "--since",
+            "2026-01-01",
+            "--has",
+            "links",
+            "--exclude",
+            "retweets",
+            "--min-likes",
+            "50",
+            "--max",
+            "20",
+            "--full-text",
+            "--json",
+        ]
+        return 0, '{"ok":true}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        operation="search",
+        query="NVDA guidance",
+        search_type="Latest",
+        from_user="@sama",
+        lang="en",
+        since="2026-01-01",
+        has=["links"],
+        exclude=["retweets"],
+        min_likes=50,
+        max_count=20,
+        full_text=True,
+    )
+
+    payload = json.loads(result)
+    assert payload["ok"] is True
+    assert payload["operation"] == "search"
+
+
+async def test_twitter_cli_post_requires_allow_write() -> None:
+    tool = TwitterCliTool(TwitterCliToolsConfig(enabled=True, command="twitter", allow_write=False))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    result = await tool.execute(operation="post", text="hello world")
+
+    assert "write operations are disabled" in result
+
+
+async def test_twitter_cli_post_builds_expected_command() -> None:
+    tool = TwitterCliTool(TwitterCliToolsConfig(enabled=True, command="twitter", allow_write=True))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str]) -> tuple[int, str, str]:
+        assert args == [
+            "post",
+            "hello world",
+            "--reply-to",
+            "1234567890",
+            "--image",
+            "/tmp/a.png",
+            "--image",
+            "/tmp/b.jpg",
+            "--json",
+        ]
+        return 0, '{"ok":true,"data":{"id":"1"}}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        operation="post",
+        text="hello world",
+        target="1234567890",
+        images=["/tmp/a.png", "/tmp/b.jpg"],
+    )
+
+    assert '"id":"1"' in result
+
+
+async def test_twitter_cli_search_compacts_results_for_prompt_efficiency() -> None:
+    tool = TwitterCliTool(TwitterCliToolsConfig(enabled=True, command="twitter"))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str]) -> tuple[int, str, str]:
+        payload = {
+            "ok": True,
+            "schema_version": "1",
+            "data": [
+                {
+                    "id": "1",
+                    "text": "Line one\nline two " * 80,
+                    "author": {
+                        "name": "Jane Doe",
+                        "screenName": "janedoe",
+                        "verified": True,
+                        "profileImageUrl": "https://example.com/avatar.jpg",
+                    },
+                    "metrics": {
+                        "likes": 10,
+                        "retweets": 2,
+                        "replies": 1,
+                        "quotes": 0,
+                        "views": 300,
+                        "bookmarks": 7,
+                    },
+                    "createdAtLocal": "2026-03-29 20:00",
+                    "lang": "en",
+                    "score": 42.5,
+                    "isRetweet": False,
+                    "media": [{"type": "photo", "url": "https://example.com/image.jpg"}],
+                }
+            ],
+        }
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        operation="search",
+        query="NVDA guidance",
+        search_type="Latest",
+        max_count=5,
+    )
+    payload = json.loads(result)
+
+    assert payload["operation"] == "search"
+    assert payload["data"]["count"] == 1
+    compact = payload["data"]["results"][0]
+    assert compact["url"] == "https://x.com/janedoe/status/1"
+    assert compact["author"] == {
+        "name": "Jane Doe",
+        "screenName": "janedoe",
+        "verified": True,
+    }
+    assert compact["media"] == [{"type": "photo"}]
+    assert "profileImageUrl" not in result
+    assert "\n" not in compact["text"]
+    assert len(compact["text"]) <= 320
 
 
 async def test_lark_cli_runs_read_command_with_expected_args() -> None:

@@ -102,7 +102,8 @@ Current high-value fallback mappings:
 | `weibo-browser-research` | Use browser-backed Weibo adapters for topic heat and public narrative momentum |
 | `bilibili-browser-research` | Use browser-backed Bilibili adapters for video and comment-driven market narratives |
 | `xiaohongshu-browser-research` | Use browser-backed Xiaohongshu adapters for consumer-attention and brand heat signals |
-| `twitter-browser-research` | Use browser-backed Twitter/X adapters for threads and fast market commentary |
+| `twitter-browser-research` | Use Twitter/X tooling for search, threads, profiles, and fast market commentary |
+| `twitter-publisher` | Publish or interact on Twitter/X through the local twitter-cli tool |
 | `hackernews-browser-research` | Use browser-backed Hacker News adapters for technical and launch discussion |
 | `ak-rss-digest` | Generate a script-backed Chinese reading digest from a fixed AI and tech RSS bundle |
 | `tech-news-digest` | Generate a daily AI and tech news digest from a tiered source catalog |

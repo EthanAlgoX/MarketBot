@@ -13,6 +13,7 @@ from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFile
 from marketbot.agent.tools.lark import LarkBaseTool, LarkCliTool, LarkDocTool, LarkIMTool, LarkSheetsTool, LarkTaskTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
+from marketbot.agent.tools.twitter import TwitterCliTool
 from marketbot.agent.tools.web import WebFetchTool, WebSearchTool
 from marketbot.agent.tools.xiaohongshu import XiaohongshuCliTool
 from marketbot.bus.events import InboundMessage
@@ -37,6 +38,7 @@ class SubagentManager:
         web_proxy: str | None = None,
         browser_config: Any | None = None,
         xiaohongshu_cli_config: Any | None = None,
+        twitter_cli_config: Any | None = None,
         lark_cli_config: Any | None = None,
         exec_config: "ExecToolConfig | None" = None,
         restrict_to_workspace: bool = False,
@@ -53,6 +55,7 @@ class SubagentManager:
         self.web_proxy = web_proxy
         self.browser_config = browser_config
         self.xiaohongshu_cli_config = xiaohongshu_cli_config
+        self.twitter_cli_config = twitter_cli_config
         self.lark_cli_config = lark_cli_config
         self.exec_config = exec_config or ExecToolConfig()
         self.restrict_to_workspace = restrict_to_workspace
@@ -123,6 +126,8 @@ class SubagentManager:
                 tools.register(BrowserNetworkTool(browser_config=self.browser_config, workspace=self.workspace))
             if self.xiaohongshu_cli_config and getattr(self.xiaohongshu_cli_config, "enabled", False):
                 tools.register(XiaohongshuCliTool(xhs_config=self.xiaohongshu_cli_config, workspace=self.workspace))
+            if self.twitter_cli_config and getattr(self.twitter_cli_config, "enabled", False):
+                tools.register(TwitterCliTool(twitter_config=self.twitter_cli_config, workspace=self.workspace))
             if self.lark_cli_config and getattr(self.lark_cli_config, "enabled", False):
                 tools.register(LarkCliTool(lark_config=self.lark_cli_config, workspace=self.workspace))
                 tools.register(LarkBaseTool(lark_config=self.lark_cli_config, workspace=self.workspace))

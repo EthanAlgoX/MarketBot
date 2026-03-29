@@ -354,6 +354,48 @@ def test_tool_definitions_for_xiaohongshu_request_only_exposes_xiaohongshu_cli()
     assert defs == [{"type": "function", "function": {"name": "xiaohongshu_cli"}}]
 
 
+def test_tool_definitions_for_twitter_request_only_exposes_twitter_cli() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"twitter_request": True}
+    loop._current_tool_rounds = 0
+    loop.context = SimpleNamespace(available_tools={"twitter_cli", "exec", "browser_site"})
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "twitter_cli"}},
+                {"type": "function", "function": {"name": "exec"}},
+                {"type": "function", "function": {"name": "browser_site"}},
+            ]
+
+    loop.tools = _FakeRegistry()
+
+    defs = loop._tool_definitions_for_request()
+
+    assert defs == [{"type": "function", "function": {"name": "twitter_cli"}}]
+
+
+def test_tool_definitions_for_twitter_request_disable_tools_after_first_round() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"twitter_request": True}
+    loop._current_tool_rounds = 1
+    loop.context = SimpleNamespace(available_tools={"twitter_cli", "exec", "browser_site"})
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "twitter_cli"}},
+                {"type": "function", "function": {"name": "exec"}},
+                {"type": "function", "function": {"name": "browser_site"}},
+            ]
+
+    loop.tools = _FakeRegistry()
+
+    defs = loop._tool_definitions_for_request()
+
+    assert defs == []
+
+
 def test_tool_definitions_for_lark_request_keep_full_set() -> None:
     loop = _mk_loop()
     loop._active_request_flags = {"lark_request": True}
@@ -423,6 +465,74 @@ def test_normalize_market_news_arguments_for_broad_market_scan() -> None:
 
     assert normalized["symbols"] == list(loop._BROAD_MARKET_SCAN_NEWS_SYMBOLS)
     assert normalized["limit"] == 12
+
+
+def test_normalize_twitter_search_arguments_for_twitter_research() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"twitter_research": True}
+
+    normalized = loop._normalize_tool_arguments_for_request(
+        "twitter_cli",
+        {"operation": "search", "query": "NVDA guidance", "max_count": 30},
+    )
+
+    assert normalized["search_type"] == "Latest"
+    assert normalized["max_count"] == 12
+    assert normalized["exclude"] == ["replies", "retweets"]
+    assert normalized["do_filter"] is True
+    assert normalized["min_likes"] == 2
+    assert normalized["query"] == "$NVDA guidance earnings revenue"
+
+
+def test_normalize_twitter_search_arguments_preserves_existing_excludes() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"twitter_research": True}
+
+    normalized = loop._normalize_tool_arguments_for_request(
+        "twitter_cli",
+        {"operation": "search", "query": "NVDA guidance", "exclude": ["replies"], "max_count": 8},
+    )
+
+    assert normalized["search_type"] == "Latest"
+    assert normalized["max_count"] == 8
+    assert normalized["exclude"] == ["replies", "retweets"]
+
+
+def test_normalize_twitter_search_arguments_forces_latest_over_top() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"twitter_research": True}
+
+    normalized = loop._normalize_tool_arguments_for_request(
+        "twitter_cli",
+        {"operation": "search", "query": "NVDA earnings guidance", "search_type": "Top", "max_count": 20},
+    )
+
+    assert normalized["search_type"] == "Latest"
+    assert normalized["query"] == "$NVDA earnings guidance"
+
+
+def test_normalize_twitter_search_arguments_skips_ticker_expansion_for_handles() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"twitter_research": True}
+
+    normalized = loop._normalize_tool_arguments_for_request(
+        "twitter_cli",
+        {"operation": "search", "query": "@elonmusk guidance", "max_count": 20},
+    )
+
+    assert normalized["query"] == "@elonmusk guidance"
+
+
+def test_normalize_twitter_tweet_arguments_for_twitter_research() -> None:
+    loop = _mk_loop()
+    loop._active_request_flags = {"twitter_research": True}
+
+    normalized = loop._normalize_tool_arguments_for_request(
+        "twitter_cli",
+        {"operation": "tweet", "target": "123", "max_count": 99},
+    )
+
+    assert normalized["max_count"] == 20
 
 
 def test_run_agent_loop_disables_tools_after_first_broad_market_scan_round() -> None:
@@ -571,6 +681,245 @@ def test_run_agent_loop_only_exposes_xiaohongshu_cli_for_xiaohongshu_request() -
     assert loop.provider.chat.await_args.kwargs["tools"] == [
         {"type": "function", "function": {"name": "xiaohongshu_cli"}}
     ]
+
+
+def test_run_agent_loop_only_exposes_twitter_cli_for_twitter_request() -> None:
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    loop = _mk_loop()
+    loop.max_iterations = 3
+    loop.model = "test-model"
+    loop.temperature = 0.1
+    loop.max_tokens = 512
+    loop.reasoning_effort = None
+    loop._BROAD_MARKET_SCAN_MARKERS = ()
+    loop._DAILY_OPPORTUNITY_SKILL = "daily-market-opportunity"
+    loop._selected_skill_names = lambda: ["twitter-browser-research"]
+    loop._is_broad_market_scan_request = lambda messages: False
+    loop._is_xiaohongshu_request = lambda messages: False
+    loop._is_twitter_request = lambda messages: True
+    loop._is_lark_request = lambda messages: False
+    loop._merge_usage = AgentLoop._merge_usage
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "twitter_cli"}},
+                {"type": "function", "function": {"name": "exec"}},
+                {"type": "function", "function": {"name": "browser_site"}},
+            ]
+
+        async def execute(self, name: str, params: dict) -> str:
+            return f"{name}:{params}"
+
+    class _FakeContext:
+        available_tools = {"twitter_cli", "exec", "browser_site"}
+
+        @staticmethod
+        def add_assistant_message(messages, content, tool_calls=None, **kwargs):
+            updated = list(messages)
+            entry = {"role": "assistant", "content": content}
+            if tool_calls is not None:
+                entry["tool_calls"] = tool_calls
+            updated.append(entry)
+            return updated
+
+        @staticmethod
+        def add_tool_result(messages, tool_call_id, tool_name, result):
+            updated = list(messages)
+            updated.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "name": tool_name,
+                    "content": result,
+                }
+            )
+            return updated
+
+    responses = iter([LLMResponse(content="final answer", tool_calls=[])])
+    loop.provider = MagicMock()
+    loop.provider.chat = AsyncMock(side_effect=lambda *args, **kwargs: next(responses))
+    loop.tools = _FakeRegistry()
+    loop.context = _FakeContext()
+
+    final_content, tools_used, _, _ = asyncio.run(
+        loop._run_agent_loop([{"role": "user", "content": "分析这个 Twitter 话题情绪"}])
+    )
+
+    assert final_content == "final answer"
+    assert tools_used == []
+    assert loop.provider.chat.await_count == 1
+    assert loop.provider.chat.await_args.kwargs["tools"] == [
+        {"type": "function", "function": {"name": "twitter_cli"}}
+    ]
+
+
+def test_run_agent_loop_retries_when_model_returns_pseudo_tool_text_after_real_tools() -> None:
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    loop = _mk_loop()
+    loop.max_iterations = 5
+    loop.model = "test-model"
+    loop.temperature = 0.1
+    loop.max_tokens = 512
+    loop.reasoning_effort = None
+    loop._BROAD_MARKET_SCAN_MARKERS = ()
+    loop._DAILY_OPPORTUNITY_SKILL = "daily-market-opportunity"
+    loop._selected_skill_names = lambda: ["twitter-browser-research"]
+    loop._is_broad_market_scan_request = lambda messages: False
+    loop._is_xiaohongshu_request = lambda messages: False
+    loop._is_twitter_request = lambda messages: True
+    loop._is_lark_request = lambda messages: False
+    loop._merge_usage = AgentLoop._merge_usage
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [{"type": "function", "function": {"name": "twitter_cli"}}]
+
+        async def execute(self, name: str, params: dict) -> str:
+            return '{"ok":true,"data":[{"id":"1","text":"nvda guidance discussion"}]}'
+
+    class _FakeContext:
+        available_tools = {"twitter_cli"}
+
+        @staticmethod
+        def add_assistant_message(messages, content, tool_calls=None, **kwargs):
+            updated = list(messages)
+            entry = {"role": "assistant", "content": content}
+            if tool_calls is not None:
+                entry["tool_calls"] = tool_calls
+            updated.append(entry)
+            return updated
+
+        @staticmethod
+        def add_tool_result(messages, tool_call_id, tool_name, result):
+            updated = list(messages)
+            updated.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "name": tool_name,
+                    "content": result,
+                }
+            )
+            return updated
+
+    loop.tools = _FakeRegistry()
+    loop.context = _FakeContext()
+    loop.provider = MagicMock()
+    loop.provider.chat = AsyncMock(
+        side_effect=[
+            LLMResponse(
+                content="",
+                tool_calls=[ToolCallRequest(id="1", name="twitter_cli", arguments={"operation": "search"})],
+            ),
+            LLMResponse(
+                content='<minimax:tool_call><invoke name="twitter_cli"></invoke></minimax:tool_call>',
+                tool_calls=[],
+            ),
+            LLMResponse(content="Twitter 上关于 NVDA guidance 的讨论偏噪音，整体情绪中性偏多。"),
+        ]
+    )
+
+    final_content, tools_used, messages, _usage = asyncio.run(
+        tool_runtime.run_agent_loop(loop, [{"role": "user", "content": "分析 Twitter 上 NVDA guidance 讨论"}])
+    )
+
+    assert tools_used == ["twitter_cli"]
+    assert "整体情绪中性偏多" in str(final_content)
+    assert loop.provider.chat.await_count == 3
+    assert loop.provider.chat.await_args_list[1].kwargs["tools"] == []
+    assert loop.provider.chat.await_args_list[2].kwargs["tools"] == []
+    assert any(
+        isinstance(message, dict)
+        and message.get("role") == "user"
+        and "Do not call tools again" in str(message.get("content"))
+        for message in messages
+    )
+
+
+def test_run_agent_loop_runs_market_news_fallback_when_twitter_empty() -> None:
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    loop = _mk_loop()
+    loop.max_iterations = 3
+    loop.model = "test-model"
+    loop.temperature = 0.1
+    loop.max_tokens = 512
+    loop.reasoning_effort = None
+    loop._BROAD_MARKET_SCAN_MARKERS = ()
+    loop._DAILY_OPPORTUNITY_SKILL = "daily-market-opportunity"
+    loop._selected_skill_names = lambda: ["twitter-browser-research"]
+    loop._is_broad_market_scan_request = lambda messages: False
+    loop._is_xiaohongshu_request = lambda messages: False
+    loop._is_twitter_request = lambda messages: True
+    loop._is_lark_request = lambda messages: False
+    loop._merge_usage = AgentLoop._merge_usage
+
+    class _FakeRegistry:
+        def get_definitions(self):
+            return [
+                {"type": "function", "function": {"name": "twitter_cli"}},
+                {"type": "function", "function": {"name": "market_news"}},
+            ]
+
+        async def execute(self, name: str, params: dict) -> str:
+            if name == "twitter_cli":
+                return '{"ok":true,"data":{"count":0,"results":[]}}'
+            if name == "market_news":
+                return '{"ok":true,"data":{"results":[{"headline":"fallback news"}]}}'
+            return '{"ok":false}'
+
+    class _FakeContext:
+        available_tools = {"twitter_cli", "market_news"}
+
+        @staticmethod
+        def add_assistant_message(messages, content, tool_calls=None, **kwargs):
+            updated = list(messages)
+            entry = {"role": "assistant", "content": content}
+            if tool_calls is not None:
+                entry["tool_calls"] = tool_calls
+            updated.append(entry)
+            return updated
+
+        @staticmethod
+        def add_tool_result(messages, tool_call_id, tool_name, result):
+            updated = list(messages)
+            updated.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "name": tool_name,
+                    "content": result,
+                }
+            )
+            return updated
+
+    loop.tools = _FakeRegistry()
+    loop.context = _FakeContext()
+    loop.provider = MagicMock()
+    loop.provider.chat = AsyncMock(
+        side_effect=[
+            LLMResponse(
+                content="",
+                tool_calls=[
+                    ToolCallRequest(id="1", name="twitter_cli", arguments={"operation": "search", "query": "$NVDA guidance"}),
+                ],
+            ),
+            LLMResponse(content="Final summary"),
+        ]
+    )
+
+    final_content, tools_used, messages, _ = asyncio.run(
+        tool_runtime.run_agent_loop(loop, [{"role": "user", "content": "分析 Twitter 上 NVDA guidance 讨论"}])
+    )
+
+    assert tools_used == ["twitter_cli", "market_news"]
+    assert final_content == "Final summary"
 
 
 def test_run_agent_loop_auto_appends_market_brief_for_daily_opportunity() -> None:

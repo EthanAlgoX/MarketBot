@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
+import time
 from typing import Any, Awaitable, Callable
 
 from loguru import logger
+
+from marketbot.providers.base import ToolCallRequest
 
 
 def _fallback_preview(value: Any) -> str:
@@ -311,14 +315,20 @@ async def run_agent_loop(
         "daily_opportunity_scan": loop._DAILY_OPPORTUNITY_SKILL in loop._selected_skill_names(),
         "xiaohongshu_request": loop._is_xiaohongshu_request(initial_messages),
         "xiaohongshu_research": "xiaohongshu-browser-research" in loop._selected_skill_names(),
+        "twitter_request": loop._is_twitter_request(initial_messages),
+        "twitter_research": "twitter-browser-research" in loop._selected_skill_names(),
         "lark_request": loop._is_lark_request(initial_messages),
     }
+    pseudo_tool_retry_used = False
+    loop._twitter_news_fallback_done = False
     try:
         while iteration < loop.max_iterations:
             iteration += 1
             loop._current_tool_rounds = tool_rounds
             tools_for_call = loop._tool_definitions_for_request()
             if loop._active_request_flags.get("broad_market_scan") and tool_rounds >= 1:
+                tools_for_call = []
+            if pseudo_tool_retry_used:
                 tools_for_call = []
 
             response = await loop.provider.chat(
@@ -375,6 +385,16 @@ async def run_agent_loop(
                         tool_call.name,
                         result,
                     )
+                    fallback = await _maybe_run_twitter_news_fallback(
+                        loop,
+                        tool_call,
+                        result,
+                        messages,
+                        tools_used,
+                        tool_rounds,
+                    )
+                    if fallback:
+                        messages, tools_used, tool_rounds = fallback
                 tool_rounds += 1
                 messages, tools_used, tool_rounds = await loop._auto_append_daily_opportunity_market_brief(
                     messages,
@@ -383,6 +403,33 @@ async def run_agent_loop(
                 )
             else:
                 clean = loop._strip_think(response.content)
+                if (
+                    _looks_like_pseudo_tool_output(clean)
+                    and not response.has_tool_calls
+                    and tools_used
+                    and not pseudo_tool_retry_used
+                    and iteration < loop.max_iterations
+                ):
+                    logger.warning("Model returned pseudo tool-call text after tool rounds; forcing no-tool summary retry")
+                    messages = loop.context.add_assistant_message(
+                        messages,
+                        None,
+                        reasoning_content=response.reasoning_content,
+                        thinking_blocks=response.thinking_blocks,
+                    )
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "Do not call tools again. Using only the tool results already in this conversation, "
+                                "answer the user directly in plain text or markdown. "
+                                "Do not output <minimax:tool_call>, <invoke ...>, XML, JSON tool stubs, "
+                                "or any tool-call syntax."
+                            ),
+                        }
+                    )
+                    pseudo_tool_retry_used = True
+                    continue
                 # Don't persist error responses to session history — they can
                 # poison the context and cause permanent 400 loops (#1303).
                 if response.finish_reason == "error":
@@ -401,6 +448,7 @@ async def run_agent_loop(
     finally:
         loop._current_tool_rounds = 0
         loop._active_request_flags = {}
+        loop._twitter_news_fallback_done = False
 
     if final_content is None and iteration >= loop.max_iterations:
         logger.warning("Max iterations ({}) reached", loop.max_iterations)
@@ -410,3 +458,117 @@ async def run_agent_loop(
         )
 
     return final_content, tools_used, messages, usage_totals
+
+
+def _looks_like_pseudo_tool_output(content: str | None) -> bool:
+    """Return True when the model emitted textual tool-call markup instead of a final answer."""
+    normalized = str(content or "").strip().lower()
+    if not normalized:
+        return False
+    return any(
+        marker in normalized
+        for marker in (
+            "<minimax:tool_call>",
+            "</minimax:tool_call>",
+            "<invoke name=",
+            "minimax:tool_call",
+        )
+    )
+
+
+async def _maybe_run_twitter_news_fallback(
+    loop: Any,
+    tool_call: ToolCallRequest,
+    result: str,
+    messages: list[dict[str, Any]],
+    tools_used: list[str],
+    tool_rounds: int,
+) -> tuple[list[dict[str, Any]], list[str], int] | None:
+    if not loop._active_request_flags.get("twitter_research"):
+        return None
+    if tool_call.name != "twitter_cli":
+        return None
+    if getattr(loop, "_twitter_news_fallback_done", False):
+        return None
+    if not _twitter_result_empty(result):
+        return None
+
+    query = tool_call.arguments.get("query") if isinstance(tool_call.arguments, dict) else None
+    symbol = _extract_ticker_from_query(query)
+    if not symbol:
+        return None
+
+    definitions = loop.tools.get_definitions()
+    if not any(
+        isinstance(definition.get("function"), dict)
+        and str(definition["function"].get("name") or "").strip() == "market_news"
+        for definition in definitions
+    ):
+        return None
+
+    arguments = {"symbols": [symbol], "limit": 5}
+    news_call = ToolCallRequest(
+        id=f"twitter-news-{symbol}-{int(time.time() * 1000)}",
+        name="market_news",
+        arguments=arguments,
+    )
+
+    messages = loop.context.add_assistant_message(
+        messages,
+        "",
+        [
+            {
+                "id": news_call.id,
+                "type": "function",
+                "function": {
+                    "name": news_call.name,
+                    "arguments": json.dumps(news_call.arguments, ensure_ascii=False),
+                },
+            }
+        ],
+    )
+
+    fallback_result = await loop.tools.execute(news_call.name, news_call.arguments)
+    compressed = loop._compress_tool_result(news_call.name, fallback_result)
+    tools_used.append(news_call.name)
+    messages = loop.context.add_tool_result(
+        messages,
+        news_call.id,
+        news_call.name,
+        compressed,
+    )
+    loop._twitter_news_fallback_done = True
+    return messages, tools_used, tool_rounds + 1
+
+
+def _twitter_result_empty(result: str) -> bool:
+    stripped = str(result or "").strip()
+    if not stripped:
+        return True
+    try:
+        payload = json.loads(stripped)
+    except Exception:
+        return True
+    if payload.get("ok") is False:
+        return True
+    data = payload.get("data")
+    if isinstance(data, dict):
+        if "results" in data:
+            return not bool(data.get("results"))
+        return not bool(data)
+    if isinstance(data, list):
+        return not bool(data)
+    return False
+
+
+def _extract_ticker_from_query(query: Any) -> str | None:
+    text = " ".join(str(query or "").split()).strip()
+    if not text:
+        return None
+    match = re.search(r"\$?([A-Z]{1,5})\b", text)
+    if not match:
+        return None
+    ticker = match.group(0).lstrip("$")
+    if ticker in {"A", "I", "X", "US", "USA", "AI"}:
+        return None
+    return ticker

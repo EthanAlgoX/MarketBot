@@ -1394,6 +1394,19 @@ def test_agent_loop_registers_xiaohongshu_cli_tool_when_enabled(tmp_path) -> Non
     assert "xiaohongshu_cli" in loop.tools.tool_names
 
 
+def test_agent_loop_registers_twitter_cli_tool_when_enabled(tmp_path) -> None:
+    from marketbot.config.schema import TwitterCliToolsConfig
+
+    loop = AgentLoop(
+        bus=MessageBus(),
+        provider=_DummyProvider(),
+        workspace=tmp_path,
+        model="test-model",
+        twitter_cli_config=TwitterCliToolsConfig(enabled=True),
+    )
+    assert "twitter_cli" in loop.tools.tool_names
+
+
 def test_agent_loop_skips_market_tools_when_disabled(tmp_path) -> None:
     loop = AgentLoop(
         bus=MessageBus(),

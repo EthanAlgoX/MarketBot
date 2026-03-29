@@ -66,6 +66,10 @@ def build_status_payload(
     browser_enabled = bool(browser_cfg.enabled)
     browser_command = str(browser_cfg.command or "bb-browser").strip() or "bb-browser"
     browser_binary = shutil.which(browser_command) if browser_enabled else None
+    twitter_cfg = config.tools.twitter_cli
+    twitter_enabled = bool(twitter_cfg.enabled)
+    twitter_command = str(twitter_cfg.command or "twitter").strip() or "twitter"
+    twitter_binary = shutil.which(twitter_command) if twitter_enabled else None
     lark_cfg = config.tools.lark_cli
     lark_enabled = bool(lark_cfg.enabled)
     lark_command = str(lark_cfg.command or "lark-cli").strip() or "lark-cli"
@@ -103,6 +107,16 @@ def build_status_payload(
             "configDir": str(lark_cfg.config_dir or ""),
             "allowWrite": bool(lark_cfg.allow_write),
             "allowAuth": bool(lark_cfg.allow_auth),
+        },
+        "twitterCli": {
+            "enabled": twitter_enabled,
+            "command": twitter_command,
+            "commandFound": bool(twitter_binary),
+            "browser": str(twitter_cfg.browser or ""),
+            "chromeProfile": str(twitter_cfg.chrome_profile or ""),
+            "proxy": str(twitter_cfg.proxy or ""),
+            "homeDir": str(twitter_cfg.home_dir or ""),
+            "allowWrite": bool(twitter_cfg.allow_write),
         },
         "providers": [],
     }
@@ -173,6 +187,7 @@ def render_status(
     payload = build_status_payload(config, config_path, bus=bus, session_manager=session_manager)
     workspace = config.workspace_path
     browser = payload["browser"]
+    twitter_cli = payload["twitterCli"]
     lark_cli = payload["larkCli"]
 
     console.print(f"{logo} marketbot Status\n")
@@ -217,6 +232,25 @@ def render_status(
         )
         console.print(
             "Lark CLI auth: " + ("[yellow]enabled[/yellow]" if lark_cli["allowAuth"] else "[dim]disabled[/dim]")
+        )
+
+    twitter_status = "[green]✓[/green]" if twitter_cli["enabled"] else "[dim]disabled[/dim]"
+    if twitter_cli["enabled"] and not twitter_cli["commandFound"]:
+        twitter_status = "[yellow]! command not found[/yellow]"
+    console.print(f"Twitter CLI: {twitter_status}")
+    if twitter_cli["enabled"]:
+        console.print(f"Twitter CLI command: {twitter_cli['command']}")
+        if twitter_cli["browser"]:
+            console.print(f"Twitter CLI browser: {twitter_cli['browser']}")
+        if twitter_cli["chromeProfile"]:
+            console.print(f"Twitter CLI chromeProfile: {twitter_cli['chromeProfile']}")
+        if twitter_cli["proxy"]:
+            console.print(f"Twitter CLI proxy: {twitter_cli['proxy']}")
+        if twitter_cli["homeDir"]:
+            console.print(f"Twitter CLI homeDir: {twitter_cli['homeDir']}")
+        console.print(
+            "Twitter CLI writes: "
+            + ("[yellow]enabled[/yellow]" if twitter_cli["allowWrite"] else "[dim]disabled[/dim]")
         )
 
     if config_path.exists():

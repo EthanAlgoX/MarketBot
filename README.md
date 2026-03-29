@@ -184,6 +184,32 @@ marketbot onboard
 - 这层集成补的是飞书办公能力，不替代现有 `channels.feishu` 消息通道
 - 下面有单独的 `Lark CLI 集成` 章节，包含安装、授权、`marketbot status` 校验和使用示例
 
+可选：如果你希望 agent 原生分析 Twitter/X 讨论、线程和账号动态，可以额外开启本地 `twitter-cli` 工具层：
+
+```json
+{
+  "tools": {
+    "twitterCli": {
+      "enabled": true,
+      "command": "twitter",
+      "timeoutS": 45,
+      "browser": "chrome",
+      "chromeProfile": "Profile 2",
+      "homeDir": "~/.marketbot",
+      "allowWrite": false
+    }
+  }
+}
+```
+
+说明：
+
+- `browser` / `chromeProfile` 用于把 CLI cookie 读取绑定到指定浏览器和 Profile
+- `homeDir` 建议单独指定一个可写目录，用来隔离 `twitter-cli` 的本地状态
+- `allowWrite: false` 时只开放查询类 Twitter/X 操作；发帖、回复、引用、点赞、转推、关注等写操作默认关闭
+- 启用后，agent 会获得 `twitter_cli` 工具，并让 `twitter-browser-research` skill 优先走 CLI 而不是 `browser_site`
+- 下面有单独的 `Twitter CLI 集成` 章节，包含安装、登录、`marketbot status` 校验和使用示例
+
 ### 4. 直接开始用
 
 最常用的 4 条命令：
@@ -753,6 +779,86 @@ marketbot agent -m "用小红书分析瑞幸咖啡最近的热度、用户讨论
 - 当前写操作仅开放 `post`，而且只支持图片笔记；仍未开放点赞、评论、收藏、关注等交互动作
 - 该 CLI 本质上依赖本机浏览器 cookie 或二维码登录；如果 `xhs status` 不可用，先修复 CLI 登录态，不要先排查 MarketBot
 - 小红书数据更适合用来观察消费者讨论和品牌声量，不应替代成交、财报、渠道销售或官方披露数据
+
+## Twitter CLI 集成
+
+如果你想让 agent 原生读取 Twitter/X 搜索结果、线程、用户资料、用户发文，甚至在受控模式下发帖，可以接入本地 `twitter-cli`。
+
+### 1. 先安装并登录 `twitter-cli`
+
+先在你自己的 Python 环境里安装 `twitter-cli`，并确认 `twitter` 命令可执行。然后确保本机浏览器里已经处于有效登录态，或者提前设置好：
+
+```bash
+export TWITTER_AUTH_TOKEN=...
+export TWITTER_CT0=...
+```
+
+如果你依赖浏览器 cookie，推荐先验证 CLI 自身可用：
+
+```bash
+twitter status --json
+twitter search "NVDA guidance" --type Latest --max 10 --json
+```
+
+### 2. 配置 MarketBot
+
+在 `~/.marketbot/config.json` 中加入：
+
+```json
+{
+  "tools": {
+    "twitterCli": {
+      "enabled": true,
+      "command": "twitter",
+      "timeoutS": 45,
+      "browser": "chrome",
+      "chromeProfile": "Profile 2",
+      "homeDir": "~/.marketbot",
+      "allowWrite": false
+    }
+  }
+}
+```
+
+建议：
+
+- `command` 最好写成绝对路径，例如 `"/Users/you/project/.venv/bin/twitter"`，避免 PATH 差异导致运行时找不到命令
+- `browser` 只在你有多个浏览器时需要显式指定；常见值是 `arc`、`chrome`、`edge`、`firefox`、`brave`
+- `chromeProfile` 只在你想锁定某个 Chromium profile 时配置，例如 `"Profile 2"`
+- `homeDir` 建议单独指定一个可写目录，用来隔离 `twitter-cli` 的本地状态
+- `allowWrite` 保持 `false`
+
+### 3. 验证链路
+
+先验证 CLI 自身：
+
+```bash
+twitter status --json
+twitter user elonmusk --json
+twitter search "TSLA deliveries" --type Latest --max 10 --json
+```
+
+如果上面正常，再验证 MarketBot：
+
+```bash
+marketbot status
+marketbot agent -m "帮我总结一下 Twitter 上关于 NVDA 最新 guidance 的讨论重点和整体情绪，只给我简明结论。"
+```
+
+### 4. 运行时行为
+
+- 默认按只读模式设计，当前接入开放 `status / whoami / search / tweet / article / user / user_posts / likes / followers / following / feed / bookmarks / list`
+- 当 `tools.twitterCli.allowWrite=true` 时，额外支持受控 `post / reply / quote / like / unlike / retweet / unretweet / bookmark / unbookmark / follow / unfollow / delete`
+- 现有 `twitter-browser-research` skill 会优先使用 `twitter_cli`，缺失时再回退到 `browser_site`
+- 在默认 Twitter/X 分析请求下，运行时会优先走 `twitter_cli`，不会再优先走 `exec`、本地缓存文件或 browser 旁路
+- `homeDir` 可选；配置后会把 CLI 的 `HOME` 指向该目录，适合隔离 cookie 与运行时缓存
+
+### 5. 边界与风险
+
+- 适合做市场叙事、线程解读、交易员/分析师评论和事件发酵观察，不适合作为事实来源的唯一依据
+- `allowWrite` 是显式安全开关；默认关闭，建议只有在你明确需要 agent 发帖或互动时再打开
+- 该 CLI 本质上依赖本机浏览器 cookie 或环境变量认证；如果 `twitter status` 不可用，先修复 CLI 登录态，不要先排查 MarketBot
+- Twitter/X 数据更适合做快信号和传播路径观察，不应替代公告、财报、交易所披露或正式新闻源
 
 ## Skill 搜索与安装
 

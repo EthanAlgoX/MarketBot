@@ -1,0 +1,22 @@
+{
+  "[\"luckin coffee\", \"popularity_descending\", 0]": {
+    "search_id": "2G62TRVESS0GKH7Z36RFF",
+    "created_at": 1774773595.071907,
+    "last_used_at": 1774773595.071907
+  },
+  "[\"瑞幸\", \"popularity_descending\", 0]": {
+    "search_id": "2G62U5FB5CRL67AHUWM9Q",
+    "created_at": 1774773757.494229,
+    "last_used_at": 1774773757.494229
+  },
+  "[\"瑞幸\", \"time_descending\", 0]": {
+    "search_id": "2G62U75NX8IMRKQSK3BAY",
+    "created_at": 1774773778.251931,
+    "last_used_at": 1774773778.251931
+  },
+  "[\"瑞幸咖啡\", \"popularity_descending\", 0]": {
+    "search_id": "2G62TQB0KPAJPJDHEQXKK",
+    "created_at": 1774773576.297837,
+    "last_used_at": 1774774010.9610329
+  }
+}

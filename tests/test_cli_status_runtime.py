@@ -43,6 +43,28 @@ def test_build_status_payload_reports_lark_cli_configuration(tmp_path) -> None:
     assert payload["larkCli"]["allowAuth"] is False
 
 
+def test_build_status_payload_reports_twitter_cli_configuration(tmp_path) -> None:
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    config.tools.twitter_cli.enabled = True
+    config.tools.twitter_cli.command = "twitter"
+    config.tools.twitter_cli.browser = "chrome"
+    config.tools.twitter_cli.chrome_profile = "Profile 2"
+    config.tools.twitter_cli.proxy = "socks5://127.0.0.1:1080"
+    config.tools.twitter_cli.home_dir = "/tmp/twitter-home"
+    config.tools.twitter_cli.allow_write = True
+
+    payload = build_status_payload(config, tmp_path / "config.json")
+
+    assert payload["twitterCli"]["enabled"] is True
+    assert payload["twitterCli"]["command"] == "twitter"
+    assert payload["twitterCli"]["browser"] == "chrome"
+    assert payload["twitterCli"]["chromeProfile"] == "Profile 2"
+    assert payload["twitterCli"]["proxy"] == "socks5://127.0.0.1:1080"
+    assert payload["twitterCli"]["homeDir"] == "/tmp/twitter-home"
+    assert payload["twitterCli"]["allowWrite"] is True
+
+
 def test_render_channels_status_table_contains_enabled_and_masked_values() -> None:
     config = Config()
     config.channels.telegram.enabled = True

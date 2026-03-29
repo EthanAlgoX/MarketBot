@@ -100,6 +100,7 @@ def build_agent_runtime(
         web_proxy=config.tools.web.proxy or None,
         browser_config=config.tools.browser,
         xiaohongshu_cli_config=config.tools.xiaohongshu_cli,
+        twitter_cli_config=config.tools.twitter_cli,
         lark_cli_config=config.tools.lark_cli,
         exec_config=config.tools.exec,
         cron_service=cron,

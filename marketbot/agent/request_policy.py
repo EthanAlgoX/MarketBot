@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
+
+
+_TICKER_PATTERN = re.compile(r"\b[A-Z]{1,5}\b")
+_GUIDANCE_HINTS = ("guidance", "outlook", "forecast")
+_EARNINGS_CONTEXT_TERMS = ("earnings", "revenue", "datacenter", "gross margin", "call")
 
 
 def normalize_daily_opportunity_report(loop: Any, final_content: str | None) -> str | None:
@@ -230,6 +236,32 @@ def is_xiaohongshu_request(messages: list[dict[str, Any]] | None) -> bool:
     return False
 
 
+def is_twitter_request(messages: list[dict[str, Any]] | None) -> bool:
+    """Return True when the user explicitly asks for Twitter/X research or actions."""
+    if not isinstance(messages, list):
+        return False
+    markers = ("twitter", "tweet", "tweets", "fintwit", "x thread", "x.com", "@")
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    value = item.get("text")
+                    if isinstance(value, str):
+                        parts.append(value)
+            text = "\n".join(parts)
+        else:
+            continue
+        lowered = text.lower()
+        return any(marker in lowered for marker in markers)
+    return False
+
+
 def is_lark_request(messages: list[dict[str, Any]] | None) -> bool:
     """Return True when the user explicitly asks for Feishu/Lark/Base office operations."""
     if not isinstance(messages, list):
@@ -302,6 +334,25 @@ def tool_policy_result(loop: Any, tool_name: str) -> str | None:
                 "Error: browser_site disabled for xiaohongshu-browser-research when xiaohongshu_cli is available. "
                 "Use xiaohongshu_cli unless it explicitly fails for the requested read path."
             )
+    if (
+        ("twitter-browser-research" in selected_skills or request_flags.get("twitter_request"))
+        and "twitter_cli" in available_tools
+    ):
+        if tool_name in {"read_file", "list_dir"}:
+            return (
+                f"Error: {tool_name} disabled for twitter-browser-research when twitter_cli is available. "
+                "Use twitter_cli to fetch live Twitter/X data instead of local files or cached notes."
+            )
+        if tool_name == "exec":
+            return (
+                "Error: exec disabled for twitter-browser-research when twitter_cli is available. "
+                "Use twitter_cli outputs directly instead of ad hoc CLI or cache inspection."
+            )
+        if tool_name == "browser_site":
+            return (
+                "Error: browser_site disabled for twitter-browser-research when twitter_cli is available. "
+                "Use twitter_cli unless it explicitly fails for the requested read path."
+            )
     return None
 
 
@@ -329,7 +380,55 @@ def normalize_tool_arguments_for_request(
             params["includeChips"] = False
             params["includeMacro"] = True
             params["includeNews"] = True
+    if request_flags.get("twitter_research") and tool_name == "twitter_cli":
+        operation = str(params.get("operation") or "").strip().lower()
+        if operation == "search":
+            params["search_type"] = "Latest"
+            params["max_count"] = min(int(params.get("max_count") or 12), 12)
+            exclude = params.get("exclude")
+            if isinstance(exclude, list):
+                normalized = [str(item).strip().lower() for item in exclude if str(item).strip()]
+            else:
+                normalized = []
+            if "replies" not in normalized:
+                normalized.append("replies")
+            if "retweets" not in normalized:
+                normalized.append("retweets")
+            params["exclude"] = normalized
+            params.setdefault("do_filter", True)
+            params["min_likes"] = 2
+            params["query"] = _normalize_twitter_search_query(params.get("query"))
+        elif operation == "tweet":
+            params["max_count"] = min(int(params.get("max_count") or 20), 20)
     return params
+
+
+def _normalize_twitter_search_query(value: Any) -> str:
+    query = " ".join(str(value or "").split()).strip()
+    if not query:
+        return query
+
+    ticker = _extract_probable_ticker(query)
+    lowered = query.lower()
+    if ticker and ticker not in query and f"${ticker}" not in query:
+        query = query.replace(ticker, f"${ticker}", 1)
+        lowered = query.lower()
+    elif ticker and f"${ticker}" not in query:
+        query = query.replace(ticker, f"${ticker}", 1)
+        lowered = query.lower()
+
+    if ticker and any(term in lowered for term in _GUIDANCE_HINTS):
+        if not any(term in lowered for term in _EARNINGS_CONTEXT_TERMS):
+            query = f'{query} earnings revenue'
+    return query
+
+
+def _extract_probable_ticker(query: str) -> str | None:
+    for match in _TICKER_PATTERN.findall(query):
+        if match in {"A", "I", "X", "US", "USA", "AI"}:
+            continue
+        return match
+    return None
 
 
 def tool_definitions_for_request(loop: Any) -> list[dict[str, Any]]:
@@ -347,8 +446,21 @@ def tool_definitions_for_request(loop: Any) -> list[dict[str, Any]]:
                 if isinstance(function, dict) and str(function.get("name") or "").strip() == "xiaohongshu_cli":
                     filtered.append(definition)
             return filtered
+    if request_flags.get("twitter_request"):
+        available_tools = set(getattr(getattr(loop, "context", None), "available_tools", set()) or set())
+        if "twitter_cli" in available_tools:
+            if getattr(loop, "_current_tool_rounds", 0) >= 1:
+                return []
+            filtered = []
+            for definition in definitions:
+                function = definition.get("function")
+                if isinstance(function, dict) and str(function.get("name") or "").strip() == "twitter_cli":
+                    filtered.append(definition)
+            return filtered
     if not request_flags.get("broad_market_scan"):
-        if request_flags.get("xiaohongshu_research") and getattr(loop, "_current_tool_rounds", 0) >= 2:
+        if (
+            request_flags.get("xiaohongshu_research") or request_flags.get("twitter_research")
+        ) and getattr(loop, "_current_tool_rounds", 0) >= 2:
             return []
         return definitions
     filtered: list[dict[str, Any]] = []

@@ -32,8 +32,15 @@ from marketbot.runtime.bootstrap import ToolBootstrapContext, register_core_tool
 from marketbot.session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
-    from marketbot.config.schema import BrowserToolsConfig, ChannelsConfig, ExecToolConfig, LarkCliToolsConfig, MarketToolsConfig
-    from marketbot.config.schema import XiaohongshuCliToolsConfig
+    from marketbot.config.schema import (
+        BrowserToolsConfig,
+        ChannelsConfig,
+        ExecToolConfig,
+        LarkCliToolsConfig,
+        MarketToolsConfig,
+        TwitterCliToolsConfig,
+        XiaohongshuCliToolsConfig,
+    )
     from marketbot.cron.service import CronService
 
 
@@ -100,6 +107,7 @@ class AgentLoop:
         web_proxy: str | None = None,
         browser_config: BrowserToolsConfig | None = None,
         xiaohongshu_cli_config: XiaohongshuCliToolsConfig | None = None,
+        twitter_cli_config: TwitterCliToolsConfig | None = None,
         lark_cli_config: LarkCliToolsConfig | None = None,
         exec_config: ExecToolConfig | None = None,
         cron_service: CronService | None = None,
@@ -126,6 +134,7 @@ class AgentLoop:
         self.web_proxy = web_proxy
         self.browser_config = browser_config
         self.xiaohongshu_cli_config = xiaohongshu_cli_config
+        self.twitter_cli_config = twitter_cli_config
         self.lark_cli_config = lark_cli_config
         self.exec_config = exec_config or ExecToolConfig()
         self.cron_service = cron_service
@@ -152,6 +161,7 @@ class AgentLoop:
             web_proxy=web_proxy,
             browser_config=browser_config,
             xiaohongshu_cli_config=xiaohongshu_cli_config,
+            twitter_cli_config=twitter_cli_config,
             lark_cli_config=lark_cli_config,
             exec_config=self.exec_config,
             restrict_to_workspace=restrict_to_workspace,
@@ -204,6 +214,7 @@ class AgentLoop:
             web_proxy=self.web_proxy,
             browser_config=self.browser_config,
             xiaohongshu_cli_config=self.xiaohongshu_cli_config,
+            twitter_cli_config=self.twitter_cli_config,
             lark_cli_config=self.lark_cli_config,
             cron_service=self.cron_service,
             market_config=self.market_config,
@@ -734,6 +745,11 @@ class AgentLoop:
     def _is_xiaohongshu_request(messages: list[dict[str, Any]] | None) -> bool:
         """Return True when the turn explicitly asks for Xiaohongshu research."""
         return request_policy.is_xiaohongshu_request(messages)
+
+    @staticmethod
+    def _is_twitter_request(messages: list[dict[str, Any]] | None) -> bool:
+        """Return True when the turn explicitly asks for Twitter/X research."""
+        return request_policy.is_twitter_request(messages)
 
     @staticmethod
     def _is_lark_request(messages: list[dict[str, Any]] | None) -> bool:

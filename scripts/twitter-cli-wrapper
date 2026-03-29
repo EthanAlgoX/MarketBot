@@ -1,0 +1,4 @@
+#!/bin/zsh
+
+PYTHONPATH=/Users/ethan/Documents/workspace/twitter-cli \
+exec /Users/ethan/Documents/workspace/MarketBot/.venv313/bin/python -m twitter_cli.cli "$@"
