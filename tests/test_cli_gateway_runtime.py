@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 from marketbot.cli.gateway_runtime import (
+    build_bus_delivery_metadata,
     create_heartbeat_notify_handler,
     format_bus_runtime_summary,
     pick_heartbeat_target,
@@ -46,6 +47,13 @@ def test_create_heartbeat_notify_handler_publishes_market_report_summary(tmp_pat
         async def publish_outbound(msg):
             published.append(msg)
 
+        @staticmethod
+        def stats():
+            return {
+                "inbound": {"size": 1, "maxsize": 10, "published": 2, "publish_wait_s": 0.5},
+                "outbound": {"size": 0, "maxsize": 10, "published": 3, "publish_wait_s": 0.25},
+            }
+
     handler = create_heartbeat_notify_handler(
         bus=_Bus(),
         heartbeat_delivery={
@@ -68,6 +76,36 @@ def test_create_heartbeat_notify_handler_publishes_market_report_summary(tmp_pat
     assert published[0].content == "summary body"
     assert published[0].media == [str(report_path)]
     assert published[0].metadata["market_report"]["session"] == "premarket"
+    assert published[0].metadata["bus"]["inbound"]["published"] == 2
+
+
+def test_create_heartbeat_notify_handler_attaches_bus_stats_for_plain_messages() -> None:
+    published = []
+
+    class _Bus:
+        @staticmethod
+        async def publish_outbound(msg):
+            published.append(msg)
+
+        @staticmethod
+        def stats():
+            return {
+                "inbound": {"size": 0, "maxsize": 10, "published": 1, "publish_wait_s": 0.1},
+                "outbound": {"size": 1, "maxsize": 10, "published": 2, "publish_wait_s": 0.2},
+            }
+
+    handler = create_heartbeat_notify_handler(
+        bus=_Bus(),
+        heartbeat_delivery={},
+        pick_target=lambda: ("telegram", "chat-1"),
+        render_market_report_notification=lambda *args, **kwargs: "unused",
+    )
+
+    asyncio.run(handler("plain response"))
+
+    assert len(published) == 1
+    assert published[0].content == "plain response"
+    assert published[0].metadata["bus"]["outbound"]["published"] == 2
 
 
 def test_run_gateway_services_stops_everything_cleanly() -> None:
@@ -149,3 +187,7 @@ def test_run_gateway_services_stops_everything_cleanly() -> None:
 
 def test_format_bus_runtime_summary_handles_missing_stats() -> None:
     assert format_bus_runtime_summary(None) == "Bus: unavailable"
+
+
+def test_build_bus_delivery_metadata_handles_missing_stats() -> None:
+    assert build_bus_delivery_metadata(None) == {}

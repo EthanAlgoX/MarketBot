@@ -27,6 +27,13 @@ def format_bus_runtime_summary(bus: Any) -> str:
     )
 
 
+def build_bus_delivery_metadata(bus: Any) -> dict[str, Any]:
+    """Build outbound metadata carrying queue/runtime stats when available."""
+    if bus is None or not hasattr(bus, "stats"):
+        return {}
+    return {"bus": bus.stats()}
+
+
 def pick_heartbeat_target(*, channels: Any, session_manager: Any) -> tuple[str, str]:
     """Pick a routable channel/chat target for heartbeat-triggered messages."""
     enabled = set(channels.enabled_channels)
@@ -242,12 +249,22 @@ def create_heartbeat_notify_handler(
                     chat_id=chat_id,
                     content=summary,
                     media=[str(report_path)] if report_path.is_file() else [],
-                    metadata={"market_report": {"session": session, "path": str(report_path)}},
+                    metadata={
+                        "market_report": {"session": session, "path": str(report_path)},
+                        **build_bus_delivery_metadata(bus),
+                    },
                 )
             )
             return
 
-        await bus.publish_outbound(OutboundMessage(channel=channel, chat_id=chat_id, content=response))
+        await bus.publish_outbound(
+            OutboundMessage(
+                channel=channel,
+                chat_id=chat_id,
+                content=response,
+                metadata=build_bus_delivery_metadata(bus),
+            )
+        )
 
     return on_heartbeat_notify
 
