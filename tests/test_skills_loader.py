@@ -671,6 +671,14 @@ def test_xiaohongshu_skill_accepts_alternative_runtime_tool(tmp_path):
     assert '<name>xiaohongshu-browser-research</name>' in browser_only
     assert 'available="true"' in browser_only
 
+    publish_capabilities = loader.get_skill_capabilities("xiaohongshu-publisher")
+    assert "发布小红书" in publish_capabilities["triggers"]
+    assert publish_capabilities["required_tools"] == ["xiaohongshu_cli"]
+
+    publish_summary = loader.build_skills_summary(available_tools={"xiaohongshu_cli"})
+    assert '<name>xiaohongshu-publisher</name>' in publish_summary
+    assert 'available="true"' in publish_summary
+
 
 def test_skills_summary_includes_browser_adapter_catalog(tmp_path):
     loader = SkillsLoader(tmp_path)

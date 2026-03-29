@@ -492,6 +492,7 @@ marketbot agent -m "用小红书分析瑞幸咖啡最近的热度、用户讨论
 ### 4. 运行时行为
 
 - 默认按只读模式设计，当前接入只开放 `status / search / read / comments / feed / hot / topics / search-user / user / user-posts`
+- 当 `tools.xiaohongshuCli.allowWrite=true` 时，额外支持受控 `post`，用于发布图片笔记
 - 现有 `xiaohongshu-browser-research` skill 会优先使用 `xiaohongshu_cli`，缺失时再回退到 `browser_site`
 - 在默认品牌分析请求下，运行时会优先走 `search(popular)`，必要时再补一轮 `search(latest)`，不会再优先走 `exec`、本地缓存文件或浏览器抓取旁路
 - `xiaohongshu_cli` 会先把搜索结果压缩成适合模型消费的摘要，而不是把整块大 JSON 直接塞回上下文
@@ -501,6 +502,7 @@ marketbot agent -m "用小红书分析瑞幸咖啡最近的热度、用户讨论
 
 - 适合做品牌热度、消费叙事、笔记评论、用户内容等研究，不适合作为交易事实或销量事实的直接证明
 - `allowWrite` 目前保留为显式安全开关，但当前 MarketBot 接入未开放点赞、评论、收藏、发帖等写操作
+- 当前写操作仅开放 `post`，而且只支持图片笔记；仍未开放点赞、评论、收藏、关注等交互动作
 - 该 CLI 本质上依赖本机浏览器 cookie 或二维码登录；如果 `xhs status` 不可用，先修复 CLI 登录态，不要先排查 MarketBot
 - 小红书数据更适合用来观察消费者讨论和品牌声量，不应替代成交、财报、渠道销售或官方披露数据
 

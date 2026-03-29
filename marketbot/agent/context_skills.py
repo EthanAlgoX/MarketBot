@@ -186,6 +186,7 @@ def prune_shadowed_skills(builder: Any, selected: list[dict[str, Any]]) -> list[
         return selected
 
     shadow_pairs = {
+        "xiaohongshu-publisher": {"xiaohongshu-browser-research", "social-signal-browser", "sentiment-analysis"},
         "social-signal-browser": {"sentiment-analysis"},
         "xueqiu-research": {"sentiment-analysis"},
         "reddit-research": {"social-signal-browser", "sentiment-analysis"},
@@ -376,6 +377,16 @@ def suggest_skills_for_message(
         "discussion heat",
         "forum heat",
     )
+    xiaohongshu_publish_terms = (
+        "发小红书",
+        "发布小红书",
+        "小红书发帖",
+        "发到小红书",
+        "直接发送小红书",
+        "publish to xiaohongshu",
+        "post to xiaohongshu",
+        "send to xiaohongshu",
+    )
     source_terms = (
         "data source",
         "datasource",
@@ -467,6 +478,11 @@ def suggest_skills_for_message(
         consider("daily-market-opportunity")
     elif (route["asset_like"] or route["equity"] or bool(route.get("etf"))) and any(term in text for term in discovery_terms):
         consider("market-discovery")
+
+    if ("xiaohongshu" in text or "小红书" in text or "rednote" in text) and any(
+        term in text for term in xiaohongshu_publish_terms
+    ):
+        consider("xiaohongshu-publisher")
 
     if any(term in text for term in browser_research_terms):
         if all(term in text for term in ("gemini", "chatgpt", "grok")) or "bb-browser" in text:

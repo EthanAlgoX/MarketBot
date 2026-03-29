@@ -897,6 +897,23 @@ def test_browser_xiaohongshu_message_auto_injects_xiaohongshu_skill(tmp_path) ->
     assert "### Skill: sentiment-analysis" not in prompt
 
 
+def test_publish_xiaohongshu_message_auto_injects_publisher_skill(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"xiaohongshu_cli"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message="请直接发送小红书，标题是测试标题，正文是测试正文。",
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: xiaohongshu-publisher" in prompt
+    assert "### Skill: xiaohongshu-browser-research" not in prompt
+
+
 def test_browser_twitter_message_auto_injects_twitter_skill(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

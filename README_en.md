@@ -433,6 +433,7 @@ marketbot agent -m "Use Xiaohongshu to analyze Luckin Coffee's recent heat, disc
 ### 4. Runtime behavior
 
 - The current integration is intentionally read-only and only exposes `status / search / read / comments / feed / hot / topics / search-user / user / user-posts`
+- When `tools.xiaohongshuCli.allowWrite=true`, MarketBot also exposes a controlled `post` operation for image-note publishing
 - The built-in `xiaohongshu-browser-research` skill prefers `xiaohongshu_cli` and only falls back to `browser_site` when the CLI is unavailable
 - For default brand-analysis requests, runtime prefers `search(popular)` and only adds one freshness pass when needed; it no longer defaults to `exec`, local cache inspection, or browser-side Xiaohongshu scraping
 - `xiaohongshu_cli` now compresses large search payloads into model-friendly summaries before returning them to the agent
@@ -442,6 +443,7 @@ marketbot agent -m "Use Xiaohongshu to analyze Luckin Coffee's recent heat, disc
 
 - It is useful for brand heat, consumer narratives, note/comment inspection, and creator-content research, not as direct proof of revenue or sell-through
 - `allowWrite` is kept as an explicit safety switch, but MarketBot does not currently expose like/comment/favorite/post/follow operations
+- The only write operation currently exposed is `post`, and it only supports image-note publishing; like/comment/favorite/follow are still not exposed
 - The CLI still depends on local browser cookies or QR login; if `xhs status` fails, fix CLI authentication first instead of debugging MarketBot
 - Treat Xiaohongshu output as consumer-attention context, not as a replacement for filings, channel checks, sales data, or official disclosures
 

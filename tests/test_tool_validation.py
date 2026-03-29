@@ -607,6 +607,62 @@ async def test_xiaohongshu_cli_compacts_search_payload_for_model_consumption() -
     assert '"image_list"' not in result
 
 
+async def test_xiaohongshu_cli_post_requires_allow_write() -> None:
+    tool = XiaohongshuCliTool(XiaohongshuCliToolsConfig(enabled=True, command="xhs", allow_write=False))
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        operation="post",
+        title="标题",
+        body="正文",
+        images=["/tmp/demo.jpg"],
+    )
+
+    assert "write operations are disabled" in result
+
+
+async def test_xiaohongshu_cli_post_builds_expected_command() -> None:
+    tool = XiaohongshuCliTool(
+        XiaohongshuCliToolsConfig(enabled=True, command="xhs", cookie_source="chrome", allow_write=True)
+    )
+    tool._ensure_available = lambda: None  # type: ignore[method-assign]
+
+    async def _fake_run(args: list[str]) -> tuple[int, str, str]:
+        assert args == [
+            "--cookie-source",
+            "chrome",
+            "post",
+            "--title",
+            "标题",
+            "--body",
+            "正文",
+            "--images",
+            "/tmp/a.jpg",
+            "--images",
+            "/tmp/b.jpg",
+            "--topic",
+            "瑞幸咖啡",
+            "--topic",
+            "咖啡",
+            "--private",
+            "--json",
+        ]
+        return 0, '{"ok":true,"data":{"note_id":"abc"}}', ""
+
+    tool._run_command = _fake_run  # type: ignore[method-assign]
+
+    result = await tool.execute(
+        operation="post",
+        title="标题",
+        body="正文",
+        images=["/tmp/a.jpg", "/tmp/b.jpg"],
+        topics=["瑞幸咖啡", "咖啡"],
+        is_private=True,
+    )
+
+    assert '"note_id":"abc"' in result
+
+
 async def test_xiaohongshu_cli_requires_keyword_for_search() -> None:
     tool = XiaohongshuCliTool(XiaohongshuCliToolsConfig(enabled=True, command="xhs"))
     tool._ensure_available = lambda: None  # type: ignore[method-assign]

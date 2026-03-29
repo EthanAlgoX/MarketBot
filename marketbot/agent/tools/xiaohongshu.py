@@ -1,4 +1,4 @@
-"""Read-only wrapper around the local xiaohongshu-cli binary."""
+"""Structured wrapper around the local xiaohongshu-cli binary."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from marketbot.agent.tools.base import Tool
 
 
 class XiaohongshuCliTool(Tool):
-    """Expose selected xiaohongshu-cli read-only commands as a structured tool."""
+    """Expose selected xiaohongshu-cli commands as a structured tool."""
 
     _READ_OPERATIONS = {
         "comments",
@@ -27,6 +27,7 @@ class XiaohongshuCliTool(Tool):
         "user",
         "user_posts",
     }
+    _WRITE_OPERATIONS = {"post"}
     _HOT_CATEGORIES = {"fashion", "food", "cosmetics", "movie", "career", "love", "home", "gaming", "travel", "fitness"}
     _COMPACT_OPERATIONS = {"comments", "feed", "hot", "read", "search", "user", "user_posts"}
 
@@ -45,7 +46,10 @@ class XiaohongshuCliTool(Tool):
 
     @property
     def description(self) -> str:
-        return "Run read-only Xiaohongshu queries via local xiaohongshu-cli. Prefer structured output and do not parallelize requests."
+        return (
+            "Run Xiaohongshu queries via local xiaohongshu-cli. "
+            "Read operations are enabled by default; write operations require allowWrite=true."
+        )
 
     @property
     def parameters(self) -> dict[str, Any]:
@@ -54,12 +58,25 @@ class XiaohongshuCliTool(Tool):
             "properties": {
                 "operation": {
                     "type": "string",
-                    "enum": sorted(self._READ_OPERATIONS),
-                    "description": "Read-only xiaohongshu-cli operation to execute.",
+                    "enum": sorted(self._READ_OPERATIONS | self._WRITE_OPERATIONS),
+                    "description": "xiaohongshu-cli operation to execute. Write operations require allowWrite=true.",
                 },
                 "keyword": {"type": "string"},
                 "target": {"type": "string", "description": "Note id, URL, or short index depending on operation."},
                 "user_id": {"type": "string"},
+                "title": {"type": "string", "description": "Title for creator post operation."},
+                "body": {"type": "string", "description": "Body text for creator post operation."},
+                "images": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Image file paths for creator post operation.",
+                },
+                "topics": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional hashtags/topics to attach when publishing.",
+                },
+                "is_private": {"type": "boolean", "description": "Publish as private note when true."},
                 "sort": {"type": "string", "enum": ["general", "popular", "latest"]},
                 "note_type": {"type": "string", "enum": ["all", "video", "image"]},
                 "page": {"type": "integer", "minimum": 1},
@@ -77,6 +94,11 @@ class XiaohongshuCliTool(Tool):
         keyword: str | None = None,
         target: str | None = None,
         user_id: str | None = None,
+        title: str | None = None,
+        body: str | None = None,
+        images: list[str] | None = None,
+        topics: list[str] | None = None,
+        is_private: bool = False,
         sort: str = "general",
         note_type: str = "all",
         page: int = 1,
@@ -87,10 +109,15 @@ class XiaohongshuCliTool(Tool):
         **kwargs: Any,
     ) -> str:
         op = str(operation or "").strip().lower()
-        if op not in self._READ_OPERATIONS:
+        if op not in self._READ_OPERATIONS and op not in self._WRITE_OPERATIONS:
             return f"Error: unsupported xiaohongshu operation: {op}"
         if not self.enabled:
             return "Error: xiaohongshu-cli tool is disabled. Enable tools.xiaohongshuCli.enabled in config."
+        if op in self._WRITE_OPERATIONS and not self.allow_write:
+            return (
+                "Error: xiaohongshu write operations are disabled. "
+                "Set tools.xiaohongshuCli.allowWrite=true to enable controlled posting."
+            )
         if error := self._ensure_available():
             return error
 
@@ -99,6 +126,11 @@ class XiaohongshuCliTool(Tool):
             keyword=keyword,
             target=target,
             user_id=user_id,
+            title=title,
+            body=body,
+            images=images or [],
+            topics=topics or [],
+            is_private=is_private,
             sort=sort,
             note_type=note_type,
             page=page,
@@ -354,6 +386,11 @@ class XiaohongshuCliTool(Tool):
         keyword: str | None,
         target: str | None,
         user_id: str | None,
+        title: str | None,
+        body: str | None,
+        images: list[str],
+        topics: list[str],
+        is_private: bool,
         sort: str,
         note_type: str,
         page: int,
@@ -363,6 +400,24 @@ class XiaohongshuCliTool(Tool):
         category: str,
     ) -> list[str] | str:
         args = ["--cookie-source", self.cookie_source]
+        if operation == "post":
+            if not title:
+                return "Error: title is required for xiaohongshu post"
+            if not body:
+                return "Error: body is required for xiaohongshu post"
+            if not images:
+                return "Error: at least one image is required for xiaohongshu post"
+            built = [*args, "post", "--title", title, "--body", body]
+            for image_path in images:
+                if str(image_path).strip():
+                    built.extend(["--images", str(image_path).strip()])
+            for topic in topics:
+                if str(topic).strip():
+                    built.extend(["--topic", str(topic).strip()])
+            if is_private:
+                built.append("--private")
+            built.append("--json")
+            return built
         if operation == "status":
             return [*args, "status", "--json"]
         if operation == "feed":
