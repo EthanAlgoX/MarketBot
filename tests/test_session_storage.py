@@ -120,5 +120,8 @@ def test_session_manager_stats_reports_stored_and_cached_counts(tmp_path: Path) 
     stats = manager.stats()
 
     assert stats["storedSessions"] == 1
+    assert stats["storedBytes"] > 0
+    assert stats["legacySessions"] == 0
     assert stats["cachedSessions"] == 1
     assert stats["cachedMessages"] == 1
+    assert stats["compactMetadataThreshold"] == 8

@@ -225,3 +225,9 @@ def render_status(
             + f"cached={sessions['cachedSessions']} "
             + f"cached_messages={sessions['cachedMessages']}"
         )
+        console.print(
+            "Session storage: "
+            + f"bytes={sessions['storedBytes']} "
+            + f"legacy={sessions['legacySessions']} "
+            + f"compact_threshold={sessions['compactMetadataThreshold']}"
+        )

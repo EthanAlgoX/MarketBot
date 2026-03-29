@@ -240,11 +240,16 @@ class SessionManager:
     def stats(self) -> dict[str, Any]:
         """Return lightweight observability stats for session storage and cache."""
         session_files = list(self.sessions_dir.glob("*.jsonl"))
+        legacy_files = list(self.legacy_sessions_dir.glob("*.jsonl")) if self.legacy_sessions_dir.exists() else []
         cached_sessions = list(self._cache.values())
         cached_messages = sum(len(session.messages) for session in cached_sessions)
+        stored_bytes = sum(path.stat().st_size for path in session_files if path.exists())
         return {
             "workspacePath": str(self.sessions_dir),
             "storedSessions": len(session_files),
+            "storedBytes": stored_bytes,
+            "legacySessions": len(legacy_files),
             "cachedSessions": len(cached_sessions),
             "cachedMessages": cached_messages,
+            "compactMetadataThreshold": 8,
         }

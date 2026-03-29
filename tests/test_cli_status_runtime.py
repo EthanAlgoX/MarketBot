@@ -65,9 +65,17 @@ def test_build_status_payload_includes_session_stats(tmp_path) -> None:
     class _Sessions:
         @staticmethod
         def stats():
-            return {"storedSessions": 2, "cachedSessions": 1, "cachedMessages": 5}
+            return {
+                "storedSessions": 2,
+                "storedBytes": 128,
+                "legacySessions": 0,
+                "cachedSessions": 1,
+                "cachedMessages": 5,
+                "compactMetadataThreshold": 8,
+            }
 
     payload = build_status_payload(config, tmp_path / "config.json", session_manager=_Sessions())
 
     assert payload["sessions"]["storedSessions"] == 2
+    assert payload["sessions"]["storedBytes"] == 128
     assert payload["sessions"]["cachedMessages"] == 5
