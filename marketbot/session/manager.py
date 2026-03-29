@@ -1,7 +1,5 @@
 """Session management for conversation history."""
 
-import json
-import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -9,7 +7,8 @@ from typing import Any
 
 from loguru import logger
 
-from marketbot.utils.helpers import ensure_dir, safe_filename
+from marketbot.session import storage
+from marketbot.utils.helpers import ensure_dir
 
 
 @dataclass
@@ -95,13 +94,11 @@ class SessionManager:
 
     def _get_session_path(self, key: str) -> Path:
         """Get the file path for a session."""
-        safe_key = safe_filename(key.replace(":", "_"))
-        return self.sessions_dir / f"{safe_key}.jsonl"
+        return storage.session_path(self.sessions_dir, key)
 
     def _get_legacy_session_path(self, key: str) -> Path:
         """Legacy global session path (~/.marketbot/sessions/)."""
-        safe_key = safe_filename(key.replace(":", "_"))
-        return self.legacy_sessions_dir / f"{safe_key}.jsonl"
+        return storage.legacy_session_path(self.legacy_sessions_dir, key)
 
     def get_or_create(self, key: str) -> Session:
         """
@@ -129,42 +126,21 @@ class SessionManager:
         if not path.exists():
             legacy_path = self._get_legacy_session_path(key)
             if legacy_path.exists():
-                try:
-                    shutil.move(str(legacy_path), str(path))
-                    logger.info("Migrated session {} from legacy path", key)
-                except Exception:
-                    logger.exception("Failed to migrate session {}", key)
+                storage.migrate_legacy_session(key, path, legacy_path)
 
         if not path.exists():
             return None
 
         try:
-            messages = []
-            metadata = {}
-            created_at = None
-            last_consolidated = 0
-
-            with open(path, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-
-                    data = json.loads(line)
-
-                    if data.get("_type") == "metadata":
-                        metadata = data.get("metadata", {})
-                        created_at = datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None
-                        last_consolidated = data.get("last_consolidated", 0)
-                    else:
-                        messages.append(data)
+            payload = storage.load_session_jsonl(path)
 
             return Session(
                 key=key,
-                messages=messages,
-                created_at=created_at or datetime.now(),
-                metadata=metadata,
-                last_consolidated=last_consolidated
+                messages=payload["messages"],
+                created_at=payload["created_at"] or datetime.now(),
+                updated_at=payload["updated_at"] or datetime.now(),
+                metadata=payload["metadata"],
+                last_consolidated=payload["last_consolidated"],
             )
         except Exception as e:
             logger.warning("Failed to load session {}: {}", key, e)
@@ -173,19 +149,15 @@ class SessionManager:
     def save(self, session: Session) -> None:
         """Save a session to disk."""
         path = self._get_session_path(session.key)
-
-        with open(path, "w", encoding="utf-8") as f:
-            metadata_line = {
-                "_type": "metadata",
-                "key": session.key,
-                "created_at": session.created_at.isoformat(),
-                "updated_at": session.updated_at.isoformat(),
-                "metadata": session.metadata,
-                "last_consolidated": session.last_consolidated
-            }
-            f.write(json.dumps(metadata_line, ensure_ascii=False) + "\n")
-            for msg in session.messages:
-                f.write(json.dumps(msg, ensure_ascii=False) + "\n")
+        storage.save_session_jsonl(
+            path,
+            key=session.key,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+            metadata=session.metadata,
+            last_consolidated=session.last_consolidated,
+            messages=session.messages,
+        )
 
         self._cache[session.key] = session
 
@@ -204,19 +176,15 @@ class SessionManager:
 
         for path in self.sessions_dir.glob("*.jsonl"):
             try:
-                # Read just the metadata line
-                with open(path, encoding="utf-8") as f:
-                    first_line = f.readline().strip()
-                    if first_line:
-                        data = json.loads(first_line)
-                        if data.get("_type") == "metadata":
-                            key = data.get("key") or path.stem.replace("_", ":", 1)
-                            sessions.append({
-                                "key": key,
-                                "created_at": data.get("created_at"),
-                                "updated_at": data.get("updated_at"),
-                                "path": str(path)
-                            })
+                data = storage.load_session_index(path)
+                if data:
+                    key = data.get("key") or path.stem.replace("_", ":", 1)
+                    sessions.append({
+                        "key": key,
+                        "created_at": data.get("created_at"),
+                        "updated_at": data.get("updated_at"),
+                        "path": str(path),
+                    })
             except Exception:
                 continue
 
