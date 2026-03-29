@@ -981,6 +981,27 @@ def test_publish_twitter_message_auto_injects_publisher_skill(tmp_path) -> None:
     assert "### Skill: twitter-browser-research" not in prompt
 
 
+def test_publish_twitter_message_with_xiaohongshu_content_still_injects_twitter_publisher(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"twitter_cli", "xiaohongshu_cli"})
+
+    messages = builder.build_messages(
+        history=[],
+        current_message=(
+            "发布一条推特，大概内容如下：\n\n"
+            "MarketBot + 小红书 CLI\n"
+            "总结：高价值场景聚焦"
+        ),
+        channel="cli",
+        chat_id="direct",
+    )
+
+    prompt = messages[0]["content"]
+    assert "### Skill: twitter-publisher" in prompt
+    assert "### Skill: xiaohongshu-browser-research" not in prompt
+
+
 def test_browser_x_thread_message_auto_injects_twitter_skill(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

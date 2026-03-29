@@ -187,7 +187,12 @@ def prune_shadowed_skills(builder: Any, selected: list[dict[str, Any]]) -> list[
 
     shadow_pairs = {
         "xiaohongshu-publisher": {"xiaohongshu-browser-research", "social-signal-browser", "sentiment-analysis"},
-        "twitter-publisher": {"twitter-browser-research", "social-signal-browser", "sentiment-analysis"},
+        "twitter-publisher": {
+            "twitter-browser-research",
+            "xiaohongshu-browser-research",
+            "social-signal-browser",
+            "sentiment-analysis",
+        },
         "social-signal-browser": {"sentiment-analysis"},
         "xueqiu-research": {"sentiment-analysis"},
         "reddit-research": {"social-signal-browser", "sentiment-analysis"},
@@ -381,6 +386,10 @@ def suggest_skills_for_message(
     xiaohongshu_publish_terms = (
         "发小红书",
         "发布小红书",
+        "发布一条小红书",
+        "发一条小红书",
+        "发个小红书",
+        "小红书发布",
         "小红书发帖",
         "发到小红书",
         "直接发送小红书",
@@ -390,6 +399,18 @@ def suggest_skills_for_message(
     )
     twitter_publish_terms = (
         "发推",
+        "推特",
+        "发推特",
+        "发布推特",
+        "发布一条推特",
+        "发一条推特",
+        "发个推特",
+        "推文",
+        "发推文",
+        "发布推文",
+        "发布一条推文",
+        "发一条推文",
+        "发个推文",
         "发 twitter",
         "发 x ",
         "发到 twitter",
@@ -499,7 +520,7 @@ def suggest_skills_for_message(
         term in text for term in xiaohongshu_publish_terms
     ):
         consider("xiaohongshu-publisher")
-    if ("twitter" in text or " x " in f" {text} " or "tweet" in text) and any(
+    if ("twitter" in text or " x " in f" {text} " or "tweet" in text or "推特" in text or "推文" in text) and any(
         term in text for term in twitter_publish_terms
     ):
         consider("twitter-publisher")
