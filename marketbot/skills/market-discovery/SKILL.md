@@ -1,7 +1,7 @@
 ---
 name: market-discovery
 description: Automatically discover potential investment opportunities by synthesizing market data, events, sentiment, and sector momentum.
-metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","theme","rotation","市场机会","主题机会","轮动机会"],"output":"market-opportunity-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","browser_site"],"required_tools":["market_snapshot","market_news"],"markets":["a-share","global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
+metadata: {"marketbot":{"emoji":"🔭","triggers":["discover","opportunity","theme","rotation","市场机会","主题机会","轮动机会"],"output":"market-opportunity-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","market_brief","thesis_tracker","browser_site"],"required_tools":["market_snapshot","market_news","market_brief"],"markets":["a-share","global","mixed"],"asset_classes":["equity","crypto","commodity","etf"]}}
 ---
 
 # Market Opportunity Discovery
@@ -32,15 +32,17 @@ Follow this pipeline to arrive at the final opportunity list:
      - `weibo-browser-research`
      - `social-signal-browser`
    - When browser-backed evidence is needed, use only adapters that exist in the runtime catalog. Do not invent new adapter names inside this skill.
-4. **Step 4: Fund Flow/Volume**: Detect capital inflows using ETF data, high-volume prints, or sector-volume metrics.
-5. **Step 5: Sector Momentum**: Identify whether multiple assets in the same sector are moving together.
-6. **Step 6: Opportunity Scoring**: Form a final `opportunity_score` based on the weights below.
+4. **Step 4: Synthesis Anchor**: Use `market_brief` for the strongest candidate or theme basket so the final answer already contains scenario framing, prior intel context, and optional logic-chain support.
+5. **Step 5: Fund Flow/Volume**: Detect capital inflows using ETF data, high-volume prints, or sector-volume metrics.
+6. **Step 6: Sector Momentum**: Identify whether multiple assets in the same sector are moving together.
+7. **Step 7: Opportunity Scoring**: Form a final `opportunity_score` based on the weights below.
 
 For A-share discovery specifically:
 
 - Prefer sector/theme clustering over isolated single-name moves.
 - Treat ETF participation and board breadth as stronger confirmation than standalone social chatter.
 - If the move is driven only by low-confidence social/forum noise, downgrade it to a watchlist candidate.
+- If the user explicitly wants this opportunity tracked across sessions, create a thesis after the scan using `market_brief(..., thesisMode="create", thesisText=...)` or `thesis_tracker` directly.
 
 ## Opportunity Scoring Formula
 

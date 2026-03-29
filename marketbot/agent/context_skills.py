@@ -56,7 +56,15 @@ def build_skill_routing(
 
     selected_names = []
     deduped_selected: list[dict[str, Any]] = []
-    for item in selected:
+    ordered_selected = sorted(
+        selected,
+        key=lambda item: (
+            -float(item.get("finalScore", 0.0) or 0.0),
+            -float(item.get("ruleScore", 0.0) or 0.0),
+            str(item.get("name", "")),
+        ),
+    )
+    for item in ordered_selected:
         name = str(item.get("name", "")).strip()
         if not name or name in selected_names:
             continue
@@ -65,6 +73,13 @@ def build_skill_routing(
 
     deduped_selected = filter_meta_queries(current_message, deduped_selected)
     deduped_selected = prune_shadowed_skills(builder, deduped_selected)
+    deduped_selected, fallback_diagnostics = append_fallback_skills(
+        builder,
+        current_message=current_message,
+        route=route,
+        selected=deduped_selected,
+    )
+    diagnostics.extend(fallback_diagnostics)
 
     external_suggestions: list[dict[str, Any]] = []
     if not deduped_selected and should_search_external_skills(current_message, diagnostics):
@@ -78,6 +93,48 @@ def build_skill_routing(
         "diagnostics": diagnostics,
         "externalSuggestions": external_suggestions,
     }
+
+
+def append_fallback_skills(
+    builder: Any,
+    *,
+    current_message: str,
+    route: dict[str, object] | None,
+    selected: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Append compatible fallback skills after their primary selected skill."""
+    if not selected:
+        return selected, []
+
+    result: list[dict[str, Any]] = []
+    diagnostics: list[dict[str, Any]] = []
+    seen = {str(item.get("name", "")).strip() for item in selected if str(item.get("name", "")).strip()}
+
+    for item in selected:
+        result.append(item)
+        name = str(item.get("name", "")).strip()
+        if not name:
+            continue
+        capabilities = builder.skills.get_skill_capabilities(name)
+        for fallback_name in capabilities.get("fallback_skills", []):
+            fallback_name = str(fallback_name).strip()
+            if not fallback_name or fallback_name in seen:
+                continue
+            info = builder.skills.explain_skill_compatibility(
+                fallback_name,
+                current_message,
+                route=route,
+                available_tools=builder.available_tools,
+                runtime_profile=builder.market_runtime_profile,
+            )
+            if not info.get("compatible"):
+                diagnostics.append({**info, "status": "blocked", "source": "fallback"})
+                continue
+            selected_info = {**info, "status": "selected", "source": "fallback", "parent": name}
+            diagnostics.append(selected_info)
+            result.append(selected_info)
+            seen.add(fallback_name)
+    return result, diagnostics
 
 
 def filter_meta_queries(

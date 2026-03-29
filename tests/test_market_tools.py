@@ -1,10 +1,13 @@
 import asyncio
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 from marketbot.agent.loop import AgentLoop
 from marketbot.bus.events import InboundMessage
 from marketbot.agent.tools.market import (
+    IntelSearchTool,
+    LogicChainVisualizerTool,
     MarketBriefTool,
     MarketChipDistributionTool,
     MarketEventExtractTool,
@@ -15,11 +18,15 @@ from marketbot.agent.tools.market import (
     MarketSignalTool,
     MarketSnapshotTool,
     MarketSourcePlanTool,
+    ThesisTrackerTool,
 )
 from marketbot.bus.queue import MessageBus
 from marketbot.config.schema import ChannelsConfig, MarketToolsConfig
 from marketbot.domain.market import build_market_runtime_profile
 from marketbot.domain.market.services import MarketSnapshotService
+from marketbot.domain.intel.collector import make_dedup_key
+from marketbot.domain.intel.models import IntelRawItem, IntelSource
+from marketbot.domain.intel.storage import add_source, connect_intel_db, init_intel_schema, insert_raw_items
 from marketbot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
 
@@ -38,6 +45,8 @@ def test_market_tools_config_defaults() -> None:
     assert "SPY" in cfg.default_symbols
     assert cfg.risk.min_confidence > 0
     assert cfg.policy.mode == "heuristic"
+    assert cfg.sentiment_backend == "lexicon"
+    assert cfg.intel_search_enabled is True
 
 
 def _run(coro):
@@ -53,6 +62,137 @@ def test_market_snapshot_mock_source_is_disabled() -> None:
     assert "mock quote source is disabled" in payload["warnings"]
     assert payload["sourceHealth"]["mock"]["status"] == "fallback"
     assert payload["routeTrace"][0]["source"] == "mock"
+
+
+def test_market_event_extract_reports_sentiment_backend() -> None:
+    cfg = MarketToolsConfig(sentiment_backend="lexicon")
+    tool = MarketEventExtractTool(config=cfg)
+    payload = json.loads(_run(tool.execute(headline="NVDA posts strong beat and raises guidance")))
+    assert payload["eventType"] == "earnings"
+    assert payload["sentimentBackend"] == "lexicon"
+    assert payload["sentimentLabel"] == "positive"
+
+
+def test_intel_search_tool_returns_workspace_hits(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    conn = connect_intel_db(workspace)
+    init_intel_schema(conn)
+    try:
+        source_id = add_source(
+            conn,
+            IntelSource(
+                name="OpenAI Blog",
+                source_type="rss",
+                config_json=json.dumps({"url": "https://example.com/feed.xml"}),
+            ),
+        )
+        inserted = insert_raw_items(
+            conn,
+            [
+                IntelRawItem(
+                    source_id=source_id,
+                    title="OpenAI ships new agent runtime",
+                    url="https://example.com/post-1",
+                    published_at="2026-03-20T02:00:00Z",
+                    collected_at="2026-03-20T02:10:00Z",
+                    content_text="The runtime adds stronger agent orchestration and tool control.",
+                    summary_text="Agent runtime update",
+                    dedup_key=make_dedup_key(
+                        "https://example.com/post-1",
+                        "OpenAI ships new agent runtime",
+                        "2026-03-20T02:00:00Z",
+                    ),
+                )
+            ],
+        )
+        assert inserted == 1
+    finally:
+        conn.close()
+
+    tool = IntelSearchTool(config=MarketToolsConfig(), workspace=workspace)
+    payload = json.loads(_run(tool.execute(query="agent runtime", days=365, limit=3)))
+    assert payload["hitCount"] == 1
+    assert payload["hits"][0]["title"] == "OpenAI ships new agent runtime"
+
+
+def test_thesis_tracker_tool_create_update_and_list(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    tool = ThesisTrackerTool(config=MarketToolsConfig(), workspace=workspace)
+
+    created = json.loads(
+        _run(
+            tool.execute(
+                action="create",
+                symbol="NVDA",
+                thesis="AI capex remains strong through the next two quarters",
+                confidence=0.7,
+                tags=["ai", "capex"],
+            )
+        )
+    )
+    thesis_id = created["thesis"]["id"]
+    assert created["thesis"]["status"] == "active"
+    assert created["thesis"]["symbol"] == "NVDA"
+
+    updated = json.loads(
+        _run(
+            tool.execute(
+                action="update",
+                thesisId=thesis_id,
+                evidence="Supplier orders are strong and management raised guidance",
+                note="post-earnings review",
+            )
+        )
+    )
+    assert updated["verdict"] == "strengthened"
+    assert updated["derivedSentiment"]["backend"] == "lexicon"
+    assert updated["thesis"]["history"][-1]["note"] == "post-earnings review"
+
+    listed = json.loads(_run(tool.execute(action="list", limit=10)))
+    assert listed["count"] == 1
+    assert listed["theses"][0]["id"] == thesis_id
+
+
+def test_logic_chain_visualizer_renders_mermaid_from_steps() -> None:
+    tool = LogicChainVisualizerTool()
+    payload = json.loads(
+        _run(
+            tool.execute(
+                title="Gold Selloff to A-Share Impact",
+                steps=[
+                    "Gold price drops",
+                    "Gold miners revenue expectations weaken",
+                    "Precious metal sector sentiment weakens",
+                ],
+            )
+        )
+    )
+    assert payload["title"] == "Gold Selloff to A-Share Impact"
+    assert "graph TD" in payload["mermaid"]
+    assert 'N1["Gold price drops"]' in payload["mermaid"]
+    assert "```mermaid" in payload["markdown"]
+
+
+def test_logic_chain_visualizer_renders_labeled_edges() -> None:
+    tool = LogicChainVisualizerTool()
+    payload = json.loads(
+        _run(
+            tool.execute(
+                title="Fed Cut Transmission",
+                nodes=["Fed cuts rates", "Discount rate falls", "Growth stocks rerate"],
+                edges=[
+                    {"from": "Fed cuts rates", "to": "Discount rate falls", "label": "policy easing"},
+                    {"from": "Discount rate falls", "to": "Growth stocks rerate", "label": "valuation support"},
+                ],
+                direction="LR",
+            )
+        )
+    )
+    assert payload["direction"] == "LR"
+    assert '"policy easing"' in payload["mermaid"]
+    assert payload["edges"][0]["from"] == "Fed cuts rates"
 
 
 def test_market_snapshot_eastmoney_source(monkeypatch) -> None:
@@ -898,6 +1038,185 @@ def test_market_brief_composes_outputs() -> None:
     assert "Data Reliability" in payload["briefMarkdown"]
     assert "snapshot: mock-brief-fixture=ok" in payload["briefMarkdown"]
     assert "macro: manual=ok" in payload["briefMarkdown"]
+    assert payload["logicChain"] is not None
+    assert "Logic Chain Appendix" in payload["briefMarkdown"]
+
+
+def test_market_brief_includes_intel_context_hits(monkeypatch) -> None:
+    cfg = MarketToolsConfig(quote_source="mock")
+    cfg.news_sources = ["mock"]
+    cfg.social_sources = ["mock"]
+    cfg.macro_source = "manual"
+    tool = MarketBriefTool(config=cfg)
+
+    async def _fake_snapshot(*args, **kwargs):
+        return json.dumps(
+            {
+                "asOf": "2026-03-07T00:00:00Z",
+                "source": "mock",
+                "symbols": ["NVDA"],
+                "quotes": [
+                    {
+                        "symbol": "NVDA",
+                        "price": 100.0,
+                        "changePct": 1.5,
+                        "volume": 1000,
+                        "avgVolume": 900,
+                        "flowRatio": 1.1,
+                        "flowHint": "inflow",
+                        "momentum": "up",
+                        "currency": "USD",
+                        "marketState": "REGULAR",
+                    }
+                ],
+                "warnings": [],
+                "sourceHealth": {"mock": {"status": "ok"}},
+                "routeTrace": [],
+            }
+        )
+
+    async def _fake_intel_search(*args, **kwargs):
+        return json.dumps(
+            {
+                "asOf": "2026-03-07T00:00:00Z",
+                "query": "NVDA AI demand",
+                "hitCount": 1,
+                "hits": [
+                    {
+                        "itemId": 1,
+                        "sourceId": 1,
+                        "sourceName": "Workspace Feed",
+                        "title": "Earlier NVDA supply-chain note",
+                        "url": "https://example.com/intel",
+                        "publishedAt": "2026-03-06T10:00:00Z",
+                        "collectedAt": "2026-03-06T10:05:00Z",
+                        "summaryText": "Earlier note",
+                        "contentPreview": "preview",
+                        "score": 1.23,
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr(tool._snapshot, "execute", _fake_snapshot)
+    monkeypatch.setattr(tool._intel_search, "execute", _fake_intel_search)
+    payload = json.loads(_run(tool.execute(symbols=["NVDA"], headline="NVDA AI demand stays strong")))
+
+    assert payload["intelContext"]["hitCount"] == 1
+    assert "Prior Intel Context" in payload["briefMarkdown"]
+    assert "Earlier NVDA supply-chain note" in payload["briefMarkdown"]
+
+
+def test_market_brief_can_create_thesis(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    cfg = MarketToolsConfig(quote_source="mock")
+    cfg.news_sources = ["mock"]
+    cfg.social_sources = ["mock"]
+    cfg.macro_source = "manual"
+    tool = MarketBriefTool(config=cfg, workspace=workspace)
+
+    async def _fake_snapshot(*args, **kwargs):
+        return json.dumps(
+            {
+                "asOf": "2026-03-07T00:00:00Z",
+                "source": "mock",
+                "symbols": ["NVDA"],
+                "quotes": [
+                    {
+                        "symbol": "NVDA",
+                        "price": 100.0,
+                        "changePct": 2.0,
+                        "volume": 1000,
+                        "avgVolume": 900,
+                        "flowRatio": 1.1,
+                        "flowHint": "inflow",
+                        "momentum": "up",
+                        "currency": "USD",
+                        "marketState": "REGULAR",
+                    }
+                ],
+                "warnings": [],
+            }
+        )
+
+    tool._snapshot.execute = _fake_snapshot
+    payload = json.loads(
+        _run(
+            tool.execute(
+                symbols=["NVDA"],
+                headline="NVDA launches new AI chip",
+                thesisMode="create",
+                thesisText="AI chip cycle remains strong",
+            )
+        )
+    )
+    assert payload["thesisTracking"] is not None
+    assert payload["thesisTracking"]["action"] == "create"
+    assert payload["thesisTracking"]["thesis"]["symbol"] == "NVDA"
+    assert "Thesis Tracking" in payload["briefMarkdown"]
+
+
+def test_market_brief_can_update_existing_thesis(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    cfg = MarketToolsConfig(quote_source="mock")
+    cfg.news_sources = ["mock"]
+    cfg.social_sources = ["mock"]
+    cfg.macro_source = "manual"
+    tool = MarketBriefTool(config=cfg, workspace=workspace)
+
+    created = json.loads(
+        _run(
+            tool._thesis_tracker.execute(
+                action="create",
+                symbol="NVDA",
+                thesis="AI chip cycle remains strong",
+                confidence=0.65,
+            )
+        )
+    )
+    thesis_id = created["thesis"]["id"]
+
+    async def _fake_snapshot(*args, **kwargs):
+        return json.dumps(
+            {
+                "asOf": "2026-03-07T00:00:00Z",
+                "source": "mock",
+                "symbols": ["NVDA"],
+                "quotes": [
+                    {
+                        "symbol": "NVDA",
+                        "price": 98.0,
+                        "changePct": -3.5,
+                        "volume": 1200,
+                        "avgVolume": 900,
+                        "flowRatio": 0.9,
+                        "flowHint": "outflow",
+                        "momentum": "down",
+                        "currency": "USD",
+                        "marketState": "REGULAR",
+                    }
+                ],
+                "warnings": [],
+            }
+        )
+
+    tool._snapshot.execute = _fake_snapshot
+    payload = json.loads(
+        _run(
+            tool.execute(
+                symbols=["NVDA"],
+                headline="NVDA faces weak demand and cuts guidance",
+                thesisMode="update",
+                thesisId=thesis_id,
+            )
+        )
+    )
+    assert payload["thesisTracking"] is not None
+    assert payload["thesisTracking"]["action"] == "update"
+    assert payload["thesisTracking"]["verdict"] in {"weakened", "falsified"}
+    assert payload["thesisTracking"]["thesis"]["id"] == thesis_id
 
 
 def test_market_brief_calls_out_unavailable_live_news_without_mock(monkeypatch) -> None:

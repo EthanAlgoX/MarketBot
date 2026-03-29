@@ -12,6 +12,8 @@ You can also search and install them with:
 ```bash
 marketbot skills search "your query"
 marketbot skills install <slug>
+marketbot skills score show
+marketbot skills score reset --skill <name>
 ```
 
 ## Skill Format
@@ -27,15 +29,53 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 
 ## Available Skills
 
+## Routing, Scoring, and Fallback
+
+Built-in skills are no longer selected only by static trigger matching.
+Runtime selection now combines:
+
+- metadata compatibility: `triggers`, `required_tools`, `markets`, `asset_classes`, `freshness`
+- dynamic routing score: historical success/failure by scenario bucket
+- fallback appending: compatible `fallback_skills` are appended behind the primary skill
+- same-turn retry: if the primary skill clearly fails, the first fallback skill is retried once
+
+Dynamic score buckets are keyed by:
+
+- `skill_name`
+- `market`
+- `task_type`
+- `toolset_signature`
+
+Scores are persisted under the workspace data directory:
+
+```text
+~/.marketbot/workspace/data/skill_scores.json
+```
+
+Useful CLI commands:
+
+```bash
+marketbot skills score show
+marketbot skills score show --skill xueqiu-research --json
+marketbot skills score reset --skill xueqiu-research
+marketbot skills score reset --all
+```
+
+Current high-value fallback mappings:
+
+- `eastmoney-live -> news-intelligence`
+- `xueqiu-research -> social-signal-browser, sentiment-analysis`
+- `browser-news-verifier -> news-intelligence`
+
 ### Capability Matrix
 
 | Category | Skills |
 |-------|-------------|
 | `market-analysis` | `market-report`, `market-monitor`, `market-discovery`, `news-intelligence`, `sentiment-analysis`, `macro-regime`, `sector-breadth` |
-| `event-driven` | `catalyst-tracker`, `earnings-readout`, `risk-checklist`, `panic-reversion-monitor` |
+| `event-driven` | `catalyst-tracker`, `earnings-readout`, `risk-checklist`, `panic-reversion-monitor`, `thesis-tracker` |
 | `screening-and-watch` | `daily-stock-screener`, `stock-watch`, `portfolio-analyzer` |
 | `tech-intelligence` | `ak-rss-digest`, `tech-news-digest`, `intel-collector`, `intel-daily-digest`, `hackernews-browser-research`, `github-browser-research` |
-| `specialist-research` | `options-payoff`, `pair-correlation`, `stock-data-sourcing`, `stock-info-explorer`, `wechat-article-search`, `xueqiu-research`, `eastmoney-live`, `social-signal-browser`, `reddit-research`, `youtube-transcript-browser`, `github-browser-research`, `zhihu-browser-research`, `browser-news-verifier`, `weibo-browser-research`, `bilibili-browser-research`, `xiaohongshu-browser-research`, `twitter-browser-research`, `hackernews-browser-research`, `douban-browser-research`, `linkedin-browser-research`, `stackoverflow-browser-research`, `wikipedia-browser-research` |
+| `specialist-research` | `options-payoff`, `pair-correlation`, `stock-data-sourcing`, `stock-info-explorer`, `logic-chain-visualizer`, `wechat-article-search`, `xueqiu-research`, `eastmoney-live`, `social-signal-browser`, `reddit-research`, `youtube-transcript-browser`, `github-browser-research`, `zhihu-browser-research`, `browser-news-verifier`, `weibo-browser-research`, `bilibili-browser-research`, `xiaohongshu-browser-research`, `twitter-browser-research`, `hackernews-browser-research`, `douban-browser-research`, `linkedin-browser-research`, `stackoverflow-browser-research`, `wikipedia-browser-research` |
 | `platform-utility` | `github`, `summarize`, `weather`, `cron`, `tmux`, `clawhub`, `find-skills` |
 
 | Skill | Description |
@@ -68,6 +108,8 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `tech-news-digest` | Generate a daily AI and tech news digest from a tiered source catalog |
 | `intel-collector` | Manage RSS and intel sources, run collection, and maintain recurring intel schedules |
 | `intel-daily-digest` | Build daily digests from collected intel items and manage recurring digest schedules |
+| `intel_search` | Search collected workspace intel with local BM25 ranking for prior-news recall |
+| `logic-chain-visualizer` | Render market transmission paths and causal narratives as Markdown + Mermaid diagrams |
 | `douban-browser-research` | Use browser-backed Douban adapters for cultural heat and entertainment attention |
 | `linkedin-browser-research` | Use browser-backed LinkedIn adapters for professional signals and hiring context |
 | `stackoverflow-browser-research` | Use browser-backed Stack Overflow adapters for developer friction and adoption signals |
@@ -76,6 +118,7 @@ The skill format and metadata structure follow OpenClaw's conventions to maintai
 | `catalyst-tracker` | Build a catalyst list and event calendar |
 | `risk-checklist` | Generate trade risk and position-sizing guardrails |
 | `panic-reversion-monitor` | Score event-driven panic selloffs and detect staged reversion windows |
+| `thesis-tracker` | Persist and update a market thesis as new evidence strengthens, weakens, or falsifies it |
 | `stock-data-sourcing` | Route A/H/US market and news providers with fallback guidance |
 | `stock-info-explorer` | Use local Yahoo Finance charts and indicator scripts |
 | `crypto-gold-monitor` | Monitor BTC, ETH, gold, and silver from free APIs |
@@ -123,3 +166,19 @@ Adapters that exist but currently depend on browser state on this workstation:
 
 Use [`browser_adapter_catalog.md`](/Users/ethan/Documents/workspace/MarketBot/docs/browser_adapter_catalog.md)
 as the runtime-facing source of truth for catalog choices and real smoke status.
+
+## Recent Runtime Additions
+
+- `market_event_extract` and `market_social_sentiment` now support a pluggable
+  sentiment backend configured by `tools.market.sentimentBackend`
+- `intel_search` searches collected workspace intel from the local SQLite store
+  and is intended to support thesis tracking, prior-news recall, and digest
+  follow-ups
+- `logic_chain_visualizer` renders low-dependency Markdown + Mermaid diagrams
+  for transmission chains and event-causality explanations
+- `thesis_tracker` persists theses and updates them as `strengthened`,
+  `weakened`, `unchanged`, or `falsified`
+- `market_brief` can now attach prior intel context, render a logic-chain
+  appendix, and create or update a thesis in one pass
+- explainability metadata now includes `fallbackExecution` when a fallback skill
+  actually took over the turn

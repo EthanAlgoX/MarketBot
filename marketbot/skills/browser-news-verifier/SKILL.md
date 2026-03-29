@@ -1,7 +1,7 @@
 ---
 name: browser-news-verifier
 description: Use browser-backed site adapters to verify, expand, or cross-check a news item against site-native search results, dynamic pages, and logged-in discussion context.
-metadata: {"marketbot":{"emoji":"🧪","triggers":["verify news","news verify","cross-check headline","headline verify","source verify","新闻核验","交叉验证"],"output":"browser-news-verifier-report","risk":"medium","freshness":"live","tools":["browser_site"],"required_tools":["browser_site"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["equity","crypto","commodity","macro","etf"],"task_type":"browser-research","determinism":"tool-backed","priority":86}}
+metadata: {"marketbot":{"emoji":"🧪","triggers":["verify news","news verify","cross-check headline","headline verify","source verify","新闻核验","交叉验证"],"output":"browser-news-verifier-report","risk":"medium","freshness":"live","tools":["browser_site"],"required_tools":["browser_site"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["equity","crypto","commodity","macro","etf"],"task_type":"browser-research","determinism":"tool-backed","priority":86,"fallback_skills":["news-intelligence"]}}
 ---
 
 # Browser News Verifier

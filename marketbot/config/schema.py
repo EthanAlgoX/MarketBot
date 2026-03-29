@@ -375,8 +375,15 @@ class MarketToolsConfig(Base):
     social_sources: list[str] = Field(default_factory=lambda: ["x", "reddit"])
     social_lookback_hours: int = Field(24, ge=1, le=168)
     social_post_limit: int = Field(30, ge=1, le=200)
+    sentiment_backend: Literal["lexicon", "finbert"] = "lexicon"
+    sentiment_model: str = ""
     macro_source: Literal["fred", "manual"] = "fred"
     fred_api_key: str = ""
+    intel_search_enabled: bool = True
+    intel_search_default_days: int = Field(30, ge=1, le=365)
+    intel_search_default_limit: int = Field(5, ge=1, le=50)
+    intel_search_vector_enabled: bool = False
+    intel_search_embedding_model: str = ""
     default_symbols: list[str] = Field(
         default_factory=lambda: ["SPY", "QQQ", "IWM", "GLD", "USO", "BTC-USD"]
     )

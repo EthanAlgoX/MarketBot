@@ -26,6 +26,12 @@ def build_response_metadata(
         metadata["usage"] = usage
     if skill_routing := loop.processor.get_last_skill_routing():
         metadata["skill_routing"] = skill_routing
+    if getattr(loop, "_last_skill_fallback", None):
+        metadata["skill_fallback"] = dict(loop._last_skill_fallback)
+        if isinstance(metadata.get("skill_routing"), dict):
+            routing = dict(metadata["skill_routing"])
+            routing["fallbackExecution"] = dict(loop._last_skill_fallback)
+            metadata["skill_routing"] = routing
     if explainability:
         metadata["explainability"] = explainability
     if external_skill_suggestions:
@@ -66,10 +72,19 @@ async def record_completed_turn(
     history_len: int,
     all_msgs: list[dict[str, Any]],
     usage: dict[str, Any] | None,
+    request_text: str,
+    final_content: str | None,
+    tools_used: list[str],
 ) -> None:
     """Persist usage metadata and session history for a completed turn."""
     if usage:
         session.metadata["last_usage"] = usage
+    await loop._record_skill_outcome(
+        request_text=request_text,
+        all_msgs=all_msgs,
+        final_content=final_content,
+        tools_used=tools_used,
+    )
     loop._save_turn(session, all_msgs, 1 + history_len)
     await loop.sessions.save_async(session)
 
@@ -156,10 +171,48 @@ async def run_user_turn(
     on_progress: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
     """Execute a normal user turn and return finalized content plus metadata."""
-    final_content, _, all_msgs, usage = await loop._run_agent_loop(
+    loop._last_skill_fallback = None
+    final_content, tools_used, all_msgs, usage = await loop._run_agent_loop(
         initial_messages,
         on_progress=on_progress or loop._build_bus_progress_callback(msg=msg),
     )
+    progress_cb = on_progress or loop._build_bus_progress_callback(msg=msg)
+    initial_outcome = loop._classify_skill_outcome(final_content=final_content, all_msgs=all_msgs)
+    initial_routing = loop.processor.get_last_skill_routing() or {}
+    initial_selected = initial_routing.get("selected") or []
+    primary_name = (
+        str(initial_selected[0].get("name") or "").strip()
+        if initial_selected and isinstance(initial_selected[0], dict)
+        else ""
+    )
+    retry_skills, retry_content, retry_tools, retry_msgs, retry_usage = await loop._retry_turn_with_fallback(
+        session=session,
+        current_message=msg.content,
+        media=msg.media if msg.media else None,
+        channel=msg.channel,
+        chat_id=msg.chat_id,
+        on_progress=progress_cb,
+        outcome=initial_outcome,
+    )
+    if retry_skills:
+        final_routing = loop.processor.get_last_skill_routing() or {}
+        final_selected = final_routing.get("selected") or []
+        final_name = (
+            str(final_selected[0].get("name") or "").strip()
+            if final_selected and isinstance(final_selected[0], dict)
+            else retry_skills[0]
+        )
+        loop._last_skill_fallback = {
+            "used": True,
+            "primarySkill": primary_name,
+            "fallbackSkills": list(retry_skills),
+            "selectedFallback": retry_skills[0],
+            "finalSkill": final_name,
+        }
+        final_content = retry_content
+        tools_used = retry_tools
+        all_msgs = retry_msgs
+        usage = loop._merge_usage(usage or {}, retry_usage)
     final_content = loop._normalize_daily_opportunity_report(final_content)
     final_content, explainability, external_skill_suggestions, report_path = loop._finalize_response_content(
         final_content,
@@ -174,6 +227,9 @@ async def run_user_turn(
         history_len=len(history),
         all_msgs=all_msgs,
         usage=usage,
+        request_text=msg.content,
+        final_content=final_content,
+        tools_used=tools_used,
     )
     if inspect.isawaitable(record_result):
         await record_result
@@ -198,7 +254,44 @@ async def run_system_turn(
     chat_id: str,
 ) -> OutboundMessage:
     """Execute a system-triggered turn and return the outbound response."""
-    final_content, _, all_msgs, usage = await loop._run_agent_loop(messages)
+    loop._last_skill_fallback = None
+    final_content, tools_used, all_msgs, usage = await loop._run_agent_loop(messages)
+    initial_outcome = loop._classify_skill_outcome(final_content=final_content, all_msgs=all_msgs)
+    initial_routing = loop.processor.get_last_skill_routing() or {}
+    initial_selected = initial_routing.get("selected") or []
+    primary_name = (
+        str(initial_selected[0].get("name") or "").strip()
+        if initial_selected and isinstance(initial_selected[0], dict)
+        else ""
+    )
+    retry_skills, retry_content, retry_tools, retry_msgs, retry_usage = await loop._retry_turn_with_fallback(
+        session=session,
+        current_message=msg.content,
+        media=None,
+        channel=channel,
+        chat_id=chat_id,
+        on_progress=None,
+        outcome=initial_outcome,
+    )
+    if retry_skills:
+        final_routing = loop.processor.get_last_skill_routing() or {}
+        final_selected = final_routing.get("selected") or []
+        final_name = (
+            str(final_selected[0].get("name") or "").strip()
+            if final_selected and isinstance(final_selected[0], dict)
+            else retry_skills[0]
+        )
+        loop._last_skill_fallback = {
+            "used": True,
+            "primarySkill": primary_name,
+            "fallbackSkills": list(retry_skills),
+            "selectedFallback": retry_skills[0],
+            "finalSkill": final_name,
+        }
+        final_content = retry_content
+        tools_used = retry_tools
+        all_msgs = retry_msgs
+        usage = loop._merge_usage(usage or {}, retry_usage)
     final_content, explainability, external_skill_suggestions, report_path = loop._finalize_response_content(
         final_content,
         all_msgs=all_msgs,
@@ -211,6 +304,9 @@ async def run_system_turn(
         history_len=len(history),
         all_msgs=all_msgs,
         usage=usage,
+        request_text=msg.content,
+        final_content=final_content,
+        tools_used=tools_used,
     )
     if inspect.isawaitable(record_result):
         await record_result

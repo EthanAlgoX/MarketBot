@@ -222,6 +222,28 @@ def test_render_analysis_explainability_helpers_are_stable() -> None:
     assert "Skills used: market-report" in footer
 
 
+def test_render_analysis_explainability_helpers_include_fallback_summary() -> None:
+    payload = {"dataReliability": {"overallStatus": "ok", "components": {}}}
+    skill_routing = {
+        "selected": [{"name": "social-signal-browser"}],
+        "blocked": [],
+        "fallbackExecution": {
+            "used": True,
+            "primarySkill": "xueqiu-research",
+            "selectedFallback": "social-signal-browser",
+            "finalSkill": "social-signal-browser",
+        },
+    }
+
+    block = render_analysis_explainability(payload, skill_routing=skill_routing)
+    summary = render_analysis_explainability_summary(payload, skill_routing=skill_routing)
+    footer = render_chat_explainability_footer(payload, skill_routing=skill_routing)
+
+    assert "Skill Fallback: xueqiu-research -> social-signal-browser" in block
+    assert summary == "Skills: social-signal-browser | Fallback: xueqiu-research->social-signal-browser | Reliability: ok"
+    assert "Fallback: xueqiu-research->social-signal-browser" in footer
+
+
 def test_render_chat_explainability_footer_is_channel_aware() -> None:
     payload = {"dataReliability": {"overallStatus": "ok", "components": {}}}
     skill_routing = {"selected": [{"name": "market-report"}, {"name": "catalyst-tracker"}], "blocked": []}

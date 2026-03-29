@@ -25,6 +25,7 @@ from marketbot.agent.tools.message import MessageTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.bus.queue import MessageBus
+from marketbot.market_routing import classify_market_request
 from marketbot.domain.market import MarketDomainPlugin, build_market_runtime_profile
 from marketbot.providers.base import LLMProvider
 from marketbot.runtime.bootstrap import ToolBootstrapContext, register_core_tools
@@ -365,6 +366,9 @@ class AgentLoop:
         history_len: int,
         all_msgs: list[dict[str, Any]],
         usage: dict[str, Any] | None,
+        request_text: str,
+        final_content: str | None,
+        tools_used: list[str],
     ) -> None:
         """Persist usage metadata and session history for a completed turn."""
         await turn_runtime.record_completed_turn(
@@ -373,6 +377,9 @@ class AgentLoop:
             history_len=history_len,
             all_msgs=all_msgs,
             usage=usage,
+            request_text=request_text,
+            final_content=final_content,
+            tools_used=tools_used,
         )
 
     def _prepare_system_turn(
@@ -475,6 +482,169 @@ class AgentLoop:
             if name:
                 names.add(name)
         return names
+
+    @staticmethod
+    def _tool_result_has_error(result: str) -> bool:
+        """Return True when a tool result clearly represents an execution failure."""
+        text = str(result or "").strip()
+        if not text:
+            return False
+        if text.startswith("Error"):
+            return True
+        if text.startswith("{") or text.startswith("["):
+            try:
+                payload = json.loads(text)
+            except Exception:
+                return False
+            if isinstance(payload, dict) and payload.get("error"):
+                return True
+        return False
+
+    def _classify_skill_outcome(
+        self,
+        *,
+        final_content: str | None,
+        all_msgs: list[dict[str, Any]],
+    ) -> str:
+        """Infer a coarse routing outcome from turn completion and tool health."""
+        content = str(final_content or "").strip().lower()
+        if not content:
+            return "failure"
+        if "maximum number of tool call iterations" in content or "encountered an error calling the ai model" in content:
+            return "failure"
+
+        tool_results = [
+            str(item.get("content") or "")
+            for item in all_msgs
+            if isinstance(item, dict) and str(item.get("role") or "") == "tool"
+        ]
+        if not tool_results:
+            return "success"
+        error_count = sum(1 for result in tool_results if self._tool_result_has_error(result))
+        if error_count == 0:
+            return "success"
+        if error_count >= len(tool_results):
+            return "failure"
+        return "partial"
+
+    def _fallback_retry_skill_names(self) -> list[str]:
+        """Return one-shot retry candidates derived from the primary skill's fallback chain."""
+        routing = self.processor.get_last_skill_routing() or {}
+        selected = routing.get("selected") or []
+        if not selected or not isinstance(selected[0], dict):
+            return []
+        primary_name = str(selected[0].get("name") or "").strip()
+        if not primary_name:
+            return []
+
+        ordered: list[str] = []
+        seen: set[str] = {primary_name}
+        for item in selected[1:]:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if not name or name in seen:
+                continue
+            source = str(item.get("source") or "").strip()
+            parent = str(item.get("parent") or "").strip()
+            if source == "fallback" and parent == primary_name:
+                ordered.append(name)
+                seen.add(name)
+        for item in selected[1:]:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if not name or name in seen:
+                continue
+            ordered.append(name)
+            seen.add(name)
+        return ordered
+
+    def _record_named_skill_outcome(
+        self,
+        *,
+        name: str,
+        request_text: str,
+        outcome: str,
+    ) -> None:
+        """Persist one explicit routing outcome for the given skill."""
+        route = classify_market_request(text=request_text or "")
+        self.context.skills.record_skill_outcome(
+            name=name,
+            text=request_text or "",
+            outcome=outcome,
+            route=route,
+            available_tools=self.context.available_tools,
+        )
+
+    async def _retry_turn_with_fallback(
+        self,
+        *,
+        session: Session,
+        current_message: str,
+        media: list[str] | None,
+        channel: str,
+        chat_id: str,
+        on_progress: Callable[..., Awaitable[None]] | None,
+        outcome: str,
+    ) -> tuple[list[str], str | None, list[str] | None, list[dict[str, Any]] | None, dict[str, int] | None]:
+        """Retry one failed turn using fallback skills, returning retry details when triggered."""
+        if outcome != "failure":
+            return [], None, None, None, None
+
+        routing = self.processor.get_last_skill_routing() or {}
+        selected = routing.get("selected") or []
+        if not selected or not isinstance(selected[0], dict):
+            return [], None, None, None, None
+        primary_name = str(selected[0].get("name") or "").strip()
+        retry_skill_names = self._fallback_retry_skill_names()
+        if not primary_name or not retry_skill_names:
+            return [], None, None, None, None
+
+        self._record_named_skill_outcome(name=primary_name, request_text=current_message, outcome="failure")
+        if on_progress is not None:
+            await on_progress(
+                f"Primary skill `{primary_name}` failed. Retrying with fallback skill `{retry_skill_names[0]}`.",
+                tool_hint=False,
+            )
+        retry_messages = self.processor.build_messages(
+            session=session,
+            current_message=current_message,
+            routing_message=current_message,
+            skill_names=retry_skill_names,
+            media=media,
+            channel=channel,
+            chat_id=chat_id,
+        )
+        final_content, tools_used, all_msgs, usage = await self._run_agent_loop(
+            retry_messages,
+            on_progress=on_progress,
+        )
+        return retry_skill_names, final_content, tools_used, all_msgs, usage
+
+    async def _record_skill_outcome(
+        self,
+        *,
+        request_text: str,
+        all_msgs: list[dict[str, Any]],
+        final_content: str | None,
+        tools_used: list[str],
+    ) -> None:
+        """Persist a routing outcome for the primary selected skill."""
+        routing = self.processor.get_last_skill_routing() or {}
+        selected = routing.get("selected") or []
+        if not selected:
+            return
+        primary = selected[0] if isinstance(selected[0], dict) else {}
+        name = str(primary.get("name") or "").strip()
+        if not name:
+            return
+        outcome = self._classify_skill_outcome(final_content=final_content, all_msgs=all_msgs)
+        required_tools = set(self.context.skills.get_skill_capabilities(name).get("required_tools", []))
+        used = {str(item).strip() for item in tools_used if str(item).strip()}
+        if outcome == "success" and required_tools and used and required_tools.isdisjoint(used):
+            outcome = "misroute"
+        self._record_named_skill_outcome(name=name, request_text=request_text, outcome=outcome)
 
     def _normalize_daily_opportunity_report(self, final_content: str | None) -> str | None:
         """Normalize the fixed daily-opportunity report shape without rewriting the thesis."""

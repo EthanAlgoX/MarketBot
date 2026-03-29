@@ -10,6 +10,7 @@
 - 上层用 `skill` 编排分析任务
 - 中层用统一的市场领域服务处理 `quote / news / macro`
 - 输出层携带 `skill routing`、`data reliability`、`source health`、`route trace`
+- 运行时支持 `skill scoring`、`fallback routing` 和同轮失败重试
 - 结果可以发到 CLI、周期性任务和多种聊天渠道
 
 ## 你可以用它做什么
@@ -18,6 +19,8 @@
 - 给持仓生成热点事件和催化监控清单
 - 做 watchlist 的日常监控、筛选和周期性报告
 - 按市场、资产类别、freshness、工具可用性自动选择 skill
+- 在相近 skill 间按历史成功率和场景化动态分自动排序
+- 当首选 skill 明显失败时，自动回退到兼容的 fallback skill 再执行一次
 - 把结果推送到聊天渠道，并保留可靠性说明
 - 在需要时快速修改数据路由、skill 和输出逻辑
 
@@ -28,7 +31,7 @@
 - `领域层独立`
   quote、news、macro 走共享的 market domain services，而不是散落在每个 tool 里的抓取逻辑。
 - `输出可解释`
-  聊天回复、报告和通知都可以带上 skill routing、blocked reasons、source health 和 data reliability。
+  聊天回复、报告和通知都可以带上 skill routing、blocked reasons、source health、data reliability 和 fallback execution。
 - `runtime 很薄`
   runtime 主要负责消息处理、并发、会话、tool 执行和渠道发送，不把金融逻辑塞进主循环。
 - `适合长期演化`
@@ -64,6 +67,8 @@ marketbot agent -m "根据我的持仓生成未来两周的热点事件监控清
 | `market-discovery` | 做机会扫描和主题发现 |
 | `news-intelligence` | 做新闻事件提取与冲击分析 |
 | `sentiment-analysis` | 做新闻和社交情绪整合 |
+| `thesis-tracker` | 跟踪一个观点在新证据下是 strengthened、weakened 还是 falsified |
+| `logic-chain-visualizer` | 把事件传导、产业链影响和逻辑链输出成 Markdown + Mermaid |
 | `portfolio-analyzer` | 做组合层面的风险与结构分析 |
 | `daily-stock-screener` | 对每日股票列表做估值、趋势、量能和情绪筛选排序 |
 | `catalyst-tracker` | 做催化剂跟踪 |
@@ -172,6 +177,9 @@ marketbot market report --symbols NVDA,SPY --save
 - `marketbot market report --session premarket|intraday|close`
 - `marketbot market report --notify --notify-channel telegram --chat-id 10001`
 - `marketbot market heartbeat-setup`：生成周期性报告模板
+- `marketbot skills score show`：查看 skill 动态评分 buckets
+- `marketbot skills score reset --skill xueqiu-research`：重置某个 skill 的评分
+- `marketbot skills score reset --all`：清空全部 skill 评分
 
 如果你要接飞书、Telegram、Slack、Discord 等渠道，不是启动 `marketbot agent`，而是启动：
 
@@ -247,6 +255,62 @@ marketbot agent -m "为什么 07709 走这个价格源？给我看数据路由�
 marketbot agent -m "请生成一份 AI 日报，从固定 RSS 里整理阅读摘要"
 marketbot agent -m "生成今天的技术新闻日报，重点看 AI 和开发者工具"
 ```
+
+## Skill Routing 与 Fallback
+
+`marketbot` 的 skill 选择不是纯 prompt 匹配，而是三层组合：
+
+- 静态匹配：按 `triggers`、`required_tools`、`markets`、`asset_classes`、`freshness`
+- 动态评分：按 `(skill, market, task_type, toolset_signature)` 分桶累计成功和失败
+- fallback 执行：首选 skill 明显失败时，按 metadata 声明的 `fallback_skills` 同轮重试一次
+
+当前已接入的高价值 fallback 场景包括：
+
+- `eastmoney-live -> news-intelligence`
+- `xueqiu-research -> social-signal-browser, sentiment-analysis`
+- `browser-news-verifier -> news-intelligence`
+
+评分结果持久化到 workspace：
+
+```text
+~/.marketbot/workspace/data/skill_scores.json
+```
+
+你可以直接查看或重置它：
+
+```bash
+marketbot skills score show
+marketbot skills score show --skill xueqiu-research --json
+marketbot skills score reset --skill xueqiu-research
+marketbot skills score reset --all
+```
+
+当发生 fallback 时，输出 metadata 和 explainability 会显式带上：
+
+- `skill_routing.fallbackExecution`
+- `skill_fallback`
+- `Fallback: primary->selectedFallback`
+
+这意味着你可以直接排查：
+
+- 哪个主 skill 经常失败
+- 哪个 fallback skill 实际接管了结果
+- 哪些 buckets 的动态分已经偏低，需要 reset 或继续观察
+
+## 最近新增的金融能力
+
+最近一轮从 `Awesome-finance-skills` 方向落地的能力主要有：
+
+- `intel_search`
+  对 workspace 已采集情报做本地 BM25 检索，用于 prior-news recall 和 thesis 跟踪
+- 可插拔情绪后端
+  `market_event_extract` 和 `market_social_sentiment` 支持 `tools.market.sentimentBackend`
+- `thesis-tracker`
+  支持 thesis 的 `create / get / list / update`，并自动判断观点被强化、削弱还是证伪
+- `logic-chain-visualizer`
+  输出事件传导链和逻辑链图
+- `market_brief` 闭环增强
+  可附带历史 intel、logic chain appendix，并直接创建或更新 thesis
 
 ## 技术资讯 Skill
 

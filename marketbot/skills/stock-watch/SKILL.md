@@ -1,7 +1,7 @@
 ---
 name: stock-watch
 description: Automatically monitor specific stocks and provide daily summaries of price, news, and technical indicators.
-metadata: {"marketbot":{"emoji":"📈","triggers":["watchlist","watch","daily summary","decision dashboard"],"output":"stock-watch-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","market_fundamentals"],"required_tools":["market_snapshot","market_news"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"]}}
+metadata: {"marketbot":{"emoji":"📈","triggers":["watchlist","watch","daily summary","decision dashboard"],"output":"stock-watch-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","market_fundamentals","market_brief","thesis_tracker"],"required_tools":["market_snapshot","market_news","market_brief"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"]}}
 ---
 
 # Stock Watch
@@ -28,7 +28,10 @@ Use this skill to monitor and analyze specific stocks, providing high-quality "D
 3. **Execution & Scoring**:
    - Assign a **Decision Score (0-100)** based on integrated signals.
    - Categorize into **🟢 Buy**, **🟡 Watch**, or **🔴 Sell**.
-4. **Output Synthesis**: Generate the report according to the "Decision Dashboard" template.
+4. **Synthesis Anchor**:
+   - Prefer running `market_brief` for the lead symbol or compact watch basket so the result already includes scenario framing, prior intel context, and optional logic-chain output.
+5. **Output Synthesis**: Generate the report according to the "Decision Dashboard" template.
+   - If the user wants this view tracked over time, pair the output with `thesis_tracker` or call `market_brief` in thesis mode so the monitoring loop can update the same thesis later.
 
 ## Output Format
 

@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from marketbot.agent.external_skills import ExternalSkillCatalog
+from marketbot.agent.skill_score_store import SkillScoreStore
+from marketbot.agent.skill_scoring import SkillScorer, make_bucket_key
 from marketbot.domain.market.profile import freshness_satisfies
 
 # Default builtin skills directory (relative to this file)
@@ -25,6 +27,8 @@ class SkillsLoader:
         self.workspace = workspace
         self.workspace_skills = workspace / "skills"
         self.builtin_skills = builtin_skills_dir or BUILTIN_SKILLS_DIR
+        self._score_store = SkillScoreStore(workspace)
+        self._scorer = SkillScorer(self._score_store)
 
     def list_skills(self, filter_unavailable: bool = True, available_tools: set[str] | None = None) -> list[dict[str, str]]:
         """
@@ -397,6 +401,7 @@ class SkillsLoader:
             "task_type": str(meta.get("task_type", "") or "").strip(),
             "determinism": str(meta.get("determinism", "") or "").strip(),
             "priority": int(meta.get("priority", 50) or 50),
+            "fallback_skills": self._normalize_metadata_list(meta.get("fallback_skills", [])),
         }
 
     @staticmethod
@@ -415,9 +420,54 @@ class SkillsLoader:
         }.get(determinism, 0)
         return priority, longest_trigger, determinism_score
 
-    def sort_skill_names_for_request(self, skill_names: list[str], text: str) -> list[str]:
+    def _bucket_key_for_skill(
+        self,
+        name: str,
+        text: str,
+        *,
+        route: dict[str, object] | None = None,
+        available_tools: set[str] | None = None,
+    ) -> str:
+        """Build the dynamic-score bucket key for a request and skill."""
+        capabilities = self.get_skill_capabilities(name)
+        request_profile = self._build_request_profile(text, route=route)
+        return make_bucket_key(
+            skill_name=name,
+            task_type=str(capabilities.get("task_type") or "general"),
+            request_profile=request_profile,
+            available_tools=available_tools,
+        )
+
+    def _routing_score_details(
+        self,
+        name: str,
+        text: str,
+        *,
+        route: dict[str, object] | None = None,
+        available_tools: set[str] | None = None,
+    ) -> dict[str, Any]:
+        """Return rule and dynamic routing scores for one skill."""
+        capabilities = self.get_skill_capabilities(name)
+        priority, longest_trigger, determinism_score = self._skill_rank(capabilities, text.lower())
+        rule_score = float(priority) + (float(longest_trigger) / 100.0) + (float(determinism_score) / 10.0)
+        bucket_key = self._bucket_key_for_skill(name, text, route=route, available_tools=available_tools)
+        dynamic_score = float(self._scorer.get_effective_score(bucket_key))
+        return {
+            "ruleScore": round(rule_score, 4),
+            "dynamicScore": round(dynamic_score, 4),
+            "finalScore": round(rule_score + dynamic_score, 4),
+            "bucketKey": bucket_key,
+        }
+
+    def sort_skill_names_for_request(
+        self,
+        skill_names: list[str],
+        text: str,
+        *,
+        route: dict[str, object] | None = None,
+        available_tools: set[str] | None = None,
+    ) -> list[str]:
         """Sort skill names by routing priority for the current request."""
-        lowered = text.lower()
         deduped: list[str] = []
         seen: set[str] = set()
         for name in skill_names:
@@ -427,9 +477,8 @@ class SkillsLoader:
         return sorted(
             deduped,
             key=lambda name: (
-                -self._skill_rank(self.get_skill_capabilities(name), lowered)[0],
-                -self._skill_rank(self.get_skill_capabilities(name), lowered)[1],
-                -self._skill_rank(self.get_skill_capabilities(name), lowered)[2],
+                -self._routing_score_details(name, text, route=route, available_tools=available_tools)["finalScore"],
+                -self._routing_score_details(name, text, route=route, available_tools=available_tools)["ruleScore"],
                 name,
             ),
         )
@@ -452,7 +501,7 @@ class SkillsLoader:
             triggers = [str(trigger).lower() for trigger in capabilities.get("triggers", [])]
             if any(trigger and trigger in lowered for trigger in triggers):
                 matched.append(item["name"])
-        return self.sort_skill_names_for_request(matched, text)
+        return self.sort_skill_names_for_request(matched, text, available_tools=available_tools)
 
     def match_skills_for_request(
         self,
@@ -478,7 +527,7 @@ class SkillsLoader:
             ):
                 continue
             matched.append(item["name"])
-        return self.sort_skill_names_for_request(matched, text)
+        return self.sort_skill_names_for_request(matched, text, route=route, available_tools=available_tools)
 
     def search_local_skills(
         self,
@@ -567,12 +616,17 @@ class SkillsLoader:
         compatible = not reasons
         if compatible:
             reasons.append("requirements satisfied")
+        score_details = self._routing_score_details(name, text, route=route, available_tools=available_tools)
+        reasons.append(
+            f"routing score: rule={score_details['ruleScore']:.2f}, dynamic={score_details['dynamicScore']:.2f}, final={score_details['finalScore']:.2f}"
+        )
 
         return {
             "name": name,
             "compatible": compatible,
             "reasons": reasons,
             "requestProfile": request_profile,
+            **score_details,
         }
 
     def is_skill_compatible(
@@ -759,6 +813,25 @@ class SkillsLoader:
                 return self._parse_frontmatter(match.group(1))
 
         return None
+
+    def record_skill_outcome(
+        self,
+        *,
+        name: str,
+        text: str,
+        outcome: str,
+        route: dict[str, object] | None = None,
+        available_tools: set[str] | None = None,
+    ) -> dict[str, Any]:
+        """Persist one routing outcome for a skill in the current request context."""
+        bucket_key = self._bucket_key_for_skill(name, text, route=route, available_tools=available_tools)
+        record = self._scorer.apply_outcome(bucket_key, outcome)
+        return {
+            "name": name,
+            "bucketKey": bucket_key,
+            "outcome": outcome,
+            "score": float(record.get("score", 0.0) or 0.0),
+        }
 
     @classmethod
     def _load_external_catalog_entries(cls) -> list[dict[str, str]]:

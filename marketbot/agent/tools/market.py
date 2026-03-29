@@ -17,6 +17,9 @@ import httpx
 from loguru import logger
 
 from marketbot.agent.tools.base import Tool
+from marketbot.domain.intel.search import IntelSearchService
+from marketbot.domain.market.sentiment import SentimentEngine
+from marketbot.domain.market.thesis import ThesisStore
 from marketbot.domain.market.services import (
     MarketMacroService,
     MarketNewsService,
@@ -46,38 +49,6 @@ def _clamp(value: float, lower: float, upper: float) -> float:
 def _utc_now_iso() -> str:
     """ISO timestamp in UTC."""
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
-_POSITIVE_SENTIMENT_TERMS = {
-    "beat",
-    "strong",
-    "surge",
-    "bullish",
-    "upgrade",
-    "record",
-    "breakout",
-    "rally",
-    "growth",
-}
-_NEGATIVE_SENTIMENT_TERMS = {
-    "miss",
-    "weak",
-    "bearish",
-    "downgrade",
-    "drop",
-    "selloff",
-    "lawsuit",
-    "recession",
-    "risk",
-}
-
-
-def _lexicon_sentiment(text: str) -> float:
-    """Simple lexicon sentiment score in [-1, 1]."""
-    lower = text.lower()
-    pos = sum(1 for term in _POSITIVE_SENTIMENT_TERMS if term in lower)
-    neg = sum(1 for term in _NEGATIVE_SENTIMENT_TERMS if term in lower)
-    return _clamp((pos - neg) / 4.0, -1.0, 1.0)
 
 
 def _weighted_price_band(points: list[tuple[float, float]], lower_q: float, upper_q: float) -> tuple[float, float]:
@@ -338,28 +309,11 @@ class MarketEventExtractTool(Tool):
         ),
     ]
 
-    _POSITIVE_TERMS = [
-        "beat",
-        "strong",
-        "surge",
-        "upgrade",
-        "record",
-        "超预期",
-        "增长",
-        "上调",
-        "突破",
-    ]
-    _NEGATIVE_TERMS = [
-        "miss",
-        "weak",
-        "downgrade",
-        "lawsuit",
-        "plunge",
-        "爆雷",
-        "下调",
-        "下滑",
-        "风险",
-    ]
+    def __init__(self, config: MarketToolsConfig | None = None):
+        self._config = config
+        backend = config.sentiment_backend if config else "lexicon"
+        model = config.sentiment_model if config else ""
+        self._sentiment = SentimentEngine(backend=backend, model=model)
 
     async def execute(
         self, headline: str, body: str = "", symbols: list[str] | None = None, **kwargs: Any
@@ -375,10 +329,9 @@ class MarketEventExtractTool(Tool):
                 affected_assets = assets
                 break
 
-        pos_hits = sum(1 for term in self._POSITIVE_TERMS if term in lower)
-        neg_hits = sum(1 for term in self._NEGATIVE_TERMS if term in lower)
-        sentiment = _clamp((pos_hits - neg_hits) / 4.0, -1.0, 1.0)
-        sentiment_label = "positive" if sentiment > 0.15 else "negative" if sentiment < -0.15 else "neutral"
+        sentiment_result = self._sentiment.analyze_text(text)
+        sentiment = sentiment_result.score
+        sentiment_label = sentiment_result.label
 
         detected_symbols = []
         for token in re.findall(r"\b[A-Z]{2,6}(?:-[A-Z]{2,6})?\b", headline):
@@ -403,6 +356,8 @@ class MarketEventExtractTool(Tool):
             "eventType": event_type,
             "sentimentScore": round(sentiment, 4),
             "sentimentLabel": sentiment_label,
+            "sentimentBackend": sentiment_result.backend,
+            "sentimentReason": sentiment_result.reason,
             "detectedSymbols": detected_symbols,
             "affectedAssets": affected_assets,
             "confidence": round(_clamp(confidence, 0.0, 1.0), 4),
@@ -1293,6 +1248,9 @@ class MarketSocialSentimentTool(Tool):
         self._sources = [s.lower() for s in ((config.social_sources if config else None) or ["reddit"])]
         self._lookback_hours = int(config.social_lookback_hours) if config else 24
         self._post_limit = int(config.social_post_limit) if config else 30
+        backend = config.sentiment_backend if config else "lexicon"
+        model = config.sentiment_model if config else ""
+        self._sentiment = SentimentEngine(backend=backend, model=model)
 
     @staticmethod
     def _resolve_sources_for_symbol(symbol: str, configured_sources: list[str]) -> list[str]:
@@ -1370,7 +1328,8 @@ class MarketSocialSentimentTool(Tool):
                 continue
             body = str(data.get("selftext") or "")
             text = f"{title}\n{body}".strip()
-            sentiment = _lexicon_sentiment(text)
+            sentiment_result = self._sentiment.analyze_text(text)
+            sentiment = sentiment_result.score
 
             score = int(data.get("score") or 0)
             comments = int(data.get("num_comments") or 0)
@@ -1393,6 +1352,7 @@ class MarketSocialSentimentTool(Tool):
                     "score": score,
                     "comments": comments,
                     "sentiment": round(sentiment, 4),
+                    "sentimentBackend": sentiment_result.backend,
                     "publishedAt": published,
                     "url": f"https://www.reddit.com{permalink}" if permalink else "",
                 }
@@ -1448,12 +1408,336 @@ class MarketSocialSentimentTool(Tool):
             "asOf": _utc_now_iso(),
             "sources": self._sources,
             "lookbackHours": self._lookback_hours,
+            "sentimentBackend": self._sentiment.backend,
             "perSymbol": summaries,
             "overallSentiment": round(_clamp(overall_sentiment, -1.0, 1.0), 4),
             "totalMentions": total_mentions,
             "warnings": warnings,
         }
         return json.dumps(result, ensure_ascii=False)
+
+
+class IntelSearchTool(Tool):
+    """Search collected intel items from the workspace store."""
+
+    name = "intel_search"
+    description = (
+        "Search collected intel items from the local workspace store using "
+        "lightweight BM25 ranking. Useful for prior-news recall and thesis updates."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "Search query over collected intel"},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 5},
+            "days": {"type": "integer", "minimum": 1, "maximum": 365, "default": 30},
+            "scope": {"type": "string", "description": "Intel scope, usually workspace", "default": "workspace"},
+            "scopeKey": {"type": "string", "description": "Intel scope key", "default": ""},
+        },
+        "required": ["query"],
+    }
+
+    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
+        self._config = config
+        self._workspace = Path(workspace) if workspace else None
+        self._enabled = bool(config.intel_search_enabled) if config else True
+        self._default_days = int(config.intel_search_default_days) if config else 30
+        self._default_limit = int(config.intel_search_default_limit) if config else 5
+        self._service = IntelSearchService(self._workspace) if self._workspace else None
+
+    async def execute(
+        self,
+        query: str,
+        limit: int | None = None,
+        days: int | None = None,
+        scope: str = "workspace",
+        scopeKey: str = "",
+        **kwargs: Any,
+    ) -> str:
+        clean_query = str(query or "").strip()
+        if not clean_query:
+            return json.dumps({"error": "query is required"}, ensure_ascii=False)
+        if not self._enabled:
+            return json.dumps({"error": "intel search is disabled in config"}, ensure_ascii=False)
+        if self._service is None:
+            return json.dumps({"error": "workspace is required for intel search"}, ensure_ascii=False)
+
+        effective_limit = int(_clamp(float(limit or self._default_limit), 1.0, 50.0))
+        effective_days = int(_clamp(float(days or self._default_days), 1.0, 365.0))
+        hits = self._service.search(
+            clean_query,
+            limit=effective_limit,
+            days=effective_days,
+            scope=str(scope or "workspace"),
+            scope_key=str(scopeKey or ""),
+        )
+        payload = {
+            "asOf": _utc_now_iso(),
+            "query": clean_query,
+            "limit": effective_limit,
+            "days": effective_days,
+            "scope": str(scope or "workspace"),
+            "scopeKey": str(scopeKey or ""),
+            "hits": [hit.to_dict() for hit in hits],
+            "hitCount": len(hits),
+        }
+        return json.dumps(payload, ensure_ascii=False)
+
+
+class ThesisTrackerTool(Tool):
+    """Create, inspect, and update tracked theses."""
+
+    name = "thesis_tracker"
+    description = (
+        "Create, inspect, list, and update tracked market theses in the local "
+        "workspace store. Useful for monitoring whether a thesis is strengthening, "
+        "weakening, unchanged, or falsified."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["create", "get", "list", "update"],
+                "description": "Operation to perform",
+            },
+            "thesisId": {"type": "string"},
+            "symbol": {"type": "string"},
+            "thesis": {"type": "string"},
+            "confidence": {"type": "number"},
+            "confidenceDelta": {"type": "number"},
+            "status": {"type": "string"},
+            "note": {"type": "string"},
+            "evidence": {"type": "string"},
+            "verdict": {
+                "type": "string",
+                "enum": ["strengthened", "weakened", "unchanged", "falsified"],
+            },
+            "tags": {"type": "array", "items": {"type": "string"}},
+            "drivers": {"type": "array", "items": {"type": "string"}},
+            "risks": {"type": "array", "items": {"type": "string"}},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20},
+        },
+        "required": ["action"],
+    }
+
+    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
+        self._config = config
+        self._workspace = Path(workspace) if workspace else None
+        self._store = ThesisStore(self._workspace) if self._workspace else None
+        backend = config.sentiment_backend if config else "lexicon"
+        model = config.sentiment_model if config else ""
+        self._sentiment = SentimentEngine(backend=backend, model=model)
+
+    async def execute(
+        self,
+        action: str,
+        thesisId: str | None = None,
+        symbol: str | None = None,
+        thesis: str | None = None,
+        confidence: float | None = None,
+        confidenceDelta: float | None = None,
+        status: str | None = None,
+        note: str = "",
+        evidence: str = "",
+        verdict: str | None = None,
+        tags: list[str] | None = None,
+        drivers: list[str] | None = None,
+        risks: list[str] | None = None,
+        limit: int = 20,
+        **kwargs: Any,
+    ) -> str:
+        if self._store is None:
+            return json.dumps({"error": "workspace is required for thesis tracking"}, ensure_ascii=False)
+
+        op = str(action or "").strip().lower()
+        if op == "list":
+            records = self._store.list_theses()[: max(1, limit)]
+            return json.dumps(
+                {
+                    "asOf": _utc_now_iso(),
+                    "action": "list",
+                    "theses": [record.to_dict() for record in records],
+                    "count": len(records),
+                },
+                ensure_ascii=False,
+            )
+
+        if op == "get":
+            clean_id = str(thesisId or "").strip()
+            if not clean_id:
+                return json.dumps({"error": "thesisId is required for get"}, ensure_ascii=False)
+            record = self._store.get_thesis(clean_id)
+            if record is None:
+                return json.dumps({"error": "thesis not found", "thesisId": clean_id}, ensure_ascii=False)
+            return json.dumps({"asOf": _utc_now_iso(), "action": "get", "thesis": record.to_dict()}, ensure_ascii=False)
+
+        if op == "create":
+            clean_symbol = str(symbol or "").strip().upper()
+            clean_thesis = str(thesis or "").strip()
+            if not clean_symbol or not clean_thesis:
+                return json.dumps({"error": "symbol and thesis are required for create"}, ensure_ascii=False)
+            record = self._store.create_thesis(
+                symbol=clean_symbol,
+                thesis=clean_thesis,
+                confidence=0.5 if confidence is None else float(confidence),
+                tags=tags,
+                drivers=drivers,
+                risks=risks,
+                note=note,
+            )
+            return json.dumps({"asOf": _utc_now_iso(), "action": "create", "thesis": record.to_dict()}, ensure_ascii=False)
+
+        if op == "update":
+            clean_id = str(thesisId or "").strip()
+            if not clean_id:
+                return json.dumps({"error": "thesisId is required for update"}, ensure_ascii=False)
+            existing = self._store.get_thesis(clean_id)
+            if existing is None:
+                return json.dumps({"error": "thesis not found", "thesisId": clean_id}, ensure_ascii=False)
+            verdict_value = verdict
+            derived_sentiment = None
+            if evidence.strip():
+                sentiment_result = self._sentiment.analyze_text(evidence)
+                derived_sentiment = sentiment_result.to_dict()
+                if not verdict_value:
+                    verdict_value = self._store.derive_verdict(sentiment_result.score)
+            if not verdict_value:
+                verdict_value = "unchanged"
+            next_status = status or self._store.verdict_status(verdict_value, existing.status)
+            record = self._store.update_thesis(
+                clean_id,
+                status=next_status,
+                confidence=confidence,
+                confidence_delta=confidenceDelta,
+                note=note,
+                verdict=verdict_value,
+                evidence=evidence,
+                tags=tags,
+                drivers=drivers,
+                risks=risks,
+            )
+            if record is None:
+                return json.dumps({"error": "thesis not found", "thesisId": clean_id}, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "asOf": _utc_now_iso(),
+                    "action": "update",
+                    "verdict": verdict_value,
+                    "derivedSentiment": derived_sentiment,
+                    "thesis": record.to_dict(),
+                },
+                ensure_ascii=False,
+            )
+
+        return json.dumps({"error": f"unsupported action: {op}"}, ensure_ascii=False)
+
+
+class LogicChainVisualizerTool(Tool):
+    """Render a lightweight market logic chain as Mermaid."""
+
+    name = "logic_chain_visualizer"
+    description = (
+        "Generate a Markdown + Mermaid logic chain for market narratives, "
+        "transmission paths, and event-impact explanations."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string", "description": "Title of the logic chain"},
+            "nodes": {"type": "array", "items": {"type": "string"}},
+            "edges": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "from": {"type": "string"},
+                        "to": {"type": "string"},
+                        "label": {"type": "string"},
+                    },
+                    "required": ["from", "to"],
+                },
+            },
+            "steps": {"type": "array", "items": {"type": "string"}},
+            "direction": {"type": "string", "enum": ["TD", "LR"], "default": "TD"},
+        },
+        "required": ["title"],
+    }
+
+    @staticmethod
+    def _node_id(index: int) -> str:
+        return f"N{index + 1}"
+
+    @staticmethod
+    def _escape_label(text: str) -> str:
+        return str(text or "").replace('"', "'").strip()
+
+    async def execute(
+        self,
+        title: str,
+        nodes: list[str] | None = None,
+        edges: list[dict[str, Any]] | None = None,
+        steps: list[str] | None = None,
+        direction: str = "TD",
+        **kwargs: Any,
+    ) -> str:
+        clean_title = str(title or "").strip()
+        if not clean_title:
+            return json.dumps({"error": "title is required"}, ensure_ascii=False)
+
+        ordered_nodes = [str(item).strip() for item in (nodes or steps or []) if str(item).strip()]
+        if len(ordered_nodes) < 2 and edges:
+            discovered: list[str] = []
+            for edge in edges:
+                for key in ("from", "to"):
+                    value = str((edge or {}).get(key) or "").strip()
+                    if value and value not in discovered:
+                        discovered.append(value)
+            ordered_nodes = discovered
+
+        if len(ordered_nodes) < 2:
+            return json.dumps({"error": "at least two nodes or steps are required"}, ensure_ascii=False)
+
+        node_ids = {label: self._node_id(index) for index, label in enumerate(ordered_nodes)}
+        mermaid_lines = [f"graph {direction or 'TD'}"]
+        for label in ordered_nodes:
+            mermaid_lines.append(f'  {node_ids[label]}["{self._escape_label(label)}"]')
+
+        clean_edges = [dict(edge) for edge in (edges or []) if isinstance(edge, dict)]
+        if clean_edges:
+            for edge in clean_edges:
+                source = str(edge.get("from") or "").strip()
+                target = str(edge.get("to") or "").strip()
+                if source not in node_ids or target not in node_ids:
+                    continue
+                label = str(edge.get("label") or "").strip()
+                connector = f' -->|"{self._escape_label(label)}"| ' if label else " --> "
+                mermaid_lines.append(f"  {node_ids[source]}{connector}{node_ids[target]}")
+        else:
+            for current, nxt in zip(ordered_nodes, ordered_nodes[1:], strict=False):
+                mermaid_lines.append(f"  {node_ids[current]} --> {node_ids[nxt]}")
+
+        markdown_lines = [
+            f"# Logic Chain: {clean_title}",
+            "",
+            "## Steps",
+        ]
+        markdown_lines.extend(f"- {label}" for label in ordered_nodes)
+        markdown_lines.extend(["", "## Diagram", "", "```mermaid", *mermaid_lines, "```"])
+
+        payload = {
+            "asOf": _utc_now_iso(),
+            "title": clean_title,
+            "direction": direction or "TD",
+            "nodes": ordered_nodes,
+            "edges": clean_edges if clean_edges else [
+                {"from": current, "to": nxt}
+                for current, nxt in zip(ordered_nodes, ordered_nodes[1:], strict=False)
+            ],
+            "mermaid": "\n".join(mermaid_lines),
+            "markdown": "\n".join(markdown_lines),
+        }
+        return json.dumps(payload, ensure_ascii=False)
 
 
 class MarketMacroTool(Tool):
@@ -1586,18 +1870,26 @@ class MarketBriefTool(Tool):
             "includeSocial": {"type": "boolean", "default": True},
             "includeChips": {"type": "boolean", "default": True},
             "includeFundamentals": {"type": "boolean", "default": True},
+            "includeIntelContext": {"type": "boolean", "default": True},
+            "includeLogicChain": {"type": "boolean", "default": True},
+            "thesisMode": {"type": "string", "enum": ["off", "create", "update"], "default": "off"},
+            "thesisId": {"type": "string"},
+            "thesisText": {"type": "string"},
         },
     }
 
     def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
         self._config = config
         self._snapshot = MarketSnapshotTool(config=config, workspace=workspace)
-        self._event = MarketEventExtractTool()
+        self._event = MarketEventExtractTool(config=config)
         self._signal = MarketSignalTool(config=config, workspace=workspace)
         self._chips = MarketChipDistributionTool(config=config)
         self._fundamentals = MarketFundamentalsTool(config=config)
         self._news = MarketNewsTool(config=config, workspace=workspace)
         self._social = MarketSocialSentimentTool(config=config)
+        self._intel_search = IntelSearchTool(config=config, workspace=workspace)
+        self._logic_chain = LogicChainVisualizerTool()
+        self._thesis_tracker = ThesisTrackerTool(config=config, workspace=workspace)
         self._macro = MarketMacroTool(config=config, workspace=workspace)
 
     @staticmethod
@@ -1743,6 +2035,33 @@ class MarketBriefTool(Tool):
             lines.append(f"- {symbol}: live news unavailable")
         return lines
 
+    @staticmethod
+    def _logic_chain_steps(
+        *,
+        headline: str,
+        event: dict[str, Any] | None,
+        quotes: list[dict[str, Any]],
+        macro: dict[str, Any],
+    ) -> list[str]:
+        """Build a compact causal chain from current brief inputs."""
+        clean_headline = str(headline or "").strip()
+        event_type = str((event or {}).get("eventType") or "market catalyst").replace("_", " ")
+        impacted = [str(row.get("symbol", "")).upper() for row in quotes if str(row.get("symbol", "")).strip()]
+        impact_label = ", ".join(impacted[:3]) if impacted else "target assets"
+        regime = str(macro.get("regime") or "market regime")
+        steps = [
+            clean_headline or f"{event_type.title()} emerges",
+            f"{event_type.title()} changes expectations",
+            f"Positioning and sentiment shift in {impact_label}",
+            f"Market reprices under {regime}",
+        ]
+        deduped: list[str] = []
+        for step in steps:
+            clean = str(step).strip()
+            if clean and clean not in deduped:
+                deduped.append(clean)
+        return deduped
+
     async def execute(
         self,
         symbols: list[str] | None = None,
@@ -1753,6 +2072,11 @@ class MarketBriefTool(Tool):
         includeSocial: bool = True,
         includeChips: bool = True,
         includeFundamentals: bool = True,
+        includeIntelContext: bool = True,
+        includeLogicChain: bool = True,
+        thesisMode: str = "off",
+        thesisId: str = "",
+        thesisText: str = "",
         **kwargs: Any,
     ) -> str:
         snapshot = json.loads(await self._snapshot.execute(symbols=symbols, includeMacro=includeMacro))
@@ -1769,6 +2093,15 @@ class MarketBriefTool(Tool):
         news = {"items": [], "warnings": []}
         if includeNews:
             news = json.loads(await self._news.execute(symbols=symbols, limit=4))
+
+        intel_context = {"hits": [], "hitCount": 0}
+        if includeIntelContext:
+            query_parts = [str(item).upper() for item in (symbols or []) if str(item).strip()]
+            if headline.strip():
+                query_parts.append(headline.strip())
+            query = " ".join(query_parts).strip()
+            if query:
+                intel_context = json.loads(await self._intel_search.execute(query=query, limit=3))
 
         social = {"perSymbol": [], "overallSentiment": 0.0, "warnings": []}
         if includeSocial:
@@ -1861,6 +2194,54 @@ class MarketBriefTool(Tool):
             include_news=includeNews,
             include_macro=includeMacro,
         )
+        logic_chain = None
+        if includeLogicChain and headline.strip():
+            logic_chain = json.loads(
+                await self._logic_chain.execute(
+                    title=headline.strip(),
+                    steps=self._logic_chain_steps(headline=headline, event=event, quotes=quotes, macro=macro),
+                )
+            )
+        thesis_tracking = None
+        thesis_mode = str(thesisMode or "off").strip().lower()
+        if thesis_mode in {"create", "update"}:
+            primary_symbol = str(quotes[0].get("symbol", "")).upper() if quotes else ""
+            evidence_parts: list[str] = []
+            if headline.strip():
+                evidence_parts.append(headline.strip())
+            if body.strip():
+                evidence_parts.append(body.strip())
+            if event:
+                evidence_parts.append(
+                    f"event={event.get('eventType')} sentiment={event.get('sentimentLabel')}:{float(event.get('sentimentScore', 0.0)):.2f}"
+                )
+            if actions:
+                top_action = actions[0]
+                evidence_parts.append(
+                    f"signal={top_action.get('action')} confidence={float(top_action.get('confidence', 0.0)):.2f} score={float(top_action.get('score', 0.0)):.2f}"
+                )
+            if int(intel_context.get("hitCount", 0)) > 0:
+                evidence_parts.append(f"prior_intel_hits={int(intel_context.get('hitCount', 0))}")
+            evidence_text = " | ".join(part for part in evidence_parts if part)
+            if thesis_mode == "create" and primary_symbol and str(thesisText or "").strip():
+                thesis_tracking = json.loads(
+                    await self._thesis_tracker.execute(
+                        action="create",
+                        symbol=primary_symbol,
+                        thesis=str(thesisText or "").strip(),
+                        confidence=max(0.35, min(0.95, sentiment_index)),
+                        note=f"created from market_brief: {headline.strip() or primary_symbol}",
+                    )
+                )
+            elif thesis_mode == "update" and str(thesisId or "").strip():
+                thesis_tracking = json.loads(
+                    await self._thesis_tracker.execute(
+                        action="update",
+                        thesisId=str(thesisId or "").strip(),
+                        evidence=evidence_text,
+                        note=f"updated from market_brief: {headline.strip() or primary_symbol}",
+                    )
+                )
 
         lines = [
             "## Market Brief",
@@ -1906,6 +2287,28 @@ class MarketBriefTool(Tool):
                 f"- Event: {event.get('eventType')}",
                 f"- Sentiment: {event.get('sentimentLabel')} ({float(event.get('sentimentScore', 0.0)):.2f})",
             ]
+        if int(intel_context.get("hitCount", 0)) > 0:
+            lines += ["", "### Prior Intel Context"]
+            for hit in intel_context.get("hits", [])[:3]:
+                if not isinstance(hit, dict):
+                    continue
+                lines.append(
+                    f"- {hit.get('title', 'untitled')} | source={hit.get('sourceName', 'unknown')} | score={float(hit.get('score', 0.0)):.2f}"
+                )
+        if logic_chain and logic_chain.get("markdown"):
+            lines += ["", "### Logic Chain Appendix", str(logic_chain["markdown"])]
+        if thesis_tracking and thesis_tracking.get("thesis"):
+            tracked = thesis_tracking.get("thesis", {})
+            lines += [
+                "",
+                "### Thesis Tracking",
+                f"- Mode: {thesis_mode}",
+                f"- Thesis ID: {tracked.get('id', '')}",
+                f"- Status: {tracked.get('status', '')}",
+                f"- Confidence: {float(tracked.get('confidence', 0.0)):.2f}",
+            ]
+            if thesis_tracking.get("verdict"):
+                lines.append(f"- Verdict: {thesis_tracking.get('verdict')}")
         lines += self._reliability_markdown_lines(data_reliability)
         lines += self._news_availability_markdown_lines(news)
 
@@ -1915,6 +2318,9 @@ class MarketBriefTool(Tool):
             "event": event,
             "news": news,
             "social": social,
+            "intelContext": intel_context,
+            "logicChain": logic_chain,
+            "thesisTracking": thesis_tracking,
             "chips": {"perSymbol": chips_by_symbol, "warnings": chip_warnings},
             "fundamentals": fundamentals,
             "macro": macro,

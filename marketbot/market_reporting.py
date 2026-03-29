@@ -245,6 +245,7 @@ def render_analysis_explainability(payload: dict, *, skill_routing: dict | None 
     routing = skill_routing or payload.get("skillRouting") or {}
     selected = routing.get("selected", []) or []
     blocked = routing.get("blocked", []) or []
+    fallback_execution = routing.get("fallbackExecution") or {}
     request_profile = routing.get("requestProfile", {}) or {}
     data_reliability = payload.get("dataReliability", {}) or {}
 
@@ -262,6 +263,13 @@ def render_analysis_explainability(payload: dict, *, skill_routing: dict | None 
                 reasons = [str(reason) for reason in item.get("reasons", []) if str(reason).strip()]
                 if name and reasons:
                     lines.append(f"- Blocked Skill: {name} | {'; '.join(reasons[:2])}")
+        if fallback_execution:
+            primary = str(fallback_execution.get("primarySkill", "")).strip()
+            final = str(fallback_execution.get("finalSkill", "")).strip()
+            selected_fallback = str(fallback_execution.get("selectedFallback", "")).strip()
+            chain = f"{primary} -> {selected_fallback or final}" if primary and (selected_fallback or final) else ""
+            if chain:
+                lines.append(f"- Skill Fallback: {chain}")
 
     overall_status = str(data_reliability.get("overallStatus", "")).strip()
     components = data_reliability.get("components", {}) or {}
@@ -291,8 +299,13 @@ def render_analysis_explainability_summary(payload: dict, *, skill_routing: dict
     bits: list[str] = []
     routing = skill_routing or payload.get("skillRouting") or {}
     selected = [str(item.get("name", "")).strip() for item in (routing.get("selected", []) or []) if str(item.get("name", "")).strip()]
+    fallback_execution = routing.get("fallbackExecution") or {}
     if selected:
         bits.append(f"Skills: {', '.join(selected[:3])}")
+    primary = str(fallback_execution.get("primarySkill", "")).strip()
+    selected_fallback = str(fallback_execution.get("selectedFallback", "")).strip()
+    if primary and selected_fallback:
+        bits.append(f"Fallback: {primary}->{selected_fallback}")
     data_reliability = payload.get("dataReliability", {}) or {}
     overall_status = str(data_reliability.get("overallStatus", "")).strip()
     if overall_status:
@@ -328,10 +341,15 @@ def render_chat_explainability_footer_for_channel(
     routing = skill_routing or payload.get("skillRouting") or {}
     selected = [str(item.get("name", "")).strip() for item in (routing.get("selected", []) or []) if str(item.get("name", "")).strip()]
     blocked = routing.get("blocked", []) or []
+    fallback_execution = routing.get("fallbackExecution") or {}
     data_reliability = payload.get("dataReliability", {}) or {}
 
     if selected:
         lines.append(f"- Skills used: {', '.join(selected[:3])}")
+    primary = str(fallback_execution.get("primarySkill", "")).strip()
+    selected_fallback = str(fallback_execution.get("selectedFallback", "")).strip()
+    if primary and selected_fallback:
+        lines.append(f"- Fallback: {primary}->{selected_fallback}")
     if blocked:
         blocked_row = blocked[0]
         name = str(blocked_row.get("name", "")).strip()

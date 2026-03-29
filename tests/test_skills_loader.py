@@ -2,6 +2,36 @@ from marketbot.agent.skills import SkillsLoader
 from marketbot.config.schema import MarketToolsConfig
 from marketbot.domain.market import build_market_runtime_profile
 import json
+from pathlib import Path
+
+
+def _write_workspace_skill(
+    workspace: Path,
+    name: str,
+    *,
+    description: str,
+    triggers: list[str],
+    priority: int = 50,
+    task_type: str = "general",
+) -> None:
+    skill_dir = workspace / "skills" / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    metadata = {
+        "marketbot": {
+            "triggers": triggers,
+            "priority": priority,
+            "task_type": task_type,
+        }
+    }
+    content = (
+        "---\n"
+        f"name: {name}\n"
+        f"description: {description}\n"
+        f"metadata: {json.dumps(metadata, ensure_ascii=False)}\n"
+        "---\n\n"
+        f"# {name}\n"
+    )
+    (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
 
 
 def test_builtin_market_skills_are_discoverable(tmp_path):
@@ -23,6 +53,8 @@ def test_builtin_market_skills_are_discoverable(tmp_path):
     assert "earnings-readout" in names
     assert "vix-panic-reversion" in names
     assert "panic-reversion-monitor" in names
+    assert "thesis-tracker" in names
+    assert "logic-chain-visualizer" in names
     assert "multi-llm-stock-panel" in names
     assert "sector-breadth" in names
     assert "macro-regime" in names
@@ -88,6 +120,8 @@ def test_new_specialist_skills_are_loadable(tmp_path):
     options_content = loader.load_skill("options-payoff")
     correlation_content = loader.load_skill("pair-correlation")
     earnings_content = loader.load_skill("earnings-readout")
+    thesis_content = loader.load_skill("thesis-tracker")
+    visualizer_content = loader.load_skill("logic-chain-visualizer")
 
     assert options_content is not None
     assert "# Options Payoff" in options_content
@@ -95,6 +129,10 @@ def test_new_specialist_skills_are_loadable(tmp_path):
     assert "# Pair Correlation" in correlation_content
     assert earnings_content is not None
     assert "# Earnings Readout" in earnings_content
+    assert thesis_content is not None
+    assert "# Thesis Tracker" in thesis_content
+    assert visualizer_content is not None
+    assert "# Logic Chain Visualizer" in visualizer_content
 
 
 def test_specialist_skills_sort_ahead_of_orchestrator_for_matching_request(tmp_path):
@@ -206,6 +244,26 @@ def test_daily_stock_screener_capabilities_are_parsed(tmp_path):
     assert capabilities["asset_classes"] == ["equity"]
 
 
+def test_market_discovery_capabilities_use_market_brief_anchor(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    capabilities = loader.get_skill_capabilities("market-discovery")
+
+    assert "market_brief" in capabilities["tools"]
+    assert "thesis_tracker" in capabilities["tools"]
+    assert capabilities["required_tools"] == ["market_snapshot", "market_news", "market_brief"]
+
+
+def test_stock_watch_capabilities_use_market_brief_anchor(tmp_path):
+    loader = SkillsLoader(tmp_path)
+
+    capabilities = loader.get_skill_capabilities("stock-watch")
+
+    assert "market_brief" in capabilities["tools"]
+    assert "thesis_tracker" in capabilities["tools"]
+    assert capabilities["required_tools"] == ["market_snapshot", "market_news", "market_brief"]
+
+
 def test_skill_trigger_matching_uses_metadata(tmp_path):
     loader = SkillsLoader(tmp_path)
 
@@ -237,6 +295,67 @@ def test_market_discovery_trigger_matching_supports_chinese_opportunity_terms(tm
     )
 
     assert "market-discovery" in matched
+
+
+def test_dynamic_skill_score_reorders_similar_workspace_skills(tmp_path):
+    _write_workspace_skill(
+        tmp_path,
+        "alpha-news-backup",
+        description="alpha backup",
+        triggers=["rare alpha trigger"],
+        task_type="news-verification",
+    )
+    _write_workspace_skill(
+        tmp_path,
+        "beta-news-backup",
+        description="beta backup",
+        triggers=["rare alpha trigger"],
+        task_type="news-verification",
+    )
+    loader = SkillsLoader(tmp_path)
+
+    initial = loader.match_skills_for_request("Need rare alpha trigger now")
+    assert initial[:2] == ["alpha-news-backup", "beta-news-backup"]
+
+    loader.record_skill_outcome(
+        name="beta-news-backup",
+        text="Need rare alpha trigger now",
+        outcome="success",
+    )
+    reranked = loader.match_skills_for_request("Need rare alpha trigger now")
+    assert reranked[:2] == ["beta-news-backup", "alpha-news-backup"]
+
+
+def test_dynamic_skill_score_is_bucketed_by_market(tmp_path):
+    _write_workspace_skill(
+        tmp_path,
+        "market-bucket-skill",
+        description="bucket test",
+        triggers=["bucket trigger"],
+        task_type="browser-research",
+    )
+    loader = SkillsLoader(tmp_path)
+
+    loader.record_skill_outcome(
+        name="market-bucket-skill",
+        text="分析 A股 bucket trigger 600519",
+        outcome="success",
+        route={"symbols": ["600519"], "equity": True},
+    )
+
+    a_share = loader.explain_skill_compatibility(
+        "market-bucket-skill",
+        "分析 A股 bucket trigger 600519",
+        route={"symbols": ["600519"], "equity": True},
+    )
+    us_market = loader.explain_skill_compatibility(
+        "market-bucket-skill",
+        "Analyze bucket trigger for NVDA",
+        route={"symbols": ["NVDA"], "equity": True},
+    )
+
+    assert a_share["dynamicScore"] > 0
+    assert us_market["dynamicScore"] == 0
 
 
 def test_ak_rss_digest_trigger_matching_respects_exec_tool(tmp_path):

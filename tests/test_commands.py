@@ -2524,6 +2524,64 @@ def test_skills_install_installs_to_workspace(tmp_path):
     assert "Start a new agent session" in result.stdout
 
 
+def test_skills_score_show_renders_workspace_buckets(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    score_path = tmp_path / "data" / "skill_scores.json"
+    score_path.parent.mkdir(parents=True, exist_ok=True)
+    score_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "buckets": {
+                    "xueqiu-research|us|browser-research|browser_site": {
+                        "score": 0.4,
+                        "successCount": 3,
+                        "failureCount": 1,
+                        "lastUsedAt": "2026-03-29T10:00:00Z",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("marketbot.config.loader.load_config", return_value=config):
+        result = runner.invoke(app, ["skills", "score", "show", "--json"])
+
+    assert result.exit_code == 0
+    assert '"skill": "xueqiu-research"' in result.stdout
+    assert '"task_type": "browser-research"' in result.stdout
+
+
+def test_skills_score_reset_removes_matching_skill_buckets(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    score_path = tmp_path / "data" / "skill_scores.json"
+    score_path.parent.mkdir(parents=True, exist_ok=True)
+    score_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "buckets": {
+                    "xueqiu-research|us|browser-research|browser_site": {"score": 0.4},
+                    "market-report|us|analysis|market_brief": {"score": 0.2},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("marketbot.config.loader.load_config", return_value=config):
+        result = runner.invoke(app, ["skills", "score", "reset", "--skill", "xueqiu-research"])
+
+    assert result.exit_code == 0
+    assert "Reset 1 buckets for skill `xueqiu-research`." in result.stdout
+    payload = json.loads(score_path.read_text(encoding="utf-8"))
+    assert "xueqiu-research|us|browser-research|browser_site" not in payload["buckets"]
+    assert "market-report|us|analysis|market_brief" in payload["buckets"]
+
+
 def test_status_shows_browser_disabled_by_default(tmp_path):
     config = Config()
     config.agents.defaults.workspace = str(tmp_path)

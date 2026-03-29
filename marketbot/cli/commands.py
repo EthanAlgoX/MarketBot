@@ -35,6 +35,8 @@ from rich.table import Table
 from rich.text import Text
 
 from marketbot import __logo__, __version__
+from marketbot.agent.skill_score_store import SkillScoreStore
+from marketbot.agent.skill_scoring import effective_dynamic_score
 from marketbot.agent.skills import SkillsLoader
 from marketbot.cli.auth_runtime import (
     get_bridge_dir,
@@ -1929,6 +1931,8 @@ def rl_serve_metrics(
 
 skills_app = typer.Typer(help="Search and install skills")
 app.add_typer(skills_app, name="skills")
+skills_score_app = typer.Typer(help="Inspect and reset dynamic skill routing scores")
+skills_app.add_typer(skills_score_app, name="score")
 
 
 @skills_app.command("search")
@@ -2001,6 +2005,132 @@ def skills_install(
 
     console.print(f"[green]✓[/green] Installed skill to {installed}")
     console.print("[dim]Start a new agent session to load the new skill.[/dim]")
+
+
+def _parse_skill_score_bucket(bucket_key: str) -> dict[str, str]:
+    parts = [str(part).strip() for part in str(bucket_key or "").split("|")]
+    while len(parts) < 4:
+        parts.append("")
+    return {
+        "bucket": bucket_key,
+        "skill": parts[0],
+        "market": parts[1],
+        "task_type": parts[2],
+        "toolset": parts[3],
+    }
+
+
+@skills_score_app.command("show")
+def skills_score_show(
+    limit: int = typer.Option(20, "--limit", min=1, max=200, help="Maximum buckets to show"),
+    skill: str | None = typer.Option(None, "--skill", help="Filter by skill name"),
+    market: str | None = typer.Option(None, "--market", help="Filter by market bucket"),
+    json_output: bool = typer.Option(False, "--json", help="Emit raw JSON"),
+):
+    """Show dynamic skill routing scores from workspace data."""
+    from marketbot.config.loader import load_config
+
+    config = load_config()
+    store = SkillScoreStore(Path(config.workspace_path))
+    payload = store.load()
+    buckets = payload.get("buckets", {}) or {}
+    rows: list[dict[str, Any]] = []
+    for bucket_key, record in buckets.items():
+        if not isinstance(record, dict):
+            continue
+        parsed = _parse_skill_score_bucket(str(bucket_key))
+        if skill and parsed["skill"] != skill:
+            continue
+        if market and parsed["market"] != market:
+            continue
+        total_events = sum(
+            int(record.get(key, 0) or 0)
+            for key in ("successCount", "partialCount", "failureCount", "misrouteCount")
+        )
+        rows.append(
+            {
+                **parsed,
+                "score": float(record.get("score", 0.0) or 0.0),
+                "effective_score": float(effective_dynamic_score(record)),
+                "events": total_events,
+                "last_used_at": str(record.get("lastUsedAt", "") or ""),
+                "record": record,
+            }
+        )
+    rows.sort(key=lambda item: (-item["effective_score"], -item["score"], item["bucket"]))
+    rows = rows[:limit]
+
+    if json_output:
+        console.print_json(
+            data={
+                "version": int(payload.get("version", 1) or 1),
+                "rows": rows,
+            }
+        )
+        return
+
+    if not rows:
+        console.print("[yellow]No skill score buckets found.[/yellow]")
+        raise typer.Exit(0)
+
+    table = Table(title="Skill Routing Scores")
+    table.add_column("Skill", style="cyan")
+    table.add_column("Market", style="green")
+    table.add_column("Task", style="yellow")
+    table.add_column("Score", justify="right")
+    table.add_column("Effective", justify="right")
+    table.add_column("Events", justify="right")
+    table.add_column("Last Used", style="magenta")
+    for row in rows:
+        table.add_row(
+            row["skill"],
+            row["market"],
+            row["task_type"],
+            f"{row['score']:.2f}",
+            f"{row['effective_score']:.2f}",
+            str(row["events"]),
+            row["last_used_at"] or "-",
+        )
+    console.print(table)
+
+
+@skills_score_app.command("reset")
+def skills_score_reset(
+    skill: str | None = typer.Option(None, "--skill", help="Reset only one skill's buckets"),
+    all_buckets: bool = typer.Option(False, "--all", help="Reset all skill score buckets"),
+):
+    """Reset dynamic skill routing scores."""
+    from marketbot.config.loader import load_config
+
+    if not all_buckets and not skill:
+        console.print("[red]Use --skill <name> or --all.[/red]")
+        raise typer.Exit(1)
+
+    config = load_config()
+    store = SkillScoreStore(Path(config.workspace_path))
+    payload = store.load()
+    buckets = payload.get("buckets", {}) or {}
+    if not isinstance(buckets, dict):
+        buckets = {}
+
+    if all_buckets:
+        removed = len(buckets)
+        payload["buckets"] = {}
+        store.save(payload)
+        console.print(f"[green]✓[/green] Reset {removed} skill score buckets.")
+        return
+
+    kept = {}
+    removed = 0
+    for bucket_key, record in buckets.items():
+        parsed = _parse_skill_score_bucket(str(bucket_key))
+        if parsed["skill"] == skill:
+            removed += 1
+            continue
+        kept[bucket_key] = record
+    payload["buckets"] = kept
+    store.save(payload)
+    console.print(f"[green]✓[/green] Reset {removed} buckets for skill `{skill}`.")
 
 
 # ============================================================================

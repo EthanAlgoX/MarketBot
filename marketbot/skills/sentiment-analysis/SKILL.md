@@ -28,6 +28,7 @@ When conducting sentiment analysis, gather data from multiple sources and apply 
    - Use market news and social sentiment tools to gather raw text for the target asset/sector within the specified time window (e.g., `24h`).
    - When site-native, logged-in, or dynamic discussion pages matter, supplement with `browser_site` on Xueqiu, Reddit, Zhihu, or similar platforms.
    - Clean the text by filtering out spam, ads, and irrelevant noise.
+   - If the runtime exposes `tools.market.sentimentBackend = finbert`, prefer that backend for text scoring and mention the backend used in the result when it materially affects confidence.
 
 2. **Entity Extraction**:
    - Identify the specific asset(s) and sectors mentioned in the text (e.g., "NVDA", "AI Chips").

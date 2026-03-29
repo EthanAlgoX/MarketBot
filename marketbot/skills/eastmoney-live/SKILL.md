@@ -1,7 +1,7 @@
 ---
 name: eastmoney-live
 description: Use browser-backed Eastmoney adapters for live A-share quote pages, headlines, and market heat when API-level tools are insufficient or site-native context matters.
-metadata: {"marketbot":{"emoji":"🧭","triggers":["eastmoney","东方财富","a-share live","个股热度","盘口资讯"],"output":"eastmoney-live-report","risk":"medium","freshness":"live","tools":["browser_site"],"required_tools":["browser_site"],"markets":["a-share"],"asset_classes":["equity","etf"],"task_type":"browser-research","determinism":"tool-backed","priority":82}}
+metadata: {"marketbot":{"emoji":"🧭","triggers":["eastmoney","东方财富","a-share live","个股热度","盘口资讯"],"output":"eastmoney-live-report","risk":"medium","freshness":"live","tools":["browser_site"],"required_tools":["browser_site"],"markets":["a-share"],"asset_classes":["equity","etf"],"task_type":"browser-research","determinism":"tool-backed","priority":82,"fallback_skills":["news-intelligence"]}}
 ---
 
 # Eastmoney Live

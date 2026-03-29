@@ -43,6 +43,8 @@ Treat news analysis as an 11-step data refinement pipeline. Depending on the use
 
 - Group multiple related articles into a single `News Cluster` (e.g., "AI Chip Competition").
 - Compare term frequencies vs. historical baselines to detect emerging `Trending Topics`.
+- When prior collected intel matters, use `intel_search` to pull earlier related items from the workspace store before concluding that a topic is truly new.
+- If the user asks for a causal explanation, transmission path, or a more visual artifact, use `logic_chain_visualizer` to render the chain instead of burying it in prose.
 
 ### 9. Risk Detection
 

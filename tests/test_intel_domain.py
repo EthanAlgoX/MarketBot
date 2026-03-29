@@ -11,6 +11,7 @@ from marketbot.config.schema import Config
 from marketbot.domain.intel.collector import RssCollector, make_dedup_key
 from marketbot.domain.intel.digest import build_daily_digest
 from marketbot.domain.intel.models import IntelRawItem, IntelSource
+from marketbot.domain.intel.search import IntelSearchService
 from marketbot.domain.intel.storage import (
     add_source,
     connect_intel_db,
@@ -125,6 +126,47 @@ def test_intel_insert_raw_items_deduplicates_same_source(tmp_path) -> None:
         assert second == 0
     finally:
         conn.close()
+
+
+def test_intel_search_service_bm25_finds_recent_items(tmp_path) -> None:
+    workspace, conn = _make_conn(tmp_path)
+    try:
+        source_id = add_source(
+            conn,
+            IntelSource(
+                name="Market Feed",
+                source_type="rss",
+                config_json=json.dumps({"url": "https://example.com/feed.xml"}),
+            ),
+        )
+        inserted = insert_raw_items(
+            conn,
+            [
+                IntelRawItem(
+                    source_id=source_id,
+                    title="AI chip demand pushes NVDA suppliers higher",
+                    url="https://example.com/nvda-suppliers",
+                    published_at="2026-03-19T09:00:00Z",
+                    collected_at="2026-03-19T09:05:00Z",
+                    content_text="Supply chain names gained after stronger AI chip demand signals.",
+                    summary_text="AI chip supply chain strength",
+                    dedup_key=make_dedup_key(
+                        "https://example.com/nvda-suppliers",
+                        "AI chip demand pushes NVDA suppliers higher",
+                        "2026-03-19T09:00:00Z",
+                    ),
+                )
+            ],
+        )
+        assert inserted == 1
+    finally:
+        conn.close()
+
+    service = IntelSearchService(workspace)
+    hits = service.search("AI chip demand", days=365, limit=3)
+    assert len(hits) == 1
+    assert hits[0].source_name == "Market Feed"
+    assert "NVDA suppliers" in hits[0].title
 
 
 def test_rss_collector_parses_entries(monkeypatch) -> None:

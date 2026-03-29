@@ -31,6 +31,9 @@ python marketbot/skills/earnings-readout/scripts/readout.py /path/to/earnings_no
 
 6. Read [references/readout-template.md](references/readout-template.md) if the
    release includes multiple moving parts or conflicting signals.
+7. If the stock reaction depends on a multi-step transmission path, use
+   `logic_chain_visualizer` to show how beat/miss, guidance, margins, and
+   valuation compression or expansion connect.
 
 ## Output format
 

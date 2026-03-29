@@ -1,7 +1,7 @@
 ---
 name: xueqiu-research
 description: Use browser-backed Xueqiu adapters to inspect hot stocks, stock pages, feeds, and logged-in discussion context for A-share, Hong Kong, and US market research.
-metadata: {"marketbot":{"emoji":"❄️","triggers":["xueqiu","雪球","hot stock","watchlist heat","stock feed"],"output":"xueqiu-research-report","risk":"medium","freshness":"live","tools":["browser_site"],"required_tools":["browser_site"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"],"task_type":"browser-research","determinism":"tool-backed","priority":82}}
+metadata: {"marketbot":{"emoji":"❄️","triggers":["xueqiu","雪球","hot stock","watchlist heat","stock feed"],"output":"xueqiu-research-report","risk":"medium","freshness":"live","tools":["browser_site"],"required_tools":["browser_site"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"],"task_type":"browser-research","determinism":"tool-backed","priority":82,"fallback_skills":["social-signal-browser","sentiment-analysis"]}}
 ---
 
 # Xueqiu Research

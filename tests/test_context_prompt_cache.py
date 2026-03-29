@@ -113,6 +113,29 @@ def test_system_prompt_includes_market_analysis_playbook(tmp_path) -> None:
     assert "`market_signal`" in prompt
 
 
+def test_skill_routing_appends_fallback_skills_for_browser_research(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    builder = ContextBuilder(workspace)
+    builder.set_available_tools({"browser_site", "market_news"})
+    builder.set_market_runtime_profile(build_market_runtime_profile(MarketToolsConfig()))
+
+    builder.build_messages(
+        history=[],
+        current_message="用雪球看看 NVDA 的讨论热度",
+        channel="cli",
+        chat_id="direct",
+    )
+    routing = builder.get_last_skill_routing()
+
+    assert routing is not None
+    names = [item["name"] for item in routing["selected"]]
+    assert "xueqiu-research" in names
+    assert "social-signal-browser" in names
+    fallback_item = next(item for item in routing["selected"] if item["name"] == "social-signal-browser")
+    assert fallback_item["source"] == "fallback"
+    assert fallback_item["parent"] == "xueqiu-research"
+
+
 def test_system_prompt_includes_browser_adapter_catalog_when_configured(tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     builder = ContextBuilder(workspace)

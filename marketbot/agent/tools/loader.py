@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Type
 
@@ -69,7 +70,11 @@ class ToolLoader:
         if market_config:
             for tool_class in cls.MARKET_TOOLS:
                 try:
-                    tool = tool_class(config=market_config)
+                    kwargs: dict[str, Any] = {"config": market_config}
+                    signature = inspect.signature(tool_class.__init__)
+                    if "workspace" in signature.parameters:
+                        kwargs["workspace"] = workspace
+                    tool = tool_class(**kwargs)
                     registry.register(tool)
                 except Exception:
                     logger.exception("Failed to load market tool: {}", tool_class.__name__)
@@ -108,6 +113,8 @@ def register_tools():
     ToolLoader.register_system(CronTool)
 
     from marketbot.agent.tools.market import (
+        IntelSearchTool,
+        LogicChainVisualizerTool,
         MarketBriefTool,
         MarketChipDistributionTool,
         MarketEventExtractTool,
@@ -118,6 +125,7 @@ def register_tools():
         MarketSnapshotTool,
         MarketSocialSentimentTool,
         MarketSourcePlanTool,
+        ThesisTrackerTool,
     )
 
     ToolLoader.register_market(MarketSnapshotTool)
@@ -128,5 +136,8 @@ def register_tools():
     ToolLoader.register_market(MarketFundamentalsTool)
     ToolLoader.register_market(MarketNewsTool)
     ToolLoader.register_market(MarketSocialSentimentTool)
+    ToolLoader.register_market(IntelSearchTool)
+    ToolLoader.register_market(ThesisTrackerTool)
+    ToolLoader.register_market(LogicChainVisualizerTool)
     ToolLoader.register_market(MarketMacroTool)
     ToolLoader.register_market(MarketBriefTool)

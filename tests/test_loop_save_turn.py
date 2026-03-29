@@ -1,5 +1,6 @@
 from pathlib import Path
 import asyncio
+from types import SimpleNamespace
 
 from marketbot.agent.context import ContextBuilder
 from marketbot.agent.loop import AgentLoop
@@ -452,6 +453,13 @@ def test_append_saved_report_path_includes_local_path() -> None:
 
 def test_build_response_metadata_collects_optional_fields() -> None:
     loop = _mk_loop()
+    loop._last_skill_fallback = {
+        "used": True,
+        "primarySkill": "xueqiu-research",
+        "selectedFallback": "social-signal-browser",
+        "finalSkill": "social-signal-browser",
+        "fallbackSkills": ["social-signal-browser"],
+    }
 
     class _Processor:
         @staticmethod
@@ -470,7 +478,17 @@ def test_build_response_metadata_collects_optional_fields() -> None:
 
     assert metadata["message_id"] == "abc"
     assert metadata["usage"] == {"total_tokens": 42}
-    assert metadata["skill_routing"] == {"selected": [{"name": "market-report"}]}
+    assert metadata["skill_routing"] == {
+        "selected": [{"name": "market-report"}],
+        "fallbackExecution": {
+            "used": True,
+            "primarySkill": "xueqiu-research",
+            "selectedFallback": "social-signal-browser",
+            "finalSkill": "social-signal-browser",
+            "fallbackSkills": ["social-signal-browser"],
+        },
+    }
+    assert metadata["skill_fallback"]["primarySkill"] == "xueqiu-research"
     assert metadata["explainability"] == {"summary": "ok"}
     assert metadata["skill_install_suggestions"] == [{"name": "k8s-release"}]
     assert metadata["saved_report_path"] == "/tmp/report.md"
@@ -605,6 +623,94 @@ def test_run_user_turn_uses_shared_finalize_pipeline() -> None:
     assert metadata["saved_report_path"] == "/tmp/r.md"
     assert calls[0] == ("run", [{"role": "system", "content": "prompt"}], True)
     assert calls[1] == ("record", 1, {"total_tokens": 3})
+
+
+def test_run_user_turn_retries_with_fallback_skill_after_primary_failure() -> None:
+    loop = _mk_loop()
+    session = Session(key="cli:direct")
+    session.messages.append({"role": "user", "content": "old"})
+    msg = InboundMessage(channel="cli", sender_id="user", chat_id="direct", content="用雪球看看 NVDA 的讨论热度")
+    calls = []
+    state = {
+        "routing": {
+            "selected": [
+                {"name": "xueqiu-research"},
+                {"name": "social-signal-browser", "source": "fallback", "parent": "xueqiu-research"},
+            ]
+        }
+    }
+
+    async def _fake_run_agent_loop(messages, on_progress=None):
+        calls.append(("run", messages, on_progress is not None))
+        if len([item for item in calls if item[0] == "run"]) == 1:
+            return ("", ["browser_site"], [{"role": "tool", "content": "Error: xueqiu failed"}], {"total_tokens": 3})
+        return ("fallback answer", ["browser_site"], [{"role": "assistant", "content": "fallback answer"}], {"total_tokens": 5})
+
+    progress_updates = []
+
+    async def _progress(content: str, *, tool_hint: bool = False) -> None:
+        progress_updates.append((content, tool_hint))
+
+    class _Skills:
+        def __init__(self):
+            self.events = []
+
+        def record_skill_outcome(self, **kwargs):
+            self.events.append(kwargs)
+            return kwargs
+
+    skills = _Skills()
+    loop.context = SimpleNamespace(skills=skills, available_tools={"browser_site"})
+    loop._run_agent_loop = _fake_run_agent_loop
+    loop._normalize_daily_opportunity_report = lambda content: content
+    loop._finalize_response_content = lambda content, **kwargs: (content, {"summary": "ok"}, [], None)
+    recorded = []
+    loop._record_completed_turn = lambda **kwargs: recorded.append(kwargs)
+
+    class _Processor:
+        @staticmethod
+        def get_last_skill_routing():
+            return state["routing"]
+
+        @staticmethod
+        def build_messages(**kwargs):
+            calls.append(("build", kwargs["skill_names"], kwargs["current_message"]))
+            state["routing"] = {"selected": [{"name": "social-signal-browser"}]}
+            return [{"role": "system", "content": "retry prompt"}]
+
+    loop.processor = _Processor()
+
+    final_content, metadata = asyncio.run(
+        loop._run_user_turn(
+            msg=msg,
+            session=session,
+            history=[{"role": "user", "content": "old"}],
+            initial_messages=[{"role": "system", "content": "prompt"}],
+            on_progress=_progress,
+        )
+    )
+
+    assert final_content == "fallback answer"
+    assert metadata["usage"]["total_tokens"] == 8
+    assert calls[0] == ("run", [{"role": "system", "content": "prompt"}], True)
+    assert calls[1] == ("build", ["social-signal-browser"], "用雪球看看 NVDA 的讨论热度")
+    assert calls[2] == ("run", [{"role": "system", "content": "retry prompt"}], True)
+    assert len(skills.events) == 1
+    assert skills.events[0]["name"] == "xueqiu-research"
+    assert skills.events[0]["text"] == "用雪球看看 NVDA 的讨论热度"
+    assert skills.events[0]["outcome"] == "failure"
+    assert skills.events[0]["available_tools"] == {"browser_site"}
+    assert isinstance(skills.events[0]["route"], dict)
+    assert metadata["skill_fallback"] == {
+        "used": True,
+        "primarySkill": "xueqiu-research",
+        "fallbackSkills": ["social-signal-browser"],
+        "selectedFallback": "social-signal-browser",
+        "finalSkill": "social-signal-browser",
+    }
+    assert progress_updates == [("Primary skill `xueqiu-research` failed. Retrying with fallback skill `social-signal-browser`.", False)]
+    assert recorded[0]["history_len"] == 1
+    assert recorded[0]["final_content"] == "fallback answer"
 
 
 def test_run_system_turn_uses_shared_finalize_pipeline() -> None:

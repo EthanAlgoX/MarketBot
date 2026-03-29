@@ -30,7 +30,9 @@ co-movement, route to the specialist skill first and then synthesize.
    - For A-share and Hong Kong workflows, treat social sentiment as low-confidence unless the runtime exposes a market-native source; default fallback may be synthetic rather than live forum data.
 4. Use `market_event_extract` if a headline or catalyst is driving the move.
 5. Use `market_signal` or `market_brief` to get a draft signal and scenario view.
-6. Write the final answer in the report format below, separating facts from assumptions.
+6. If the user wants the view persisted for follow-up, call `market_brief` with `thesisMode=create` and a concise `thesisText`.
+7. If the core edge or risk depends on a multi-step causal chain, call `logic_chain_visualizer` and include the generated Mermaid block as an optional appendix.
+8. Write the final answer in the report format below, separating facts from assumptions.
 
 ## Inputs to confirm if missing
 
