@@ -3,6 +3,7 @@ import asyncio
 from types import SimpleNamespace
 
 from marketbot.agent.context import ContextBuilder
+from marketbot.agent import request_policy
 from marketbot.agent import tool_runtime
 from marketbot.agent.loop import AgentLoop
 from marketbot.bus.events import InboundMessage
@@ -1573,6 +1574,18 @@ def test_build_daily_opportunity_report_query_response_lists_recent_files(tmp_pa
 
     assert str(report_dir) in content
     assert str(newest) in content
+
+
+def test_is_twitter_request_ignores_publish_commands() -> None:
+    messages = [{"role": "user", "content": "发布一条推特，大概内容如下：\nNVDA demand still looks strong"}]
+
+    assert request_policy.is_twitter_request(messages) is False
+
+
+def test_is_xiaohongshu_request_ignores_publish_commands() -> None:
+    messages = [{"role": "user", "content": "发布一条小红书，标题是测试，正文是测试正文"}]
+
+    assert request_policy.is_xiaohongshu_request(messages) is False
 
 
 def test_persist_local_report_if_needed_skips_error_payloads(tmp_path) -> None:

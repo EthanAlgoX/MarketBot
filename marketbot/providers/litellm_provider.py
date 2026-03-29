@@ -71,11 +71,8 @@ class LiteLLMProvider(LLMProvider):
             # OAuth/provider-only specs (for example: openai_codex)
             return
 
-        # Gateway/local overrides existing env; standard provider doesn't
-        if self._gateway:
-            os.environ[spec.env_key] = api_key
-        else:
-            os.environ.setdefault(spec.env_key, api_key)
+        # Always keep the active runtime key in sync with the configured provider.
+        os.environ[spec.env_key] = api_key
 
         # Resolve env_extras placeholders:
         #   {api_key}  → user's API key
@@ -84,7 +81,19 @@ class LiteLLMProvider(LLMProvider):
         for env_name, env_val in spec.env_extras:
             resolved = env_val.replace("{api_key}", api_key)
             resolved = resolved.replace("{api_base}", effective_base)
-            os.environ.setdefault(env_name, resolved)
+            os.environ[env_name] = resolved
+
+    def _request_extra_headers(self, original_model: str, resolved_model: str) -> dict[str, str]:
+        """Build request headers for providers that need explicit auth/header shims."""
+        headers = {
+            str(key): str(value)
+            for key, value in (self.extra_headers or {}).items()
+            if key and value is not None
+        }
+        spec = self._gateway or find_by_model(original_model) or find_by_model(resolved_model)
+        if spec and spec.name == "minimax" and self.api_key and "Authorization" not in headers:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
 
     def _resolve_model(self, model: str) -> str:
         """Resolve model name by applying provider/gateway prefixes."""
@@ -257,9 +266,10 @@ class LiteLLMProvider(LLMProvider):
         if self.api_base:
             kwargs["api_base"] = self.api_base
 
-        # Pass extra headers (e.g. APP-Code for AiHubMix)
-        if self.extra_headers:
-            kwargs["extra_headers"] = self.extra_headers
+        # Pass extra headers (e.g. APP-Code for AiHubMix) and provider auth shims.
+        extra_headers = self._request_extra_headers(original_model, model)
+        if extra_headers:
+            kwargs["extra_headers"] = extra_headers
         
         if reasoning_effort:
             kwargs["reasoning_effort"] = reasoning_effort

@@ -215,6 +215,20 @@ def is_xiaohongshu_request(messages: list[dict[str, Any]] | None) -> bool:
     if not isinstance(messages, list):
         return False
     markers = ("xiaohongshu", "小红书", "rednote")
+    publish_markers = (
+        "发小红书",
+        "发布小红书",
+        "发布一条小红书",
+        "发一条小红书",
+        "发个小红书",
+        "小红书发布",
+        "小红书发帖",
+        "发到小红书",
+        "直接发送小红书",
+        "publish to xiaohongshu",
+        "post to xiaohongshu",
+        "send to xiaohongshu",
+    )
     for message in reversed(messages):
         if not isinstance(message, dict) or message.get("role") != "user":
             continue
@@ -232,6 +246,8 @@ def is_xiaohongshu_request(messages: list[dict[str, Any]] | None) -> bool:
         else:
             continue
         lowered = text.lower()
+        if any(marker in lowered for marker in publish_markers):
+            return False
         return any(marker in lowered for marker in markers)
     return False
 
@@ -241,6 +257,33 @@ def is_twitter_request(messages: list[dict[str, Any]] | None) -> bool:
     if not isinstance(messages, list):
         return False
     markers = ("twitter", "tweet", "tweets", "fintwit", "x thread", "x.com", "@")
+    publish_markers = (
+        "发推",
+        "推特",
+        "发推特",
+        "发布推特",
+        "发布一条推特",
+        "发一条推特",
+        "发个推特",
+        "推文",
+        "发推文",
+        "发布推文",
+        "发布一条推文",
+        "发一条推文",
+        "发个推文",
+        "发 twitter",
+        "发 x ",
+        "发到 twitter",
+        "发到 x",
+        "发布到 twitter",
+        "发布到 x",
+        "tweet this",
+        "post to twitter",
+        "post on x",
+        "publish to twitter",
+        "publish on x",
+        "send to twitter",
+    )
     for message in reversed(messages):
         if not isinstance(message, dict) or message.get("role") != "user":
             continue
@@ -258,6 +301,8 @@ def is_twitter_request(messages: list[dict[str, Any]] | None) -> bool:
         else:
             continue
         lowered = text.lower()
+        if any(marker in lowered for marker in publish_markers):
+            return False
         return any(marker in lowered for marker in markers)
     return False
 

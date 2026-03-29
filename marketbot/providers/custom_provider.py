@@ -16,6 +16,30 @@ from marketbot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
 
 class CustomProvider(LLMProvider):
+    @staticmethod
+    def _extract_http_error_detail(error: Exception) -> str:
+        """Return a compact provider error without leaking transport URLs into user replies."""
+        if isinstance(error, httpx.HTTPStatusError):
+            status = error.response.status_code
+            reason = error.response.reason_phrase or "HTTP error"
+            detail = ""
+            try:
+                payload = error.response.json()
+            except Exception:
+                payload = None
+            if isinstance(payload, dict):
+                err = payload.get("error")
+                if isinstance(err, dict):
+                    detail = str(err.get("message") or err.get("type") or "").strip()
+                elif err is not None:
+                    detail = str(err).strip()
+                elif payload.get("message"):
+                    detail = str(payload.get("message") or "").strip()
+            if not detail:
+                detail = (error.response.text or "").strip()[:240]
+            detail = detail or "Check providers.custom credentials, base URL, extra headers, and model access."
+            return f"AI gateway returned {status} {reason}. {detail}"
+        return str(error)
 
     @staticmethod
     def _normalize_tool_call_id(tool_call_id: Any) -> Any:
@@ -54,13 +78,27 @@ class CustomProvider(LLMProvider):
                 clean["tool_call_id"] = map_id(clean["tool_call_id"])
         return sanitized
 
-    def __init__(self, api_key: str = "no-key", api_base: str = "http://localhost:8000/v1", default_model: str = "default"):
+    def __init__(
+        self,
+        api_key: str = "no-key",
+        api_base: str = "http://localhost:8000/v1",
+        default_model: str = "default",
+        extra_headers: dict[str, str] | None = None,
+    ):
         super().__init__(api_key, api_base)
         self.default_model = default_model
         self._affinity = uuid.uuid4().hex
         self._default_headers = {"x-session-affinity": self._affinity}
         if api_key and api_key != "no-key":
             self._default_headers["Authorization"] = f"Bearer {api_key}"
+        if extra_headers:
+            self._default_headers.update(
+                {
+                    str(key): str(value)
+                    for key, value in extra_headers.items()
+                    if key and value is not None
+                }
+            )
         # Keep affinity stable for this provider instance to improve backend cache locality.
         self._client = AsyncOpenAI(
             api_key=api_key,
@@ -83,11 +121,14 @@ class CustomProvider(LLMProvider):
             kwargs.update(tools=tools, tool_choice="auto")
         try:
             return self._parse(await self._client.chat.completions.create(**kwargs))
-        except Exception:
+        except Exception as primary_error:
             try:
                 return await self._chat_http_fallback(kwargs)
             except Exception as fallback_error:
-                return LLMResponse(content=f"Error: {fallback_error}", finish_reason="error")
+                detail = self._extract_http_error_detail(fallback_error)
+                if detail == str(fallback_error):
+                    detail = self._extract_http_error_detail(primary_error)
+                return LLMResponse(content=f"Error: {detail}", finish_reason="error")
 
     async def _chat_http_fallback(self, payload: dict[str, Any]) -> LLMResponse:
         """Fallback to raw HTTP for OpenAI-compatible backends with loose schemas."""

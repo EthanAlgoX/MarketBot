@@ -48,6 +48,9 @@ def append_chat_explainability(loop, final_content: str | None, explainability: 
 def build_chat_explainability(loop, messages: list[dict], *, channel: str) -> dict[str, Any] | None:
     """Build a structured explainability bundle for the current reply."""
     skill_routing = loop.processor.get_last_skill_routing()
+    selected_names = set(loop._selected_skill_names())
+    if {"xiaohongshu-publisher", "twitter-publisher"} & selected_names:
+        return None
     fallback_execution = getattr(loop, "_last_skill_fallback", None)
     if isinstance(skill_routing, dict) and fallback_execution:
         skill_routing = dict(skill_routing)
