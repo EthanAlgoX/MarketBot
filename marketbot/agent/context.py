@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from marketbot.agent import context_skills
 from marketbot.agent.memory import MemoryStore
 from marketbot.agent.skills import SkillsLoader
 from marketbot.market_routing import classify_market_request
@@ -446,73 +447,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         skill_names: list[str] | None = None,
     ) -> dict[str, Any]:
         """Resolve explicit and auto-detected skills plus structured routing diagnostics."""
-        resolved = self._normalize_skill_names(skill_names)
-        route = classify_market_request(text=current_message)
-        diagnostics: list[dict[str, Any]] = []
-        selected: list[dict[str, Any]] = []
-        blocked: list[dict[str, Any]] = []
-
-        for name in resolved:
-            info = {
-                **self.skills.explain_skill_compatibility(
-                    name,
-                    current_message,
-                    route=route,
-                    available_tools=self.available_tools,
-                    runtime_profile=self.market_runtime_profile,
-                ),
-                "status": "selected",
-                "source": "explicit",
-            }
-            diagnostics.append(info)
-            selected.append(info)
-
-        suggested, suggested_diagnostics = self._suggest_skills_for_message(current_message, route=route)
-        for item in suggested_diagnostics:
-            diagnostics.append(item)
-            if item.get("status") == "selected":
-                selected.append(item)
-            elif item.get("status") == "blocked":
-                blocked.append(item)
-        for name in suggested:
-            if name not in resolved:
-                info = next((item for item in selected if item.get("name") == name), None)
-                if info is None:
-                    info = {
-                        "name": name,
-                        "compatible": True,
-                        "reasons": ["requirements satisfied"],
-                        "requestProfile": self.skills._build_request_profile(current_message, route=route),
-                        "status": "selected",
-                        "source": "auto",
-                    }
-                    diagnostics.append(info)
-                    selected.append(info)
-
-        selected_names = []
-        deduped_selected: list[dict[str, Any]] = []
-        for item in selected:
-            name = str(item.get("name", "")).strip()
-            if not name or name in selected_names:
-                continue
-            selected_names.append(name)
-            deduped_selected.append(item)
-
-        deduped_selected = self._filter_meta_queries(current_message, deduped_selected)
-        deduped_selected = self._prune_shadowed_skills(deduped_selected)
-
-        external_suggestions: list[dict[str, Any]] = []
-        if not deduped_selected and self._should_search_external_skills(current_message, diagnostics):
-            external_suggestions = self.skills.search_external_skills(current_message, limit=5)
-
-        return {
-            "requestText": current_message,
-            "requestProfile": self.skills._build_request_profile(current_message, route=route),
-            "selected": deduped_selected,
-            "blocked": blocked,
-            "diagnostics": diagnostics,
-            "externalSuggestions": external_suggestions,
-        }
+        return context_skills.build_skill_routing(self, current_message, skill_names)
 
     @staticmethod
     def _filter_meta_queries(
@@ -520,82 +455,11 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         selected: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """Remove execution skills when the user is only asking about saved artifacts or paths."""
-        text = str(current_message or "").lower()
-        daily_opportunity_terms = (
-            "每日机会",
-            "每日机会分析",
-            "今日机会",
-            "今日机会分析",
-        )
-        meta_terms = (
-            "保存地址",
-            "保存到地址",
-            "保存路径",
-            "保存到路径",
-            "保存到",
-            "地址",
-            "文档",
-            "报告路径",
-            "report path",
-            "save path",
-            "markdown",
-            ".md",
-            "md文档",
-            "在哪",
-            "在哪里",
-        )
-        if not any(term in text for term in daily_opportunity_terms):
-            return selected
-        if not any(term in text for term in meta_terms):
-            return selected
-        return [
-            item for item in selected
-            if str(item.get("name", "")).strip() != "daily-market-opportunity"
-        ]
+        return context_skills.filter_meta_queries(current_message, selected)
 
     def _prune_shadowed_skills(self, selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Drop broad auto-selected skills when a higher-priority specialist is present."""
-        if not selected:
-            return selected
-
-        by_name = {str(item.get("name", "")).strip(): item for item in selected}
-        specialist_names = {
-            name
-            for name in by_name
-            if self.skills.get_skill_capabilities(name).get("priority", 50) >= 70
-        }
-        if not specialist_names:
-            return selected
-
-        shadow_pairs = {
-            "social-signal-browser": {"sentiment-analysis"},
-            "xueqiu-research": {"sentiment-analysis"},
-            "reddit-research": {"social-signal-browser", "sentiment-analysis"},
-            "twitter-browser-research": {"social-signal-browser", "sentiment-analysis"},
-            "zhihu-browser-research": {"social-signal-browser", "sentiment-analysis"},
-            "weibo-browser-research": {"social-signal-browser", "sentiment-analysis"},
-            "bilibili-browser-research": {"social-signal-browser", "sentiment-analysis"},
-            "xiaohongshu-browser-research": {"social-signal-browser", "sentiment-analysis"},
-            "douban-browser-research": {"social-signal-browser", "sentiment-analysis"},
-            "linkedin-browser-research": {"social-signal-browser", "sentiment-analysis"},
-            "eastmoney-live": {"news-intelligence"},
-            "browser-news-verifier": {"news-intelligence"},
-        }
-        blocked_auto: set[str] = set()
-        for specialist, blocked in shadow_pairs.items():
-            if specialist in specialist_names:
-                blocked_auto.update(blocked)
-
-        result: list[dict[str, Any]] = []
-        for item in selected:
-            name = str(item.get("name", "")).strip()
-            source = str(item.get("source", "")).strip()
-            if name == "market-report" and source == "auto":
-                continue
-            if name in blocked_auto and source == "auto":
-                continue
-            result.append(item)
-        return result
+        return context_skills.prune_shadowed_skills(self, selected)
 
     @staticmethod
     def _normalize_skill_names(skill_names: list[str] | None) -> list[str]:
@@ -617,352 +481,12 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         route: dict[str, object] | None = None,
     ) -> tuple[list[str], list[dict[str, Any]]]:
         """Suggest built-in skills from common market-analysis intents."""
-        text = current_message.lower()
-        suggestions: list[str] = []
-        diagnostics: list[dict[str, Any]] = []
-        candidates: list[str] = []
-
-        def consider(name: str) -> None:
-            if self.skills.load_skill(name) and name not in candidates:
-                candidates.append(name)
-
-        route = route or classify_market_request(text=current_message)
-
-        analysis_terms = (
-            "analyze",
-            "analysis",
-            "outlook",
-            "bias",
-            "trade plan",
-            "setup",
-            "support",
-            "resistance",
-            "invalidation",
-            "regime",
-            "trend",
-        )
-        catalyst_terms = (
-            "catalyst",
-            "event",
-            "earnings",
-            "fomc",
-            "cpi",
-            "nfp",
-            "news driver",
-            "macro",
-            "calendar",
-        )
-        risk_terms = (
-            "risk",
-            "position size",
-            "sizing",
-            "stop loss",
-            "stop",
-            "invalidat",
-            "safe",
-            "max loss",
-            "risk-reward",
-        )
-        chart_terms = (
-            "chart",
-            "rsi",
-            "macd",
-            "bollinger",
-            "bb",
-            "vwap",
-            "atr",
-            "fundamental",
-            "quote",
-        )
-        monitor_terms = (
-            "crypto monitor",
-            "watchlist",
-            "monitor",
-            "metals",
-            "precious metals",
-        )
-        multi_llm_panel_terms = (
-            "bb-browser",
-            "gemini",
-            "chatgpt",
-            "grok",
-            "多模型选股",
-        )
-        discovery_terms = (
-            "discover",
-            "opportunity",
-            "theme",
-            "rotation",
-            "market opportunity",
-            "机会",
-            "市场机会",
-            "今日机会",
-            "机会分析",
-            "主题机会",
-            "轮动机会",
-        )
-        daily_opportunity_terms = (
-            "每日机会",
-            "每日机会分析",
-            "今日机会",
-            "今日机会分析",
-        )
-        daily_opportunity_meta_terms = (
-            "保存地址",
-            "保存到地址",
-            "保存路径",
-            "保存到路径",
-            "保存到",
-            "地址",
-            "文档",
-            "报告路径",
-            "report path",
-            "save path",
-            "markdown",
-            ".md",
-            "md文档",
-            "在哪",
-            "在哪里",
-        )
-        browser_research_terms = (
-            "xueqiu",
-            "雪球",
-            "eastmoney",
-            "东方财富",
-            "股吧",
-            "reddit",
-            "subreddit",
-            "wallstreetbets",
-            "github repo",
-            "github issue",
-            "zhihu",
-            "知乎",
-            "weibo",
-            "微博",
-            "bilibili",
-            "b站",
-            "xiaohongshu",
-            "小红书",
-            "twitter",
-            "x thread",
-            "tweet thread",
-            "fintwit",
-            "hacker news",
-            "hn thread",
-            "douban",
-            "豆瓣",
-            "linkedin",
-            "company page",
-            "hiring signal",
-            "stack overflow",
-            "stackoverflow",
-            "wikipedia",
-            "wiki summary",
-            "verify news",
-            "cross-check headline",
-            "source verify",
-            "source validation",
-            "youtube",
-            "youtube transcript",
-            "video transcript",
-            "podcast transcript",
-            "interview transcript",
-            "hot stock",
-            "discussion heat",
-            "forum heat",
-        )
-        source_terms = (
-            "data source",
-            "datasource",
-            "provider",
-            "coverage",
-            "freshness",
-            "fallback",
-            "route",
-            "routing",
-            "ingestion",
-            "feed",
-            "行情源",
-            "数据源",
-            "新闻源",
-            "数据提供商",
-            "回退",
-            "降级",
-            "时效",
-            "覆盖",
-            "接入",
-            "tushare",
-            "akshare",
-            "efinance",
-            "yfinance",
-            "bocha",
-            "brave",
-            "tavily",
-            "serpapi",
-            "a-share",
-        )
-        intel_source_terms = (
-            "rss",
-            "feed source",
-            "news source",
-            "source pack",
-            "digest source",
-            "资讯源",
-            "情报源",
-            "rss 源",
-            "添加rss",
-            "订阅源",
-            "采集资讯",
-        )
-        intel_digest_terms = (
-            "intel digest",
-            "daily digest",
-            "digest schedule",
-            "news digest",
-            "ai digest",
-            "资讯日报",
-            "情报摘要",
-            "技术日报",
-            "每日摘要",
-            "定时摘要",
-            "定时日报",
-        )
-
-        if all(term in text for term in ("gemini", "chatgpt", "grok")) or (
-            "bb-browser" in text and any(term in text for term in ("一个月内大幅上涨", "未来一个月内大涨股票", "多模型选股"))
-        ):
-            consider("multi-llm-stock-panel")
-
-        if route["asset_like"] and any(term in text for term in analysis_terms):
-            consider("market-report")
-
-        if (route["asset_like"] or route["macro"]) and any(term in text for term in catalyst_terms):
-            consider("catalyst-tracker")
-
-        if route["asset_like"] and any(term in text for term in risk_terms):
-            consider("risk-checklist")
-
-        if (
-            route["equity"]
-            and (any(term in text for term in chart_terms) or any(term in text for term in analysis_terms))
-            and not any(term in text for term in multi_llm_panel_terms)
-        ):
-            consider("stock-info-explorer")
-        elif route["crypto"] and any(term in text for term in chart_terms):
-            consider("stock-info-explorer")
-
-        if route["metals"] or any(term in text for term in monitor_terms):
-            consider("crypto-gold-monitor")
-        elif route["crypto"] and ("intermarket" in text or "gold" in text or "silver" in text):
-            consider("crypto-gold-monitor")
-
-        if any(term in text for term in daily_opportunity_terms) and not any(
-            term in text for term in daily_opportunity_meta_terms
-        ):
-            consider("daily-market-opportunity")
-        elif (route["asset_like"] or route["equity"] or bool(route.get("etf"))) and any(term in text for term in discovery_terms):
-            consider("market-discovery")
-
-        if any(term in text for term in browser_research_terms):
-            if all(term in text for term in ("gemini", "chatgpt", "grok")) or "bb-browser" in text:
-                consider("multi-llm-stock-panel")
-            if "xueqiu" in text or "雪球" in text or "hot stock" in text:
-                consider("xueqiu-research")
-            if "eastmoney" in text or "东方财富" in text or "股吧" in text:
-                consider("eastmoney-live")
-            if "discussion heat" in text or "forum heat" in text or "retail attention" in text:
-                consider("social-signal-browser")
-            if "reddit" in text or "subreddit" in text or "wallstreetbets" in text:
-                consider("reddit-research")
-            if "github repo" in text or "github issue" in text or "github discussion" in text:
-                consider("github-browser-research")
-            if "zhihu" in text or "知乎" in text:
-                consider("zhihu-browser-research")
-            if "weibo" in text or "微博" in text:
-                consider("weibo-browser-research")
-            if "bilibili" in text or "b站" in text:
-                consider("bilibili-browser-research")
-            if "xiaohongshu" in text or "小红书" in text or "rednote" in text:
-                consider("xiaohongshu-browser-research")
-            if "twitter" in text or "x thread" in text or "tweet thread" in text or "fintwit" in text:
-                consider("twitter-browser-research")
-            if "hacker news" in text or "hn thread" in text:
-                consider("hackernews-browser-research")
-            if "douban" in text or "豆瓣" in text:
-                consider("douban-browser-research")
-            if "linkedin" in text or "company page" in text:
-                consider("linkedin-browser-research")
-            if "stack overflow" in text or "stackoverflow" in text:
-                consider("stackoverflow-browser-research")
-            if "wikipedia" in text or "wiki summary" in text:
-                consider("wikipedia-browser-research")
-            if (
-                "verify news" in text
-                or "cross-check headline" in text
-                or "source verify" in text
-                or "source validation" in text
-            ):
-                consider("browser-news-verifier")
-            if (
-                "youtube" in text
-                or "youtube transcript" in text
-                or "video transcript" in text
-                or "podcast transcript" in text
-                or "interview transcript" in text
-            ):
-                consider("youtube-transcript-browser")
-
-        if any(term in text for term in source_terms):
-            consider("stock-data-sourcing")
-
-        if any(term in text for term in intel_source_terms):
-            consider("intel-collector")
-
-        if any(term in text for term in intel_digest_terms):
-            consider("intel-daily-digest")
-
-        for name in self.skills.find_trigger_candidates(current_message, available_tools=self.available_tools):
-            consider(name)
-
-        for name in candidates:
-            info = self.skills.explain_skill_compatibility(
-                name,
-                current_message,
-                route=route,
-                available_tools=self.available_tools,
-                runtime_profile=self.market_runtime_profile,
-            )
-            status = "selected" if info["compatible"] else "blocked"
-            diagnostics.append({**info, "status": status, "source": "auto"})
-            if info["compatible"] and name not in suggestions:
-                suggestions.append(name)
-
-        return suggestions, diagnostics
+        return context_skills.suggest_skills_for_message(self, current_message, route=route)
 
     @staticmethod
     def _should_search_external_skills(current_message: str, diagnostics: list[dict[str, Any]] | None = None) -> bool:
         """Return True when the user likely needs a new skill rather than a normal reply."""
-        if diagnostics:
-            return False
-        text = current_message.lower()
-        discovery_terms = (
-            "skill",
-            "workflow",
-            "agent",
-            "plugin",
-            "template",
-            "library",
-            "deploy",
-            "deployment",
-            "pipeline",
-            "automation",
-            "screener",
-            "screen",
-            "scanner",
-            "monitor",
-            "generator",
-        )
-        return any(term in text for term in discovery_terms)
+        return context_skills.should_search_external_skills(current_message, diagnostics)
 
     @staticmethod
     def _format_intel_scheduler_note(
@@ -971,103 +495,24 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         selected_skills: list[str] | None,
     ) -> str:
         """Inject deterministic guidance for recurring intel digest workflows."""
-        names = set(selected_skills or [])
-        if "intel-daily-digest" not in names:
-            return ""
-
-        text = str(current_message or "").lower()
-        recurring_terms = (
-            "schedule",
-            "every morning",
-            "every day",
-            "daily",
-            "自动",
-            "定时",
-            "每天",
-            "每日",
+        return context_skills.format_intel_scheduler_note(
+            current_message=current_message,
+            selected_skills=selected_skills,
         )
-        if not any(term in text for term in recurring_terms):
-            return ""
-
-        return """# Intel Scheduling Rules
-
-For recurring intel digests with fresh coverage, collection and digest generation are separate jobs.
-
-- Prefer the combined `marketbot intel schedule-latest-daily` command when the user asks for a scheduled daily intel digest with fresh coverage.
-- If you do not use the combined command, always output both commands explicitly.
-- Do not describe `marketbot intel schedule-daily` as a collection job.
-- If the user asks for an 08:00 digest, use this canonical pattern:
-  `marketbot intel schedule-latest-daily --collect-cron-expr "55 7 * * *" --digest-cron-expr "0 8 * * *" --tz Asia/Shanghai`
-  Or the underlying pair:
-  `marketbot intel schedule-collect --cron-expr "55 7 * * *" --tz Asia/Shanghai`
-  `marketbot intel schedule-daily --cron-expr "0 8 * * *" --tz Asia/Shanghai`
-- Use `marketbot intel schedule-list` and `marketbot intel schedule-remove <job-id>` to manage the resulting jobs."""
 
     @staticmethod
     def _format_skill_diagnostics(skill_diagnostics: list[dict[str, Any]] | None) -> str:
         """Render per-message skill routing diagnostics into prompt metadata."""
-        if not skill_diagnostics:
-            return ""
-        lines = [
-            "# Skill Routing Diagnostics",
-            "This block is runtime metadata about why candidate skills were selected or blocked.",
-        ]
-        for item in skill_diagnostics:
-            name = str(item.get("name", "")).strip()
-            if not name:
-                continue
-            status = str(item.get("status", "unknown"))
-            source = str(item.get("source", "auto"))
-            reasons = [str(reason) for reason in item.get("reasons", []) if str(reason).strip()]
-            request_profile = item.get("requestProfile") or {}
-            markets = ", ".join(str(entry) for entry in request_profile.get("markets", []) if str(entry).strip()) or "unspecified"
-            asset_classes = (
-                ", ".join(str(entry) for entry in request_profile.get("asset_classes", []) if str(entry).strip()) or "unspecified"
-            )
-            lines.append(f"- {name}: {status} ({source})")
-            lines.append(f"  request markets={markets}; asset_classes={asset_classes}")
-            for reason in reasons:
-                lines.append(f"  reason: {reason}")
-        return "\n".join(lines)
+        return context_skills.format_skill_diagnostics(skill_diagnostics)
 
     @staticmethod
     def _format_external_skill_suggestions(external_skill_suggestions: list[dict[str, Any]] | None) -> str:
         """Render fallback external skill suggestions when no local skill fits."""
-        if not external_skill_suggestions:
-            return ""
-        lines = [
-            "# External Skill Suggestions",
-            "No suitable local skill was selected. These are curated external candidates from awesome-openclaw-skills / openclaw/skills.",
-        ]
-        for item in external_skill_suggestions[:5]:
-            name = str(item.get("name", "")).strip()
-            description = str(item.get("description", "")).strip()
-            category = str(item.get("category", "")).strip()
-            url = str(item.get("url", "")).strip()
-            if not name:
-                continue
-            title = str(item.get("title", "")).strip() or name
-            suffix = f" [{category}]" if category else ""
-            lines.append(f"- {name}: {title}{suffix}")
-            if description:
-                lines.append(f"  description: {description}")
-            if url:
-                lines.append(f"  source: {url}")
-        return "\n".join(lines)
+        return context_skills.format_external_skill_suggestions(external_skill_suggestions)
 
     def _format_browser_adapter_catalog(self) -> str:
         """Render configured browser adapters as runtime guidance."""
-        if not self.browser_adapter_catalog:
-            return ""
-        lines = [
-            "# Browser Adapter Catalog",
-            "These browser_site adapters are configured for this runtime. Prefer them over ad hoc adapter guesses.",
-        ]
-        for adapter in self.browser_adapter_catalog[:20]:
-            lines.append(f"- {adapter}")
-        if len(self.browser_adapter_catalog) > 20:
-            lines.append(f"- ... and {len(self.browser_adapter_catalog) - 20} more")
-        return "\n".join(lines)
+        return context_skills.format_browser_adapter_catalog(self.browser_adapter_catalog)
 
     def _build_user_content(self, text: str, media: list[str] | None) -> str | list[dict[str, Any]]:
         """Build user message content with optional base64-encoded images."""
