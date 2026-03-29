@@ -1,18 +1,13 @@
 """Context builder for assembling agent prompts."""
 
-import base64
-import mimetypes
 import platform
-import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from marketbot.agent import context_skills
+from marketbot.agent import context_messages, context_skills
 from marketbot.agent.memory import MemoryStore
 from marketbot.agent.skills import SkillsLoader
 from marketbot.market_routing import classify_market_request
-from marketbot.utils.helpers import detect_image_mime
 
 
 class ContextBuilder:
@@ -241,12 +236,7 @@ If evidence is mixed, reduce conviction and default to `watch`."""
     @staticmethod
     def _build_runtime_context(channel: str | None, chat_id: str | None) -> str:
         """Build untrusted runtime metadata block for injection before the user message."""
-        now = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-        tz = time.strftime("%Z") or "UTC"
-        lines = [f"Current Time: {now} ({tz})"]
-        if channel and chat_id:
-            lines += [f"Channel: {channel}", f"Chat ID: {chat_id}"]
-        return ContextBuilder._RUNTIME_CONTEXT_TAG + "\n" + "\n".join(lines)
+        return context_messages.build_runtime_context(ContextBuilder._RUNTIME_CONTEXT_TAG, channel, chat_id)
 
     def _load_bootstrap_files(self) -> str:
         """Load all bootstrap files from workspace."""
@@ -516,50 +506,19 @@ If evidence is mixed, reduce conviction and default to `watch`."""
 
     def _build_user_content(self, text: str, media: list[str] | None) -> str | list[dict[str, Any]]:
         """Build user message content with optional base64-encoded images."""
-        text = self._augment_user_text(text)
-        if not media:
-            return text
-
-        images = []
-        for path in media:
-            p = Path(path)
-            if not p.is_file():
-                continue
-            raw = p.read_bytes()
-            # Detect real MIME type from magic bytes; fallback to filename guess
-            mime = detect_image_mime(raw) or mimetypes.guess_type(path)[0]
-            if not mime or not mime.startswith("image/"):
-                continue
-            b64 = base64.b64encode(raw).decode()
-            images.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
-
-        if not images:
-            return text
-        return images + [{"type": "text", "text": text}]
+        return context_messages.build_user_content(text, media)
 
     @staticmethod
     def _augment_user_text(text: str) -> str:
         """Add narrow runtime hints for requests that need deterministic command planning."""
-        raw = str(text or "")
-        lower = raw.lower()
-        intel_terms = ("intel digest", "daily digest", "资讯日报", "情报摘要")
-        recurring_terms = ("schedule", "every morning", "自动", "定时", "每天", "每日")
-        if any(term in lower for term in intel_terms) and any(term in lower for term in recurring_terms):
-            return (
-                raw
-                + "\n\n"
-                + "Planning note: for the latest scheduled intel digest, prefer "
-                + "`marketbot intel schedule-latest-daily`."
-            )
-        return raw
+        return context_messages.augment_user_text(text)
 
     def add_tool_result(
         self, messages: list[dict[str, Any]],
         tool_call_id: str, tool_name: str, result: str,
     ) -> list[dict[str, Any]]:
         """Add a tool result to the message list."""
-        messages.append({"role": "tool", "tool_call_id": tool_call_id, "name": tool_name, "content": result})
-        return messages
+        return context_messages.add_tool_result(messages, tool_call_id, tool_name, result)
 
     def add_assistant_message(
         self, messages: list[dict[str, Any]],
@@ -569,12 +528,10 @@ If evidence is mixed, reduce conviction and default to `watch`."""
         thinking_blocks: list[dict] | None = None,
     ) -> list[dict[str, Any]]:
         """Add an assistant message to the message list."""
-        msg: dict[str, Any] = {"role": "assistant", "content": content}
-        if tool_calls:
-            msg["tool_calls"] = tool_calls
-        if reasoning_content is not None:
-            msg["reasoning_content"] = reasoning_content
-        if thinking_blocks:
-            msg["thinking_blocks"] = thinking_blocks
-        messages.append(msg)
-        return messages
+        return context_messages.add_assistant_message(
+            messages,
+            content,
+            tool_calls=tool_calls,
+            reasoning_content=reasoning_content,
+            thinking_blocks=thinking_blocks,
+        )
