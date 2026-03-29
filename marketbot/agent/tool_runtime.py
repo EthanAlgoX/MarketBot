@@ -139,6 +139,8 @@ def _direct_xiaohongshu_research_fallback(messages: list[dict[str, Any]]) -> str
     text, _ = _latest_user_content(messages)
     if _is_xiaohongshu_publish_request(text):
         return None
+    if _is_twitter_publish_request(text):
+        return None
     if not _is_xiaohongshu_research_request(text):
         return None
     return text
@@ -960,9 +962,10 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
     if _should_auto_generate_twitter_image(raw_text):
         try:
             _, image_path = await _render_twitter_poster(_resolve_publish_workspace(loop), content)
-        except Exception as exc:
-            return f"Error: 自动生成推特图片失败: {exc}"
-        images.append(str(image_path))
+        except Exception:
+            image_path = None
+        if image_path is not None:
+            images.append(str(image_path))
     post_text = _prepare_twitter_post_text(content, with_image=bool(images))
     result = await loop.tools.execute(
         "twitter_cli",
@@ -1003,16 +1006,19 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
     formatted = _format_twitter_publish_result(result)
     tweet_id = _extract_twitter_publish_id(result)
     if images and tweet_id:
-        verify = await loop.tools.execute(
-            "twitter_cli",
-            {
-                "operation": "tweet",
-                "target": tweet_id,
-                "full_text": True,
-                "max_count": 1,
-            },
-        )
-        if not _tweet_payload_has_media(verify):
+        try:
+            verify = await loop.tools.execute(
+                "twitter_cli",
+                {
+                    "operation": "tweet",
+                    "target": tweet_id,
+                    "full_text": True,
+                    "max_count": 1,
+                },
+            )
+        except Exception:
+            verify = None
+        if verify is not None and not _tweet_payload_has_media(verify):
             return f"{formatted}\n注意：发推成功，但未校验到配图已挂载，请打开链接确认。"
     return formatted
 

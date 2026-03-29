@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 from contextlib import AsyncExitStack
 from datetime import datetime
@@ -13,12 +14,18 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable
 from loguru import logger
 
 from marketbot.agent.context import ContextBuilder
+from marketbot.agent.executor import AgentExecutor
 from marketbot.agent.memory import MemoryStore
+from marketbot.agent.plan_runtime import PlanRuntime
+from marketbot.agent.planner import TaskPlanner
+from marketbot.agent.verifier import StepVerifier
 from marketbot.agent.processor import MessageProcessor
 from marketbot.agent.recursive_retriever import RecursiveRetriever
 import marketbot.agent.request_policy as request_policy
 import marketbot.agent.response_postprocess as response_postprocess
+from marketbot.agent.router import RequestRouter
 from marketbot.agent.subagent import SubagentManager
+from marketbot.agent.tool_health import ToolHealthSnapshot
 import marketbot.agent.tool_runtime as tool_runtime
 import marketbot.agent.turn_runtime as turn_runtime
 from marketbot.agent.tools.message import MessageTool
@@ -120,6 +127,7 @@ class AgentLoop:
         layered_consolidation: bool = False,
     ):
         from marketbot.config.schema import ExecToolConfig
+        workspace = self._normalize_workspace(workspace)
         self.bus = bus
         self.channels_config = channels_config
         self.provider = provider
@@ -149,6 +157,11 @@ class AgentLoop:
         self.retriever = RecursiveRetriever(self.memory_store)
         self.sessions = session_manager or SessionManager(workspace)
         self.tools = ToolRegistry()
+        self.tool_health = ToolHealthSnapshot()
+        self.router = RequestRouter()
+        self.planner = TaskPlanner()
+        self.verifier = StepVerifier()
+        self.plan_runtime = PlanRuntime()
         self.subagents = SubagentManager(
             provider=provider,
             workspace=workspace,
@@ -197,10 +210,24 @@ class AgentLoop:
         self._active_tasks: dict[str, list[asyncio.Task]] = {}  # session_key -> tasks
         self._session_locks: dict[str, asyncio.Lock] = {}
         self._active_request_flags: dict[str, bool] = {}
+        self._active_allowed_tools: set[str] | None = None
+        self._last_route_decision: dict[str, str] | None = None
+        self._last_plan_summary: dict[str, Any] | None = None
+        self._last_plan_path: str | None = None
         self._register_default_tools()
-        self.context.set_available_tools(self.tools.tool_names)
+        self.executor = AgentExecutor(self)
+        self._refresh_runtime_tool_state()
         self.context.set_market_runtime_profile(build_market_runtime_profile(self.market_config))
         self.context.set_browser_adapter_catalog(getattr(self.browser_config, "adapter_catalog", []) if self.browser_config else [])
+
+    @staticmethod
+    def _normalize_workspace(value: Path | str | bytes | None) -> Path:
+        """Normalize workspace input and fall back for tests that pass sentinel objects."""
+        if isinstance(value, Path):
+            return value
+        if isinstance(value, (str, bytes)):
+            return Path(value)
+        return Path("/tmp/marketbot")
 
     def _register_default_tools(self) -> None:
         """Register the default set of tools."""
@@ -221,6 +248,40 @@ class AgentLoop:
         )
         register_core_tools(self.tools, ctx)
         MarketDomainPlugin().register(self.tools, ctx)
+
+    def _refresh_runtime_tool_state(self) -> None:
+        """Refresh tool-health derived runtime visibility."""
+        self.tool_health.refresh(self.tools._tools)
+        self.context.set_available_tools(sorted(self.tool_health.healthy_names()))
+
+    def _visible_tool_names(self) -> set[str]:
+        """Return the tool names visible to the model for the current turn."""
+        tool_health = getattr(self, "tool_health", None)
+        if tool_health is not None:
+            visible = set(tool_health.healthy_names())
+        else:
+            context_tools = getattr(getattr(self, "context", None), "available_tools", None)
+            if context_tools:
+                visible = set(context_tools)
+            else:
+                visible = set()
+                tools = getattr(self, "tools", None)
+                if tools is not None and hasattr(tools, "get_definitions"):
+                    try:
+                        definitions = tools.get_definitions()
+                    except Exception:
+                        definitions = []
+                    if isinstance(definitions, list):
+                        for definition in definitions:
+                            function = definition.get("function") if isinstance(definition, dict) else None
+                            if isinstance(function, dict):
+                                name = str(function.get("name") or "").strip()
+                                if name:
+                                    visible.add(name)
+        active_allowed_tools = getattr(self, "_active_allowed_tools", None)
+        if active_allowed_tools is not None:
+            visible &= active_allowed_tools
+        return visible
 
     @staticmethod
     def _resolve_dispatch_session_key(msg: InboundMessage) -> str:
@@ -254,7 +315,7 @@ class AgentLoop:
             self._mcp_stack = AsyncExitStack()
             await self._mcp_stack.__aenter__()
             await connect_mcp_servers(self._mcp_servers, self.tools, self._mcp_stack)
-            self.context.set_available_tools(self.tools.tool_names)
+            self._refresh_runtime_tool_state()
             self._mcp_connected = True
         except Exception as e:
             logger.error("Failed to connect MCP servers (will retry next message): {}", e)
@@ -636,10 +697,20 @@ class AgentLoop:
             channel=channel,
             chat_id=chat_id,
         )
-        final_content, tools_used, all_msgs, usage = await self._run_agent_loop(
-            retry_messages,
-            on_progress=on_progress,
-        )
+        executor = getattr(self, "executor", None)
+        if executor is not None:
+            final_content, tools_used, all_msgs, usage = await executor.execute_messages(
+                retry_messages,
+                on_progress=on_progress,
+            )
+        else:
+            try:
+                final_content, tools_used, all_msgs, usage = await self._run_agent_loop(
+                    retry_messages,
+                    on_progress=on_progress,
+                )
+            except TypeError:
+                final_content, tools_used, all_msgs, usage = await self._run_agent_loop(retry_messages)
         return retry_skill_names, final_content, tools_used, all_msgs, usage
 
     async def _record_skill_outcome(
@@ -893,6 +964,9 @@ class AgentLoop:
 
         preview = self._preview_message_content(msg.content)
         logger.info("Processing message from {}:{}: {}", msg.channel, msg.sender_id, preview)
+        route = self.router.decide(text=msg.content, channel=msg.channel, metadata=msg.metadata)
+        self._last_route_decision = {"mode": route.mode, "reason": route.reason}
+        logger.info("Route decision mode={} reason={}", route.mode, route.reason)
 
         if self._match_daily_opportunity_report_query(msg.content):
             return OutboundMessage(

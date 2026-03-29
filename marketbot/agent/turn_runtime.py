@@ -12,6 +12,22 @@ from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.session.manager import Session
 
 
+async def _execute_with_compat(
+    loop,
+    messages: list[dict[str, Any]],
+    *,
+    on_progress: Callable[[str], Awaitable[None]] | None = None,
+) -> tuple[str | None, list[str], list[dict[str, Any]], dict[str, int]]:
+    """Run through the shared executor when present, otherwise fall back to legacy loop."""
+    executor = getattr(loop, "executor", None)
+    if executor is not None:
+        return await executor.execute_messages(messages, on_progress=on_progress)
+    try:
+        return await loop._run_agent_loop(messages, on_progress=on_progress)
+    except TypeError:
+        return await loop._run_agent_loop(messages)
+
+
 def build_response_metadata(
     loop,
     *,
@@ -23,6 +39,12 @@ def build_response_metadata(
 ) -> dict[str, Any]:
     """Build outbound metadata for completed turns."""
     metadata = dict(msg_metadata or {})
+    if getattr(loop, "_last_route_decision", None):
+        metadata["route_decision"] = dict(loop._last_route_decision)
+    if getattr(loop, "_last_plan_summary", None):
+        metadata["plan"] = dict(loop._last_plan_summary)
+    if getattr(loop, "_last_plan_path", None):
+        metadata["plan_path"] = str(loop._last_plan_path)
     if usage:
         metadata["usage"] = usage
     if skill_routing := loop.processor.get_last_skill_routing():
@@ -175,11 +197,36 @@ async def run_user_turn(
 ) -> tuple[str | None, dict[str, Any]]:
     """Execute a normal user turn and return finalized content plus metadata."""
     loop._last_skill_fallback = None
-    final_content, tools_used, all_msgs, usage = await loop._run_agent_loop(
-        initial_messages,
-        on_progress=on_progress or loop._build_bus_progress_callback(msg=msg),
-    )
+    loop._last_plan_summary = None
+    loop._last_plan_path = None
     progress_cb = on_progress or loop._build_bus_progress_callback(msg=msg)
+    route_mode = str((getattr(loop, "_last_route_decision", {}) or {}).get("mode") or "direct_react")
+    if route_mode == "planned_task":
+        plan = loop.planner.create_plan(
+            request_text=msg.content,
+            visible_tools=loop._visible_tool_names(),
+            route_mode=route_mode,
+        )
+        loop._last_plan_summary = {
+            "id": plan.id,
+            "mode": plan.mode,
+            "stepCount": len(plan.steps),
+            "steps": [step.title for step in plan.steps],
+        }
+        final_content, tools_used, all_msgs, usage = await loop.plan_runtime.run_plan(
+            loop=loop,
+            plan=plan,
+            session=session,
+            channel=msg.channel,
+            chat_id=msg.chat_id,
+            on_progress=progress_cb,
+        )
+    else:
+        final_content, tools_used, all_msgs, usage = await _execute_with_compat(
+            loop,
+            initial_messages,
+            on_progress=progress_cb,
+        )
     initial_outcome = loop._classify_skill_outcome(final_content=final_content, all_msgs=all_msgs)
     initial_routing = loop.processor.get_last_skill_routing() or {}
     initial_selected = initial_routing.get("selected") or []
@@ -258,7 +305,31 @@ async def run_system_turn(
 ) -> OutboundMessage:
     """Execute a system-triggered turn and return the outbound response."""
     loop._last_skill_fallback = None
-    final_content, tools_used, all_msgs, usage = await loop._run_agent_loop(messages)
+    loop._last_plan_summary = None
+    loop._last_plan_path = None
+    route_mode = str((getattr(loop, "_last_route_decision", {}) or {}).get("mode") or "scheduled_task")
+    if route_mode == "planned_task":
+        plan = loop.planner.create_plan(
+            request_text=msg.content,
+            visible_tools=loop._visible_tool_names(),
+            route_mode=route_mode,
+        )
+        loop._last_plan_summary = {
+            "id": plan.id,
+            "mode": plan.mode,
+            "stepCount": len(plan.steps),
+            "steps": [step.title for step in plan.steps],
+        }
+        final_content, tools_used, all_msgs, usage = await loop.plan_runtime.run_plan(
+            loop=loop,
+            plan=plan,
+            session=session,
+            channel=channel,
+            chat_id=chat_id,
+            on_progress=None,
+        )
+    else:
+        final_content, tools_used, all_msgs, usage = await _execute_with_compat(loop, messages)
     initial_outcome = loop._classify_skill_outcome(final_content=final_content, all_msgs=all_msgs)
     initial_routing = loop.processor.get_last_skill_routing() or {}
     initial_selected = initial_routing.get("selected") or []

@@ -8,6 +8,11 @@ from typing import Any
 
 from loguru import logger
 
+from marketbot.agent.executor import classify_execution_outcome
+from marketbot.agent.planner import TaskPlanner
+from marketbot.agent.router import RequestRouter
+from marketbot.agent.tool_health import ToolHealthSnapshot
+from marketbot.agent.verifier import StepVerifier
 from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from marketbot.agent.tools.lark import LarkBaseTool, LarkCliTool, LarkDocTool, LarkIMTool, LarkSheetsTool, LarkTaskTool
@@ -61,6 +66,9 @@ class SubagentManager:
         self.restrict_to_workspace = restrict_to_workspace
         self._running_tasks: dict[str, asyncio.Task[None]] = {}
         self._session_tasks: dict[str, set[str]] = {}  # session_key -> {task_id, ...}
+        self.router = RequestRouter()
+        self.planner = TaskPlanner()
+        self.verifier = StepVerifier()
 
     async def spawn(
         self,
@@ -105,96 +113,26 @@ class SubagentManager:
         logger.info("Subagent [{}] starting task: {}", task_id, label)
 
         try:
-            # Build subagent tools (no message tool, no spawn tool)
-            tools = ToolRegistry()
-            allowed_dir = self.workspace if self.restrict_to_workspace else None
-            tools.register(ReadFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-            tools.register(WriteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-            tools.register(EditFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-            tools.register(ListDirTool(workspace=self.workspace, allowed_dir=allowed_dir))
-            tools.register(ExecTool(
-                working_dir=str(self.workspace),
-                timeout=self.exec_config.timeout,
-                restrict_to_workspace=self.restrict_to_workspace,
-                path_append=self.exec_config.path_append,
-            ))
-            tools.register(WebSearchTool(api_key=self.brave_api_key, proxy=self.web_proxy))
-            tools.register(WebFetchTool(proxy=self.web_proxy))
-            if self.browser_config and getattr(self.browser_config, "enabled", False):
-                tools.register(BrowserSiteTool(browser_config=self.browser_config, workspace=self.workspace))
-                tools.register(BrowserPageTool(browser_config=self.browser_config, workspace=self.workspace))
-                tools.register(BrowserNetworkTool(browser_config=self.browser_config, workspace=self.workspace))
-            if self.xiaohongshu_cli_config and getattr(self.xiaohongshu_cli_config, "enabled", False):
-                tools.register(XiaohongshuCliTool(xhs_config=self.xiaohongshu_cli_config, workspace=self.workspace))
-            if self.twitter_cli_config and getattr(self.twitter_cli_config, "enabled", False):
-                tools.register(TwitterCliTool(twitter_config=self.twitter_cli_config, workspace=self.workspace))
-            if self.lark_cli_config and getattr(self.lark_cli_config, "enabled", False):
-                tools.register(LarkCliTool(lark_config=self.lark_cli_config, workspace=self.workspace))
-                tools.register(LarkBaseTool(lark_config=self.lark_cli_config, workspace=self.workspace))
-                tools.register(LarkIMTool(lark_config=self.lark_cli_config, workspace=self.workspace))
-                tools.register(LarkDocTool(lark_config=self.lark_cli_config, workspace=self.workspace))
-                tools.register(LarkSheetsTool(lark_config=self.lark_cli_config, workspace=self.workspace))
-                tools.register(LarkTaskTool(lark_config=self.lark_cli_config, workspace=self.workspace))
-            
+            tools, healthy_names = self._build_tool_registry()
             system_prompt = self._build_subagent_prompt()
-            messages: list[dict[str, Any]] = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": task},
-            ]
-
-            # Run agent loop (limited iterations)
-            max_iterations = 15
-            iteration = 0
-            final_result: str | None = None
-
-            while iteration < max_iterations:
-                iteration += 1
-
-                response = await self.provider.chat(
-                    messages=messages,
-                    tools=tools.get_definitions(),
-                    model=self.model,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                    reasoning_effort=self.reasoning_effort,
+            route = self.router.decide(text=task, channel="cli", metadata=None)
+            if route.mode == "planned_task":
+                final_result = await self._run_planned_subagent_task(
+                    task=task,
+                    tools=tools,
+                    healthy_names=healthy_names,
+                    system_prompt=system_prompt,
                 )
-
-                if response.has_tool_calls:
-                    # Add assistant message with tool calls
-                    tool_call_dicts = [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.name,
-                                "arguments": json.dumps(tc.arguments, ensure_ascii=False),
-                            },
-                        }
-                        for tc in response.tool_calls
-                    ]
-                    messages.append({
-                        "role": "assistant",
-                        "content": response.content or "",
-                        "tool_calls": tool_call_dicts,
-                    })
-
-                    # Execute tools
-                    for tool_call in response.tool_calls:
-                        args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
-                        logger.debug("Subagent [{}] executing: {} with arguments: {}", task_id, tool_call.name, args_str)
-                        result = await tools.execute(tool_call.name, tool_call.arguments)
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "name": tool_call.name,
-                            "content": result,
-                        })
-                else:
-                    final_result = response.content
-                    break
-
-            if final_result is None:
-                final_result = "Task completed but no final response was generated."
+            else:
+                messages: list[dict[str, Any]] = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": task},
+                ]
+                final_result, _, _ = await self._run_local_react_loop(
+                    messages=messages,
+                    tools=tools,
+                    exposed_names=healthy_names,
+                )
 
             logger.info("Subagent [{}] completed successfully", task_id)
             await self._announce_result(task_id, label, task, final_result, origin, "ok")
@@ -203,6 +141,152 @@ class SubagentManager:
             error_msg = f"Error: {str(e)}"
             logger.error("Subagent [{}] failed: {}", task_id, e)
             await self._announce_result(task_id, label, task, error_msg, origin, "error")
+
+    def _build_tool_registry(self) -> tuple[ToolRegistry, set[str]]:
+        """Build subagent tools and return healthy visible tool names."""
+        tools = ToolRegistry()
+        allowed_dir = self.workspace if self.restrict_to_workspace else None
+        tools.register(ReadFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
+        tools.register(WriteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
+        tools.register(EditFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
+        tools.register(ListDirTool(workspace=self.workspace, allowed_dir=allowed_dir))
+        tools.register(ExecTool(
+            working_dir=str(self.workspace),
+            timeout=self.exec_config.timeout,
+            restrict_to_workspace=self.restrict_to_workspace,
+            path_append=self.exec_config.path_append,
+        ))
+        tools.register(WebSearchTool(api_key=self.brave_api_key, proxy=self.web_proxy))
+        tools.register(WebFetchTool(proxy=self.web_proxy))
+        if self.browser_config and getattr(self.browser_config, "enabled", False):
+            tools.register(BrowserSiteTool(browser_config=self.browser_config, workspace=self.workspace))
+            tools.register(BrowserPageTool(browser_config=self.browser_config, workspace=self.workspace))
+            tools.register(BrowserNetworkTool(browser_config=self.browser_config, workspace=self.workspace))
+        if self.xiaohongshu_cli_config and getattr(self.xiaohongshu_cli_config, "enabled", False):
+            tools.register(XiaohongshuCliTool(xhs_config=self.xiaohongshu_cli_config, workspace=self.workspace))
+        if self.twitter_cli_config and getattr(self.twitter_cli_config, "enabled", False):
+            tools.register(TwitterCliTool(twitter_config=self.twitter_cli_config, workspace=self.workspace))
+        if self.lark_cli_config and getattr(self.lark_cli_config, "enabled", False):
+            tools.register(LarkCliTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+            tools.register(LarkBaseTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+            tools.register(LarkIMTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+            tools.register(LarkDocTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+            tools.register(LarkSheetsTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+            tools.register(LarkTaskTool(lark_config=self.lark_cli_config, workspace=self.workspace))
+        health = ToolHealthSnapshot()
+        health.refresh(tools._tools)
+        return tools, health.healthy_names()
+
+    async def _run_local_react_loop(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        tools: ToolRegistry,
+        exposed_names: set[str],
+        max_iterations: int = 15,
+    ) -> tuple[str, list[str], list[dict[str, Any]]]:
+        """Run a local ReAct loop for the subagent using filtered tools."""
+        iteration = 0
+        final_result: str | None = None
+        tools_used: list[str] = []
+        while iteration < max_iterations:
+            iteration += 1
+            response = await self.provider.chat(
+                messages=messages,
+                tools=tools.get_definitions(exposed_names=exposed_names),
+                model=self.model,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                reasoning_effort=self.reasoning_effort,
+            )
+            if response.has_tool_calls:
+                tool_call_dicts = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.name,
+                            "arguments": json.dumps(tc.arguments, ensure_ascii=False),
+                        },
+                    }
+                    for tc in response.tool_calls
+                ]
+                messages.append({
+                    "role": "assistant",
+                    "content": response.content or "",
+                    "tool_calls": tool_call_dicts,
+                })
+                for tool_call in response.tool_calls:
+                    args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
+                    logger.debug("Subagent executing: {} with arguments: {}", tool_call.name, args_str)
+                    tools_used.append(tool_call.name)
+                    result = await tools.execute(tool_call.name, tool_call.arguments)
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": tool_call.name,
+                        "content": result,
+                    })
+            else:
+                final_result = response.content
+                break
+        return final_result or "Task completed but no final response was generated.", tools_used, messages
+
+    async def _run_planned_subagent_task(
+        self,
+        *,
+        task: str,
+        tools: ToolRegistry,
+        healthy_names: set[str],
+        system_prompt: str,
+    ) -> str:
+        """Run a deterministic planned task locally for the subagent."""
+        plan = self.planner.create_plan(
+            request_text=task,
+            visible_tools=healthy_names,
+            route_mode="planned_task",
+        )
+        latest_output = ""
+        for step in plan.steps:
+            step.status = "running"
+            messages: list[dict[str, Any]] = [
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Current step: {step.title}\n\n"
+                        f"Instruction: {step.instruction}\n\n"
+                        f"Success criteria: {step.success_criteria}\n\n"
+                        f"Allowed tools: {', '.join(step.allowed_tools) if step.allowed_tools else '(none)'}"
+                    ),
+                },
+            ]
+            latest_output, tools_used, messages = await self._run_local_react_loop(
+                messages=messages,
+                tools=tools,
+                exposed_names=set(step.allowed_tools),
+            )
+            outcome = classify_execution_outcome(
+                final_content=latest_output,
+                messages=messages,
+                tools_used=tools_used,
+            )
+            result_status = "completed" if outcome == "success" else ("partial" if outcome == "partial" else "failed")
+            decision = self.verifier.evaluate(
+                step=step,
+                step_result=type(
+                    "SubStepResult",
+                    (),
+                    {
+                        "status": result_status,
+                        "needs_replan": (outcome == "failure" and not tools_used and bool(step.allowed_tools)),
+                    },
+                )(),
+            )
+            if decision.outcome != "advance":
+                break
+            step.status = "completed"
+        return latest_output or "Task completed but no final response was generated."
 
     async def _announce_result(
         self,

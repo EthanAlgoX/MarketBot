@@ -92,7 +92,31 @@ async def test_registry_returns_validation_error() -> None:
     reg = ToolRegistry()
     reg.register(SampleTool())
     result = await reg.execute("sample", {"query": "hi"})
-    assert "Invalid parameters" in result
+    payload = json.loads(result)
+    assert payload["ok"] is False
+    assert payload["error"]["type"] == "invalid_parameters"
+    assert payload["error"]["retryable"] is True
+
+
+async def test_registry_returns_structured_tool_not_found_error() -> None:
+    reg = ToolRegistry()
+
+    result = await reg.execute("missing_tool", {"query": "hi"})
+
+    payload = json.loads(result)
+    assert payload["ok"] is False
+    assert payload["error"]["tool"] == "missing_tool"
+    assert payload["error"]["type"] == "tool_not_found"
+    assert payload["error"]["retryable"] is False
+
+
+async def test_registry_filters_tool_definitions_by_visibility() -> None:
+    reg = ToolRegistry()
+    reg.register(SampleTool())
+
+    definitions = reg.get_definitions(exposed_names={"other"})
+
+    assert definitions == []
 
 
 def test_exec_extract_absolute_paths_keeps_full_windows_path() -> None:

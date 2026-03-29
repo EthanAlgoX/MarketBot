@@ -484,7 +484,18 @@ def _extract_probable_ticker(query: str) -> str | None:
 
 def tool_definitions_for_request(loop: Any) -> list[dict[str, Any]]:
     """Return the tool definitions visible to the model for the active request."""
-    definitions = loop.tools.get_definitions()
+    visible_names = loop._visible_tool_names()
+    try:
+        definitions = loop.tools.get_definitions(exposed_names=visible_names)
+    except TypeError:
+        definitions = loop.tools.get_definitions()
+        if visible_names:
+            filtered_definitions: list[dict[str, Any]] = []
+            for definition in definitions:
+                function = definition.get("function") if isinstance(definition, dict) else None
+                if isinstance(function, dict) and str(function.get("name") or "").strip() in visible_names:
+                    filtered_definitions.append(definition)
+            definitions = filtered_definitions
     request_flags = getattr(loop, "_active_request_flags", {}) or {}
     if request_flags.get("xiaohongshu_request"):
         available_tools = set(getattr(getattr(loop, "context", None), "available_tools", set()) or set())
