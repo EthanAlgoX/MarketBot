@@ -4,8 +4,16 @@ This directory contains built-in skills that extend marketbot's capabilities.
 
 When no suitable local skill is selected, marketbot can also surface curated external suggestions from:
 
-- `https://github.com/openclaw/skills`
+- `https://skills.sh/openclaw`
 - `https://github.com/VoltAgent/awesome-openclaw-skills`
+
+For X/Twitter workflows that need an OpenClaw plugin instead of local
+browser-cookie tooling, use
+[`TweetClaw`](https://github.com/Xquik-dev/tweetclaw) with
+`openclaw plugins install @xquik/tweetclaw`. It covers scrape tweets, search
+tweets, search tweet replies, follower export, user lookup, media workflows,
+monitor tweets, webhooks, giveaway draws, and approval-reviewed post or reply
+actions.
 
 You can also search and install them with:
 

@@ -914,6 +914,28 @@ marketbot agent -m "帮我总结一下 Twitter 上关于 NVDA 最新 guidance �
 - 该 CLI 本质上依赖本机浏览器 cookie 或环境变量认证；如果 `twitter status` 不可用，先修复 CLI 登录态，不要先排查 MarketBot
 - Twitter/X 数据更适合做快信号和传播路径观察，不应替代公告、财报、交易所披露或正式新闻源
 
+### 6. 可选 OpenClaw TweetClaw 路径
+
+如果你已经用 OpenClaw 管理 plugin，并希望把 Twitter/X 工作流走 API-key
+配置，而不是依赖本机浏览器 cookie，可以单独安装
+[`TweetClaw`](https://github.com/Xquik-dev/tweetclaw)：
+
+```bash
+openclaw plugins install @xquik/tweetclaw
+```
+
+适合把 MarketBot 的 `twitter-browser-research`、`sentiment-analysis`、
+`market-discovery` 和 `stock-watch` 工作流扩展到：
+
+- scrape tweets、search tweets、search tweet replies
+- follower export、user lookup、media upload、media download
+- monitor tweets、webhooks、giveaway draws
+- 需要人工确认的 post tweets 和 post tweet replies
+
+将 Xquik API key 放在 OpenClaw 或 MarketBot 的本地配置里，不要提交到仓库。
+`twitter-cli` 仍适合本机 cookie 驱动的轻量读取；TweetClaw 更适合需要
+OpenClaw plugin 安装、结构化返回数据和可复用 agent tool 的场景。
+
 ## Skill 搜索与安装
 
 可以先搜本地 skill，不够再回退到外部 curated skill 目录：
