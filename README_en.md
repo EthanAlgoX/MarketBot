@@ -872,7 +872,7 @@ Use it to extend MarketBot workflows such as `twitter-browser-research`,
 - scrape tweets, search tweets, and search tweet replies
 - follower export, user lookup, media upload, and media download
 - monitor tweets, webhooks, and giveaway draws
-- approval-reviewed post tweets and post tweet replies
+- approval-gated posting of tweets and replies
 
 Keep the Xquik API key in local OpenClaw or MarketBot config, not in the repo.
 `twitter-cli` remains useful for lightweight local cookie-backed reads;

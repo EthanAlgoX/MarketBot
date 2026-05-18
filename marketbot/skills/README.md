@@ -10,10 +10,10 @@ When no suitable local skill is selected, marketbot can also surface curated ext
 For X/Twitter workflows that need an OpenClaw plugin instead of local
 browser-cookie tooling, use
 [`TweetClaw`](https://github.com/Xquik-dev/tweetclaw) with
-`openclaw plugins install @xquik/tweetclaw`. It covers scrape tweets, search
-tweets, search tweet replies, follower export, user lookup, media workflows,
-monitor tweets, webhooks, giveaway draws, and approval-reviewed post or reply
-actions.
+`openclaw plugins install @xquik/tweetclaw`. It supports scraping tweets,
+searching tweets, searching tweet replies, follower export, user lookup, media
+workflows, monitoring tweets, webhooks, giveaway draws, and manually reviewed
+post or reply actions.
 
 You can also search and install them with:
 

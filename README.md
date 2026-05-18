@@ -934,7 +934,7 @@ openclaw plugins install @xquik/tweetclaw
 
 将 Xquik API key 放在 OpenClaw 或 MarketBot 的本地配置里，不要提交到仓库。
 `twitter-cli` 仍适合本机 cookie 驱动的轻量读取；TweetClaw 更适合需要
-OpenClaw plugin 安装、结构化返回数据和可复用 agent tool 的场景。
+OpenClaw plugin 安装、结构化返回数据和可复用 agent tools 的场景。
 
 ## Skill 搜索与安装
 
