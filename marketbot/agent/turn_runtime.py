@@ -2,30 +2,18 @@
 
 from __future__ import annotations
 
-import inspect
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from marketbot.agent import response_postprocess
 from marketbot.agent.tools.message import MessageTool
+from marketbot.agent.turn_orchestrator import (
+    MarketTurnOrchestrator,
+    TurnExecutionRequest,
+    to_outbound_message,
+)
 from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.session.manager import Session
-
-
-async def _execute_with_compat(
-    loop,
-    messages: list[dict[str, Any]],
-    *,
-    on_progress: Callable[[str], Awaitable[None]] | None = None,
-) -> tuple[str | None, list[str], list[dict[str, Any]], dict[str, int]]:
-    """Run through the shared executor when present, otherwise fall back to legacy loop."""
-    executor = getattr(loop, "executor", None)
-    if executor is not None:
-        return await executor.execute_messages(messages, on_progress=on_progress)
-    try:
-        return await loop._run_agent_loop(messages, on_progress=on_progress)
-    except TypeError:
-        return await loop._run_agent_loop(messages)
 
 
 def build_response_metadata(
@@ -196,101 +184,24 @@ async def run_user_turn(
     on_progress: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
     """Execute a normal user turn and return finalized content plus metadata."""
-    loop._last_skill_fallback = None
-    loop._last_plan_summary = None
-    loop._last_plan_path = None
-    progress_cb = on_progress or loop._build_bus_progress_callback(msg=msg)
-    route_mode = str((getattr(loop, "_last_route_decision", {}) or {}).get("mode") or "direct_react")
-    if route_mode == "planned_task":
-        plan = loop.planner.create_plan(
-            request_text=msg.content,
-            visible_tools=loop._visible_tool_names(),
-            route_mode=route_mode,
-        )
-        loop._last_plan_summary = {
-            "id": plan.id,
-            "mode": plan.mode,
-            "stepCount": len(plan.steps),
-            "steps": [step.title for step in plan.steps],
-        }
-        final_content, tools_used, all_msgs, usage = await loop.plan_runtime.run_plan(
-            loop=loop,
-            plan=plan,
+    result = await MarketTurnOrchestrator(loop).execute(
+        TurnExecutionRequest(
+            msg=msg,
             session=session,
+            history=history,
+            initial_messages=initial_messages,
             channel=msg.channel,
             chat_id=msg.chat_id,
-            on_progress=progress_cb,
+            request_text=msg.content,
+            default_route_mode="direct_react",
+            append_inline_explainability=(msg.channel == "cli"),
+            empty_fallback="I've completed processing but have no response to give.",
+            media=msg.media if msg.media else None,
+            normalize_daily_report=True,
+            on_progress=on_progress,
         )
-    else:
-        final_content, tools_used, all_msgs, usage = await _execute_with_compat(
-            loop,
-            initial_messages,
-            on_progress=progress_cb,
-        )
-    initial_outcome = loop._classify_skill_outcome(final_content=final_content, all_msgs=all_msgs)
-    initial_routing = loop.processor.get_last_skill_routing() or {}
-    initial_selected = initial_routing.get("selected") or []
-    primary_name = (
-        str(initial_selected[0].get("name") or "").strip()
-        if initial_selected and isinstance(initial_selected[0], dict)
-        else ""
     )
-    retry_skills, retry_content, retry_tools, retry_msgs, retry_usage = await loop._retry_turn_with_fallback(
-        session=session,
-        current_message=msg.content,
-        media=msg.media if msg.media else None,
-        channel=msg.channel,
-        chat_id=msg.chat_id,
-        on_progress=progress_cb,
-        outcome=initial_outcome,
-    )
-    if retry_skills:
-        final_routing = loop.processor.get_last_skill_routing() or {}
-        final_selected = final_routing.get("selected") or []
-        final_name = (
-            str(final_selected[0].get("name") or "").strip()
-            if final_selected and isinstance(final_selected[0], dict)
-            else retry_skills[0]
-        )
-        loop._last_skill_fallback = {
-            "used": True,
-            "primarySkill": primary_name,
-            "fallbackSkills": list(retry_skills),
-            "selectedFallback": retry_skills[0],
-            "finalSkill": final_name,
-        }
-        final_content = retry_content
-        tools_used = retry_tools
-        all_msgs = retry_msgs
-        usage = loop._merge_usage(usage or {}, retry_usage)
-    final_content = loop._normalize_daily_opportunity_report(final_content)
-    final_content, explainability, external_skill_suggestions, report_path = loop._finalize_response_content(
-        final_content,
-        all_msgs=all_msgs,
-        channel=msg.channel,
-        request_text=msg.content,
-        append_inline_explainability=(msg.channel == "cli"),
-        empty_fallback="I've completed processing but have no response to give.",
-    )
-    record_result = loop._record_completed_turn(
-        session=session,
-        history_len=len(history),
-        all_msgs=all_msgs,
-        usage=usage,
-        request_text=msg.content,
-        final_content=final_content,
-        tools_used=tools_used,
-    )
-    if inspect.isawaitable(record_result):
-        await record_result
-    metadata = loop._build_response_metadata(
-        msg_metadata=msg.metadata,
-        usage=usage,
-        explainability=explainability,
-        external_skill_suggestions=external_skill_suggestions,
-        report_path=report_path,
-    )
-    return final_content, metadata
+    return result.final_content, result.metadata
 
 
 async def run_system_turn(
@@ -304,96 +215,22 @@ async def run_system_turn(
     chat_id: str,
 ) -> OutboundMessage:
     """Execute a system-triggered turn and return the outbound response."""
-    loop._last_skill_fallback = None
-    loop._last_plan_summary = None
-    loop._last_plan_path = None
-    route_mode = str((getattr(loop, "_last_route_decision", {}) or {}).get("mode") or "scheduled_task")
-    if route_mode == "planned_task":
-        plan = loop.planner.create_plan(
-            request_text=msg.content,
-            visible_tools=loop._visible_tool_names(),
-            route_mode=route_mode,
-        )
-        loop._last_plan_summary = {
-            "id": plan.id,
-            "mode": plan.mode,
-            "stepCount": len(plan.steps),
-            "steps": [step.title for step in plan.steps],
-        }
-        final_content, tools_used, all_msgs, usage = await loop.plan_runtime.run_plan(
-            loop=loop,
-            plan=plan,
+    result = await MarketTurnOrchestrator(loop).execute(
+        TurnExecutionRequest(
+            msg=msg,
             session=session,
+            history=history,
+            initial_messages=messages,
             channel=channel,
             chat_id=chat_id,
-            on_progress=None,
+            request_text=msg.content,
+            default_route_mode="scheduled_task",
+            append_inline_explainability=True,
         )
-    else:
-        final_content, tools_used, all_msgs, usage = await _execute_with_compat(loop, messages)
-    initial_outcome = loop._classify_skill_outcome(final_content=final_content, all_msgs=all_msgs)
-    initial_routing = loop.processor.get_last_skill_routing() or {}
-    initial_selected = initial_routing.get("selected") or []
-    primary_name = (
-        str(initial_selected[0].get("name") or "").strip()
-        if initial_selected and isinstance(initial_selected[0], dict)
-        else ""
     )
-    retry_skills, retry_content, retry_tools, retry_msgs, retry_usage = await loop._retry_turn_with_fallback(
-        session=session,
-        current_message=msg.content,
-        media=None,
+    return to_outbound_message(
+        result,
         channel=channel,
         chat_id=chat_id,
-        on_progress=None,
-        outcome=initial_outcome,
-    )
-    if retry_skills:
-        final_routing = loop.processor.get_last_skill_routing() or {}
-        final_selected = final_routing.get("selected") or []
-        final_name = (
-            str(final_selected[0].get("name") or "").strip()
-            if final_selected and isinstance(final_selected[0], dict)
-            else retry_skills[0]
-        )
-        loop._last_skill_fallback = {
-            "used": True,
-            "primarySkill": primary_name,
-            "fallbackSkills": list(retry_skills),
-            "selectedFallback": retry_skills[0],
-            "finalSkill": final_name,
-        }
-        final_content = retry_content
-        tools_used = retry_tools
-        all_msgs = retry_msgs
-        usage = loop._merge_usage(usage or {}, retry_usage)
-    final_content, explainability, external_skill_suggestions, report_path = loop._finalize_response_content(
-        final_content,
-        all_msgs=all_msgs,
-        channel=channel,
-        request_text=msg.content,
-        append_inline_explainability=True,
-    )
-    record_result = loop._record_completed_turn(
-        session=session,
-        history_len=len(history),
-        all_msgs=all_msgs,
-        usage=usage,
-        request_text=msg.content,
-        final_content=final_content,
-        tools_used=tools_used,
-    )
-    if inspect.isawaitable(record_result):
-        await record_result
-    metadata = loop._build_response_metadata(
-        msg_metadata=msg.metadata,
-        usage=usage,
-        explainability=explainability,
-        external_skill_suggestions=external_skill_suggestions,
-        report_path=report_path,
-    )
-    return OutboundMessage(
-        channel=channel,
-        chat_id=chat_id,
-        content=final_content or "Background task completed.",
-        metadata=metadata,
+        fallback_content="Background task completed.",
     )

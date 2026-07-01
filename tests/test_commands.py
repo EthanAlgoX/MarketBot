@@ -27,7 +27,7 @@ def mock_paths():
     """Mock config/workspace paths for test isolation."""
     with patch("marketbot.config.loader.get_config_path") as mock_cp, \
          patch("marketbot.config.loader.save_config") as mock_sc, \
-         patch("marketbot.config.loader.load_config") as mock_lc, \
+         patch("marketbot.config.loader.load_config"), \
          patch("marketbot.utils.helpers.get_workspace_path") as mock_ws:
 
         base_dir = Path("./test_onboard_data")
@@ -251,6 +251,35 @@ def test_market_report_rejects_invalid_session(tmp_path):
 
     assert result.exit_code != 0
     assert "session must be one of" in result.stdout
+
+
+def test_channels_status_supports_json_output(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+    config.channels.telegram.enabled = True
+    config.channels.telegram.token = "test-token"
+
+    with patch("marketbot.config.loader.load_config", return_value=config):
+        result = runner.invoke(app, ["channels", "status", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    telegram = next(channel for channel in payload["channels"] if channel["name"] == "telegram")
+    assert telegram["enabled"] is True
+    assert telegram["configuration"]["tokenConfigured"] is True
+
+
+def test_skills_score_list_alias_supports_json_output(tmp_path):
+    config = Config()
+    config.agents.defaults.workspace = str(tmp_path)
+
+    with patch("marketbot.config.loader.load_config", return_value=config):
+        result = runner.invoke(app, ["skills", "score", "list", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["version"] == 1
+    assert payload["rows"] == []
 
 
 def test_market_report_notify_sends_to_explicit_channel(tmp_path):
@@ -2611,7 +2640,7 @@ def test_status_shows_browser_safety_configuration(tmp_path):
 
     with patch("marketbot.config.loader.get_config_path", return_value=tmp_path / "config.json"), patch(
         "marketbot.config.loader.load_config", return_value=config
-    ), patch("marketbot.cli.commands.shutil.which", return_value="/usr/local/bin/bb-browser"):
+    ), patch("marketbot.cli.status_runtime.shutil.which", return_value="/usr/local/bin/bb-browser"):
         result = runner.invoke(app, ["status"])
 
     assert result.exit_code == 0
@@ -2660,7 +2689,7 @@ def test_status_json_includes_browser_and_provider_state(tmp_path):
 
     with patch("marketbot.config.loader.get_config_path", return_value=tmp_path / "config.json"), patch(
         "marketbot.config.loader.load_config", return_value=config
-    ), patch("marketbot.cli.commands.shutil.which", return_value="/usr/local/bin/bb-browser"):
+    ), patch("marketbot.cli.status_runtime.shutil.which", return_value="/usr/local/bin/bb-browser"):
         result = runner.invoke(app, ["status", "--json"])
 
     assert result.exit_code == 0
@@ -2695,7 +2724,7 @@ def test_format_browser_runtime_summary_enabled():
     config.tools.browser.allow_sites = ["reddit", "github"]
     config.tools.browser.allow_domains = ["reddit.com"]
 
-    with patch("marketbot.cli.commands.shutil.which", return_value="/usr/local/bin/bb-browser"):
+    with patch("marketbot.cli.status_runtime.shutil.which", return_value="/usr/local/bin/bb-browser"):
         summary = _format_browser_runtime_summary(config)
 
     assert "Browser: mode=sensitive" in summary

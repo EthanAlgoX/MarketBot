@@ -1,15 +1,13 @@
-from pathlib import Path
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 
+from marketbot.agent import request_policy, tool_runtime
 from marketbot.agent.context import ContextBuilder
-from marketbot.agent import request_policy
-from marketbot.agent import tool_runtime
 from marketbot.agent.loop import AgentLoop
 from marketbot.bus.events import InboundMessage
+from marketbot.providers.base import LLMResponse, ToolCallRequest
 from marketbot.session.manager import Session
-from marketbot.providers.base import ToolCallRequest
-from marketbot.providers.base import LLMResponse
 
 
 def _mk_loop() -> AgentLoop:
@@ -1397,7 +1395,6 @@ def test_run_user_turn_feishu_twitter_publish_skips_explainability_footer() -> N
 
 def test_run_user_turn_feishu_twitter_publish_retries_with_shorter_cjk_text() -> None:
     loop = _mk_loop()
-    session = Session(key="feishu:retry")
     msg = InboundMessage(
         channel="feishu",
         sender_id="user",

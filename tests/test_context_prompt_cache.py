@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import datetime as datetime_module
 from datetime import datetime as real_datetime
 from pathlib import Path
-import datetime as datetime_module
 
 from marketbot.agent.context import ContextBuilder
 from marketbot.config.schema import MarketToolsConfig
@@ -88,11 +88,13 @@ def test_runtime_context_is_separate_untrusted_user_message(tmp_path) -> None:
     assert messages[-1]["role"] == "user"
     user_content = messages[-1]["content"]
     assert isinstance(user_content, str)
+    assert user_content.startswith("Return exactly: OK")
     assert ContextBuilder._RUNTIME_CONTEXT_TAG in user_content
+    assert ContextBuilder._RUNTIME_CONTEXT_END in user_content
     assert "Current Time:" in user_content
     assert "Channel: cli" in user_content
     assert "Chat ID: direct" in user_content
-    assert "Return exactly: OK" in user_content
+    assert user_content.index("Return exactly: OK") < user_content.index(ContextBuilder._RUNTIME_CONTEXT_TAG)
 
 
 def test_system_prompt_includes_market_analysis_playbook(tmp_path) -> None:
@@ -111,6 +113,21 @@ def test_system_prompt_includes_market_analysis_playbook(tmp_path) -> None:
     assert "`market_fundamentals`" in prompt
     assert "`market_brief`" in prompt
     assert "`market_signal`" in prompt
+
+
+def test_system_prompt_loads_marketbot_tool_contract(tmp_path) -> None:
+    workspace = _make_workspace(tmp_path)
+    (workspace / "TOOLS.md").write_text(
+        "# Tool Usage Notes\n\n## General Tool Contract\n\n## Market Data and Investment Analysis",
+        encoding="utf-8",
+    )
+    builder = ContextBuilder(workspace)
+
+    prompt = builder.build_system_prompt()
+
+    assert "## TOOLS.md" in prompt
+    assert "## General Tool Contract" in prompt
+    assert "## Market Data and Investment Analysis" in prompt
 
 
 def test_skill_routing_appends_fallback_skills_for_browser_research(tmp_path) -> None:

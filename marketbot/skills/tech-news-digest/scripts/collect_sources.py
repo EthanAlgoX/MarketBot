@@ -9,7 +9,6 @@ from html import unescape
 from pathlib import Path
 from urllib.parse import urlparse
 
-
 USER_AGENT = "Mozilla/5.0 (compatible; tech-news-digest/1.0; +https://openai.com)"
 MAX_TEXT_CHARS = 5000
 

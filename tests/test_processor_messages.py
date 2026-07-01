@@ -1,4 +1,8 @@
-from marketbot.agent.processor_messages import build_messages, get_last_skill_routing, get_recent_history
+from marketbot.agent.processor_messages import (
+    build_messages,
+    get_last_skill_routing,
+    get_recent_history,
+)
 from marketbot.session.manager import Session
 
 

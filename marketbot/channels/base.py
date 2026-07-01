@@ -5,9 +5,9 @@ from typing import Any
 
 from loguru import logger
 
+from marketbot.agent.response_postprocess import is_publish_result_message
 from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.bus.queue import MessageBus
-from marketbot.agent.response_postprocess import is_publish_result_message
 
 
 class BaseChannel(ABC):

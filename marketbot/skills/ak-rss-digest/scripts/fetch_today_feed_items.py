@@ -13,7 +13,6 @@ import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
-
 USER_AGENT = "Mozilla/5.0 (compatible; ak-rss-digest/1.0; +https://openai.com)"
 ACCEPT = "application/rss+xml, application/atom+xml, application/xml, text/xml, */*;q=0.8"
 DEFAULT_TIMEOUT = 15

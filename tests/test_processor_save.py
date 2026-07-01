@@ -4,7 +4,11 @@ from marketbot.session.manager import Session
 
 
 def test_normalize_session_entry_drops_runtime_only_user_message() -> None:
-    runtime = ContextBuilder._RUNTIME_CONTEXT_TAG + "\nCurrent Time: now (UTC)"
+    runtime = (
+        ContextBuilder._RUNTIME_CONTEXT_TAG
+        + "\nCurrent Time: now (UTC)\n"
+        + ContextBuilder._RUNTIME_CONTEXT_END
+    )
 
     entry = normalize_session_entry(
         {"role": "user", "content": runtime},
@@ -16,7 +20,11 @@ def test_normalize_session_entry_drops_runtime_only_user_message() -> None:
 
 
 def test_normalize_session_entry_keeps_image_placeholder() -> None:
-    runtime = ContextBuilder._RUNTIME_CONTEXT_TAG + "\nCurrent Time: now (UTC)"
+    runtime = (
+        ContextBuilder._RUNTIME_CONTEXT_TAG
+        + "\nCurrent Time: now (UTC)\n"
+        + ContextBuilder._RUNTIME_CONTEXT_END
+    )
 
     entry = normalize_session_entry(
         {
@@ -32,6 +40,50 @@ def test_normalize_session_entry_keeps_image_placeholder() -> None:
 
     assert entry is not None
     assert entry["content"] == [{"type": "text", "text": "[image]"}]
+
+
+def test_normalize_session_entry_strips_trailing_runtime_context() -> None:
+    runtime = (
+        ContextBuilder._RUNTIME_CONTEXT_TAG
+        + "\nCurrent Time: now (UTC)\n"
+        + ContextBuilder._RUNTIME_CONTEXT_END
+    )
+
+    entry = normalize_session_entry(
+        {"role": "user", "content": "Analyze NVDA\n\n" + runtime},
+        runtime_context_tag=ContextBuilder._RUNTIME_CONTEXT_TAG,
+        tool_result_max_chars=500,
+    )
+
+    assert entry is not None
+    assert entry["content"] == "Analyze NVDA"
+
+
+def test_normalize_session_entry_keeps_multimodal_text_with_trailing_runtime() -> None:
+    runtime = (
+        ContextBuilder._RUNTIME_CONTEXT_TAG
+        + "\nCurrent Time: now (UTC)\n"
+        + ContextBuilder._RUNTIME_CONTEXT_END
+    )
+
+    entry = normalize_session_entry(
+        {
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+                {"type": "text", "text": "Analyze this chart"},
+                {"type": "text", "text": runtime},
+            ],
+        },
+        runtime_context_tag=ContextBuilder._RUNTIME_CONTEXT_TAG,
+        tool_result_max_chars=500,
+    )
+
+    assert entry is not None
+    assert entry["content"] == [
+        {"type": "text", "text": "[image]"},
+        {"type": "text", "text": "Analyze this chart"},
+    ]
 
 
 def test_save_session_messages_truncates_large_tool_result() -> None:

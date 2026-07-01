@@ -7,7 +7,6 @@ import json
 import re
 from pathlib import Path
 
-
 POSITIVE = ("beat", "raised", "strong", "accelerat", "improv", "better than expected")
 NEGATIVE = ("miss", "cut", "weaker", "soft", "declin", "below expectations")
 

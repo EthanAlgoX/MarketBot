@@ -8,7 +8,6 @@ from typing import Any
 from urllib.parse import urljoin
 
 import httpx
-
 import json_repair
 from openai import AsyncOpenAI
 

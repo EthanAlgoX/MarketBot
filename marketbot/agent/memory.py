@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from marketbot.agent.layered_memory import LayeredMemory, LayeredMemoryStore
 from marketbot.utils.helpers import ensure_dir
-from marketbot.agent.layered_memory import LayeredMemoryStore, LayeredMemory
 
 if TYPE_CHECKING:
     from marketbot.providers.base import LLMProvider

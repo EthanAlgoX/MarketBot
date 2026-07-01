@@ -899,6 +899,7 @@ def build_latest_openclaw_metrics_payload(
 def classify_openclaw_launch_error(exc: BaseException, default_reason: str | None = None) -> dict[str, Any]:
     """Map launch exceptions into stable outcome/reason metadata."""
     import subprocess
+
     import typer
 
     if isinstance(exc, KeyboardInterrupt):

@@ -1,7 +1,6 @@
 from datetime import datetime
-from zoneinfo import ZoneInfo
-
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from marketbot.market_reporting import (
     extract_market_heartbeat_spec,
@@ -10,8 +9,8 @@ from marketbot.market_reporting import (
     render_analysis_explainability_summary,
     render_chat_explainability_footer,
     render_chat_explainability_footer_for_channel,
-    render_market_report_notification,
     render_market_report_document,
+    render_market_report_notification,
 )
 
 

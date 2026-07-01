@@ -6,24 +6,23 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
-from marketbot.agent import processor_consolidation
-from marketbot.agent import processor_messages
-from marketbot.agent import processor_runtime
+from marketbot.agent import processor_consolidation, processor_messages, processor_runtime
 from marketbot.agent.processor_save import save_session_messages
 
 if TYPE_CHECKING:
     from marketbot.agent.context import ContextBuilder
     from marketbot.agent.memory import MemoryStore
     from marketbot.agent.tools.registry import ToolRegistry
-    from marketbot.bus.events import InboundMessage
+    from marketbot.bus.events import OutboundMessage
     from marketbot.bus.queue import MessageBus
     from marketbot.providers.base import LLMProvider
     from marketbot.session.manager import Session, SessionManager
 
+
 class MessageProcessor:
     """
     Handles message processing logic.
-    
+
     Responsible for:
     - Slash command handling
     - Message preprocessing
@@ -59,7 +58,7 @@ class MessageProcessor:
         self.memory_layer = memory_layer
         self.layered_consolidation = layered_consolidation
         self.consolidate_delegate: Callable[["Session", bool], Awaitable[bool]] | None = None
-        
+
         self._consolidating: set[str] = set()
         self._consolidation_tasks: set[asyncio.Task] = set()
         self._consolidation_locks: dict[str, asyncio.Lock] = {}

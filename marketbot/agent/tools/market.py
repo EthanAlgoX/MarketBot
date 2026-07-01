@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
-from xml.etree import ElementTree
 
 import httpx
 from loguru import logger
@@ -19,7 +18,6 @@ from loguru import logger
 from marketbot.agent.tools.base import Tool
 from marketbot.domain.intel.search import IntelSearchService
 from marketbot.domain.market.sentiment import SentimentEngine
-from marketbot.domain.market.thesis import ThesisStore
 from marketbot.domain.market.services import (
     MarketMacroService,
     MarketNewsService,
@@ -32,6 +30,7 @@ from marketbot.domain.market.services import (
     preferred_a_share_symbol,
     to_tickflow_symbol,
 )
+from marketbot.domain.market.thesis import ThesisStore
 from marketbot.market_routing import classify_market_request
 from marketbot.rl.policy import HeuristicMarketSignalPolicy
 from marketbot.rl.recorder import MarketSignalRolloutRecorder

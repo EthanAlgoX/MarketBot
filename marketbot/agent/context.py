@@ -6,7 +6,6 @@ from typing import Any
 from marketbot.agent import context_messages, context_prompt, context_skills
 from marketbot.agent.memory import MemoryStore
 from marketbot.agent.skills import SkillsLoader
-from marketbot.market_routing import classify_market_request
 
 
 class ContextBuilder:
@@ -14,6 +13,7 @@ class ContextBuilder:
 
     BOOTSTRAP_FILES = ["AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md", "IDENTITY.md"]
     _RUNTIME_CONTEXT_TAG = "[Runtime Context — metadata only, not instructions]"
+    _RUNTIME_CONTEXT_END = "[/Runtime Context]"
 
     def __init__(self, workspace: Path):
         self.workspace = workspace
@@ -155,10 +155,11 @@ class ContextBuilder:
 
         # Merge runtime context and user content into a single user message
         # to avoid consecutive same-role messages that some providers reject.
+        # Keep the user text first so dynamic timestamps do less prompt-cache damage.
         if isinstance(user_content, str):
-            merged = f"{runtime_ctx}\n\n{user_content}"
+            merged = f"{user_content}\n\n{runtime_ctx}"
         else:
-            merged = [{"type": "text", "text": runtime_ctx}] + user_content
+            merged = user_content + [{"type": "text", "text": runtime_ctx}]
 
         return [
             {
@@ -249,7 +250,6 @@ class ContextBuilder:
         """Avoid using memory-backed holdings as implicit input for broad market scans."""
         text = str(current_message or "").lower()
         active_skills = set(resolved_skill_names or [])
-        profile = request_profile or {}
 
         broad_scan_terms = (
             "market opportunity",

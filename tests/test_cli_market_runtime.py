@@ -33,12 +33,6 @@ def test_run_market_report_sends_notification_with_saved_report(tmp_path) -> Non
             market=SimpleNamespace(default_symbols=["NVDA"]),
         ),
     )
-    payload = {
-        "briefMarkdown": "## Market Brief\n\n- NVDA: BUY",
-        "marketState": "bullish",
-        "signals": [{"symbol": "NVDA", "action": "buy"}],
-        "macro": {"regime": "risk-on", "macroRisk": 0.2},
-    }
 
     class _Tool:
         async def execute(self, **kwargs):
