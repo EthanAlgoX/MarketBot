@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
 from contextlib import AsyncExitStack
 from datetime import datetime
@@ -13,27 +12,28 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from loguru import logger
 
+import marketbot.agent.request_policy as request_policy
+import marketbot.agent.response_postprocess as response_postprocess
+import marketbot.agent.tool_runtime as tool_runtime
+import marketbot.agent.turn_runtime as turn_runtime
 from marketbot.agent.context import ContextBuilder
 from marketbot.agent.executor import AgentExecutor
 from marketbot.agent.memory import MemoryStore
 from marketbot.agent.plan_runtime import PlanRuntime
 from marketbot.agent.planner import TaskPlanner
-from marketbot.agent.verifier import StepVerifier
 from marketbot.agent.processor import MessageProcessor
 from marketbot.agent.recursive_retriever import RecursiveRetriever
-import marketbot.agent.request_policy as request_policy
-import marketbot.agent.response_postprocess as response_postprocess
 from marketbot.agent.router import RequestRouter
+from marketbot.agent.runner import AgentRunSpec, MarketAgentRunner
 from marketbot.agent.subagent import SubagentManager
 from marketbot.agent.tool_health import ToolHealthSnapshot
-import marketbot.agent.tool_runtime as tool_runtime
-import marketbot.agent.turn_runtime as turn_runtime
 from marketbot.agent.tools.message import MessageTool
 from marketbot.agent.tools.registry import ToolRegistry
+from marketbot.agent.verifier import StepVerifier
 from marketbot.bus.events import InboundMessage, OutboundMessage
 from marketbot.bus.queue import MessageBus
-from marketbot.market_routing import classify_market_request
 from marketbot.domain.market import MarketDomainPlugin, build_market_runtime_profile
+from marketbot.market_routing import classify_market_request
 from marketbot.providers.base import LLMProvider
 from marketbot.runtime.bootstrap import ToolBootstrapContext, register_core_tools
 from marketbot.session.manager import Session, SessionManager
@@ -162,6 +162,7 @@ class AgentLoop:
         self.planner = TaskPlanner()
         self.verifier = StepVerifier()
         self.plan_runtime = PlanRuntime()
+        self.runner = MarketAgentRunner(self)
         self.subagents = SubagentManager(
             provider=provider,
             workspace=workspace,
@@ -854,11 +855,17 @@ class AgentLoop:
         on_progress: Callable[..., Awaitable[None]] | None = None,
     ) -> tuple[str | None, list[str], list[dict], dict[str, int]]:
         """Run the agent iteration loop. Returns (final_content, tools_used, messages, usage)."""
-        return await tool_runtime.run_agent_loop(
-            self,
-            initial_messages,
-            on_progress=on_progress,
+        runner = getattr(self, "runner", None)
+        if runner is None:
+            runner = MarketAgentRunner(self)
+            self.runner = runner
+        result = await runner.run(
+            AgentRunSpec(
+                initial_messages=initial_messages,
+                on_progress=on_progress,
+            )
         )
+        return result.as_legacy_tuple()
 
     async def run(self) -> None:
         """Run the agent loop, dispatching messages as tasks to stay responsive to /stop."""
@@ -1010,7 +1017,6 @@ class AgentLoop:
             self.processor.save_session(session, messages, skip)
             return
 
-        from datetime import datetime
 
         for m in messages[skip:]:
             entry = dict(m)

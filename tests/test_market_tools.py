@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 from marketbot.agent.loop import AgentLoop
-from marketbot.bus.events import InboundMessage
 from marketbot.agent.tools.market import (
     IntelSearchTool,
     LogicChainVisualizerTool,
@@ -14,19 +13,25 @@ from marketbot.agent.tools.market import (
     MarketFundamentalsTool,
     MarketMacroTool,
     MarketNewsTool,
-    MarketSocialSentimentTool,
     MarketSignalTool,
     MarketSnapshotTool,
+    MarketSocialSentimentTool,
     MarketSourcePlanTool,
     ThesisTrackerTool,
 )
+from marketbot.bus.events import InboundMessage
 from marketbot.bus.queue import MessageBus
 from marketbot.config.schema import ChannelsConfig, MarketToolsConfig
-from marketbot.domain.market import build_market_runtime_profile
-from marketbot.domain.market.services import MarketSnapshotService
 from marketbot.domain.intel.collector import make_dedup_key
 from marketbot.domain.intel.models import IntelRawItem, IntelSource
-from marketbot.domain.intel.storage import add_source, connect_intel_db, init_intel_schema, insert_raw_items
+from marketbot.domain.intel.storage import (
+    add_source,
+    connect_intel_db,
+    init_intel_schema,
+    insert_raw_items,
+)
+from marketbot.domain.market import build_market_runtime_profile
+from marketbot.domain.market.services import MarketSnapshotService
 from marketbot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
 
 

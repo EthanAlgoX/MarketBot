@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from rich.table import Table
+
 from marketbot.runtime.diagnostics import collect_runtime_diagnostics
 
 
@@ -51,6 +52,63 @@ def render_channels_status_table(config: Any) -> Table:
     em_config = em.imap_host if em.imap_host else "[dim]not configured[/dim]"
     table.add_row("Email", "✓" if em.enabled else "✗", em_config)
     return table
+
+
+def build_channels_status_payload(config: Any) -> dict[str, Any]:
+    """Build machine-readable channel status for CLI automation."""
+    channels = config.channels
+    return {
+        "channels": [
+            {
+                "name": "whatsapp",
+                "enabled": bool(channels.whatsapp.enabled),
+                "configuration": {"bridgeUrl": channels.whatsapp.bridge_url},
+            },
+            {
+                "name": "discord",
+                "enabled": bool(channels.discord.enabled),
+                "configuration": {"gatewayUrl": channels.discord.gateway_url},
+            },
+            {
+                "name": "feishu",
+                "enabled": bool(channels.feishu.enabled),
+                "configuration": {"appIdConfigured": bool(channels.feishu.app_id)},
+            },
+            {
+                "name": "mochat",
+                "enabled": bool(channels.mochat.enabled),
+                "configuration": {"baseUrlConfigured": bool(channels.mochat.base_url)},
+            },
+            {
+                "name": "telegram",
+                "enabled": bool(channels.telegram.enabled),
+                "configuration": {"tokenConfigured": bool(channels.telegram.token)},
+            },
+            {
+                "name": "slack",
+                "enabled": bool(channels.slack.enabled),
+                "configuration": {
+                    "appTokenConfigured": bool(channels.slack.app_token),
+                    "botTokenConfigured": bool(channels.slack.bot_token),
+                },
+            },
+            {
+                "name": "dingtalk",
+                "enabled": bool(channels.dingtalk.enabled),
+                "configuration": {"clientIdConfigured": bool(channels.dingtalk.client_id)},
+            },
+            {
+                "name": "qq",
+                "enabled": bool(channels.qq.enabled),
+                "configuration": {"appIdConfigured": bool(channels.qq.app_id)},
+            },
+            {
+                "name": "email",
+                "enabled": bool(channels.email.enabled),
+                "configuration": {"imapHostConfigured": bool(channels.email.imap_host)},
+            },
+        ]
+    }
 
 
 def build_status_payload(

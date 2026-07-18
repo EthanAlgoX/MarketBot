@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 ALL_MARKETS = ["a-share", "hong-kong", "us", "global", "mixed"]
 
 

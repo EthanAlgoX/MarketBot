@@ -9,7 +9,14 @@ from typing import TYPE_CHECKING, Protocol
 from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.cron import CronTool
 from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
-from marketbot.agent.tools.lark import LarkBaseTool, LarkCliTool, LarkDocTool, LarkIMTool, LarkSheetsTool, LarkTaskTool
+from marketbot.agent.tools.lark import (
+    LarkBaseTool,
+    LarkCliTool,
+    LarkDocTool,
+    LarkIMTool,
+    LarkSheetsTool,
+    LarkTaskTool,
+)
 from marketbot.agent.tools.message import MessageTool
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool

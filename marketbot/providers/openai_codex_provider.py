@@ -231,7 +231,7 @@ async def _iter_sse(response: httpx.Response) -> AsyncGenerator[dict[str, Any], 
     async for line in response.aiter_lines():
         if line == "":
             if buffer:
-                data_lines = [l[5:].strip() for l in buffer if l.startswith("data:")]
+                data_lines = [data_line[5:].strip() for data_line in buffer if data_line.startswith("data:")]
                 buffer = []
                 if not data_lines:
                     continue

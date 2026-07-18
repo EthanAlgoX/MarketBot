@@ -3,8 +3,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from marketbot.session.manager import Session, SessionManager
 from marketbot.session import storage
+from marketbot.session.manager import Session, SessionManager
 
 
 def test_session_path_normalizes_key(tmp_path: Path) -> None:

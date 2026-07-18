@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from typing import Any, Awaitable, Callable
 
 from marketbot.agent.plan_models import StepResult
+from marketbot.agent.runner import AgentRunSpec, MarketAgentRunner
 
 
 def classify_execution_outcome(
@@ -80,7 +81,17 @@ class AgentExecutor:
     ) -> tuple[str | None, list[str], list[dict[str, Any]], dict[str, int]]:
         """Execute one round of messages, optionally restricting exposed tools."""
         with self._tool_scope(allowed_tools):
-            return await self.loop._run_agent_loop(messages, on_progress=on_progress)
+            runner = getattr(self.loop, "runner", None)
+            if runner is None:
+                runner = MarketAgentRunner(self.loop)
+                self.loop.runner = runner
+            result = await runner.run(
+                AgentRunSpec(
+                    initial_messages=messages,
+                    on_progress=on_progress,
+                )
+            )
+            return result.as_legacy_tuple()
 
     async def execute_step(
         self,

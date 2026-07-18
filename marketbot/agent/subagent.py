@@ -12,15 +12,22 @@ from marketbot.agent.executor import classify_execution_outcome
 from marketbot.agent.planner import TaskPlanner
 from marketbot.agent.router import RequestRouter
 from marketbot.agent.tool_health import ToolHealthSnapshot
-from marketbot.agent.verifier import StepVerifier
 from marketbot.agent.tools.browser import BrowserNetworkTool, BrowserPageTool, BrowserSiteTool
 from marketbot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
-from marketbot.agent.tools.lark import LarkBaseTool, LarkCliTool, LarkDocTool, LarkIMTool, LarkSheetsTool, LarkTaskTool
+from marketbot.agent.tools.lark import (
+    LarkBaseTool,
+    LarkCliTool,
+    LarkDocTool,
+    LarkIMTool,
+    LarkSheetsTool,
+    LarkTaskTool,
+)
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.shell import ExecTool
 from marketbot.agent.tools.twitter import TwitterCliTool
 from marketbot.agent.tools.web import WebFetchTool, WebSearchTool
 from marketbot.agent.tools.xiaohongshu import XiaohongshuCliTool
+from marketbot.agent.verifier import StepVerifier
 from marketbot.bus.events import InboundMessage
 from marketbot.bus.queue import MessageBus
 from marketbot.config.schema import ExecToolConfig
@@ -319,7 +326,7 @@ Summarize this naturally for the user. Keep it brief (1-2 sentences). Do not men
 
         await self.bus.publish_inbound(msg)
         logger.debug("Subagent [{}] announced result to {}:{}", task_id, origin['channel'], origin['chat_id'])
-    
+
     def _build_subagent_prompt(self) -> str:
         """Build a focused system prompt for the subagent."""
         from marketbot.agent.context import ContextBuilder
@@ -341,7 +348,7 @@ Stay focused on the assigned task. Your final response will be reported back to 
             parts.append(f"## Skills\n\nRead SKILL.md with read_file to use a skill.\n\n{skills_summary}")
 
         return "\n\n".join(parts)
-    
+
     async def cancel_by_session(self, session_key: str) -> int:
         """Cancel all subagents for the given session. Returns count cancelled."""
         tasks = [self._running_tasks[tid] for tid in self._session_tasks.get(session_key, [])

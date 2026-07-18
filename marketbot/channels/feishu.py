@@ -1,6 +1,7 @@
 """Feishu/Lark channel implementation using lark-oapi SDK with WebSocket long connection."""
 
 import asyncio
+import importlib.util
 import json
 import os
 import re
@@ -8,7 +9,7 @@ import ssl
 import threading
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -17,9 +18,10 @@ from marketbot.bus.queue import MessageBus
 from marketbot.channels.base import BaseChannel
 from marketbot.config.schema import FeishuConfig
 
-import importlib.util
-
 FEISHU_AVAILABLE = importlib.util.find_spec("lark_oapi") is not None
+
+if TYPE_CHECKING:
+    from lark_oapi.api.im.v1 import P2ImMessageReceiveV1
 
 # Message type display mapping
 MSG_TYPE_MAP = {
@@ -327,7 +329,9 @@ class FeishuChannel(BaseChannel):
         # "This event loop is already running" errors.
         def run_ws():
             import time
+
             import lark_oapi.ws.client as _lark_ws_client
+
             ws_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(ws_loop)
             # Patch the module-level loop used by lark's ws Client.start()
@@ -376,7 +380,12 @@ class FeishuChannel(BaseChannel):
 
     def _add_reaction_sync(self, message_id: str, emoji_type: str) -> None:
         """Sync helper for adding reaction (runs in thread pool)."""
-        from lark_oapi.api.im.v1 import CreateMessageReactionRequest, CreateMessageReactionRequestBody, Emoji
+        from lark_oapi.api.im.v1 import (
+            CreateMessageReactionRequest,
+            CreateMessageReactionRequestBody,
+            Emoji,
+        )
+
         try:
             request = CreateMessageReactionRequest.builder() \
                 .message_id(message_id) \

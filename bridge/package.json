@@ -6,11 +6,12 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "test": "tsc --noEmit",
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "7.0.0-rc.9",
+    "@whiskeysockets/baileys": "7.0.0-rc12",
     "ws": "^8.17.1",
     "qrcode-terminal": "^0.12.0",
     "pino": "^9.0.0"

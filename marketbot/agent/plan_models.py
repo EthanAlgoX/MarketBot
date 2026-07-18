@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Literal
 
-
 PlanMode = Literal["serial", "parallel"]
 StepStatus = Literal["pending", "running", "completed", "failed"]
 ResultStatus = Literal["completed", "partial", "failed"]

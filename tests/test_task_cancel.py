@@ -21,8 +21,8 @@ def _make_loop():
 
     with patch("marketbot.agent.loop.ContextBuilder"), \
          patch("marketbot.agent.loop.SessionManager"), \
-         patch("marketbot.agent.loop.SubagentManager") as MockSubMgr:
-        MockSubMgr.return_value.cancel_by_session = AsyncMock(return_value=0)
+         patch("marketbot.agent.loop.SubagentManager") as mock_subagent_manager:
+        mock_subagent_manager.return_value.cancel_by_session = AsyncMock(return_value=0)
         loop = AgentLoop(bus=bus, provider=provider, workspace=workspace)
     return loop, bus
 

@@ -12,7 +12,6 @@ from typing import Any
 
 from marketbot.agent.tools.base import Tool
 
-
 _HIGHLIGHT_TAG_RE = re.compile(r"</?h>")
 
 

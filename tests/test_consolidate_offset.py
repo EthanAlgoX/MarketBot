@@ -1,10 +1,11 @@
 """Test session management with cache-friendly message handling."""
 
 import asyncio
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from pathlib import Path
+
 from marketbot.session.manager import Session, SessionManager
 
 # Test constants

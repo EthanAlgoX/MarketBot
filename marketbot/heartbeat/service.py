@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine
 from zoneinfo import ZoneInfo
 
 from loguru import logger
+
 from marketbot.market_reporting import extract_market_heartbeat_spec
 
 if TYPE_CHECKING:

@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+_RUNTIME_CONTEXT_END = "[/Runtime Context]"
+
 
 def save_session_messages(
     *,
@@ -58,19 +60,23 @@ def normalize_user_content(
     runtime_context_tag: str,
 ) -> Any | None:
     """Remove runtime metadata noise and inline images from persisted user content."""
-    if isinstance(content, str) and content.startswith(runtime_context_tag):
-        parts = content.split("\n\n", 1)
-        if len(parts) > 1 and parts[1].strip():
-            return parts[1]
-        return None
+    if isinstance(content, str):
+        return _strip_runtime_context(content, runtime_context_tag)
     if isinstance(content, list):
         filtered = []
         for chunk in content:
+            if not isinstance(chunk, dict):
+                filtered.append(chunk)
+                continue
             if (
                 chunk.get("type") == "text"
                 and isinstance(chunk.get("text"), str)
-                and chunk["text"].startswith(runtime_context_tag)
             ):
+                text = _strip_runtime_context(chunk["text"], runtime_context_tag)
+                if text:
+                    next_chunk = dict(chunk)
+                    next_chunk["text"] = text
+                    filtered.append(next_chunk)
                 continue
             if chunk.get("type") == "image_url" and chunk.get("image_url", {}).get("url", "").startswith("data:image/"):
                 filtered.append({"type": "text", "text": "[image]"})
@@ -78,3 +84,24 @@ def normalize_user_content(
                 filtered.append(chunk)
         return filtered or None
     return content
+
+
+def _strip_runtime_context(text: str, runtime_context_tag: str) -> str | None:
+    """Strip MarketBot runtime metadata from either prefix or suffix position."""
+    if runtime_context_tag not in text:
+        return text
+
+    before, runtime_and_after = text.split(runtime_context_tag, 1)
+    if _RUNTIME_CONTEXT_END in runtime_and_after:
+        _, after = runtime_and_after.split(_RUNTIME_CONTEXT_END, 1)
+        cleaned = (before + after).strip()
+        return cleaned or None
+
+    # Backward compatibility for older sessions where runtime metadata was
+    # prepended and separated from the user message by a blank line.
+    if before.strip():
+        return before.strip()
+    parts = runtime_and_after.split("\n\n", 1)
+    if len(parts) > 1 and parts[1].strip():
+        return parts[1].strip()
+    return None

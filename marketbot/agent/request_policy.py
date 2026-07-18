@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 from typing import Any
 
 from loguru import logger
-
 
 _TICKER_PATTERN = re.compile(r"\b[A-Z]{1,5}\b")
 _GUIDANCE_HINTS = ("guidance", "outlook", "forecast")

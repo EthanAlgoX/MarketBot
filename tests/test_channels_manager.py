@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from marketbot.bus.queue import MessageBus
 from marketbot.bus.events import OutboundMessage
+from marketbot.bus.queue import MessageBus
 from marketbot.channels.base import BaseChannel
 from marketbot.channels.manager import ChannelManager
 from marketbot.config.schema import Config

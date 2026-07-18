@@ -157,10 +157,21 @@ class WebFetchTool(Tool):
                 text, extractor = r.text, "raw"
 
             truncated = len(text) > max_chars
-            if truncated: text = text[:max_chars]
+            if truncated:
+                text = text[:max_chars]
 
-            return json.dumps({"url": url, "finalUrl": str(r.url), "status": r.status_code,
-                              "extractor": extractor, "truncated": truncated, "length": len(text), "text": text}, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "url": url,
+                    "finalUrl": str(r.url),
+                    "status": r.status_code,
+                    "extractor": extractor,
+                    "truncated": truncated,
+                    "length": len(text),
+                    "text": text,
+                },
+                ensure_ascii=False,
+            )
         except httpx.ProxyError as e:
             logger.error("WebFetch proxy error for {}: {}", url, e)
             return json.dumps({"error": f"Proxy error: {e}", "url": url}, ensure_ascii=False)

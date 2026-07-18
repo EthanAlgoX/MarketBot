@@ -27,7 +27,7 @@ def _short_tool_id() -> str:
 class LiteLLMProvider(LLMProvider):
     """
     LLM provider using LiteLLM for multi-provider support.
-    
+
     Supports OpenRouter, Anthropic, OpenAI, Gemini, MiniMax, and many other providers through
     a unified interface.  Provider-specific logic is driven by the registry
     (see providers/registry.py) — no if-elif chains needed here.
@@ -270,11 +270,11 @@ class LiteLLMProvider(LLMProvider):
         extra_headers = self._request_extra_headers(original_model, model)
         if extra_headers:
             kwargs["extra_headers"] = extra_headers
-        
+
         if reasoning_effort:
             kwargs["reasoning_effort"] = reasoning_effort
             kwargs["drop_params"] = True
-        
+
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"

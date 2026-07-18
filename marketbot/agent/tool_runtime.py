@@ -210,7 +210,7 @@ def _extract_xiaohongshu_publish_payload(raw_text: str) -> tuple[str, str] | Non
         line = line.lstrip("：:，,。 ")
         if not line:
             continue
-        if line.startswith(("Current Time:", "Channel:", "Chat ID:")):
+        if line.startswith(("Current Time:", "Channel:", "Chat ID:", "[/Runtime Context]")):
             continue
         if _is_xiaohongshu_publish_request(line):
             continue
@@ -243,7 +243,7 @@ def _extract_twitter_publish_text(raw_text: str) -> str | None:
         line = line.lstrip("：:，,。 ")
         if not line:
             continue
-        if line.startswith(("Current Time:", "Channel:", "Chat ID:")):
+        if line.startswith(("Current Time:", "Channel:", "Chat ID:", "[/Runtime Context]")):
             continue
         if _is_twitter_publish_request(line):
             continue

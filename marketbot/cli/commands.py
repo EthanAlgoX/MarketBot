@@ -5,7 +5,6 @@ import json
 import os
 import re
 import select
-import shutil
 import signal
 import sys
 from datetime import UTC, datetime
@@ -14,7 +13,6 @@ from typing import Any
 
 # Force UTF-8 encoding for Windows console
 if sys.platform == "win32":
-    import locale
     if sys.stdout.encoding != "utf-8":
         os.environ["PYTHONIOENCODING"] = "utf-8"
         # Re-open stdout/stderr with UTF-8 encoding
@@ -34,6 +32,7 @@ from rich.markdown import Markdown
 from rich.table import Table
 from rich.text import Text
 
+import marketbot.cli.openclaw_reporting as openclaw_reporting
 from marketbot import __logo__, __version__
 from marketbot.agent.skill_score_store import SkillScoreStore
 from marketbot.agent.skill_scoring import effective_dynamic_score
@@ -65,15 +64,14 @@ from marketbot.cli.intel_runtime import (
 )
 from marketbot.cli.market_runtime import run_market_report
 from marketbot.cli.openclaw_runtime import (
-    run_openclaw_launch,
     run_latest_openclaw_metrics,
     run_latest_openclaw_report,
     run_openclaw_compare_runs,
     run_openclaw_inspect,
+    run_openclaw_launch,
     run_openclaw_list_runs,
     run_openclaw_metrics_server,
 )
-import marketbot.cli.openclaw_reporting as openclaw_reporting
 from marketbot.cli.rl_runtime import (
     run_rl_build_dataset,
     run_rl_collect,
@@ -83,6 +81,7 @@ from marketbot.cli.rl_runtime import (
 )
 from marketbot.cli.runtime import build_agent_runtime, make_provider
 from marketbot.cli.status_runtime import (
+    build_channels_status_payload,
     build_status_payload,
     format_browser_runtime_summary,
     render_channels_status_table,
@@ -121,6 +120,7 @@ _SAVED_TERM_ATTRS = None  # original termios settings, restored on exit
 def _wait_for_http_health(url: str, timeout_s: float, interval_s: float = 0.2) -> bool:
     """Poll a health endpoint until it returns ok=true or timeout elapses."""
     import time
+
     import httpx
 
     deadline = time.monotonic() + max(float(timeout_s), 0.0)
@@ -725,9 +725,10 @@ async def _send_message_once(
     message = OutboundMessage(channel=channel_name, chat_id=chat_id, content=content, media=media)
 
     if channel_name == "telegram":
-        from marketbot.channels.telegram import TelegramChannel
         from telegram.ext import Application
         from telegram.request import HTTPXRequest
+
+        from marketbot.channels.telegram import TelegramChannel
 
         channel = TelegramChannel(
             config.channels.telegram,
@@ -748,8 +749,9 @@ async def _send_message_once(
         return
 
     if channel_name == "slack":
-        from marketbot.channels.slack import SlackChannel
         from slack_sdk.web.async_client import AsyncWebClient
+
+        from marketbot.channels.slack import SlackChannel
 
         channel = SlackChannel(config.channels.slack, bus)
         channel._web_client = AsyncWebClient(token=config.channels.slack.bot_token)
@@ -1297,7 +1299,7 @@ def gateway(
     config = load_config(config_path)
     if workspace:
         config.agents.defaults.workspace = workspace
-    
+
     if heartbeat_interval is not None:
         config.gateway.heartbeat.interval_s = heartbeat_interval
 
@@ -2028,6 +2030,28 @@ def skills_score_show(
     json_output: bool = typer.Option(False, "--json", help="Emit raw JSON"),
 ):
     """Show dynamic skill routing scores from workspace data."""
+    _render_skill_score_rows(limit=limit, skill=skill, market=market, json_output=json_output)
+
+
+@skills_score_app.command("list")
+def skills_score_list(
+    limit: int = typer.Option(20, "--limit", min=1, max=200, help="Maximum buckets to show"),
+    skill: str | None = typer.Option(None, "--skill", help="Filter by skill name"),
+    market: str | None = typer.Option(None, "--market", help="Filter by market bucket"),
+    json_output: bool = typer.Option(False, "--json", help="Emit raw JSON"),
+):
+    """Alias for `show`, matching other list-style CLI commands."""
+    _render_skill_score_rows(limit=limit, skill=skill, market=market, json_output=json_output)
+
+
+def _render_skill_score_rows(
+    *,
+    limit: int,
+    skill: str | None,
+    market: str | None,
+    json_output: bool,
+) -> None:
+    """Render skill score rows as JSON or a human-readable table."""
     from marketbot.config.loader import load_config
 
     config = load_config()
@@ -2143,11 +2167,16 @@ app.add_typer(channels_app, name="channels")
 
 
 @channels_app.command("status")
-def channels_status():
+def channels_status(
+    json_output: bool = typer.Option(False, "--json", help="Output machine-readable JSON status."),
+):
     """Show channel status."""
     from marketbot.config.loader import load_config
 
     config = load_config()
+    if json_output:
+        console.print_json(data=build_channels_status_payload(config))
+        return
     console.print(render_channels_status_table(config))
 
 

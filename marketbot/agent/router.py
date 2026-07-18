@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-
 RouteMode = Literal["direct_react", "planned_task", "market_fast_path", "scheduled_task"]
 
 

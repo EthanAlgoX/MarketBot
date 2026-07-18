@@ -16,6 +16,7 @@ from loguru import logger
 
 from marketbot.cache.market_cache import MarketCache
 
+
 def clamp(value: float, lower: float, upper: float) -> float:
     """Clamp a numeric value into a closed interval."""
     return max(lower, min(upper, value))

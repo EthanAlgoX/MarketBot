@@ -17,7 +17,7 @@ def build_runtime_context(tag: str, channel: str | None, chat_id: str | None) ->
     lines = [f"Current Time: {now} ({tz})"]
     if channel and chat_id:
         lines += [f"Channel: {channel}", f"Chat ID: {chat_id}"]
-    return tag + "\n" + "\n".join(lines)
+    return tag + "\n" + "\n".join(lines) + "\n[/Runtime Context]"
 
 
 def build_user_content(text: str, media: list[str] | None) -> str | list[dict[str, Any]]:

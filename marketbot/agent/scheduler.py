@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Callable, Awaitable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 from loguru import logger
 
@@ -24,7 +24,7 @@ class ScheduledTask:
 class TaskScheduler:
     """
     Unified task scheduler for cron jobs and heartbeat.
-    
+
     Responsibilities:
     - Manage scheduled tasks
     - Trigger execution
@@ -62,7 +62,7 @@ class TaskScheduler:
         if not task:
             logger.warning("Task not found: {}", name)
             return None
-        
+
         if not task.enabled:
             logger.info("Task {} is disabled", name)
             return None
@@ -111,7 +111,7 @@ class TaskScheduler:
 def create_scheduler_from_cron(cron_service: "CronService") -> TaskScheduler:
     """Create a TaskScheduler from an existing CronService."""
     scheduler = TaskScheduler(cron_service=cron_service)
-    
+
     # Add cron jobs as scheduled tasks
     if cron_service:
         for job in cron_service.jobs:
@@ -120,7 +120,7 @@ def create_scheduler_from_cron(cron_service: "CronService") -> TaskScheduler:
                 schedule=job.schedule,
                 callback=lambda j=job: _execute_cron_job(j),
             ))
-    
+
     return scheduler
 
 

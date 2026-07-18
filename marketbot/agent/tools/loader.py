@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Type
 
 from loguru import logger
@@ -49,9 +48,6 @@ class ToolLoader:
         workspace = config.get("workspace")
         allowed_dir = config.get("allowed_dir")
         market_config = config.get("market_config")
-        brave_api_key = config.get("brave_api_key")
-        web_proxy = config.get("web_proxy")
-        cron_service = config.get("cron_service")
 
         for tool_class in cls.SYSTEM_TOOLS:
             try:
@@ -89,17 +85,17 @@ class ToolLoader:
 
 def register_tools():
     """Decorator/function to register built-in tools."""
+    from marketbot.agent.tools.cron import CronTool
     from marketbot.agent.tools.filesystem import (
         EditFileTool,
         ListDirTool,
         ReadFileTool,
         WriteFileTool,
     )
-    from marketbot.agent.tools.shell import ExecTool
-    from marketbot.agent.tools.web import WebFetchTool, WebSearchTool
     from marketbot.agent.tools.message import MessageTool
+    from marketbot.agent.tools.shell import ExecTool
     from marketbot.agent.tools.spawn import SpawnTool
-    from marketbot.agent.tools.cron import CronTool
+    from marketbot.agent.tools.web import WebFetchTool, WebSearchTool
 
     ToolLoader.register_system(ReadFileTool)
     ToolLoader.register_system(WriteFileTool)

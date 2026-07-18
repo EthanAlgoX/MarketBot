@@ -12,14 +12,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from loguru import logger
 
 if TYPE_CHECKING:
-    from marketbot.providers.base import LLMProvider
     from marketbot.agent.memory import MemoryStore
+    from marketbot.providers.base import LLMProvider
 
 
 @dataclass

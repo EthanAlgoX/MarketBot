@@ -8,7 +8,6 @@ from typing import Any
 
 from loguru import logger
 
-from marketbot.bus.events import OutboundMessage
 from marketbot.bus.queue import MessageBus
 from marketbot.channels.base import BaseChannel
 from marketbot.config.schema import Config
