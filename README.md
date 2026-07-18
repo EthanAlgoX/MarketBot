@@ -921,7 +921,7 @@ marketbot agent -m "帮我总结一下 Twitter 上关于 NVDA 最新 guidance �
 [`TweetClaw`](https://github.com/Xquik-dev/tweetclaw)：
 
 ```bash
-openclaw plugins install @xquik/tweetclaw
+openclaw plugins install clawhub:@xquik/tweetclaw
 ```
 
 适合把 MarketBot 的 `twitter-browser-research`、`sentiment-analysis`、
@@ -935,6 +935,8 @@ openclaw plugins install @xquik/tweetclaw
 将 Xquik API key 放在 OpenClaw 或 MarketBot 的本地配置里，不要提交到仓库。
 `twitter-cli` 仍适合本机 cookie 驱动的轻量读取；TweetClaw 更适合需要
 OpenClaw plugin 安装、结构化返回数据和可复用 agent tools 的场景。
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
 
 ## Skill 搜索与安装
 

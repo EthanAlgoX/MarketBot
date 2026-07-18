@@ -863,7 +863,7 @@ workflow instead of local browser cookies, install
 [`TweetClaw`](https://github.com/Xquik-dev/tweetclaw) separately:
 
 ```bash
-openclaw plugins install @xquik/tweetclaw
+openclaw plugins install clawhub:@xquik/tweetclaw
 ```
 
 Use it to extend MarketBot workflows such as `twitter-browser-research`,
@@ -878,6 +878,8 @@ Keep the Xquik API key in local OpenClaw or MarketBot config, not in the repo.
 `twitter-cli` remains useful for lightweight local cookie-backed reads;
 TweetClaw is better when you need an OpenClaw plugin install, structured return
 data, and reusable agent tools.
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
 
 ## Skill Search and Install
 
