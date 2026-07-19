@@ -856,6 +856,31 @@ marketbot agent -m "Summarize the main Twitter discussion and overall sentiment 
 - The CLI still depends on local browser cookies or environment-based auth; if `twitter status` fails, fix CLI authentication first instead of debugging MarketBot
 - Treat Twitter/X output as fast-signal context, not as a replacement for filings, exchange disclosures, or formal news sources
 
+### 6. Optional OpenClaw TweetClaw path
+
+If you already manage plugins with OpenClaw and prefer an API-key Twitter/X
+workflow instead of local browser cookies, install
+[`TweetClaw`](https://github.com/Xquik-dev/tweetclaw) separately:
+
+```bash
+openclaw plugins install clawhub:@xquik/tweetclaw
+```
+
+Use it to extend MarketBot workflows such as `twitter-browser-research`,
+`sentiment-analysis`, `market-discovery`, and `stock-watch` with:
+
+- scrape tweets, search tweets, and search tweet replies
+- follower export, user lookup, media upload, and media download
+- monitor tweets, webhooks, and giveaway draws
+- approval-gated posting of tweets and replies
+
+Keep the Xquik API key in local OpenClaw or MarketBot config, not in the repo.
+`twitter-cli` remains useful for lightweight local cookie-backed reads;
+TweetClaw is better when you need an OpenClaw plugin install, structured return
+data, and reusable agent tools.
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
+
 ## Skill Search and Install
 
 Search local skills first, then fall back to curated external catalogs:

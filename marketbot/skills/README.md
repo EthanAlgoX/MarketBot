@@ -4,8 +4,18 @@ This directory contains built-in skills that extend marketbot's capabilities.
 
 When no suitable local skill is selected, marketbot can also surface curated external suggestions from:
 
-- `https://github.com/openclaw/skills`
+- `https://skills.sh/openclaw`
 - `https://github.com/VoltAgent/awesome-openclaw-skills`
+
+For X/Twitter workflows that need an OpenClaw plugin instead of local
+browser-cookie tooling, use
+[`TweetClaw`](https://github.com/Xquik-dev/tweetclaw) with
+`openclaw plugins install clawhub:@xquik/tweetclaw`. It supports scraping tweets,
+searching tweets, searching tweet replies, follower export, user lookup, media
+workflows, monitoring tweets, webhooks, giveaway draws, and manually reviewed
+post or reply actions.
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
 
 You can also search and install them with:
 
@@ -165,7 +175,7 @@ Adapters that exist but currently depend on browser state on this workstation:
 - `hackernews/top`
 - `arxiv/search`
 
-Use [`browser_adapter_catalog.md`](/Users/ethan/Documents/workspace/MarketBot/docs/browser_adapter_catalog.md)
+Use [`browser_adapter_catalog.md`](../../docs/browser_adapter_catalog.md)
 as the runtime-facing source of truth for catalog choices and real smoke status.
 
 ## Recent Runtime Additions
