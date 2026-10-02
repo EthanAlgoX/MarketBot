@@ -18,6 +18,7 @@ from loguru import logger
 from marketbot.agent.tools.base import Tool
 from marketbot.agent.tools.thesis import ThesisTrackerTool  # noqa: F401
 from marketbot.domain.intel.search import IntelSearchService
+from marketbot.domain.market.provenance import source_timestamp
 from marketbot.domain.market.sentiment import SentimentEngine
 from marketbot.domain.market.services import (
     MarketMacroService,
@@ -523,13 +524,9 @@ class MarketSourcePlanTool(Tool):
     @staticmethod
     def _market_for_symbols(symbols: list[str]) -> str:
         clean = [str(symbol or "").strip().upper() for symbol in symbols if str(symbol or "").strip()]
-        if any(is_a_share_symbol(symbol) for symbol in clean):
-            return "a-share"
-        if any(symbol.startswith("HK") or symbol.endswith(".HK") or (symbol.isdigit() and len(symbol) == 5) for symbol in clean):
-            return "hong-kong"
-        if any(re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z]{1,2})?", symbol) for symbol in clean):
-            return "us"
-        return "mixed"
+        markets = {"a-share" if is_a_share_symbol(symbol) else "hong-kong" if is_hk_symbol(symbol)
+                   else "us" if is_us_symbol(symbol) else "mixed" for symbol in clean}
+        return next(iter(markets)) if len(markets) == 1 else "mixed"
 
     @staticmethod
     def _quote_chain(market: str) -> tuple[list[str], str]:
@@ -539,7 +536,7 @@ class MarketSourcePlanTool(Tool):
             return ["akshare", "yfinance"], "Akshare gives the strongest free HK path; use Yahoo as fallback."
         if market == "us":
             return ["yfinance"], "US symbols and indices should go straight to Yahoo-style routing for consistency."
-        return ["tickflow-or-auto", "mock"], "Use TickFlow for mainland realtime quotes when configured; otherwise keep auto-routing across China and global sources."
+        return ["auto"], "Use the native market snapshot's symbol-specific routing; unavailable observations remain data gaps."
 
     @staticmethod
     def _news_chain(market: str) -> tuple[list[str], str]:
@@ -563,8 +560,12 @@ class MarketSourcePlanTool(Tool):
             current_tools = ["market_snapshot (partial only; no OHLCV history yet)"]
             return providers, why, current_tools, ["ohlcv_history connector"]
         if task == "chips":
+            if market != "a-share":
+                return [], "Native chip distribution is an A-share estimate; it does not support this market.", [], ["cross_market_ownership_data connector"]
             return ["eastmoney-kline-local-cyq", "akshare"], "Chip distribution works best for A-share names with turnover-aware local estimation.", ["market_chip_distribution (current)"], []
         if task == "fundamentals":
+            if market != "a-share":
+                return ["yahoo"], "Use global Yahoo quote/profile fields; unavailable fields must remain missing.", ["market_fundamentals (current)"], []
             return ["tickflow", "eastmoney", "yahoo"], "Use TickFlow first for A-share profile and share-cap data when configured, then Eastmoney for mainland basics and Yahoo quote fields for global symbols.", ["market_fundamentals (current)"], []
         if task == "breadth":
             providers = ["efinance", "akshare", "tushare"] if market in {"a-share", "mixed"} else ["yfinance"]
@@ -596,33 +597,41 @@ class MarketSourcePlanTool(Tool):
         route = classify_market_request(symbols=clean_symbols, headline=headline)
         market = self._market_for_symbols(clean_symbols) if clean_symbols else str(route.get("primary", "mixed"))
         normalized_tasks = self._normalize_tasks(tasks)
+        groups: dict[str, list[str]] = {}
+        for symbol in clean_symbols:
+            groups.setdefault(self._market_for_symbols([symbol]), []).append(symbol)
+        if not groups:
+            groups[market] = []
 
         plans: list[dict[str, Any]] = []
-        for task in normalized_tasks:
-            providers, why, current_tools, future = self._task_plan(task, market)
-            entry: dict[str, Any] = {
-                "task": task,
-                "providers": providers,
-                "why": why,
-                "freshness": "Prefer <=3 day news windows; disclose lag when using fallback or delayed sources.",
-                "fallbacks": providers[1:],
-                "recommendedSkills": self._skill_hints(task),
-                "routingTelemetry": {
-                    "skill": "stock-data-sourcing",
-                    "tool": self.name,
-                    "primaryProvider": providers[0] if providers else None,
-                },
-            }
-            if includeCurrentTools:
-                entry["currentMarketbotTools"] = current_tools
-                entry["futureConnectors"] = future
-            plans.append(entry)
+        for group_market, group_symbols in groups.items():
+            for task in normalized_tasks:
+                providers, why, current_tools, future = self._task_plan(task, group_market)
+                entry: dict[str, Any] = {
+                    "task": task, "market": group_market, "symbols": group_symbols,
+                    "providers": providers,
+                    "why": why,
+                    "freshness": ("Prefer <=3 day news windows; disclose lag." if task == "news" else
+                                  "Preserve actual source observation/period time; retrieval does not establish freshness."),
+                    "fallbacks": providers[1:],
+                    "recommendedSkills": self._skill_hints(task),
+                    "routingTelemetry": {
+                        "skill": "stock-data-sourcing",
+                        "tool": self.name,
+                        "primaryProvider": providers[0] if providers else None,
+                    },
+                }
+                if includeCurrentTools:
+                    entry["currentMarketbotTools"] = current_tools
+                    entry["futureConnectors"] = future
+                plans.append(entry)
 
         result = {
             "asOf": _utc_now_iso(),
             "symbols": clean_symbols,
             "market": market,
             "marketRoute": route,
+            "marketGroups": groups,
             "tasks": plans,
             "recommendedSkills": ["stock-data-sourcing"],
             "routingTelemetry": {
@@ -630,7 +639,8 @@ class MarketSourcePlanTool(Tool):
                 "tool": self.name,
                 "taskCount": len(plans),
             },
-            "summary": (
+            "summary": ("Use a separate provider plan for each market group; no provider recommendation establishes installed capability or fresh data."
+                        if len(groups) > 1 else
                 f"Use {' / '.join(plans[0]['providers']) if plans else 'market tools'} "
                 f"for {market} routing; separate current marketbot tools from future connectors."
             ),
@@ -833,7 +843,7 @@ class MarketChipDistributionTool(Tool):
                 response.raise_for_status()
                 payload = response.json()
         except Exception as e:
-            return [], str(e)
+            return [], type(e).__name__
         return list(payload.get("data", {}).get("klines", []) or []), None
 
     @staticmethod
@@ -1001,7 +1011,7 @@ class MarketFundamentalsTool(Tool):
                 response.raise_for_status()
                 payload = response.json()
         except Exception as e:
-            return None, str(e)
+            return None, type(e).__name__
 
         data = payload.get("data") or {}
         if not data:
@@ -1030,7 +1040,7 @@ class MarketFundamentalsTool(Tool):
                 response.raise_for_status()
                 payload = response.json()
         except Exception as e:
-            return [], [str(e)]
+            return [], [type(e).__name__]
 
         results = payload.get("quoteResponse", {}).get("result", []) or []
         rows: list[dict[str, Any]] = []
@@ -1841,6 +1851,8 @@ class MarketBriefTool(Tool):
             "includeFundamentals": {"type": "boolean", "default": True},
             "includeIntelContext": {"type": "boolean", "default": True},
             "includeLogicChain": {"type": "boolean", "default": True},
+            "maxQuoteAgeSeconds": {"type": "integer", "minimum": 1, "maximum": 31536000, "default": 3600,
+                                   "description": "Explicit quote freshness cutoff for this report, based on actual source observedAt; unknown times stay unknown."},
             "thesisMode": {"type": "string", "enum": ["off", "create", "update"], "default": "off"},
             "thesisId": {"type": "string"},
             "thesisText": {"type": "string"},
@@ -1924,6 +1936,7 @@ class MarketBriefTool(Tool):
         *,
         include_news: bool,
         include_macro: bool,
+        quote_freshness: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Collect component-level reliability details for the final brief."""
         components = {
@@ -1931,27 +1944,60 @@ class MarketBriefTool(Tool):
             "news": cls._component_reliability("news", news, enabled=include_news),
             "macro": cls._component_reliability("macro", macro, enabled=include_macro),
         }
+        snapshot_component = components["snapshot"]
+        snapshot_component["transportStatus"] = snapshot_component["status"]
+        snapshot_component["quoteFreshness"] = quote_freshness or []
+        freshness_states = {row["freshness"] for row in quote_freshness or []}
+        if snapshot_component["status"] != "error":
+            if not snapshot.get("quotes"):
+                snapshot_component["status"] = "unavailable"
+            elif "stale" in freshness_states:
+                snapshot_component["status"] = "stale"
+            elif freshness_states - {"fresh"}:
+                snapshot_component["status"] = "unknown"
+        if include_macro and (macro.get("regime") == "unknown" or macro.get("macroRiskDataStatus") == "insufficient_data"):
+            components["macro"]["transportStatus"] = components["macro"]["status"]
+            if components["macro"]["status"] != "error":
+                components["macro"]["status"] = "unknown"
         issues: list[str] = []
         for component, details in components.items():
             if not details["enabled"]:
                 continue
-            if details["status"] in {"fallback", "degraded", "error"}:
+            if details["status"] in {"fallback", "degraded", "error", "stale", "unknown", "unavailable"}:
                 issues.append(f"{component}:{details['status']}")
         overall_status = "ok"
-        if any(details["status"] == "error" for details in components.values()):
-            overall_status = "error"
-        elif any(details["status"] == "fallback" for details in components.values()):
-            overall_status = "fallback"
-        elif any(details["status"] == "degraded" for details in components.values()):
-            overall_status = "degraded"
-        elif any(details["status"] == "cached" for details in components.values()):
-            overall_status = "cached"
+        for state in ("error", "unavailable", "stale", "unknown", "fallback", "degraded", "cached"):
+            if any(details["status"] == state for details in components.values()):
+                overall_status = state
+                break
 
         return {
             "overallStatus": overall_status,
             "issues": issues,
             "components": components,
+            "methodology": "Provider/transport health is separate from data freshness. Quote age uses only actual source observation time and the caller's explicit cutoff.",
         }
+
+    @staticmethod
+    def _quote_freshness(snapshot: dict[str, Any], report_time: datetime, max_age: int) -> list[dict[str, Any]]:
+        rows = []
+        for quote in snapshot.get("quotes", []):
+            observed_at = source_timestamp(quote.get("observedAt"))
+            age = None
+            freshness = "unknown"
+            if observed_at is not None:
+                age = (report_time - datetime.fromisoformat(observed_at.replace("Z", "+00:00"))).total_seconds()
+                freshness = "future" if age < 0 else "stale" if age > max_age else "fresh"
+            if (quote.get("derived") or quote.get("estimated") or quote.get("synthetic") or quote.get("mock")
+                    or str(quote.get("priceType", "")).casefold() in {"estimated", "estimate", "synthetic", "mock", "hypothetical"}
+                    or str(quote.get("provider") or snapshot.get("source", "")).casefold() in {"mock", "synthetic"}):
+                freshness = "non_observed"
+            rows.append({"symbol": quote.get("symbol"), "price": quote.get("price"), "currency": quote.get("currency"),
+                         "source": quote.get("provider") or snapshot.get("source"), "observedAt": observed_at,
+                         "retrievedAt": quote.get("retrievedAt") or snapshot.get("asOf"),
+                         "sourceTime": quote.get("sourceTime"), "freshness": freshness,
+                         "ageSeconds": round(age, 3) if age is not None else None, "maxAgeSeconds": max_age})
+        return rows
 
     @staticmethod
     def _reliability_markdown_lines(data_reliability: dict[str, Any]) -> list[str]:
@@ -2046,10 +2092,15 @@ class MarketBriefTool(Tool):
         thesisMode: str = "off",
         thesisId: str = "",
         thesisText: str = "",
+        maxQuoteAgeSeconds: int = 3600,
         **kwargs: Any,
     ) -> str:
+        if isinstance(maxQuoteAgeSeconds, bool) or not isinstance(maxQuoteAgeSeconds, int) or not 1 <= maxQuoteAgeSeconds <= 31536000:
+            return json.dumps({"error": "maxQuoteAgeSeconds must be an integer from 1 to 31536000"})
         snapshot = json.loads(await self._snapshot.execute(symbols=symbols, includeMacro=includeMacro))
+        report_time = datetime.now(UTC)
         quotes = snapshot.get("quotes", [])
+        quote_freshness = self._quote_freshness(snapshot, report_time, maxQuoteAgeSeconds)
 
         macro = {"macroRisk": 0.5, "regime": "unknown", "warnings": []}
         if includeMacro:
@@ -2162,6 +2213,7 @@ class MarketBriefTool(Tool):
             macro,
             include_news=includeNews,
             include_macro=includeMacro,
+            quote_freshness=quote_freshness,
         )
         logic_chain = None
         if includeLogicChain and headline.strip():
@@ -2214,14 +2266,18 @@ class MarketBriefTool(Tool):
 
         lines = [
             "## Market Brief",
-            f"- As Of: {_utc_now_iso()}",
+            f"- Generated At: {_utc_now_iso()} (report/retrieval time; not source observation time)",
             f"- Market Focus: {market_route.get('primary', 'general')}",
-            f"- Market Sentiment Index: {sentiment_index:.2f} ({sentiment_state})",
-            f"- Macro Regime: {macro.get('regime', 'unknown')} (risk={macro_risk:.2f})",
+            f"- Market Sentiment Index: {sentiment_index:.2f} ({sentiment_state}; heuristic estimate)",
+            ("- Macro Regime: unknown; macroRisk unavailable (0.50 is a neutral compatibility default)"
+             if macro.get("regime", "unknown") == "unknown" else
+             f"- Macro Regime: {macro.get('regime')} (heuristic risk={macro_risk:.2f})"),
             f"- Social Sentiment: {social_overall:.2f}",
-            "",
-            "### Signals",
         ]
+        lines += ["", "### Quote Observations", f"- Freshness cutoff: {maxQuoteAgeSeconds} seconds; provider success does not establish real-time data."]
+        for quote in quote_freshness:
+            lines.append(f"- {quote['symbol']}: {quote['price']} {quote['currency']} | source={quote['source']} | observedAt={quote['observedAt'] or 'unknown'} | retrievedAt={quote['retrievedAt'] or 'unknown'} | freshness={quote['freshness']} | ageSeconds={quote['ageSeconds'] if quote['ageSeconds'] is not None else 'unknown'}")
+        lines += ["", "### Heuristic Interpretation", "- Signals and scenario text are computed interpretations of the available inputs; stale or unknown observations do not establish a current investment conclusion.", "", "### Signals"]
         for row in actions:
             lines.append(
                 f"- {row['symbol']}: {str(row['action']).upper()} | confidence={float(row['confidence']):.2f} | score={float(row['score']):.2f}"
@@ -2299,6 +2355,7 @@ class MarketBriefTool(Tool):
             "marketState": sentiment_state,
             "scenarios": scenarios,
             "dataReliability": data_reliability,
+            "quoteFreshness": quote_freshness,
             "briefMarkdown": "\n".join(lines),
         }
         return json.dumps(result, ensure_ascii=False)

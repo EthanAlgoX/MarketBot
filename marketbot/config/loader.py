@@ -1,16 +1,48 @@
 """Configuration loading utilities."""
 
 import json
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from pydantic import ValidationError
 
 from marketbot.config.schema import Config
 
+_config_override: ContextVar[Path | None] = ContextVar("marketbot_config_path", default=None)
+_workspace_override: ContextVar[Path | None] = ContextVar("marketbot_workspace", default=None)
+_cli_scope: ContextVar[bool] = ContextVar("marketbot_cli_scope", default=False)
+
+
+class ConfigurationError(ValueError):
+    """A safe configuration diagnostic suitable for a CLI error message."""
+
+
+@contextmanager
+def configuration_scope(config_path: Path | None = None, workspace: Path | None = None):
+    """Apply CLI defaults only for this invocation, including its async tasks."""
+    config_token = _config_override.set(config_path.expanduser().resolve() if config_path else None)
+    workspace_token = _workspace_override.set(workspace.expanduser().resolve() if workspace else None)
+    cli_token = _cli_scope.set(True)
+    try:
+        yield
+    finally:
+        _cli_scope.reset(cli_token)
+        _workspace_override.reset(workspace_token)
+        _config_override.reset(config_token)
+
+
+def apply_config_overrides(config: Config) -> Config:
+    """Apply the scoped workspace to loaded or newly initialized settings."""
+    workspace = _workspace_override.get()
+    if workspace is not None:
+        config.agents.defaults.workspace = str(workspace)
+    return config
+
 
 def get_config_path() -> Path:
     """Get the default configuration file path."""
-    return Path.home() / ".marketbot" / "config.json"
+    return _config_override.get() or Path.home() / ".marketbot" / "config.json"
 
 
 def get_data_dir() -> Path:
@@ -29,7 +61,10 @@ def load_config(config_path: Path | None = None, *, strict: bool = False) -> Con
     Returns:
         Loaded configuration object.
     """
-    path = config_path or get_config_path()
+    path = (config_path or get_config_path()).expanduser()
+    strict = strict or _cli_scope.get()
+    if _cli_scope.get() and (config_path is not None or _config_override.get() is not None) and not path.is_file():
+        raise ConfigurationError(f"Configuration file does not exist or is not a file: {path}")
 
     if path.exists():
         try:
@@ -38,18 +73,18 @@ def load_config(config_path: Path | None = None, *, strict: bool = False) -> Con
             if not isinstance(data, dict):
                 raise ValueError("Configuration root must be an object")
             data = _migrate_config(data)
-            return Config.model_validate(data)
-        except (json.JSONDecodeError, ValueError) as e:
+            return apply_config_overrides(Config.model_validate(data))
+        except (json.JSONDecodeError, ValueError, OSError) as e:
             diagnostic = _safe_diagnostic(e)
             if strict:
-                raise ValueError(f"Invalid configuration at {path}; existing file was preserved ({diagnostic})") from None
+                raise ConfigurationError(f"Invalid configuration at {path}; existing file was preserved ({diagnostic})") from None
             print(f"Warning: Invalid configuration at {path}; existing file was preserved ({diagnostic})")
             print("Using default configuration.")
 
-    return Config()
+    return apply_config_overrides(Config())
 
 
-def _safe_diagnostic(error: ValueError) -> str:
+def _safe_diagnostic(error: Exception) -> str:
     """Report field paths and error types without input values or exception text."""
     if isinstance(error, json.JSONDecodeError):
         return f"json: invalid_json at line {error.lineno}, column {error.colno}"

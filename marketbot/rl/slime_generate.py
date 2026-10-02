@@ -50,7 +50,10 @@ def _task_meta_from_sample(sample: Any) -> dict[str, Any]:
 
 def _infer_signal_inputs(task_meta: dict[str, Any]) -> tuple[str, list[float], dict[str, Any]]:
     symbol = str(task_meta.get("symbol") or "UNKNOWN").upper()
-    prices = [float(item) for item in task_meta.get("prices", []) if item is not None]
+    raw_prices = task_meta.get("prices", [])
+    if any(isinstance(item, bool) for item in raw_prices):
+        raise ValueError("task_meta.prices must contain finite positive numbers, not booleans")
+    prices = [float(item) for item in raw_prices if item is not None]
     if len(prices) < 2:
         raise ValueError("task_meta.prices must contain at least two values")
     features = task_meta.get("features") if isinstance(task_meta.get("features"), dict) else {}
@@ -86,7 +89,7 @@ async def generate(args: Any, sample: Any, sampling_params: dict[str, Any]) -> A
         "prices": prices,
         "instruction": str(task_meta.get("instruction") or f"Trade {symbol} in a local MarketBot rollout."),
         "objective": str(task_meta.get("objective") or "maximize episode reward"),
-        "max_position_pct": float(task_meta.get("target_position_pct", 1.0) or 1.0),
+        "max_position_pct": task_meta.get("target_position_pct", 1.0),
     }
     env_server_url = str(os.getenv("ENV_SERVER_URL", "")).strip()
     task_key = str(task_meta.get("task_name") or "marketbot_slime_task")
@@ -97,23 +100,25 @@ async def generate(args: Any, sample: Any, sampling_params: dict[str, Any]) -> A
         env = LocalMarketEnv(task_catalog={task_key: env_task})
     lease = await env.allocate(task_key, request_id="slime")
     lease_id = str(lease["lease_id"])
-    await env.reset(lease_id, task_meta=env_task, run_ctx={"uid": "slime"})
-    await env.exec_tool(
-        lease_id,
-        "submit_trade_action",
-        {
-            "action": str(structured_action.get("action", signal_payload.get("action", "watch"))).lower(),
-            "position_pct": float(structured_action.get("position_pct", signal_payload.get("positionPct", 0.0)) or 0.0),
-        },
-    )
-    await env.exec_tool(lease_id, "advance_time", {"steps": max(len(prices) - 1, 1)})
-    details_method = getattr(env, "evaluate_details", None)
-    if details_method is None:
-        raise AttributeError("environment must expose evaluate_details for MarketBot rollout metadata")
-    evaluation = details_method(lease_id)
-    if isawaitable(evaluation):
-        evaluation = await evaluation
-    await env.close(lease_id)
+    try:
+        await env.reset(lease_id, task_meta=env_task, run_ctx={"uid": "slime"})
+        await env.exec_tool(
+            lease_id,
+            "submit_trade_action",
+            {
+                "action": str(structured_action.get("action", signal_payload.get("action", "watch"))).lower(),
+                "position_pct": float(structured_action.get("position_pct", signal_payload.get("positionPct", 0.0)) or 0.0),
+            },
+        )
+        await env.exec_tool(lease_id, "advance_time", {"steps": max(len(prices) - 1, 1)})
+        details_method = getattr(env, "evaluate_details", None)
+        if details_method is None:
+            raise AttributeError("environment must expose evaluate_details for MarketBot rollout metadata")
+        evaluation = details_method(lease_id)
+        if isawaitable(evaluation):
+            evaluation = await evaluation
+    finally:
+        await env.close(lease_id)
 
     response_payload = {
         "structuredAction": structured_action,

@@ -263,7 +263,7 @@ def test_stock_watch_capabilities_use_market_brief_anchor(tmp_path):
 
     assert "market_brief" in capabilities["tools"]
     assert "thesis_tracker" in capabilities["tools"]
-    assert capabilities["required_tools"] == ["market_snapshot", "market_news", "market_brief"]
+    assert capabilities["required_tools"] == ["market_snapshot", "market_news", "market_brief", "market_watch", "evidence_get"]
 
 
 def test_skill_trigger_matching_uses_metadata(tmp_path):

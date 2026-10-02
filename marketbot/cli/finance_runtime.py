@@ -142,4 +142,49 @@ def schedule(
         f"Finance watch {watch_id}", CronSchedule(kind="every", every_ms=every_minutes * 60_000), "",
         payload=CronPayload(kind="finance_watch", scope_key=watch_id, deliver=deliver, channel=channel, to=to),
     )
-    typer.echo(json.dumps({"jobId": job.id, "watchId": watch_id, "everyMinutes": every_minutes, "deliver": deliver, "runner": "marketbot gateway"}))
+    typer.echo(json.dumps({"jobId": job.id, "watchId": watch_id, "everyMinutes": every_minutes, "deliver": deliver, "runner": "marketbot gateway --finance-only"}))
+
+
+@finance_app.command("schedule-list")
+def list_schedules(
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+    workspace: Path | None = typer.Option(None, "--workspace", "-w"),
+):
+    """List enabled and disabled financial watch jobs in the configured workspace."""
+    from marketbot.cron.service import CronService
+
+    config = finance_config(config_path, workspace)
+    try:
+        jobs = CronService(config.workspace_path / "cron" / "jobs.json").list_jobs(include_disabled=True)
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from None
+    rows = [{"jobId": job.id, "watchId": job.payload.scope_key, "name": job.name, "enabled": job.enabled,
+             "schedule": {"kind": job.schedule.kind, "everyMs": job.schedule.every_ms, "atMs": job.schedule.at_ms,
+                          "expr": job.schedule.expr, "timezone": job.schedule.tz},
+             "deliver": job.payload.deliver, "channel": job.payload.channel, "to": job.payload.to,
+             "state": {"nextRunAtMs": job.state.next_run_at_ms, "lastRunAtMs": job.state.last_run_at_ms,
+                       "lastStatus": job.state.last_status, "lastError": job.state.last_error}}
+            for job in jobs if job.payload.kind == "finance_watch"]
+    typer.echo(json.dumps({"jobs": rows, "count": len(rows)}, ensure_ascii=False))
+
+
+@finance_app.command("unschedule")
+def unschedule(
+    job_id: str = typer.Argument(..., help="Financial jobId returned by schedule or schedule-list"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+    workspace: Path | None = typer.Option(None, "--workspace", "-w"),
+):
+    """Remove a finance watch's schedule while preserving its definition and alert history."""
+    from marketbot.cron.service import CronService
+
+    config = finance_config(config_path, workspace)
+    cron = CronService(config.workspace_path / "cron" / "jobs.json")
+    try:
+        job = next((item for item in cron.list_jobs(include_disabled=True) if item.id == job_id), None)
+        if job is None or job.payload.kind != "finance_watch":
+            raise ValueError("Financial scheduled job not found; use finance schedule-list for its jobId")
+        if not cron.remove_job(job_id):
+            raise ValueError("Financial scheduled job could not be removed")
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from None
+    typer.echo(json.dumps({"removed": True, "jobId": job_id, "watchId": job.payload.scope_key}))

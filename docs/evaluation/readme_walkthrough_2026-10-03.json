@@ -1,0 +1,197 @@
+{
+  "evaluation": "README installed CLI walkthrough",
+  "generatedAt": "2026-10-02T18:20:45.384652+00:00",
+  "passed": 13,
+  "total": 13,
+  "checks": [
+    {
+      "scenario": "README_command_options_and_complete_help_inventory",
+      "passed": true,
+      "data": "local/illustrative",
+      "details": {
+        "nativeTools": 18,
+        "skills": 63,
+        "cliEntriesWithHelp": 52,
+        "documentedCommandsValidated": 70
+      },
+      "seconds": 1.39
+    },
+    {
+      "scenario": "isolated_onboard_refresh_status",
+      "passed": true,
+      "data": "local/illustrative",
+      "details": {
+        "initialized": true,
+        "refresh": true
+      },
+      "seconds": 2.04
+    },
+    {
+      "scenario": "portfolio_fx_stress_and_evidence",
+      "passed": true,
+      "data": "local/illustrative",
+      "details": {
+        "totalValue": "60000",
+        "stressedTotalValue": "50000",
+        "missingFxRejected": true,
+        "evidenceReadBack": true
+      },
+      "seconds": 3.7
+    },
+    {
+      "scenario": "thesis_zero_confidence_and_explicit_review",
+      "passed": true,
+      "data": "local/illustrative",
+      "details": {
+        "zeroConfidencePreserved": true,
+        "commentDoesNotFalsify": true,
+        "missingEvidenceInconclusive": true
+      },
+      "seconds": 3.35
+    },
+    {
+      "scenario": "watch_data_gap_outbox_and_schedule_management",
+      "passed": true,
+      "data": "local/illustrative",
+      "details": {
+        "createQueryAndDataGap": true,
+        "outboxAcknowledged": true,
+        "scheduleListAndRemove": true
+      },
+      "seconds": 8.36
+    },
+    {
+      "scenario": "skills_scores_and_ten_channel_status",
+      "passed": true,
+      "data": "local/illustrative",
+      "details": {
+        "skillSearchAndScoring": true,
+        "channels": 10,
+        "externalAuthentication": "not_tested"
+      },
+      "seconds": 4.11
+    },
+    {
+      "scenario": "market_brief_evidence_and_heartbeat_template",
+      "passed": true,
+      "data": "local/illustrative",
+      "details": {
+        "mockDataExplicitlyLabeled": true,
+        "briefEvidenceRecorded": true,
+        "heartbeatTemplateWritten": true,
+        "heartbeatModelExecution": "not_tested",
+        "reportCLI": "only tested with --network; its default supplemental providers require network"
+      },
+      "seconds": 1.82
+    },
+    {
+      "scenario": "RSS_collect_deduplicate_digest_and_schedule",
+      "passed": true,
+      "data": "local HTTP RSS fixture",
+      "details": {
+        "rssItems": 2,
+        "deduplicated": true,
+        "digestStoredAndRead": true,
+        "intervalScheduling": true
+      },
+      "seconds": 7.04
+    },
+    {
+      "scenario": "finance_only_gateway_actual_cron_and_shutdown",
+      "passed": true,
+      "data": "local HTTP RSS fixture",
+      "details": {
+        "nativeCronActuallyExecuted": true,
+        "providerRequired": false,
+        "sigintExit": 0,
+        "fixtureIntervalSeconds": 1
+      },
+      "seconds": 3.13
+    },
+    {
+      "scenario": "MCP_stdio_initialize_list_and_call",
+      "passed": true,
+      "data": "real stdio, illustrative portfolio",
+      "details": {
+        "readOnlyTools": 12,
+        "totalValue": "0.02",
+        "invalidInputRejected": true
+      },
+      "seconds": 2.44
+    },
+    {
+      "scenario": "RL_simulate_collect_dataset_export_and_inspect",
+      "passed": true,
+      "data": "local/illustrative",
+      "details": {
+        "simulationDatasetAndExports": true,
+        "parameterTraining": "not_implemented"
+      },
+      "seconds": 4.47
+    },
+    {
+      "scenario": "agent_HTTP_tool_evidence_session_roundtrip",
+      "passed": true,
+      "data": "local HTTP OpenAI-compatible fixture",
+      "details": {
+        "httpModelCalls": 2,
+        "realToolTotalValue": "0.02",
+        "evidenceRecorded": true,
+        "sessionSaved": true,
+        "actualModelQuality": "not_tested"
+      },
+      "seconds": 12.51
+    },
+    {
+      "scenario": "public_quote_news_macro_probe",
+      "passed": true,
+      "data": "real public sources, no paid credentials",
+      "details": {
+        "quotes": [
+          {
+            "symbol": "600519",
+            "provider": "tencent_cn",
+            "currency": "CNY",
+            "observedAt": "2026-09-30T08:14:58Z",
+            "freshness": null
+          },
+          {
+            "symbol": "00700",
+            "provider": "tencent_hk",
+            "currency": "HKD",
+            "observedAt": "2026-10-02T08:08:10Z",
+            "freshness": null
+          },
+          {
+            "symbol": "SPY",
+            "provider": "tencent_us",
+            "currency": "USD",
+            "observedAt": null,
+            "freshness": null
+          }
+        ],
+        "newsCount": 0,
+        "newsWarnings": [
+          "600519: news source returned no usable items"
+        ],
+        "macroWarnings": [
+          "fedFunds: missing FRED api key",
+          "cpi: missing FRED api key",
+          "unemployment: missing FRED api key",
+          "us10y: missing FRED api key",
+          "dxy: missing FRED api key",
+          "macro source is manual; provide FRED api key for reported indicator values"
+        ],
+        "accuracy": "not_independently_verified",
+        "reportSavedInSelectedWorkspace": true
+      },
+      "seconds": 17.3
+    }
+  ],
+  "limitations": [
+    "Real model quality and authenticated channel delivery are not tested",
+    "Optional browser/Lark/Twitter/Xiaohongshu account workflows are not tested",
+    "GPU/Slime training and actual Docker image execution are not tested",
+    "Illustrative fixtures do not establish returns or live-source accuracy"
+  ]
+}

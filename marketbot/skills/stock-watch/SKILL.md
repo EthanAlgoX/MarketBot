@@ -1,7 +1,7 @@
 ---
 name: stock-watch
 description: Automatically monitor specific stocks and provide daily summaries of price, news, and technical indicators.
-metadata: {"marketbot":{"emoji":"📈","triggers":["watchlist","watch","daily summary","decision dashboard"],"output":"stock-watch-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","market_fundamentals","market_brief","thesis_tracker"],"required_tools":["market_snapshot","market_news","market_brief"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"]}}
+metadata: {"marketbot":{"emoji":"📈","triggers":["watchlist","watch","daily summary","decision dashboard"],"output":"stock-watch-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_social_sentiment","market_fundamentals","market_brief","thesis_tracker","market_watch","evidence_get"],"required_tools":["market_snapshot","market_news","market_brief","market_watch","evidence_get"],"markets":["a-share","hong-kong","us","mixed"],"asset_classes":["equity","etf"]}}
 ---
 
 # Stock Watch
@@ -20,7 +20,7 @@ Use this skill to monitor and analyze specific stocks, providing high-quality "D
    real quote/FX evidence IDs and actual observation times when evaluating it.
    The first valid result sets a quiet baseline; stale inputs cannot advance it.
    Schedule deterministic collection with `marketbot finance schedule <watchId>`
-   in the same configured workspace, then run the Gateway. External notification
+   in the same configured workspace, then run `marketbot gateway --finance-only`. External notification
    requires an explicit channel/recipient request. `cron` remains available for
    periodic narrative reports. A report is not a threshold-change alert.
 2. **Data Acquisition**: For each ticker, gather the following:
@@ -79,5 +79,6 @@ Generated at: <HH:MM>
 ## Rules
 
 - **Precision**: Separate factual capital flow data from speculative sentiment.
+- **Evidence**: Only quantify available source-backed inputs. Preserve actual quote/news times and disclose stale/unknown data, unavailable capital flows and absent sentiment sources. Decision scores, causal chains and signal confidence are heuristic interpretations; do not present them as verified investment conclusions.
 - **Categorization**: "Watch" is the default for scores between 40-70.
 - **Actionable**: Ensure the "Latest Dynamics" provides a "so what" for the user.

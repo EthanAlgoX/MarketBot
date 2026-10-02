@@ -35,8 +35,5 @@ WORKDIR /app
 # Create config directory
 RUN mkdir -p /root/.marketbot
 
-# Gateway default port
-EXPOSE 18790
-
 ENTRYPOINT ["marketbot"]
 CMD ["status"]

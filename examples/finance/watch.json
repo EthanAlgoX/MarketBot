@@ -1,0 +1,7 @@
+{
+  "action": "save",
+  "name": "Illustrative CN/HK price watch",
+  "symbols": ["600519", "0700.HK"],
+  "rules": [{"type": "price_change", "thresholdPct": "5"}],
+  "maxAgeSeconds": 3600
+}

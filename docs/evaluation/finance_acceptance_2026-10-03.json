@@ -1,6 +1,6 @@
 {
   "evaluation": "financial_workflow_acceptance",
-  "generatedAt": "2026-10-02T17:18:34.223979+00:00",
+  "generatedAt": "2026-10-02T18:21:41.330376+00:00",
   "data": "illustrative deterministic fixtures",
   "passed": 15,
   "total": 15,
@@ -71,58 +71,5 @@
     "Does not measure real LLM output quality or provider accuracy",
     "Does not backtest returns or execute trades",
     "External channel delivery is tested with isolated mocks"
-  ],
-  "fullSuite": {
-    "passed": 1181,
-    "durationSeconds": 50.27,
-    "python": "3.12.13",
-    "ruff": "passed",
-    "diffCheck": "passed",
-    "gitTrackedFilesOnly": true,
-    "evaluatedAt": "2026-10-02T17:38:41.739264+00:00"
-  },
-  "packaging": {
-    "pythonFiles": 163,
-    "skillAssets": 113,
-    "templates": 4,
-    "missing": [],
-    "cookieBundled": false
-  },
-  "installedMCP": {
-    "installedWheel": true,
-    "stdioInitialized": true,
-    "tools": 12,
-    "allReadOnly": true,
-    "decimalCalculation": true,
-    "evidenceRetrieval": true,
-    "cookieAbsent": true
-  },
-  "publicQuoteSmoke": {
-    "quoteCount": 4,
-    "missingSymbols": [],
-    "warnings": [],
-    "unknownTimeSymbols": [
-      "SPY",
-      "BRK.B"
-    ],
-    "doesNotVerifySourceAccuracy": true
-  },
-  "storageFollowup": {
-    "evidenceConcurrencyRounds": 10,
-    "watchTestsPassed": 80,
-    "financialIntegrationTestsPassed": 150,
-    "emptyCorruptForeignDatabasesPreserved": true,
-    "symlinkBoundariesRejected": true,
-    "atomicFirstInitialization": true
-  },
-  "credentialGate": {
-    "trackedFilesPassed": true,
-    "syntheticNewCredentialRejected": true,
-    "auditedNonSecretBaselineEntries": 39
-  },
-  "cliFollowup": {
-    "narrowTerminalRegressionsPassed": 10,
-    "cliTestsPassed": 84,
-    "literalPathsPreserved": true
-  }
+  ]
 }

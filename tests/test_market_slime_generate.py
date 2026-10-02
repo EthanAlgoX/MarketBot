@@ -3,6 +3,10 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum
 
+import httpx
+import pytest
+
+from marketbot.rl.env.server import MarketEnvHttpServer
 from marketbot.rl.slime_generate import generate
 
 
@@ -80,3 +84,54 @@ def test_slime_generate_runs_episode_task_from_json_prompt() -> None:
     assert isinstance(sample.metadata["marketbot_eval"]["actionHistory"], list)
     assert sample.metadata["marketbot_eval"]["finalSnapshot"]["price"] == 103.0
     assert sample.response_length == len(sample.response)
+
+
+def test_slime_generate_preserves_explicit_zero_position_limit(monkeypatch) -> None:
+    monkeypatch.delenv("ENV_SERVER_URL", raising=False)
+    sample = _FakeSample(prompt={"task": {
+        "task_name": "zero-exposure", "symbol": "NVDA", "prices": [100, 104, 108],
+        "features": {"price_change_pct": 4, "news_sentiment": 0.8, "social_sentiment": 0.6, "macro_risk": 0.1},
+        "target_position_pct": 0,
+    }})
+    asyncio.run(generate(args=None, sample=sample, sampling_params={}))
+    evaluation = sample.metadata["marketbot_eval"]
+    assert json.loads(sample.response)["structuredAction"]["action"] == "buy"
+    assert evaluation["finalPortfolio"]["positionPct"] == 0
+    assert evaluation["turnover"] == 0
+    assert evaluation["equity"] == 1
+    assert sample.reward == {"score": 0}
+
+
+@pytest.mark.parametrize("position", [True, None, float("nan"), float("inf"), -0.1, 1.1])
+def test_slime_generate_rejects_invalid_position_limit(monkeypatch, position) -> None:
+    monkeypatch.delenv("ENV_SERVER_URL", raising=False)
+    sample = _FakeSample(prompt={"task": {
+        "symbol": "NVDA", "prices": [100, 104], "target_position_pct": position,
+    }})
+    with pytest.raises(ValueError):
+        asyncio.run(generate(args=None, sample=sample, sampling_params={}))
+    assert sample.status == _FakeSample.Status.PENDING
+
+
+def test_slime_generate_rejects_boolean_prices(monkeypatch) -> None:
+    monkeypatch.delenv("ENV_SERVER_URL", raising=False)
+    sample = _FakeSample(prompt={"task": {"symbol": "SPY", "prices": [True, 100]}})
+    with pytest.raises(ValueError, match="booleans"):
+        asyncio.run(generate(None, sample, {}))
+    assert sample.status == _FakeSample.Status.PENDING
+
+
+def test_remote_slime_failure_closes_allocated_lease(monkeypatch) -> None:
+    server = MarketEnvHttpServer(host="127.0.0.1", port=0)
+    server.start_in_thread()
+    monkeypatch.setenv("ENV_SERVER_URL", server.base_url)
+    sample = _FakeSample(prompt={"task": {
+        "symbol": "SPY", "prices": [100, 105], "target_position_pct": True,
+    }})
+    try:
+        with pytest.raises(httpx.HTTPStatusError):
+            asyncio.run(generate(None, sample, {}))
+        assert server.env.status()["leaseCount"] == 0
+        assert sample.status == _FakeSample.Status.PENDING
+    finally:
+        server.shutdown()

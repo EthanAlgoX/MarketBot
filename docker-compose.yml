@@ -11,8 +11,6 @@ services:
     <<: *common-config
     command: ["gateway"]
     restart: unless-stopped
-    ports:
-      - 18790:18790
     deploy:
       resources:
         limits:

@@ -31,6 +31,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
 from rich.text import Text
+from typer.core import TyperGroup
 
 import marketbot.cli.openclaw_reporting as openclaw_reporting
 from marketbot import __logo__, __version__
@@ -98,10 +99,24 @@ from marketbot.market_reporting import (
 )
 from marketbot.utils.helpers import sync_workspace_templates
 
+
+class MarketbotCLIGroup(TyperGroup):
+    """Present safe configuration errors without leaking their original input."""
+
+    def invoke(self, ctx):
+        from marketbot.config.loader import ConfigurationError
+
+        try:
+            return super().invoke(ctx)
+        except ConfigurationError as exc:
+            raise typer.BadParameter(str(exc), param_hint="--config") from None
+
+
 app = typer.Typer(
     name="marketbot",
     help=f"{__logo__} marketbot - Financial Research Agent",
     no_args_is_help=True,
+    cls=MarketbotCLIGroup,
 )
 intel_app = typer.Typer(help="Intel source collection and digest tools")
 app.add_typer(intel_app, name="intel")
@@ -507,7 +522,7 @@ def _restore_terminal() -> None:
         pass
 
 
-def _init_prompt_session() -> None:
+def _init_prompt_session(history_file: Path | None = None) -> None:
     """Create the prompt_toolkit session with persistent file history."""
     global _PROMPT_SESSION, _SAVED_TERM_ATTRS
 
@@ -518,7 +533,7 @@ def _init_prompt_session() -> None:
     except Exception:
         pass
 
-    history_file = Path.home() / ".marketbot" / "history" / "cli_history"
+    history_file = history_file or Path.home() / ".marketbot" / "history" / "cli_history"
     history_file.parent.mkdir(parents=True, exist_ok=True)
 
     _PROMPT_SESSION = PromptSession(
@@ -831,12 +846,17 @@ def version_callback(value: bool):
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         None, "--version", "-v", callback=version_callback, is_eager=True
     ),
+    config: Path | None = typer.Option(None, "--config", "-c", help="Default config file for all subcommands"),
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Override the workspace for this invocation"),
 ):
     """marketbot - Financial Research Agent."""
-    pass
+    from marketbot.config.loader import configuration_scope
+
+    ctx.with_resource(configuration_scope(config, workspace))
 
 
 # ============================================================================
@@ -852,7 +872,12 @@ def onboard(
 ):
     """Initialize the financial agent, bundled skills and MCP configuration."""
     from marketbot.config.finance import ensure_finance_defaults
-    from marketbot.config.loader import get_config_path, load_config, save_config
+    from marketbot.config.loader import (
+        apply_config_overrides,
+        get_config_path,
+        load_config,
+        save_config,
+    )
     from marketbot.config.schema import Config
     from marketbot.utils.helpers import get_workspace_path
 
@@ -873,7 +898,7 @@ def onboard(
             console.print(f"[red]{exc}[/red]")
             raise typer.Exit(1) from exc
     else:
-        loaded = Config()
+        loaded = apply_config_overrides(Config())
     if workspace:
         loaded.agents.defaults.workspace = str(Path(workspace).expanduser().resolve())
     ensure_finance_defaults(loaded)
@@ -902,11 +927,13 @@ def onboard(
 
     console.print(f"\n{__logo__} marketbot is ready!")
     console.print("\nNext steps:")
-    console.print(f"  1. Add your LLM API key to [cyan]{config_path}[/cyan]")
-    console.print("     Get one at: https://openrouter.ai/keys")
-    config_flag = f' --config "{config_path}"' if config else ""
-    console.print(f'  2. Inspect: [cyan]marketbot status{config_flag} --json[/cyan]')
-    console.print(f'  3. Research: [cyan]marketbot agent{config_flag} -m "分析 NVDA 的机会、证据与风险"[/cyan]')
+    config_flag = f' --config "{config_path}"'
+    console.print(f'  1. Inspect: marketbot{config_flag} status --json', markup=False, soft_wrap=True)
+    console.print("  2. Calculate portfolio risk with your holdings JSON; no LLM API key is needed.")
+    console.print(f'     marketbot{config_flag} finance call portfolio_risk --input holdings.json', markup=False, soft_wrap=True)
+    console.print("     See README for the holdings input format and financial workflows.")
+    console.print(f"  3. Optional chat: configure a model provider in {config_path}", markup=False, soft_wrap=True)
+    console.print(f'     marketbot{config_flag} agent -m "分析 NVDA 的机会、证据与风险"', markup=False, soft_wrap=True)
     console.print("\n[dim]Chat apps: https://github.com/EthanAlgoX/MarketBot[/dim]")
 
 
@@ -928,8 +955,23 @@ def intel_source_add(
     config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
 ):
     """Add an intel source to the workspace registry."""
+    from urllib.parse import urlsplit
+
     from marketbot.domain.intel.models import IntelSource
     from marketbot.domain.intel.storage import add_source
+
+    normalized_type = source_type.strip().lower()
+    if normalized_type not in {"rss", "website"}:
+        raise typer.BadParameter("--type must be rss or website")
+    if not name.strip():
+        raise typer.BadParameter("--name must not be empty")
+    try:
+        parsed_url = urlsplit(url)
+        valid_url = parsed_url.scheme in {"http", "https"} and bool(parsed_url.hostname)
+    except ValueError:
+        valid_url = False
+    if not valid_url:
+        raise typer.BadParameter("--url must be an absolute HTTP(S) URL")
 
     config_path = Path(config) if config else None
     _, conn = open_intel_db(config_path)
@@ -938,7 +980,7 @@ def intel_source_add(
             conn,
             IntelSource(
                 name=name,
-                source_type=source_type.strip().lower(),
+                source_type=normalized_type,
                 config_json=build_source_config_json(url),
                 scope=scope,
                 scope_key=scope_key,
@@ -1150,7 +1192,7 @@ def intel_schedule_daily(
     scope: str = typer.Option("workspace", help="Logical scope"),
     scope_key: str = typer.Option("", help="Scope identifier"),
     every_minutes: int | None = typer.Option(None, help="Repeat digest generation every N minutes"),
-    cron_expr: str | None = typer.Option("0 8 * * *", help="Cron expression for digest generation"),
+    cron_expr: str | None = typer.Option(None, help="Cron expression for digest generation (default: 0 8 * * *)"),
     tz: str | None = typer.Option("Asia/Shanghai", help="Timezone for cron expressions"),
     hours: int = typer.Option(24, help="Trailing collection window in hours"),
     limit: int = typer.Option(12, help="Maximum digest items"),
@@ -1165,7 +1207,7 @@ def intel_schedule_daily(
     config_path = Path(config) if config else None
     schedule = build_cron_schedule(
         every_minutes=every_minutes,
-        cron_expr=cron_expr,
+        cron_expr=cron_expr if cron_expr is not None or every_minutes is not None else "0 8 * * *",
         tz=tz,
     )
     job = schedule_intel_job(
@@ -1306,11 +1348,12 @@ def intel_schedule_remove(
 
 @app.command()
 def gateway(
-    port: int = typer.Option(18790, "--port", "-p", help="Gateway port"),
+    port: int = typer.Option(18790, "--port", "-p", help="Deprecated compatibility option; this gateway has no HTTP listener"),
     workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace directory"),
     config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
     heartbeat_interval: int | None = typer.Option(None, "--heartbeat-interval", "-i", help="Heartbeat interval in seconds"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+    finance_only: bool = typer.Option(False, "--finance-only", help="Run native finance/intel scheduled jobs without an LLM; disable chat and heartbeat"),
 ):
     """Start the marketbot gateway."""
     from marketbot.channels.manager import ChannelManager
@@ -1330,9 +1373,23 @@ def gateway(
     if heartbeat_interval is not None:
         config.gateway.heartbeat.interval_s = heartbeat_interval
 
-    console.print(f"{__logo__} Starting marketbot gateway on port {port}...")
+    console.print(f"{__logo__} Starting marketbot gateway...")
+    console.print(f"[dim]No HTTP listener; deprecated --port={port} has no effect.[/dim]")
     console.print(f"[dim]{_format_browser_runtime_summary(config)}[/dim]")
     sync_workspace_templates(config.workspace_path)
+    if finance_only:
+        from marketbot.cli.gateway_runtime import run_finance_only_gateway
+
+        run_finance_only_gateway(
+            config=config,
+            config_path=config_path,
+            console=console,
+            open_intel_db=open_intel_db,
+            collect_intel_sources=collect_intel_sources,
+            render_intel_collect_summary=render_intel_collect_summary,
+            build_intel_daily_digest=build_intel_daily_digest,
+        )
+        return
     session_manager = SessionManager(config.workspace_path)
 
     cron_store_path = config.workspace_path / "cron" / "jobs.json"
@@ -1349,6 +1406,7 @@ def gateway(
 
     cron.on_job = create_cron_job_handler(
         config_path=config_path,
+        workspace=config.workspace_path,
         bus=bus,
         agent=agent,
         open_intel_db=open_intel_db,
@@ -1403,7 +1461,7 @@ def gateway(
     if cron_status["jobs"] > 0:
         console.print(f"[green]✓[/green] Cron: {cron_status['jobs']} scheduled jobs")
 
-    console.print(f"[green]✓[/green] Heartbeat: every {hb_cfg.interval_s}s")
+    console.print(f"[green]✓[/green] Heartbeat: every {hb_cfg.interval_s}s" if hb_cfg.enabled else "[dim]Heartbeat: disabled[/dim]")
 
     asyncio.run(
         run_gateway_services(
@@ -1470,7 +1528,7 @@ def agent(
         )
     else:
         # Interactive mode — route through bus like other channels
-        _init_prompt_session()
+        _init_prompt_session(config.workspace_path / "history" / "cli_history")
         console.print(f"{__logo__} Interactive mode (type [bold]exit[/bold] or [bold]Ctrl+C[/bold] to quit)")
         console.print(f"[dim]{_format_browser_runtime_summary(config)}[/dim]\n")
 
@@ -1552,7 +1610,7 @@ def market_report(
         parse_symbol_csv=_parse_symbol_csv,
         pick_notify_target=_pick_notify_target,
         send_message_once=_send_message_once,
-        market_brief_tool_factory=MarketBriefTool,
+        market_brief_tool_factory=lambda market_config: MarketBriefTool(market_config, workspace=config.workspace_path),
         infer_market_report_session=infer_market_report_session,
         resolve_market_timezone=resolve_market_timezone,
         render_market_report_document=render_market_report_document,
@@ -2241,7 +2299,7 @@ def status(
     config = load_config(config_path) if config else load_config()
     from marketbot.session.manager import SessionManager
 
-    session_manager = SessionManager(config.workspace_path)
+    session_manager = SessionManager(config.workspace_path) if (config.workspace_path / "sessions").is_dir() else None
     payload = _build_status_payload(config, config_path, session_manager=session_manager)
 
     if json_output:

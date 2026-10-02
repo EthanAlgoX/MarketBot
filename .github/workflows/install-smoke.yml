@@ -21,8 +21,25 @@ jobs:
         run: |
           mkdir -p marketbot/.xiaohongshu-cli
           python -c "from pathlib import Path; Path('marketbot/.xiaohongshu-cli/cookies.json').write_text('{\"web_session\":\"packaging-test-fixture\"}')"
+          mkdir -p bridge/node_modules/packaging-fixture bridge/dist
+          touch bridge/node_modules/packaging-fixture/native.dylib bridge/dist/packaging-fixture.js
           uv build
-          uv venv /tmp/marketbot-install
+          python - <<'PY'
+          from pathlib import Path
+          import tarfile, zipfile
+          with zipfile.ZipFile(next(Path('dist').glob('*.whl'))) as wheel:
+              names = wheel.namelist()
+              bridge = [name for name in names if name.startswith('marketbot/bridge/')]
+              assert len(bridge) == 6, bridge
+              assert 'marketbot/bridge/package.json' in bridge
+              assert not any('/node_modules/' in name or '/bridge/dist/' in name or name.endswith('.dylib') or name.endswith('cookies.json') for name in names)
+          with tarfile.open(next(Path('dist').glob('*.tar.gz'))) as source:
+              names = source.getnames()
+              assert any(name.endswith('/examples/finance/portfolio.json') for name in names)
+              assert any(name.endswith('/scripts/evaluate_readme.py') for name in names)
+              assert not any('/node_modules/' in name or '/bridge/dist/' in name or name.endswith('.dylib') or name.endswith('cookies.json') for name in names)
+          PY
+          uv venv --python 3.12 /tmp/marketbot-install
           uv pip install --python /tmp/marketbot-install/bin/python dist/*.whl
       - name: Verify installed CLI, finance server, and bundled skills
         working-directory: /tmp
@@ -31,3 +48,6 @@ jobs:
           /tmp/marketbot-install/bin/marketbot finance --help
           /tmp/marketbot-install/bin/python -m marketbot.mcp.finance --help
           /tmp/marketbot-install/bin/python -c "from importlib.resources import files; from marketbot.rl.env.market_env import LocalMarketEnv; assert files('marketbot').joinpath('skills/finance-mcp/SKILL.md').is_file(); assert files('marketbot').joinpath('skills/portfolio-analyzer/SKILL.md').is_file(); assert not files('marketbot').joinpath('.xiaohongshu-cli/cookies.json').is_file()"
+      - name: Replay README against the installed wheel outside the source directory
+        working-directory: /tmp
+        run: /tmp/marketbot-install/bin/python "$GITHUB_WORKSPACE/scripts/evaluate_readme.py" --output /tmp/readme-wheel-evaluation.json

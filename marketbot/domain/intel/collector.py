@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from urllib.parse import urljoin
 
 import feedparser
 import httpx
@@ -25,15 +27,20 @@ def make_dedup_key(url: str, title: str, published_at: str | None) -> str:
 
 
 def _coerce_published(value: str) -> str | None:
-    """Convert RFC-style published timestamps to ISO when possible."""
+    """Normalize an explicit source timezone without guessing one for naive dates."""
     text = str(value or "").strip()
     if not text:
         return None
     try:
-        dt = parsedate_to_datetime(text)
-        return dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
-    except Exception:
-        return text
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            dt = parsedate_to_datetime(text)
+        except (ValueError, TypeError, OverflowError):
+            return None
+    if dt.tzinfo is None or dt.utcoffset() is None:
+        return None
+    return dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 class BaseIntelCollector:
@@ -55,9 +62,22 @@ class RssCollector(BaseIntelCollector):
         url = str(config.get("url", "")).strip()
         if not url:
             raise ValueError("rss source missing url")
-        parsed = feedparser.parse(url)
+        try:
+            async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+                response = await client.get(url, headers={"User-Agent": "MarketBot/1.0"})
+                response.raise_for_status()
+        except httpx.HTTPError as exc:
+            # Request exceptions contain full URLs; feed URLs can carry credentials.
+            raise ValueError(f"rss fetch failed: {type(exc).__name__}") from None
+        response_headers = dict(response.headers)
+        response_headers["content-location"] = urljoin(
+            str(response.url), response_headers.get("content-location", "")
+        )
+        parsed = await asyncio.to_thread(
+            feedparser.parse, response.content, response_headers=response_headers
+        )
         if getattr(parsed, "bozo", 0) and not getattr(parsed, "entries", []):
-            raise ValueError(f"feed parse failed: {parsed.bozo_exception}")
+            raise ValueError(f"feed parse failed: {type(parsed.bozo_exception).__name__}")
 
         now_iso = utc_now_iso()
         items: list[IntelRawItem] = []
@@ -66,9 +86,13 @@ class RssCollector(BaseIntelCollector):
             link = str(getattr(entry, "link", "") or "").strip()
             author = str(getattr(entry, "author", "") or "").strip()
             summary = str(getattr(entry, "summary", "") or "").strip()
-            published_at = _coerce_published(
-                str(getattr(entry, "published", "") or getattr(entry, "updated", "") or "")
+            source_published_at = str(
+                getattr(entry, "published", "") or getattr(entry, "updated", "") or ""
             )
+            published_at = _coerce_published(source_published_at)
+            metadata = {"sourceType": self.source_type}
+            if source_published_at:
+                metadata["sourcePublishedAt"] = source_published_at
             items.append(
                 IntelRawItem(
                     source_id=int(source.id or 0),
@@ -80,7 +104,7 @@ class RssCollector(BaseIntelCollector):
                     content_text=summary,
                     summary_text=summary[:500],
                     dedup_key=make_dedup_key(link, title, published_at),
-                    metadata_json=json.dumps({"sourceType": self.source_type}, ensure_ascii=False),
+                    metadata_json=json.dumps(metadata, ensure_ascii=False),
                 )
             )
         return items

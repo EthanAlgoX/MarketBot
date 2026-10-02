@@ -433,8 +433,9 @@ class WatchStore:
                 rows.extend(item for item in payload[key] if isinstance(item, dict))
         if isinstance(payload.get("fxRates"), dict):
             rows.extend({**row, "currency": currency} for currency, row in payload["fxRates"].items() if isinstance(row, dict))
-        return [{**row, "source": row.get("source") or row.get("provider") or default_source,
-                 "observedAt": row.get("observedAt") or record.observed_at} for row in rows]
+        return [{**row, "source": row.get("source", row.get("provider", default_source)),
+                 "observedAt": row.get("observedAt", payload.get("observedAt", record.observed_at)),
+                 "baseCurrency": row.get("baseCurrency", payload.get("baseCurrency"))} for row in rows]
 
     def _matches_evidence(self, observation: dict[str, Any], evidence_ids: list[str], *, fx: bool = False) -> bool:
         for evidence_id in evidence_ids:
@@ -452,7 +453,10 @@ class WatchStore:
                 try:
                     identity_matches = (str(row.get("currency", "")).upper() == observation["currency"]) if fx else (_symbol(row.get("symbol")) == observation["symbol"])
                     field = "rate" if fx else "price"
-                    currency_matches = fx or str(row.get("currency", "")).upper() == observation["currency"]
+                    currency_matches = (
+                        str(row.get("baseCurrency", "")).upper() == observation["baseCurrency"]
+                        if fx else str(row.get("currency", "")).upper() == observation["currency"]
+                    )
                     if (identity_matches and currency_matches and _number(row.get(field)) == _number(observation[field])
                             and _timestamp(row.get("observedAt")) == _timestamp(observation["observedAt"])
                             and row.get("source") == observation["source"]):
@@ -612,14 +616,14 @@ class WatchStore:
             for currency, row in snapshot["fxRates"].items():
                 if currency.upper() == spec["baseCurrency"]:
                     continue
-                fx_row = {**row, "currency": currency.upper()}
+                fx_row = {**row, "currency": currency.upper(), "baseCurrency": spec["baseCurrency"]}
                 row_gaps = self._quality(fx_row, moment, Decimal(spec["maxAgeSeconds"]), last.get("fxRates", {}).get(currency))
                 ids = list(dict.fromkeys([*_references(row.get("evidenceIds")), *refs]))
                 all_refs.extend(ids)
                 if not ids:
                     row_gaps.append({"code": "missing_evidence", "symbol": currency})
                 elif fx_row.get("source") and fx_row.get("observedAt") and str(fx_row["source"]).casefold() not in {"mock", "synthetic"} and not self._matches_evidence(fx_row, ids, fx=True):
-                    raise ValueError("FX values, source and observation time must match original observed evidence; derived/estimated rates cannot establish a valuation baseline.")
+                    raise ValueError("FX values, base currency, source and observation time must match original observed evidence; derived/estimated rates cannot establish a valuation baseline.")
                 gaps.extend(row_gaps)
         all_refs = list(dict.fromkeys(all_refs))
         if any(self.evidence.get(evidence_id) is None for evidence_id in all_refs):

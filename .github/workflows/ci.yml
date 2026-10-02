@@ -11,6 +11,8 @@ permissions:
 jobs:
   python:
     runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
     strategy:
       fail-fast: false
       matrix:
@@ -24,7 +26,7 @@ jobs:
       - name: Install project and development dependencies
         run: uv sync --extra dev
       - name: Lint Python implementation and tests
-        run: uv run ruff check marketbot tests scripts/evaluate_finance.py scripts/report_pytest_ci.py
+        run: uv run ruff check marketbot tests scripts/evaluate_finance.py scripts/evaluate_readme.py scripts/report_pytest_ci.py
       - name: Test complete Python suite
         run: uv run pytest -q --junitxml=.tmp/pytest-results.xml
       - name: Publish test results and failure annotations
@@ -32,6 +34,8 @@ jobs:
         run: uv run python scripts/report_pytest_ci.py .tmp/pytest-results.xml
       - name: Evaluate financial workflows
         run: uv run python scripts/evaluate_finance.py
+      - name: Replay documented workflows with local protocol fixtures
+        run: uv run python scripts/evaluate_readme.py --output .tmp/readme-evaluation.json
       - name: Build distributions
         run: uv build
 

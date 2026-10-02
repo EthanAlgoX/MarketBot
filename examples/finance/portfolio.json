@@ -1,0 +1,10 @@
+{
+  "baseCurrency": "CNY",
+  "holdings": [
+    {"symbol": "AAPL", "quantity": "10", "price": "200", "currency": "USD"},
+    {"symbol": "0700.HK", "quantity": "100", "price": "400", "currency": "HKD"}
+  ],
+  "cash": [{"currency": "CNY", "amount": "10000"}],
+  "fxRates": {"USD": {"rate": "7"}, "HKD": {"rate": "0.9"}},
+  "scenarios": [{"name": "Illustrative 20% equity decline", "shockPct": "-20"}]
+}

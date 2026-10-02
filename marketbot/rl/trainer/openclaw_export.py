@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -55,11 +56,8 @@ class OpenClawExportSummary:
 
 
 def detect_openclaw_root(marketbot_root: Path) -> Path:
-    """Infer a nearby OpenClaw-RL checkout from the local workspace layout."""
-    sibling = marketbot_root.parent / "OpenClaw-RL"
-    if sibling.exists():
-        return sibling
-    return Path("/Users/yunxuanhan/Documents/workspace/ai/OpenClaw-RL")
+    """Use a sibling checkout path; users can override it with --openclaw-root."""
+    return marketbot_root.parent / "OpenClaw-RL"
 
 
 def export_openclaw_bundle(
@@ -492,18 +490,32 @@ def emit_task_catalog(output_path: Path, *, artifact_path: Path) -> Path:
         task = record.get("task") if isinstance(record.get("task"), dict) else {}
         task_name = str(task.get("task_name") or f"marketbot_task_{index}")
         symbol = str(task.get("symbol") or "UNKNOWN").upper()
-        prices = [float(item) for item in task.get("prices", []) if item is not None]
+        raw_prices = task.get("prices", [])
+        if any(isinstance(item, bool) for item in raw_prices):
+            raise ValueError("Task prices must be finite positive numbers, not booleans.")
+        prices = [float(item) for item in raw_prices if item is not None]
         if len(prices) < 2:
             prices = [1.0, 1.0]
+        raw_position_limit = task.get("target_position_pct", 1.0)
+        if isinstance(raw_position_limit, bool):
+            raise ValueError("Task position limit must be a finite number between 0 and 1.")
+        try:
+            position_limit = float(raw_position_limit)
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError("Task position limit must be a finite number between 0 and 1.") from None
+        if not math.isfinite(position_limit) or not 0 <= position_limit <= 1:
+            raise ValueError("Task position limit must be a finite number between 0 and 1.")
+        if any(not math.isfinite(price) or price <= 0 for price in prices):
+            raise ValueError("Task prices must be finite positive numbers.")
         catalog[task_name] = {
             "symbol": symbol,
             "prices": prices,
             "instruction": str(task.get("instruction") or f"Trade {symbol} over the provided episode."),
             "objective": str(task.get("objective") or "maximize episode reward"),
-            "max_position_pct": float(task.get("target_position_pct", 1.0) or 1.0),
+            "max_position_pct": position_limit,
         }
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2), encoding="utf-8")
+    output_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
     return output_path
 
 

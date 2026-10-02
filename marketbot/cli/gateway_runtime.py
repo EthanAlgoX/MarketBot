@@ -7,7 +7,109 @@ import json
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+import typer
+from loguru import logger
+
+from marketbot.cron.service import CronService
 from marketbot.runtime.diagnostics import collect_runtime_diagnostics, format_bus_runtime_summary
+
+NATIVE_JOB_KINDS = frozenset({"finance_watch", "intel_collect", "intel_digest_daily"})
+
+
+class NativeJobsRequiredError(ValueError):
+    """A model-dependent task cannot run in the native scheduler."""
+
+
+class NativeCronService(CronService):
+    """Stop before consuming unsupported jobs, including externally added ones."""
+
+    def __init__(self, store_path: Path):
+        super().__init__(store_path)
+        self.blocked = asyncio.Event()
+        self.blocked_error: NativeJobsRequiredError | None = None
+
+    def validate_jobs(self) -> None:
+        unsupported = [job.id for job in self.list_jobs() if job.payload.kind not in NATIVE_JOB_KINDS]
+        if unsupported:
+            raise NativeJobsRequiredError(
+                "--finance-only cannot run model-dependent cron jobs: " + ", ".join(unsupported)
+                + ". Use a model-enabled gateway or remove these jobs; they were preserved."
+            )
+
+    async def _execute_job(self, job: Any) -> None:
+        if job.payload.kind not in NATIVE_JOB_KINDS:
+            self.blocked_error = NativeJobsRequiredError(
+                f"--finance-only rejected newly added model-dependent cron job {job.id}; the job was preserved."
+            )
+            logger.error(str(self.blocked_error))
+            self.stop()
+            self.blocked.set()
+            return
+        await super()._execute_job(job)
+
+
+async def run_native_gateway_services(*, bus: Any, channels: Any, cron: NativeCronService) -> None:
+    """Run native jobs and configured delivery, with an explicit chat rejection."""
+    from marketbot.bus.events import OutboundMessage
+
+    async def reject_chat() -> None:
+        while True:
+            message = await bus.consume_inbound()
+            await bus.publish_outbound(OutboundMessage(
+                channel=message.channel,
+                chat_id=message.chat_id,
+                content="This gateway runs finance/intel scheduled jobs only. Chat requires a model-enabled gateway.",
+            ))
+
+    async def wait_for_unsupported_job() -> None:
+        await cron.blocked.wait()
+        raise cron.blocked_error or NativeJobsRequiredError("Native scheduler stopped")
+
+    tasks = []
+    try:
+        await cron.start()
+        tasks = [asyncio.create_task(reject_chat()), asyncio.create_task(channels.start_all()), asyncio.create_task(wait_for_unsupported_job())]
+        await asyncio.gather(*tasks)
+    finally:
+        cron.stop()
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await channels.stop_all()
+
+
+def run_finance_only_gateway(
+    *, config: Any, config_path: Path | None, console: Any,
+    open_intel_db: Callable[..., tuple[Any, Any]], collect_intel_sources: Callable[..., Awaitable[Any]],
+    render_intel_collect_summary: Callable[[Any], str], build_intel_daily_digest: Callable[..., Any],
+) -> None:
+    """Start the explicit provider-free finance/intel scheduler."""
+    from marketbot.bus.queue import MessageBus
+    from marketbot.channels.manager import ChannelManager
+
+    bus = MessageBus()
+    cron = NativeCronService(config.workspace_path / "cron" / "jobs.json")
+    try:
+        cron.validate_jobs()
+    except NativeJobsRequiredError as exc:
+        raise typer.BadParameter(str(exc)) from None
+    cron.on_job = create_cron_job_handler(
+        config_path=config_path, workspace=config.workspace_path, native_only=True,
+        bus=bus, agent=None, open_intel_db=open_intel_db, collect_intel_sources=collect_intel_sources,
+        render_intel_collect_summary=render_intel_collect_summary, build_intel_daily_digest=build_intel_daily_digest,
+    )
+    channels = ChannelManager(config, bus)
+    console.print("Finance-only gateway: native finance/intel scheduled jobs.")
+    console.print("LLM chat and heartbeat disabled.")
+    console.print(f"Native cron jobs: {cron.status()['jobs']}")
+    console.print("Delivery channels: " + (", ".join(channels.enabled_channels) or "none (local results only)"))
+    try:
+        asyncio.run(run_native_gateway_services(bus=bus, channels=channels, cron=cron))
+    except KeyboardInterrupt:
+        console.print("\nShutting down finance-only gateway...")
+    except NativeJobsRequiredError as exc:
+        console.print(str(exc), markup=False, soft_wrap=True)
+        raise typer.Exit(1) from None
 
 
 def build_runtime_delivery_metadata(*, bus: Any = None, session_manager: Any = None) -> dict[str, Any]:
@@ -39,6 +141,8 @@ def create_cron_job_handler(
     collect_intel_sources: Callable[..., Awaitable[Any]],
     render_intel_collect_summary: Callable[[Any], str],
     build_intel_daily_digest: Callable[..., Any],
+    workspace: Path | None = None,
+    native_only: bool = False,
 ):
     """Build the cron job callback used by the gateway."""
     enqueued_alert_ids: set[str] = set()
@@ -48,11 +152,14 @@ def create_cron_job_handler(
         from marketbot.agent.tools.message import MessageTool
         from marketbot.bus.events import OutboundMessage
 
+        if native_only and job.payload.kind not in NATIVE_JOB_KINDS:
+            raise NativeJobsRequiredError("This cron job requires a model-enabled gateway")
+        runtime_workspace = workspace or getattr(agent, "workspace", None)
         if job.payload.kind == "finance_watch":
             from marketbot.agent.tools.watch import MarketWatchTool
             from marketbot.cli.finance_runtime import finance_config, poll_watch
 
-            config = finance_config(config_path, getattr(agent, "workspace", None))
+            config = finance_config(config_path, runtime_workspace)
             result = await poll_watch(config, job.payload.scope_key)
             if (result.get("error") or result.get("ok") is False) and result.get("status") != "data_gap":
                 raise RuntimeError("Scheduled finance watch failed; inspect its local state")
@@ -82,19 +189,21 @@ def create_cron_job_handler(
             return response
 
         if job.payload.kind == "intel_collect":
-            _, intel_conn = open_intel_db(config_path)
+            _, intel_conn = open_intel_db(config_path, workspace=runtime_workspace) if runtime_workspace else open_intel_db(config_path)
             try:
                 results = await collect_intel_sources(
                     intel_conn,
                     scope=job.payload.scope,
                     scope_key=job.payload.scope_key,
                 )
+                if results and not any(item.ok for item in results):
+                    raise RuntimeError("All intel sources failed; inspect intel source-list for details")
                 return render_intel_collect_summary(results)
             finally:
                 intel_conn.close()
 
         if job.payload.kind == "intel_digest_daily":
-            _, intel_conn = open_intel_db(config_path)
+            _, intel_conn = open_intel_db(config_path, workspace=runtime_workspace) if runtime_workspace else open_intel_db(config_path)
             try:
                 _, digest = build_intel_daily_digest(
                     intel_conn,

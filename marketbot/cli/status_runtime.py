@@ -12,6 +12,19 @@ from marketbot.config.finance import mcp_configuration_status
 from marketbot.runtime.diagnostics import collect_runtime_diagnostics
 
 
+def _local_command_status(command: Any) -> dict[str, Any]:
+    """Check a configured executable without running it or inspecting credentials."""
+    command_text = str(command or "")
+    configured = bool(command_text.strip())
+    available = bool(shutil.which(command_text)) if configured else False
+    return {
+        "command": command_text,
+        "commandConfigured": configured,
+        "commandAvailable": available,
+        "commandFound": available,  # Compatibility with existing status consumers.
+    }
+
+
 def render_channels_status_table(config: Any) -> Table:
     """Build the channel status table for CLI output."""
     table = Table(title="Channel Status")
@@ -52,6 +65,8 @@ def render_channels_status_table(config: Any) -> Table:
     em = config.channels.email
     em_config = em.imap_host if em.imap_host else "[dim]not configured[/dim]"
     table.add_row("Email", "✓" if em.enabled else "✗", em_config)
+    matrix = config.channels.matrix
+    table.add_row("Matrix", "✓" if matrix.enabled else "✗", matrix.homeserver)
     return table
 
 
@@ -108,6 +123,15 @@ def build_channels_status_payload(config: Any) -> dict[str, Any]:
                 "enabled": bool(channels.email.enabled),
                 "configuration": {"imapHostConfigured": bool(channels.email.imap_host)},
             },
+            {
+                "name": "matrix",
+                "enabled": bool(channels.matrix.enabled),
+                "configuration": {
+                    "homeserver": channels.matrix.homeserver,
+                    "userIdConfigured": bool(channels.matrix.user_id),
+                    "accessTokenConfigured": bool(channels.matrix.access_token),
+                },
+            },
         ]
     }
 
@@ -123,16 +147,11 @@ def build_status_payload(
     workspace = config.workspace_path
     browser_cfg = config.tools.browser
     browser_enabled = bool(browser_cfg.enabled)
-    browser_command = str(browser_cfg.command or "bb-browser").strip() or "bb-browser"
-    browser_binary = shutil.which(browser_command) if browser_enabled else None
     twitter_cfg = config.tools.twitter_cli
     twitter_enabled = bool(twitter_cfg.enabled)
-    twitter_command = str(twitter_cfg.command or "twitter").strip() or "twitter"
-    twitter_binary = shutil.which(twitter_command) if twitter_enabled else None
     lark_cfg = config.tools.lark_cli
     lark_enabled = bool(lark_cfg.enabled)
-    lark_command = str(lark_cfg.command or "lark-cli").strip() or "lark-cli"
-    lark_binary = shutil.which(lark_command) if lark_enabled else None
+    xhs_cfg = config.tools.xiaohongshu_cli
 
     payload: dict[str, Any] = {
         "config": {
@@ -155,8 +174,7 @@ def build_status_payload(
         "browser": {
             "enabled": browser_enabled,
             "mode": browser_cfg.mode,
-            "command": browser_command,
-            "commandFound": bool(browser_binary),
+            **_local_command_status(browser_cfg.command),
             "allowEval": bool(browser_cfg.allow_eval),
             "allowRequestCapture": bool(browser_cfg.allow_request_capture),
             "allowRequestBodies": bool(browser_cfg.allow_request_bodies),
@@ -167,21 +185,29 @@ def build_status_payload(
         },
         "larkCli": {
             "enabled": lark_enabled,
-            "command": lark_command,
-            "commandFound": bool(lark_binary),
+            **_local_command_status(lark_cfg.command),
             "configDir": str(lark_cfg.config_dir or ""),
             "allowWrite": bool(lark_cfg.allow_write),
             "allowAuth": bool(lark_cfg.allow_auth),
         },
         "twitterCli": {
             "enabled": twitter_enabled,
-            "command": twitter_command,
-            "commandFound": bool(twitter_binary),
+            **_local_command_status(twitter_cfg.command),
             "browser": str(twitter_cfg.browser or ""),
             "chromeProfile": str(twitter_cfg.chrome_profile or ""),
             "proxy": str(twitter_cfg.proxy or ""),
             "homeDir": str(twitter_cfg.home_dir or ""),
             "allowWrite": bool(twitter_cfg.allow_write),
+        },
+        "xiaohongshuCli": {
+            "enabled": bool(xhs_cfg.enabled),
+            **_local_command_status(xhs_cfg.command),
+            "cookieSource": str(xhs_cfg.cookie_source or "auto"),
+            "homeDir": str(xhs_cfg.home_dir or ""),
+            "timeoutS": int(xhs_cfg.timeout_s),
+            "allowWrite": bool(xhs_cfg.allow_write),
+            "allowedWriteOperations": ["post"] if xhs_cfg.allow_write else [],
+            "authenticationStatus": "not_checked",
         },
         "providers": [],
     }
@@ -201,7 +227,8 @@ def build_status_payload(
             "configured": False,
         }
         if spec.is_oauth:
-            entry["configured"] = True
+            entry["configured"] = None
+            entry["authenticationStatus"] = "not_checked"
         elif spec.is_local:
             entry["configured"] = bool(p.api_base)
             if p.api_base:
@@ -254,6 +281,7 @@ def render_status(
     browser = payload["browser"]
     twitter_cli = payload["twitterCli"]
     lark_cli = payload["larkCli"]
+    xhs_cli = payload["xiaohongshuCli"]
 
     console.print(f"{logo} marketbot Status\n")
     console.print(f"Config: {config_path} {'[green]✓[/green]' if config_path.exists() else '[red]✗[/red]'}")
@@ -323,11 +351,26 @@ def render_status(
             + ("[yellow]enabled[/yellow]" if twitter_cli["allowWrite"] else "[dim]disabled[/dim]")
         )
 
+    xhs_status = "[green]✓[/green]" if xhs_cli["enabled"] else "[dim]disabled[/dim]"
+    if xhs_cli["enabled"] and not xhs_cli["commandAvailable"]:
+        xhs_status = "[yellow]! command not found[/yellow]"
+    console.print(f"Xiaohongshu CLI: {xhs_status}")
+    if xhs_cli["enabled"]:
+        console.print(f"Xiaohongshu CLI command: {xhs_cli['command']}", markup=False, soft_wrap=True)
+        console.print(f"Xiaohongshu CLI cookie source: {xhs_cli['cookieSource']}", markup=False, soft_wrap=True)
+        if xhs_cli["homeDir"]:
+            console.print(f"Xiaohongshu CLI homeDir: {xhs_cli['homeDir']}", markup=False, soft_wrap=True)
+        console.print(
+            "Xiaohongshu CLI writes (post): "
+            + ("[yellow]enabled[/yellow]" if xhs_cli["allowWrite"] else "[dim]disabled[/dim]")
+        )
+        console.print("Xiaohongshu CLI: login status not checked")
+
     if config_path.exists():
         console.print(f"Model: {config.agents.defaults.model}")
         for spec in payload["providers"]:
             if spec["type"] == "oauth":
-                console.print(f"{spec['label']}: [green]✓ (OAuth)[/green]")
+                console.print(f"{spec['label']}: [dim]OAuth login status not checked[/dim]")
             elif spec["type"] == "local":
                 if spec.get("apiBase"):
                     console.print(f"{spec['label']}: [green]✓ {spec['apiBase']}[/green]")

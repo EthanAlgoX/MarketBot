@@ -1,0 +1,9 @@
+{
+  "action": "create",
+  "symbol": "600519",
+  "thesis": "Illustrative hypothesis: the observed price stays above CNY 1000",
+  "confidence": 0,
+  "rules": [
+    {"id": "price-floor", "metric": "price", "operator": "lt", "threshold": "1000", "currency": "CNY", "effect": "falsified", "maxAgeSeconds": 3600}
+  ]
+}

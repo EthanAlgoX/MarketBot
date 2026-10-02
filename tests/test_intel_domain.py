@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import httpx
 from typer.testing import CliRunner
 
 from marketbot.cli.commands import app
@@ -194,7 +195,14 @@ def test_rss_collector_parses_entries(monkeypatch) -> None:
             )()
         ]
 
-    monkeypatch.setattr("marketbot.domain.intel.collector.feedparser.parse", lambda url: _Parsed())
+    client_class = httpx.AsyncClient
+    monkeypatch.setattr(
+        "marketbot.domain.intel.collector.httpx.AsyncClient",
+        lambda **kwargs: client_class(
+            **kwargs, transport=httpx.MockTransport(lambda request: httpx.Response(200, content=b"rss"))
+        ),
+    )
+    monkeypatch.setattr("marketbot.domain.intel.collector.feedparser.parse", lambda data, **kwargs: _Parsed())
     items = asyncio.run(collector.collect(source))
     assert len(items) == 1
     assert items[0].title == "AI infra weekly"

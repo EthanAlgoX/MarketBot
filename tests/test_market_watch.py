@@ -28,9 +28,9 @@ def _quote(workspace, price="100", symbol="AAPL", currency="USD", observed_at=NO
 
 
 def _fx(workspace, currency="USD", rate="7", observed_at=NOW):
-    raw = {"currency": currency, "rate": rate, "source": "fixture-FX", "observedAt": observed_at}
+    raw = {"currency": currency, "baseCurrency": "CNY", "rate": rate, "source": "fixture-FX", "observedAt": observed_at}
     record = EvidenceStore(workspace).record(kind="fx", source="fixture-FX", payload=raw, observed_at=observed_at)
-    return {key: value for key, value in {**raw, "evidenceIds": [record.evidence_id]}.items() if key != "currency"}
+    return {key: value for key, value in {**raw, "evidenceIds": [record.evidence_id]}.items() if key not in {"currency", "baseCurrency"}}
 
 
 def _holding(quote, quantity="10"):
@@ -536,3 +536,32 @@ def test_missing_quote_field_is_an_explicit_gap_and_preserves_baseline(tmp_path,
     assert _state(store, watch_id)["baselinePrices"] == before["baselinePrices"]
     assert _state(store, watch_id)["lastSnapshot"] == before["lastSnapshot"]
     assert store.evaluate(watch_id, observations=[observation], as_of=NOW)["alerts"] == []
+
+
+@pytest.mark.parametrize("target", [None, "EUR", "USD", "CNY"])
+@pytest.mark.parametrize("container", [False, True])
+def test_fx_evidence_binds_both_sides_of_currency_pair(tmp_path, target, container):
+    store = WatchStore(tmp_path)
+    raw = {"currency": "USD", "rate": "7", "source": "fixture-FX", "observedAt": NOW}
+    payload = {"fxRates": {"USD": raw}} if container else dict(raw)
+    if target is not None:
+        payload["baseCurrency"] = target
+    record = EvidenceStore(tmp_path).record(kind="fx", source="fixture-FX", payload=payload, observed_at=NOW)
+    fx = {"rate": "7", "source": "fixture-FX", "observedAt": NOW, "evidenceIds": [record.evidence_id]}
+    watch_id = store.save(name="Currency pair", kind="portfolio", holdings=[_holding(_quote(tmp_path))], base_currency="CNY", fx_rates={"USD": fx})["watch"]["watchId"]
+    result = store.evaluate(watch_id, as_of=NOW)
+    if target == "CNY":
+        assert result["ok"] and result["valuation"]["totalValue"] == "7000"
+    else:
+        assert not result["ok"] and result["error"]["type"] == "invalid_watch_evidence"
+        assert _state(store, watch_id) == {} and store.outbox()["alerts"] == []
+
+
+@pytest.mark.parametrize("missing", ["observedAt", "source"])
+def test_explicit_unknown_fact_provenance_does_not_borrow_container_value(tmp_path, missing):
+    store, watch_id = _watch(tmp_path)
+    raw = {"symbol": "AAPL", "price": "100", "currency": "USD", "source": "fixture-provider", "observedAt": NOW, missing: None}
+    record = EvidenceStore(tmp_path).record(kind="quote", source="fixture-provider", payload={"quotes": [raw], "source": "fixture-provider", "observedAt": NOW}, observed_at=NOW)
+    observation = {**raw, missing: NOW if missing == "observedAt" else "fixture-provider", "evidenceIds": [record.evidence_id]}
+    result = store.evaluate(watch_id, observations=[observation], as_of=NOW)
+    assert not result["ok"] and _state(store, watch_id) == {}

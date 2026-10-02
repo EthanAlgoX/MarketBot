@@ -19,7 +19,7 @@ def get_bridge_dir(*, console: Any, logo: str, commands_file: Path) -> Path:
         return user_bridge
 
     if not shutil.which("npm"):
-        console.print("[red]npm not found. Please install Node.js >= 18.[/red]")
+        console.print("[red]npm not found. Please install Node.js >= 20.[/red]")
         raise typer.Exit(1)
 
     pkg_bridge = commands_file.parent.parent / "bridge"
@@ -33,7 +33,7 @@ def get_bridge_dir(*, console: Any, logo: str, commands_file: Path) -> Path:
 
     if not source:
         console.print("[red]Bridge source not found.[/red]")
-        console.print("Try reinstalling: pip install --force-reinstall marketbot")
+        console.print("Try reinstalling: pip install --force-reinstall marketbot-ai")
         raise typer.Exit(1)
 
     console.print(f"{logo} Setting up bridge...")
@@ -73,8 +73,10 @@ def run_channels_login(*, config: Any, bridge_dir: Path, console: Any, logo: str
         subprocess.run(["npm", "start"], cwd=bridge_dir, check=True, env=env)
     except subprocess.CalledProcessError as exc:
         console.print(f"[red]Bridge failed: {exc}[/red]")
+        raise typer.Exit(1) from exc
     except FileNotFoundError:
-        console.print("[red]npm not found. Please install Node.js.[/red]")
+        console.print("[red]npm not found. Please install Node.js >= 20.[/red]")
+        raise typer.Exit(1) from None
 
 
 def select_oauth_provider(*, provider: str, providers: list[Any]) -> Any:

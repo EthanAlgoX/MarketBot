@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "recordedAt": "2026-10-02T18:18:37.915156Z",
+  "localEvaluationDate": "2026-10-03",
+  "timezone": "Asia/Shanghai",
+  "scope": "Independent practical acceptance of native financial tools, read-only MCP, evidence/thesis/watch workflows and no-model runner; no real outbound delivery.",
+  "environment": {
+    "isolatedWorkspace": true,
+    "configExplicitlySelected": true,
+    "modelAccountRequired": false,
+    "externalChannelsEnabled": false,
+    "network": "public read-only data requests; no market/news/FRED credentials configured"
+  },
+  "coverage": {
+    "method": "Actual CLI subprocesses and MCP stdio call_tool; inventory-only checks excluded.",
+    "nativeToolCount": 18,
+    "nativeToolsActuallyCalled": 18,
+    "readOnlyMcpToolCount": 12,
+    "readOnlyMcpToolsActuallyCalled": 12,
+    "native": [
+      {"name":"market_snapshot","inputType":"real_public_network","exitCode":0,"result":{"asOf":"2026-10-02T17:48:43.668775Z","source":"mixed","missingSymbols":[],"quotes":[{"symbol":"600519","price":1258.62,"currency":"CNY","provider":"tencent_cn","observedAt":"2026-09-30T08:14:58Z"},{"symbol":"00700","price":421.2,"currency":"HKD","provider":"tencent_hk","observedAt":"2026-10-02T08:08:10Z"},{"symbol":"SPY","price":768.99,"currency":"USD","provider":"tencent_us","observedAt":null}]}},
+      {"name":"market_event_extract","inputType":"explicit_user_fixture","exitCode":0,"result":{"eventType":"other","sentimentLabel":"neutral","sentimentBackend":"lexicon","confidence":0.55}},
+      {"name":"market_source_plan","inputType":"local_ledger_or_routing","exitCode":0,"result":{"market":"mixed","marketGroups":{"a-share":["600519"],"hong-kong":["0700.HK"],"us":["SPY"]},"taskPlanCount":15,"nonAShareChips":"unsupported; no current native chip tool"}},
+      {"name":"portfolio_risk","inputType":"explicit_illustrative_inputs","exitCode":0,"result":{"ok":true,"baseCurrency":"CNY","totalValue":"60000","cashValue":"10000","scenarios":[{"shockPct":"-20","stressedTotalValue":"50000","loss":"10000","hypothetical":true,"isForecast":false}]}},
+      {"name":"evidence_get","inputType":"persisted_real_quote","exitCode":0,"result":{"found":true,"record":{"kind":"quote","source":"tencent_cn","observedAt":"2026-09-30T08:14:58+00:00","publicFields":{"symbol":"600519","price":1258.62,"currency":"CNY"},"mock":false}}},
+      {"name":"evidence_list","inputType":"local_ledger_or_routing","exitCode":0,"result":{"count":3,"kinds":["user_note","tool_result","tool_result"]}},
+      {"name":"logic_chain_visualizer","inputType":"explicit_user_fixture","exitCode":0,"result":{"direction":"TD","nodes":2,"edges":1}},
+      {"name":"market_signal","inputType":"explicit_user_fixture","exitCode":0,"result":{"symbol":"600519","action":"watch","score":-0.005,"confidence":0.482,"riskLevel":"medium"}},
+      {"name":"market_chip_distribution","inputType":"real_public_network","exitCode":1,"result":{"symbol":"600519","error":"RemoteProtocolError"}},
+      {"name":"market_fundamentals","inputType":"real_public_network","exitCode":0,"result":{"asOf":"2026-10-02T18:12:39.617233Z","items":[{"symbol":"600519","provider":"eastmoney","currency":"CNY","trailingPE":17.67,"priceToBook":6.26}],"observedAt":null,"dataStatus":"partial; Yahoo global request rate-limited"}},
+      {"name":"market_news","inputType":"real_public_network","exitCode":0,"result":{"asOf":"2026-10-02T17:48:44.799363Z","sources":["reuters","bloomberg","cls"],"providerBySymbol":{"600519":"unavailable"},"itemCount":0,"dataStatus":"no usable requested-symbol news; no fabricated fallback"}},
+      {"name":"market_social_sentiment","inputType":"real_public_network","exitCode":0,"result":{"asOf":"2026-10-02T17:48:43.440217Z","sources":["x","reddit"],"symbols":[{"symbol":"600519","dataQuality":"unavailable","mentions":0,"confidence":0.0},{"symbol":"0700.HK","dataQuality":"unavailable","mentions":0,"confidence":0.0},{"symbol":"NVDA","dataQuality":"unavailable","mentions":0,"confidence":0.0}],"dataStatus":"unavailable; zero mentions does not mean neutral sentiment"}},
+      {"name":"market_macro","inputType":"real_no_key_gap","exitCode":0,"result":{"asOf":"2026-10-02T17:48:41.365491Z","source":"manual","regime":"unknown","macroRisk":0.5,"macroRiskDataStatus":"insufficient_data","values":{"fedFunds":null,"cpi":null,"unemployment":null,"us10y":null,"dxy":null},"observedAt":null,"dataStatus":"FRED key missing; macroRisk 0.5 is a compatibility default","cpiUnits":"percent YoY; pc1"}},
+      {"name":"market_brief","inputType":"real_public_network","exitCode":0,"result":{"asOf":"2026-10-02T18:12:45.866572Z","overallStatus":"stale","quoteFreshness":[{"symbol":"600519","price":1258.62,"currency":"CNY","source":"tencent_cn","observedAt":"2026-09-30T08:14:58Z","retrievedAt":"2026-10-02T18:12:45.803821Z","freshness":"stale","ageSeconds":208667.848,"maxAgeSeconds":3600}],"macroRegime":"unknown","interpretation":"heuristic; no current verified investment conclusion"}},
+      {"name":"intel_search","inputType":"local_ledger_or_routing","exitCode":0,"result":{"query":"市场","hitCount":0}},
+      {"name":"evidence_record","inputType":"explicit_user_fixture","exitCode":0,"result":{"record":{"kind":"user_note","source":"explicit_user_fixture","observedAt":null,"publicFields":{},"mock":true},"stored":true}},
+      {"name":"thesis_tracker","inputType":"real_quote_rule_check","exitCode":0,"result":{"verificationStatus":"inconclusive","decisionSource":"none","verdict":"unchanged","thesis":{"status":"active","confidence":0.0},"rules":[{"metric":"price","threshold":"1000","maxAgeSeconds":3600,"reason":"source observation is stale for this rule","fact":{"value":"1258.62","source":"tencent_cn","observedAt":"2026-09-30T08:14:58Z"}}]}},
+      {"name":"market_watch","inputType":"real_quote_strict_poll","exitCode":1,"result":{"ok":false,"status":"data_gap","baselineAdvanced":false,"evaluatedAt":"2026-10-02T17:51:49.547219Z","dataGaps":[{"code":"stale_observation","symbol":"600519.SH","ageSeconds":"207411.547219","maxAgeSeconds":"3600"},{"code":"stale_observation","symbol":"00700.HK","ageSeconds":"35019.547219","maxAgeSeconds":"3600"}],"valuationAvailable":false,"alertCount":1}}
+    ],
+    "mcp": [
+      {"name":"market_snapshot","inputType":"real_public_network","readOnlyHint":true,"isError":false,"result":{"asOf":"2026-10-02T18:14:32.510143Z","source":"mixed","missingSymbols":[],"quotes":[{"symbol":"600519","price":1258.62,"currency":"CNY","provider":"tencent_cn","observedAt":"2026-09-30T08:14:58Z"},{"symbol":"00700","price":421.2,"currency":"HKD","provider":"tencent_hk","observedAt":"2026-10-02T08:08:10Z"},{"symbol":"SPY","price":769.35,"currency":"USD","provider":"tencent_us","observedAt":null}]}},
+      {"name":"market_event_extract","inputType":"explicit_user_fixture","readOnlyHint":true,"isError":false,"result":{"eventType":"other","sentimentLabel":"neutral","sentimentBackend":"lexicon","confidence":0.55}},
+      {"name":"market_source_plan","inputType":"local_ledger_or_routing","readOnlyHint":true,"isError":false,"result":{"market":"mixed","marketGroups":{"a-share":["600519"],"hong-kong":["0700.HK"],"us":["SPY"]},"taskPlanCount":15,"nonAShareChips":"unsupported; no current native chip tool"}},
+      {"name":"portfolio_risk","inputType":"explicit_illustrative_inputs","readOnlyHint":true,"isError":false,"result":{"ok":true,"baseCurrency":"CNY","totalValue":"60000","cashValue":"10000","scenarios":[{"shockPct":"-20","stressedTotalValue":"50000","loss":"10000","hypothetical":true,"isForecast":false}]}},
+      {"name":"evidence_get","inputType":"persisted_real_quote","readOnlyHint":true,"isError":false,"result":{"found":true,"record":{"kind":"quote","source":"tencent_cn","observedAt":"2026-09-30T08:14:58+00:00","publicFields":{"symbol":"600519","price":1258.62,"currency":"CNY"},"mock":false}}},
+      {"name":"evidence_list","inputType":"local_ledger_or_routing","readOnlyHint":true,"isError":false,"result":{"count":1,"kinds":["tool_result"]}},
+      {"name":"logic_chain_visualizer","inputType":"explicit_user_fixture","readOnlyHint":true,"isError":false,"result":{"direction":"TD","nodes":2,"edges":1}},
+      {"name":"market_chip_distribution","inputType":"real_public_network","readOnlyHint":true,"isError":true,"result":{"symbol":"600519","error":"RemoteProtocolError"}},
+      {"name":"market_fundamentals","inputType":"real_public_network","readOnlyHint":true,"isError":false,"result":{"asOf":"2026-10-02T18:14:38.424546Z","items":[{"symbol":"600519","provider":"eastmoney","currency":"CNY","trailingPE":17.67,"priceToBook":6.26}],"observedAt":null,"dataStatus":"partial; Yahoo global request rate-limited"}},
+      {"name":"market_news","inputType":"real_public_network","readOnlyHint":true,"isError":false,"result":{"asOf":"2026-10-02T18:14:41.086680Z","sources":["reuters","bloomberg","cls"],"providerBySymbol":{"600519":"unavailable"},"itemCount":0,"dataStatus":"no usable requested-symbol news; no fabricated fallback"}},
+      {"name":"market_social_sentiment","inputType":"real_public_network","readOnlyHint":true,"isError":false,"result":{"asOf":"2026-10-02T18:14:42.725894Z","sources":["x","reddit"],"symbols":[{"symbol":"600519","dataQuality":"unavailable","mentions":0,"confidence":0.0},{"symbol":"NVDA","dataQuality":"unavailable","mentions":0,"confidence":0.0}],"dataStatus":"unavailable; zero mentions does not mean neutral sentiment"}},
+      {"name":"market_macro","inputType":"real_no_key_gap","readOnlyHint":true,"isError":false,"result":{"asOf":"2026-10-02T18:14:42.731262Z","source":"manual","regime":"unknown","macroRisk":0.5,"macroRiskDataStatus":"insufficient_data","values":{"fedFunds":null,"cpi":null,"unemployment":null,"us10y":null,"dxy":null},"observedAt":null,"dataStatus":"FRED key missing; macroRisk 0.5 is a compatibility default","cpiUnits":"percent YoY; pc1"}}
+    ]
+  },
+  "workflowChecks": {
+    "realThesis": {
+      "steps": [{"step": "create-doc-thesis", "exitCode": 0, "verificationStatus": null, "verdict": null, "thesis": {"status": "active", "confidence": 0.0}}, {"step": "review-stale-real-quote", "exitCode": 0, "verificationStatus": "inconclusive", "verdict": "unchanged", "thesis": {"status": "active", "confidence": 0.0}}, {"step": "negative-narrative", "exitCode": 0, "verificationStatus": "not_evaluated", "verdict": "unchanged", "thesis": {"status": "active", "confidence": 0.0}}, {"step": "set-explicit-seven-day-asof-policy", "exitCode": 0, "verificationStatus": "not_evaluated", "verdict": "unchanged", "thesis": {"status": "active", "confidence": 0.0}}, {"step": "review-real-asof-quote", "exitCode": 0, "verificationStatus": "verified", "verdict": "unchanged", "thesis": {"status": "active", "confidence": 0.0}}],
+      "timePolicy": "One-hour rule rejected actual 2026-09-30 quote; explicit seven-day policy accepted same unchanged source time. Negative narrative never auto-falsified; confidence=0 preserved."
+    },
+    "strictRealWatch": {
+      "status": "data_gap",
+      "reason": "CN/HK actual quote times exceeded one-hour cutoff",
+      "baselineAdvanced": false,
+      "valuationAvailable": false,
+      "localOutboxReadAckThenEmpty": "passed"
+    },
+    "scheduleManagement": {
+      "schedule": "passed",
+      "visibleFinanceJobs": 1,
+      "unschedule": "passed",
+      "intervalMinutes": 15,
+      "deliver": false,
+      "definitionHistoryPreservation": "contract tests passed"
+    },
+    "noModelGateway": {
+      "startedWithoutProviderKey": true,
+      "sigintExitCode": 0,
+      "financeOnly": true,
+      "externalChannels": "none"
+    },
+    "crossCurrencyContractFixture": {
+      "inputType": "controlled quote/FX fixtures via actual CLI; not live data",
+      "fxConvention": "1 HKD = 0.9 CNY; evidence explicitly baseCurrency=CNY",
+      "evaluations": [{"status": "baseline_established", "ok": true, "totalValue": "46000", "alerts": []}, {"status": "changed", "ok": true, "totalValue": "82000", "alerts": ["position_change", "max_weight"]}],
+      "outboxAckThenEmpty": "passed"
+    },
+    "disabledAndUnsupported": {
+      "enabled": {
+        "toolCount": 12,
+        "mutationRejected": true,
+        "unsupportedChips": {
+          "isError": true,
+          "result": {
+            "error": "chip distribution currently supports A-share symbols only",
+            "symbol": "SPY"
+          }
+        }
+      },
+      "disabled": {
+        "toolCount": 0
+      }
+    },
+    "disabledNativePoll": {
+      "exitCode": 1,
+      "error": "finance_disabled"
+    }
+  },
+  "fixesVerified": [{"fix": "Mixed market plan", "result": "Actual CN/HK/US groups; non-A-share chips unsupported."}, {"fix": "FX target denomination", "result": "Correct explicit target accepted; missing/wrong base rejected without advancing baseline; direct/container facts tested."}, {"fix": "Source provenance", "result": "Explicit null time/source does not borrow parent value; unknown US quote timezone remains null."}, {"fix": "Report freshness", "result": "Actual stale quote disclosed with observedAt/age and overallStatus=stale; unknown/future/cutoff tests passed."}, {"fix": "Provider errors", "result": "Fundamentals/chip errors return type only; credential URL fixture not echoed."}, {"fix": "RSS async I/O", "result": "RSS/Atom bytes, redirects, relative links, HTTP failure and off-loop parser tested; unknown publication zone stays unknown."}, {"fix": "Finance job management", "result": "Actual schedule/list/unschedule plus no-model Gateway SIGINT passed; foreign/corrupt jobs preserved in tests."}, {"fix": "Stock-watch tool declaration", "result": "market_watch/evidence_get required; skills regression passed."}],
+  "sourceAndFixtureSeparation": {
+    "publicNetwork": "Quotes, fundamentals, news, social, chips, corrected market brief, and the same read-only MCP network calls used actual provider responses.",
+    "illustrativeInputs": "Portfolio numbers, event headline, signal factors, causal steps, and user note were deliberately supplied examples; they demonstrate tool semantics, not live investment facts.",
+    "controlledContractFixture": "Positive FX/portfolio state-transition scenario uses labelled contract quote/FX fixtures via actual evidence_record/save/evaluate/outbox/ack CLI; it proves matching and persistence, not external economic truth.",
+    "ruleTimePolicy": "Initial real quote was rejected as stale. A subsequent explicit seven-day user cutoff accepted the same unchanged as-of quote; neither the quote nor its source timestamp was edited."
+  },
+  "regressions": {
+    "targetedTests": 251,
+    "targetedPassed": 251,
+    "additionalFinalReportAndSkillTests": 54,
+    "additionalPassed": 54,
+    "ruff": "passed",
+    "cases": ["RSS/Atom bytes and async parser concurrency", "FX wrong/missing target base currency cannot establish baseline", "Explicit unknown observation/source cannot borrow container metadata", "Actual observation freshness versus retrieval time", "Provider URL/credential error redaction", "Cross-market grouping and unsupported chip plans", "Schedule list/removal preserves definitions and foreign jobs"]
+  },
+  "limitations": ["No real LLM quality/economic judgement evaluation.", "No real channel delivery, broker synchronization or order execution.", "FRED with a real key and paid/provider credentials not exercised in this no-key acceptance.", "Imported evidence proves immutable field consistency, not honesty of user-supplied sources.", "Public supplier availability and freshness can change; current gaps remain explicit.", "Positive watch transitions use controlled fixtures; actual strict public-source poll returned a data gap."],
+  "rawArchive": "Full responses retained locally in .tmp/native-finance-raw.json; excluded from review artifact."
+}

@@ -1161,8 +1161,9 @@ def test_market_brief_composes_outputs() -> None:
     assert len(payload["signals"]) == 2
     assert "social" in payload
     assert payload["marketRoute"]["primary"] == "equity"
-    assert payload["dataReliability"]["overallStatus"] == "ok"
-    assert payload["dataReliability"]["components"]["snapshot"]["status"] == "ok"
+    assert payload["dataReliability"]["overallStatus"] == "unknown"
+    assert payload["dataReliability"]["components"]["snapshot"]["status"] == "unknown"
+    assert payload["dataReliability"]["components"]["snapshot"]["transportStatus"] == "ok"
     assert "briefMarkdown" in payload
     assert "Market Focus: equity" in payload["briefMarkdown"]
     assert "Scenario Playbook" in payload["briefMarkdown"]

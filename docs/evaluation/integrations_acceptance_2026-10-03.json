@@ -1,0 +1,244 @@
+{
+  "evaluation": "local_extensions_deployment_and_rl_acceptance",
+  "date": "2026-10-03",
+  "generatedAt": "2026-10-02T18:10:05.706082+00:00",
+  "environment": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "python": "3.12.13",
+    "node": "22.13.1",
+    "npm": "10.9.2"
+  },
+  "targetedRegression": {
+    "passed": 110,
+    "failed": 0,
+    "coverage": [
+      "RL environment and HTTP protocol",
+      "Slime heuristic sample adapter",
+      "OpenClaw export and CLI diagnostics",
+      "CLI authentication and bridge failure handling",
+      "zero and invalid exposure limits",
+      "remote lease cleanup",
+      "portable launcher paths"
+    ],
+    "ruff": "passed",
+    "gitDiffCheck": "passed"
+  },
+  "installedWheelCli": {
+    "passed": 8,
+    "total": 8,
+    "checks": [
+      {
+        "name": "evaluate",
+        "ok": true,
+        "entrypoint": "installed-wheel real CLI subprocess"
+      },
+      {
+        "name": "collect",
+        "ok": true,
+        "entrypoint": "installed-wheel real CLI subprocess"
+      },
+      {
+        "name": "build-dataset",
+        "ok": true,
+        "entrypoint": "installed-wheel real CLI subprocess"
+      },
+      {
+        "name": "train-supervised-export",
+        "ok": true,
+        "entrypoint": "installed-wheel real CLI subprocess"
+      },
+      {
+        "name": "train-slime-export",
+        "ok": true,
+        "entrypoint": "installed-wheel real CLI subprocess"
+      },
+      {
+        "name": "export-openclaw",
+        "ok": true,
+        "entrypoint": "installed-wheel real CLI subprocess"
+      },
+      {
+        "name": "inspect-openclaw",
+        "ok": true,
+        "entrypoint": "installed-wheel real CLI subprocess"
+      },
+      {
+        "name": "channels-status",
+        "ok": true,
+        "entrypoint": "installed-wheel real CLI subprocess"
+      }
+    ],
+    "data": "illustrative prices and sentiment inputs; empty local configuration; no model/API account",
+    "package": "rebuilt wheel with source-only bridge assets"
+  },
+  "package": {
+    "wheelBytes": 626669,
+    "wheelFiles": 286,
+    "bridgeAssets": [
+      "marketbot/bridge/package.json",
+      "marketbot/bridge/src/index.ts",
+      "marketbot/bridge/src/server.ts",
+      "marketbot/bridge/src/types.d.ts",
+      "marketbot/bridge/src/whatsapp.ts",
+      "marketbot/bridge/tsconfig.json"
+    ],
+    "sdistFiles": 384,
+    "nodeModulesBundled": false,
+    "compiledBridgeBundled": false,
+    "platformLibraryBundled": false,
+    "sessionCookiesBundled": false,
+    "sourceDistributionIncludesDocumentation": true
+  },
+  "channelDependencies": {
+    "baseInstallImports": 9,
+    "matrixAbsentWithoutExtra": "explicit ImportError with matrix extra install instruction",
+    "matrixExtraInstall": "passed in fresh virtual environment",
+    "withMatrixExtraImportsAndConstructors": 10,
+    "onlinePlatformAuthentication": "not exercised",
+    "onlineMessageDelivery": "not exercised"
+  },
+  "localhostHttp": {
+    "rlEnvironment": {
+      "result": "passed",
+      "transport": "real loopback HTTP with RemoteMarketEnvClient",
+      "data": "illustrative SPY price series",
+      "routes": [
+        "healthz",
+        "allocate",
+        "reset",
+        "heartbeat",
+        "exec_tool",
+        "evaluate_details",
+        "close"
+      ],
+      "zeroExposure": "preserved",
+      "failedRemoteResetLeaseCleanup": "passed regression"
+    },
+    "metrics": {
+      "result": "passed",
+      "transport": "real loopback HTTP",
+      "payload": "fixture metrics/alerts; no real training run",
+      "routes": [
+        "healthz",
+        "summary.json",
+        "metrics",
+        "alerts",
+        "alerts/prometheus"
+      ]
+    }
+  },
+  "whatsappBridge": {
+    "cleanNpmInstall": "passed; 75 packages",
+    "typescriptTypecheck": "passed",
+    "typescriptBuild": "passed",
+    "generatedJavascriptSyntaxChecks": 3,
+    "websocketProtocol": {
+      "result": "passed",
+      "transport": "real loopback WebSocket",
+      "whatsappBackend": "mocked; never connected to WhatsApp",
+      "checks": [
+        "bind 127.0.0.1",
+        "invalid token closes with 4003",
+        "authenticated command acknowledgement",
+        "inbound broadcast"
+      ]
+    },
+    "qrLoginAndRealWhatsAppAccount": "not exercised",
+    "requiredNodeMajor": 20
+  },
+  "docker": {
+    "composeYaml": "passed",
+    "gatewayPortPublished": false,
+    "pythonDependencyLayerWheelBuild": "passed using the same empty package layout as the Docker cache layer",
+    "dockerExecutableAvailable": false,
+    "fullImageBuild": "not exercised; Docker executable unavailable on this host",
+    "runningContainer": "not exercised"
+  },
+  "externalExecutables": {
+    "larkCli": {
+      "found": false,
+      "missingExecutableError": "verified",
+      "onlineAccountFlow": "not exercised"
+    },
+    "twitterCli": {
+      "found": false,
+      "missingExecutableError": "verified",
+      "onlineAccountFlow": "not exercised"
+    },
+    "bbBrowser": {
+      "found": false,
+      "missingExecutableError": "verified",
+      "onlineAccountFlow": "not exercised"
+    }
+  },
+  "rlCapabilityBoundaries": {
+    "localPriceEpisodeSimulation": "passed with illustrative inputs",
+    "signalAndEpisodeDatasetExport": "passed",
+    "supervisedAndSlimeAdapters": "export artifacts only, including when --no-dry-run is selected",
+    "slimeGenerate": "heuristic MarketSignalTool rollout and protocol adapter; does not sample a trained model",
+    "openclawLaunchScripts": "generated and checked with bash -n; external launcher not executed",
+    "realSlimeTrainingAndGradientUpdates": "not implemented by the built-in export adapters and not exercised",
+    "gpuDistributedTraining": "not exercised",
+    "backtestAlphaOrInvestmentReturns": "not evaluated"
+  },
+  "externalPrerequisites": {
+    "telegram": [
+      "bot token",
+      "allowFrom"
+    ],
+    "whatsapp": [
+      "Node.js >=20 and npm",
+      "separate bridge process",
+      "QR account login",
+      "allowFrom"
+    ],
+    "discord": [
+      "bot token and gateway permissions",
+      "allowFrom"
+    ],
+    "feishu": [
+      "app ID/secret and bot event permissions",
+      "allowFrom"
+    ],
+    "dingtalk": [
+      "client ID/secret and Stream configuration",
+      "allowFrom"
+    ],
+    "email": [
+      "explicit consentGranted",
+      "IMAP/SMTP credentials",
+      "allowFrom"
+    ],
+    "slack": [
+      "app token and bot token for Socket mode",
+      "allowFrom"
+    ],
+    "qq": [
+      "app ID/secret and official bot permissions",
+      "allowFrom"
+    ],
+    "mochat": [
+      "accessible Mochat HTTP/Socket.IO service and claw token",
+      "allowFrom"
+    ],
+    "matrix": [
+      "marketbot-ai[matrix]",
+      "homeserver/user ID/access token",
+      "allowFrom"
+    ]
+  },
+  "primaryDependencyMetadata": {
+    "larkInstallationGuide": "https://github.com/larksuite/cli",
+    "twitterPackage": "https://pypi.org/project/twitter-cli/",
+    "twitterRepository": "https://github.com/jackwener/twitter-cli",
+    "bbBrowserPackage": "https://www.npmjs.com/package/bb-browser",
+    "bbBrowserRepository": "https://github.com/epiral/bb-browser"
+  },
+  "limitations": [
+    "No model/API account was used.",
+    "No external chat messages or account configuration were changed.",
+    "CLI/HTTP success uses illustrative inputs and does not prove investment performance.",
+    "Online Lark, Twitter, browser-site login, OpenClaw training and Docker deployment require their external environments."
+  ]
+}
