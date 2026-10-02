@@ -1,6 +1,6 @@
 # MarketBot Architecture Refactor
 
-MarketBot is a finance-focused agent. Nano BOT is the general-purpose reference system: it keeps the model/tool runner generic and pushes product behavior into orchestration, hooks, context, and skills. MarketBot should follow the same separation, but with a stronger financial domain layer.
+MarketBot is a finance-focused agent. Its model/tool runner handles generic execution, while orchestration, hooks, context, skills, and financial domain services implement product behavior.
 
 ## Target Shape
 
@@ -30,7 +30,7 @@ flowchart TD
 - `AgentLoop`: transport-facing runtime. It owns bus consumption, per-session locking, stop/cancel behavior, MCP/tool registration, and compatibility methods.
 - `MessageProcessor`: turn preparation. It owns slash commands, history windows, memory consolidation scheduling, and prompt construction.
 - `MarketTurnOrchestrator`: MarketBot's domain-aware turn kernel. It owns route execution, planned-task dispatch, skill fallback, daily-opportunity normalization, response finalization, metadata, and persistence.
-- `AgentExecutor` and `tool_runtime`: generic ReAct/tool execution. These should stay product-agnostic so Nano-style runner improvements can be adopted without mixing in market policy.
+- `AgentExecutor` and `tool_runtime`: generic ReAct/tool execution. These should stay product-agnostic so execution improvements remain separate from market policy.
 - `ContextBuilder` and skills: financial analysis guidance, runtime metadata, market skill routing, and tool-contract loading.
 - `marketbot.domain.market`: market capability plugins, source routing, and financial data semantics.
 
@@ -42,7 +42,7 @@ flowchart TD
 - Chat integrations: delivery and conversation endpoints behind the gateway, not separate products.
 - Web dashboard, desktop client, and full-screen TUI: explicitly deferred until the CLI product is stable.
 
-## Nano BOT Lessons Applied
+## Execution Design Principles
 
 - Keep the low-level runner generic and reusable.
 - Keep turn lifecycle state explicit instead of scattering it across helper functions.
@@ -67,8 +67,7 @@ flowchart TD
 
 ## 2026-10-03 Finance Update
 
-The Nanobot reference is pinned in `reference/nanobot.json`; its source remains a
-reference rather than a runtime dependency. MarketBot now has finance defaults,
+MarketBot now has finance defaults,
 a reusable read-only finance MCP surface, and a deterministic `portfolio_risk`
 domain calculation. The generic execution paths enforce an empty tool scope as
 deny-all and pass earlier plan evidence to subsequent steps. Financial task

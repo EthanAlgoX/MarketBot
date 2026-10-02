@@ -6,5 +6,6 @@ The complete English README is now the default [README.md](README.md). This file
 
 - [Installation, financial workflows and language settings](README.md)
 - [Detailed financial workflows](docs/finance_workflows.md)
+- [Default financial tools and configuration](docs/finance_defaults.md)
 - [Integrations and deployment](docs/integrations.md)
 - [完整简体中文说明](README_zh-CN.md)

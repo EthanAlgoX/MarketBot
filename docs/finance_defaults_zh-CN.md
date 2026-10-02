@@ -1,11 +1,9 @@
-# Nanobot 参考与金融默认能力
+[English](finance_defaults.md) | [简体中文](finance_defaults_zh-CN.md)
 
-本次以 [HKUDS/nanobot](https://github.com/HKUDS/nanobot) 的最新 `main` 为参考，
-采用它的通用执行器、渐进加载 skills 和可配置 MCP 的边界。MarketBot 继续使用自己的
-金融领域服务和 CLI/gateway。Nanobot 源码不是 MarketBot 的运行依赖。
+# MarketBot 金融默认能力
 
-参考快照位于 `../reference/nanobot`；旧目录备份为 `../reference/nanobot-backup-20261002`。
-分支、完整 commit 和更新时间记录于 [reference/nanobot.json](../reference/nanobot.json)。
+MarketBot 将通用执行器、渐进加载 skills 和可配置 MCP 与金融领域服务分层，
+通过 CLI 和 gateway 提供研究、持仓风险计算与持续跟踪能力。
 
 ## 初始化与升级
 
@@ -23,6 +21,20 @@ uv run marketbot agent --config ./finance-config.json -m "分析 NVDA 的基本�
 初始化默认启用金融领域工具，内置研究、财报、催化剂、风险、持仓、期权、宏观、
 选股等 skills，并写入金融研究助手模板。中文与英文请求均能触发核心金融 skills。
 自定义工作区中的同名 skill 和现有模板保留优先级；刷新只创建缺失模板。
+
+## 显示语言
+
+`agents.defaults.language` 默认为 `"en"`，简体中文使用 `"zh"`。保存默认语言或只覆盖本次调用：
+
+```bash
+uv run marketbot --config ./finance-config.json language --set zh
+uv run marketbot --config ./finance-config.json language --set en
+uv run marketbot --config ./finance-config.json --language zh status
+```
+
+普通命令的 `--language` 不修改已保存的配置；`onboard` 创建或刷新配置时保存所选语言。
+Agent 回复与生成报告采用所选语言，用户明确要求其他输出语言时优先遵从。
+金融 JSON 字段、原始来源内容、用户文本和供应商错误保留原文。
 
 ## 默认 MCP
 
@@ -44,7 +56,7 @@ uv run marketbot agent --config ./finance-config.json -m "分析 NVDA 的基本�
 | `logic_chain_visualizer` | 将提供的逻辑链渲染为 Markdown / Mermaid |
 
 客户端中的名称为 `mcp_finance_<原始工具名>`。MarketBot 的内置金融工具使用同一数据服务，
-Agent 优先调用原生工具；MCP 接口也可独立提供给 Nanobot 等兼容客户端：
+Agent 优先调用原生工具；MCP 接口也可独立提供给兼容客户端：
 
 ```json
 {
@@ -110,10 +122,13 @@ export ALPHA_VANTAGE_API_KEY="your-key"
 `configured` 只表示本地配置满足启动条件，不表示金融接口已连接或实时行情可用。
 行情、资讯和宏观数据仍受网络、来源授权与限流影响；生成研究报告还需配置 LLM 凭证。
 
-2026-10-03 验收：833 项 pytest 全部通过，改动文件 Ruff 检查通过，sdist 和 wheel
+2026-10-03 的早期基线验收：833 项 pytest 全部通过，改动文件 Ruff 检查通过，sdist 和 wheel
 均包含全部 113 个技能资源。通过实际默认金融 MCP 同时查询 `SPY`、`600519` 和
 `0700.HK`，三份报价均返回，缺失标的列表为空。LLM 在线对话与 Alpha Vantage 接口
 尚未进行在线联调。
+
+此 833 项结果是早期基线，不是本轮最终回归计数。当前完整回归 **1332 项通过**，
+双语运行与打包验证见 [英文优先与中文切换评测](english_first_language_evaluation_2026-10-03_zh-CN.md)。
 
 新增持仓工具也通过实际 stdio MCP 调用：用明确的示例输入计算出 `60000 CNY`
 组合总值；假设持仓价格统一下降 20%、现金与汇率不变，结果为 `50000 CNY`，

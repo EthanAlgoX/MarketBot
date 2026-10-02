@@ -2,20 +2,20 @@
 
 # MarketBot
 
-[金融工作流](docs/finance_workflows_zh-CN.md) · [集成与部署](docs/integrations_zh-CN.md)
+[金融工作流](docs/finance_workflows_zh-CN.md) · [金融默认配置](docs/finance_defaults_zh-CN.md) · [集成与部署](docs/integrations_zh-CN.md)
 
-MarketBot 是面向个人投资者的金融研究 Agent，服务于跨市场研究、持仓风险分析与持续跟踪。它参考 [Nanobot](https://github.com/HKUDS/nanobot) 的轻量 Agent 架构，在现有运行时上增加金融工具、技能和 MCP，并把研究证据、可验证假设与变化提醒连接成完整流程。
+MarketBot 是面向个人投资者的金融研究 Agent，服务于跨市场研究、持仓风险分析与持续跟踪。轻量 Agent 运行时集成金融工具、技能和 MCP，配合持久化研究记录与可配置通信渠道，把研究证据、可验证假设与变化提醒连接成完整流程。
 
 金融特色来自可复查的流程：结论保留数据来源和时间；持仓按币种计算；投资假设按显式规则复核；持续跟踪只在满足条件或出现数据缺口时产生提醒。Skills 负责研究方法，工具负责取数和计算，模型负责组织分析。
 
-当前为开发版本。本页对应 `codex/nanobot-finance-defaults` 分支；已发布的 PyPI 包可能尚未包含本页的全部功能。Python 要求 **3.11+**。模拟数据和规则信号用于研究与测试，项目不执行真实交易。
+当前为开发版本。本页对应 `codex/finance-agent` 分支；已发布的 PyPI 包可能尚未包含本页的全部功能。Python 要求 **3.11+**。模拟数据和规则信号用于研究与测试，项目不执行真实交易。
 
 ## 安装并完成第一次计算
 
 以下命令从源码安装，使用项目内独立配置和工作目录。后续命令均在仓库根目录执行，沿用这两个变量。
 
 ```bash
-git clone --branch codex/nanobot-finance-defaults --single-branch https://github.com/EthanAlgoX/MarketBot.git
+git clone --branch codex/finance-agent --single-branch https://github.com/EthanAlgoX/MarketBot.git
 cd MarketBot
 python3 -m venv .venv
 source .venv/bin/activate
@@ -201,8 +201,6 @@ README 评测使用临时 workspace，按文档执行真实 CLI；RSS 和模型�
 ## 架构与参考
 
 `marketbot/agent` 负责 Agent 循环、会话、记忆、工具与技能；`runtime` 负责组装；`domain/market` 负责金融逻辑和证据存储；`domain/intel` 负责情报；`channels` 负责渠道；`mcp` 负责协议；`rl` 负责模拟和训练桥接。金融原生工具、CLI 与 MCP 共享领域实现。
-
-Nanobot 本地参考由 `reference/nanobot.json` 记录来源和快照。本次同步到 `ae1eb02cd8a1266ea9912c048893310a28e9d9fe`；参考仓库放在 workspace 的共享 `reference/nanobot` 目录。该同步用于架构对照，MarketBot 的运行时仍由本仓库维护。
 
 可借鉴的开源项目包括 [OpenBB](https://github.com/OpenBB-finance/OpenBB)、[TradingAgents](https://github.com/TauricResearch/TradingAgents)、[AI Hedge Fund](https://github.com/virattt/ai-hedge-fund)、[FinRobot](https://github.com/AI4Finance-Foundation/FinRobot)、[Qlib](https://github.com/microsoft/qlib) 和 [RD-Agent](https://github.com/microsoft/RD-Agent)。已整理其参考方向、许可证与取舍，见 [金融 Agent 产品方向](docs/marketbot_financial_agent_direction.md)。后续优先扩展用户持仓与研究档案、公司公告、事件日历、来源交叉核对和成本可观察性。
 

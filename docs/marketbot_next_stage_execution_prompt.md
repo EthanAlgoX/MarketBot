@@ -1,6 +1,6 @@
 # Next Stage Execution Prompt
 
-Use Nano BOT as the reference architecture and continue the MarketBot refactor until the finance-focused agent has a clear separation between generic agent execution and market-domain orchestration.
+Continue the MarketBot refactor until the finance-focused agent has a clear separation between generic agent execution and market-domain orchestration.
 
 ## Mission
 

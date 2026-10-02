@@ -5,7 +5,7 @@
 If you discover a security vulnerability in marketbot, please report it by:
 
 1. **DO NOT** open a public GitHub issue
-2. Create a private security advisory on GitHub or contact the repository maintainers (xubinrencs@gmail.com)
+2. Use private reporting in this repository's [Security tab](https://github.com/EthanAlgoX/MarketBot/security) when available. Otherwise, request a private reporting channel from the repository maintainers without publishing vulnerability details.
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce
@@ -255,8 +255,8 @@ Before deploying marketbot:
 **Last Updated**: 2026-02-03
 
 For the latest security updates and announcements, check:
-- GitHub Security Advisories: https://github.com/HKUDS/marketbot/security/advisories
-- Release Notes: https://github.com/HKUDS/marketbot/releases
+- [GitHub Security Advisories](https://github.com/EthanAlgoX/MarketBot/security/advisories)
+- [Release Notes](https://github.com/EthanAlgoX/MarketBot/releases)
 
 ## License
 

@@ -1,6 +1,5 @@
 """Test MemoryStore.consolidate() handles non-string tool call arguments.
 
-Regression test for https://github.com/HKUDS/marketbot/issues/1042
 When memory consolidation receives dict values instead of strings from the LLM
 tool call response, it should serialize them to JSON instead of raising TypeError.
 """
@@ -68,7 +67,7 @@ class TestMemoryConsolidationTypeHandling:
 
     @pytest.mark.asyncio
     async def test_dict_arguments_serialized_to_json(self, tmp_path: Path) -> None:
-        """Issue #1042: LLM returns dict instead of string — must not raise TypeError."""
+        """LLM returns dict instead of string — must not raise TypeError."""
         store = MemoryStore(tmp_path)
         provider = AsyncMock()
         provider.chat = AsyncMock(

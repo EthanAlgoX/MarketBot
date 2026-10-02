@@ -1,6 +1,6 @@
 # MarketBot 功能与 README 复现评测
 
-评测日期：2026-10-03，Asia/Shanghai。对象：`codex/nanobot-finance-defaults` 开发分支。
+评测日期：2026-10-03，Asia/Shanghai。对象：`codex/finance-agent` 开发分支。
 本轮以 README 为可执行规范，先检查所有入口与功能逻辑，修复实现和文档，再从仓库外的
 干净 wheel 环境重新执行。评测不外发消息，不操作交易账户，不改变用户已有配置。
 

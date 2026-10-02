@@ -2,9 +2,9 @@
 
 # MarketBot
 
-[Financial workflows](docs/finance_workflows.md) · [Integrations and deployment](docs/integrations.md)
+[Financial workflows](docs/finance_workflows.md) · [Financial defaults](docs/finance_defaults.md) · [Integrations and deployment](docs/integrations.md)
 
-MarketBot is a financial research agent for individual investors: cross-market research, portfolio risk and ongoing monitoring. It draws on [Nanobot](https://github.com/HKUDS/nanobot)'s lightweight agent architecture and extends the existing runtime with financial tools, skills and MCP integrations.
+MarketBot is a financial research agent for individual investors: cross-market research, portfolio risk and ongoing monitoring. Its lightweight agent runtime combines financial tools, skills and MCP integrations with persistent research records and configurable communication channels.
 
 Its core workflow connects attributable evidence, currency-aware calculations, explicit thesis rules and change alerts. Skills provide research methods, tools retrieve and calculate facts, and the model organizes the analysis. Source timestamps and missing data remain visible throughout the workflow.
 
@@ -15,14 +15,14 @@ The financial workflow provides four concrete capabilities:
 - **Investment thesis tracking:** review numeric conditions against matching original evidence; incomplete or stale facts preserve the prior state.
 - **Ongoing change monitoring:** retain a valid baseline, alert on threshold transitions and portfolio changes, and keep a durable local outbox.
 
-This README describes development branch `codex/nanobot-finance-defaults`. Published PyPI packages may not yet include all these features. **Python 3.11+** is required. Illustrative prices and rule-based signals support research and testing; MarketBot does not execute real trades.
+This README describes development branch `codex/finance-agent`. Published PyPI packages may not yet include all these features. **Python 3.11+** is required. Illustrative prices and rule-based signals support research and testing; MarketBot does not execute real trades.
 
 ## Install and complete your first calculation
 
 Install from source and create an isolated configuration and workspace. Run subsequent examples from the repository root, keeping these two variables set.
 
 ```bash
-git clone --branch codex/nanobot-finance-defaults --single-branch https://github.com/EthanAlgoX/MarketBot.git
+git clone --branch codex/finance-agent --single-branch https://github.com/EthanAlgoX/MarketBot.git
 cd MarketBot
 python3 -m venv .venv
 source .venv/bin/activate
@@ -209,8 +209,6 @@ See the [English-first evaluation](docs/english_first_language_evaluation_2026-1
 
 `marketbot/agent` owns the agent loop, sessions, memory, tools and skills; `runtime` composes services; `domain/market` owns financial logic and evidence; `domain/intel` owns intelligence; `channels` handles platforms; `mcp` owns the protocol; `rl` owns simulation and training bridges. CLI, native finance tools and MCP share domain implementations.
 
-`reference/nanobot.json` tracks the upstream reference snapshot, updated to `ae1eb02cd8a1266ea9912c048893310a28e9d9fe`. The local checkout lives in the workspace's shared `reference/nanobot` directory. MarketBot continues to maintain its own runtime.
-
-Other references include [OpenBB](https://github.com/OpenBB-finance/OpenBB), [TradingAgents](https://github.com/TauricResearch/TradingAgents), [AI Hedge Fund](https://github.com/virattt/ai-hedge-fund), [FinRobot](https://github.com/AI4Finance-Foundation/FinRobot), [Qlib](https://github.com/microsoft/qlib) and [RD-Agent](https://github.com/microsoft/RD-Agent). Reference directions, licenses and tradeoffs are recorded in the [product direction](docs/marketbot_financial_agent_direction.md). Priorities include user portfolios and research history, filings, event calendars, source cross-checking and observable costs.
+Open-source references include [OpenBB](https://github.com/OpenBB-finance/OpenBB), [TradingAgents](https://github.com/TauricResearch/TradingAgents), [AI Hedge Fund](https://github.com/virattt/ai-hedge-fund), [FinRobot](https://github.com/AI4Finance-Foundation/FinRobot), [Qlib](https://github.com/microsoft/qlib) and [RD-Agent](https://github.com/microsoft/RD-Agent). Reference directions, licenses and tradeoffs are recorded in the [product direction](docs/marketbot_financial_agent_direction.md). Priorities include user portfolios and research history, filings, event calendars, source cross-checking and observable costs.
 
 MIT License. Preserve attribution and applicable licenses when distributing third-party skills or reference code.

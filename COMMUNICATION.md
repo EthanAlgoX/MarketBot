@@ -1,5 +1,7 @@
-We provide QR codes for joining the HKUDS discussion groups on **WeChat** and **Feishu**.
+# Community and Support
 
-You can join by scanning the QR codes below:
+Use this project's [GitHub Issues](https://github.com/EthanAlgoX/MarketBot/issues) to browse existing reports, follow progress and submit bug reports or feature requests when issue creation is available.
 
-<img src="https://github.com/HKUDS/.github/blob/main/profile/QR.png" alt="WeChat QR Code" width="400"/>
+Include the MarketBot version, installation method, relevant configuration with secrets removed, and steps to reproduce the issue.
+
+For security vulnerabilities, follow the [Security Policy](SECURITY.md) and avoid publishing sensitive details in a public issue.

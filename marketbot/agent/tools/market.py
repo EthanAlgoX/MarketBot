@@ -1418,7 +1418,7 @@ class MarketSocialSentimentTool(Tool):
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 response = await client.get(
                     url,
-                    headers={"User-Agent": "marketbot/0.1 (+https://github.com/HKUDS/marketbot)"},
+                    headers={"User-Agent": "marketbot/0.1 (+https://github.com/EthanAlgoX/MarketBot)"},
                 )
                 response.raise_for_status()
                 payload = response.json()

@@ -16,25 +16,21 @@
 Skills 提供流程，MCP 提供接入。产品的长期积累来自研究证据、持仓上下文、论点历史、
 经过验证的计算和可复现评测，而不来自工具数量。
 
-## 基于 Nanobot 的实现边界
+## MarketBot 的实现边界
 
-本轮再次 fetch 主项目与 Nanobot：MarketBot 的远端 main 为 `4faa7fd`，Nanobot
-参考版本为 `ae1eb02`，完整 SHA 和本地路径见 [参考记录](../reference/nanobot.json)。
-MarketBot 保留现有 Python 项目与金融领域代码，按 Nanobot 的执行层、扩展层与
-产品层边界演进。当前没有把整个 Nanobot 最新源码替换成运行依赖，也不宣称已同步
-它的全部 WebUI、Provider、上下文治理和插件能力。
+MarketBot 的 Python 执行层、扩展层与金融领域层各自承担明确责任。
+通用执行器管理模型与工具循环；金融领域模块提供数据语义、计算和研究状态；
+CLI 与 gateway 负责用户交互、渠道和持续运行。
 
 | 层 | 采用的方式 | MarketBot 的责任 |
 | --- | --- | --- |
-| 通用执行层 | 参考 Nanobot 的 runner、工具注册与执行边界 | 会话、计划执行、工具范围、错误处理与渠道适配 |
+| 通用执行层 | 通用 runner、工具注册与执行范围管理 | 会话、计划执行、工具范围、错误处理与渠道适配 |
 | 扩展层 | 渐进加载 skills、可配置 MCP、清晰生命周期 | 默认金融技能包、本地金融 MCP 与可选外部数据接口 |
 | 金融数据与计算层 | 独立领域模块，不在通用循环内计算金融指标 | 跨市场报价路由、统一数据口径、确定性计算、缺失数据处理 |
 | 产品状态层 | 在通用记忆与调度基础上实现领域对象 | 持仓、投资论点、证据引用、失效条件、监控事件和复盘 |
 
-Nanobot 官方[架构说明](https://github.com/HKUDS/nanobot/blob/main/docs/architecture.md)
-将产品层与通用 runner、工具和 MCP 生命周期分开。更适合长期演化的做法是保留
-这个边界，再逐项对齐需要的上游机制。初始化和接口使用见
-[金融默认能力说明](nanobot_finance_defaults.md)。
+产品编排与通用 runner、工具和 MCP 生命周期分别维护，金融计算放在领域模块中。
+初始化和接口使用见 [金融默认能力说明](finance_defaults.md)。
 
 ## 当前能力与实际缺口
 
@@ -86,7 +82,7 @@ TradingAgents 的历史验证**。例如 OpenBB 的
 [标准化说明](https://docs.openbb.co/odp/python/developer/standardization)
 要求明确百分比表示、缺失值和标准字段，值得用于约束我们的 provider 适配。
 
-2026-10-02 查阅到的许可证：Nanobot MIT；FinRobot 和 TradingAgents Apache-2.0；
+2026-10-02 查阅到的许可证：FinRobot 和 TradingAgents Apache-2.0；
 OpenBB 当前 develop 的 [LICENSE](https://github.com/openbq-org/OpenBB/blob/develop/LICENSE)
 为 Apache-2.0，旧仓库地址已重定向；AI Hedge Fund 与 daily_stock_analysis MIT。
 Dexter README 声明 MIT，本次检查未找到独立许可证文件，因此复制代码前需核对。

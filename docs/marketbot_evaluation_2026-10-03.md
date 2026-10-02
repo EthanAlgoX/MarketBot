@@ -1,7 +1,6 @@
 # MarketBot 开发评测记录
 
-评测日期：2026-10-03（Asia/Shanghai）。代码从 MarketBot main `4faa7fd` 开始，
-参考 Nanobot main 已更新到 `ae1eb02cd8a1266ea9912c048893310a28e9d9fe`；保存旧快照。
+评测日期：2026-10-03（Asia/Shanghai）。代码从 MarketBot main `4faa7fd` 开始。
 结果数据见 [验收 JSON](evaluation/finance_acceptance_2026-10-03.json)。
 
 ## 结果
