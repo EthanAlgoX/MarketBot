@@ -100,11 +100,14 @@ from marketbot.utils.helpers import sync_workspace_templates
 
 app = typer.Typer(
     name="marketbot",
-    help=f"{__logo__} marketbot - Personal AI Assistant",
+    help=f"{__logo__} marketbot - Financial Research Agent",
     no_args_is_help=True,
 )
 intel_app = typer.Typer(help="Intel source collection and digest tools")
 app.add_typer(intel_app, name="intel")
+from marketbot.cli.finance_runtime import finance_app  # noqa: E402
+
+app.add_typer(finance_app, name="finance")
 
 console = Console()
 EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit", ":q"}
@@ -832,7 +835,7 @@ def main(
         None, "--version", "-v", callback=version_callback, is_eager=True
     ),
 ):
-    """marketbot - Personal AI Assistant."""
+    """marketbot - Financial Research Agent."""
     pass
 
 
@@ -842,45 +845,69 @@ def main(
 
 
 @app.command()
-def onboard():
-    """Initialize marketbot configuration and workspace."""
+def onboard(
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Workspace directory"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+    refresh: bool = typer.Option(False, "--refresh", help="Add finance defaults while preserving settings without prompting"),
+):
+    """Initialize the financial agent, bundled skills and MCP configuration."""
+    from marketbot.config.finance import ensure_finance_defaults
     from marketbot.config.loader import get_config_path, load_config, save_config
     from marketbot.config.schema import Config
     from marketbot.utils.helpers import get_workspace_path
 
-    config_path = get_config_path()
+    config_path = Path(config).expanduser().resolve() if config else get_config_path()
+    existing = config_path.exists()
+    overwrite = False
 
-    if config_path.exists():
+    if existing and not refresh:
         console.print(f"[yellow]Config already exists at {config_path}[/yellow]")
         console.print("  [bold]y[/bold] = overwrite with defaults (existing values will be lost)")
         console.print("  [bold]N[/bold] = refresh config, keeping existing values and adding new fields")
-        if typer.confirm("Overwrite?"):
-            config = Config()
-            save_config(config)
-            console.print(f"[green]✓[/green] Config reset to defaults at {config_path}")
-        else:
-            config = load_config()
-            save_config(config)
-            console.print(f"[green]✓[/green] Config refreshed at {config_path} (existing values preserved)")
+        overwrite = typer.confirm("Overwrite?")
+
+    if existing and not overwrite:
+        try:
+            loaded = load_config(config_path, strict=True)
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(1) from exc
     else:
-        save_config(Config())
+        loaded = Config()
+    if workspace:
+        loaded.agents.defaults.workspace = str(Path(workspace).expanduser().resolve())
+    ensure_finance_defaults(loaded)
+    if config:
+        save_config(loaded, config_path)
+    else:
+        save_config(loaded)
+
+    if not existing:
         console.print(f"[green]✓[/green] Created config at {config_path}")
+    elif overwrite:
+        console.print(f"[green]✓[/green] Config reset to defaults at {config_path}")
+    else:
+        console.print(f"[green]✓[/green] Config refreshed at {config_path} (existing values preserved)")
 
     # Create workspace
-    workspace = get_workspace_path()
+    workspace_path = get_workspace_path(loaded.agents.defaults.workspace, create=False)
+    workspace_existed = workspace_path.exists()
+    if not workspace_existed:
+        workspace_path.mkdir(parents=True, exist_ok=True)
+        console.print(f"[green]✓[/green] Created workspace at {workspace_path}")
 
-    if not workspace.exists():
-        workspace.mkdir(parents=True, exist_ok=True)
-        console.print(f"[green]✓[/green] Created workspace at {workspace}")
-
-    sync_workspace_templates(workspace)
+    sync_workspace_templates(workspace_path)
+    console.print("[green]✓[/green] Finance skills bundled; finance MCP presets configured")
+    console.print("[dim]Alpha Vantage preset is optional: set ALPHA_VANTAGE_API_KEY and enable it in config.[/dim]")
 
     console.print(f"\n{__logo__} marketbot is ready!")
     console.print("\nNext steps:")
-    console.print("  1. Add your API key to [cyan]~/.marketbot/config.json[/cyan]")
+    console.print(f"  1. Add your LLM API key to [cyan]{config_path}[/cyan]")
     console.print("     Get one at: https://openrouter.ai/keys")
-    console.print("  2. Chat: [cyan]marketbot agent -m \"Hello!\"[/cyan]")
-    console.print("\n[dim]Want Telegram/WhatsApp? See: https://github.com/HKUDS/marketbot#-chat-apps[/dim]")
+    config_flag = f' --config "{config_path}"' if config else ""
+    console.print(f'  2. Inspect: [cyan]marketbot status{config_flag} --json[/cyan]')
+    console.print(f'  3. Research: [cyan]marketbot agent{config_flag} -m "分析 NVDA 的机会、证据与风险"[/cyan]')
+    console.print("\n[dim]Chat apps: https://github.com/EthanAlgoX/MarketBot[/dim]")
 
 
 
@@ -1403,15 +1430,17 @@ def agent(
     session_id: str = typer.Option("cli:direct", "--session", "-s", help="Session ID"),
     markdown: bool = typer.Option(True, "--markdown/--no-markdown", help="Render assistant output as Markdown"),
     logs: bool = typer.Option(False, "--logs/--no-logs", help="Show marketbot runtime logs during chat"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
 ):
     """Interact with the agent directly."""
     from loguru import logger
 
-    from marketbot.config.loader import get_data_dir, load_config
+    from marketbot.config.loader import load_config
 
-    config = load_config()
+    config_path = Path(config).expanduser().resolve() if config else None
+    config = load_config(config_path) if config_path else load_config()
     sync_workspace_templates(config.workspace_path)
-    cron_store_path = get_data_dir() / "cron" / "jobs.json"
+    cron_store_path = config.workspace_path / "cron" / "jobs.json"
 
     if logs:
         logger.enable("marketbot")
@@ -2203,12 +2232,13 @@ def channels_login():
 @app.command()
 def status(
     json_output: bool = typer.Option(False, "--json", help="Output machine-readable JSON status."),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
 ):
     """Show marketbot status."""
     from marketbot.config.loader import get_config_path, load_config
 
-    config_path = get_config_path()
-    config = load_config()
+    config_path = Path(config).expanduser().resolve() if config else get_config_path()
+    config = load_config(config_path) if config else load_config()
     from marketbot.session.manager import SessionManager
 
     session_manager = SessionManager(config.workspace_path)

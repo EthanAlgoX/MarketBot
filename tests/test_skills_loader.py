@@ -1,4 +1,5 @@
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from marketbot.agent.skills import SkillsLoader
@@ -640,7 +641,10 @@ def test_skills_summary_includes_capabilities(tmp_path):
 
     summary = loader.build_skills_summary()
 
-    assert "<triggers>analysis, outlook, trade plan, bias</triggers>" in summary
+    skills = ET.fromstring(summary)
+    report = next(skill for skill in skills.findall("skill") if skill.findtext("name") == "market-report")
+    triggers = set(report.findtext("triggers").split(", "))
+    assert {"analysis", "outlook", "trade plan", "bias", "市场分析"} <= triggers
     assert "<output>market-analysis-report</output>" in summary
     assert "<risk>high</risk>" in summary
     assert "<tools>market_source_plan</tools>" in summary

@@ -3,12 +3,14 @@
 import asyncio
 import json
 import uuid
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 
 from marketbot.agent.executor import classify_execution_outcome
+from marketbot.agent.plan_models import StepResult
 from marketbot.agent.planner import TaskPlanner
 from marketbot.agent.router import RequestRouter
 from marketbot.agent.tool_health import ToolHealthSnapshot
@@ -193,6 +195,7 @@ class SubagentManager:
         max_iterations: int = 15,
     ) -> tuple[str, list[str], list[dict[str, Any]]]:
         """Run a local ReAct loop for the subagent using filtered tools."""
+        permitted = frozenset(exposed_names)
         iteration = 0
         final_result: str | None = None
         tools_used: list[str] = []
@@ -200,7 +203,7 @@ class SubagentManager:
             iteration += 1
             response = await self.provider.chat(
                 messages=messages,
-                tools=tools.get_definitions(exposed_names=exposed_names),
+                tools=tools.get_definitions(exposed_names=set(permitted)),
                 model=self.model,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
@@ -227,7 +230,15 @@ class SubagentManager:
                     args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
                     logger.debug("Subagent executing: {} with arguments: {}", tool_call.name, args_str)
                     tools_used.append(tool_call.name)
-                    result = await tools.execute(tool_call.name, tool_call.arguments)
+                    if tool_call.name not in permitted:
+                        result = ToolRegistry._format_error(
+                            name=tool_call.name,
+                            error_type="tool_scope_violation",
+                            message=f"Tool '{tool_call.name}' is not allowed in the current execution step.",
+                            retryable=False,
+                        )
+                    else:
+                        result = await tools.execute(tool_call.name, tool_call.arguments)
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tool_call.id,
@@ -254,43 +265,45 @@ class SubagentManager:
             route_mode="planned_task",
         )
         latest_output = ""
+        messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
         for step in plan.steps:
             step.status = "running"
-            messages: list[dict[str, Any]] = [
-                {"role": "system", "content": system_prompt},
-                {
+            step_messages = deepcopy(messages)
+            step_messages.append({
                     "role": "user",
                     "content": (
+                        f"Plan goal: {plan.goal}\n\n"
                         f"Current step: {step.title}\n\n"
                         f"Instruction: {step.instruction}\n\n"
                         f"Success criteria: {step.success_criteria}\n\n"
                         f"Allowed tools: {', '.join(step.allowed_tools) if step.allowed_tools else '(none)'}"
                     ),
-                },
-            ]
+                })
+            initial_message_count = len(step_messages)
             latest_output, tools_used, messages = await self._run_local_react_loop(
-                messages=messages,
+                messages=step_messages,
                 tools=tools,
                 exposed_names=set(step.allowed_tools),
             )
             outcome = classify_execution_outcome(
                 final_content=latest_output,
-                messages=messages,
+                messages=messages[initial_message_count:],
                 tools_used=tools_used,
             )
             result_status = "completed" if outcome == "success" else ("partial" if outcome == "partial" else "failed")
             decision = self.verifier.evaluate(
                 step=step,
-                step_result=type(
-                    "SubStepResult",
-                    (),
-                    {
-                        "status": result_status,
-                        "needs_replan": (outcome == "failure" and not tools_used and bool(step.allowed_tools)),
-                    },
-                )(),
+                step_result=StepResult(
+                    step_id=step.id,
+                    status=result_status,
+                    summary=latest_output,
+                    tool_calls=tools_used,
+                    messages=deepcopy(messages),
+                    needs_replan=(outcome == "failure" and not tools_used and bool(step.allowed_tools)),
+                ),
             )
             if decision.outcome != "advance":
+                step.status = "failed"
                 break
             step.status = "completed"
         return latest_output or "Task completed but no final response was generated."

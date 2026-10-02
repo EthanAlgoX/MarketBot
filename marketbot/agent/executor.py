@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from copy import deepcopy
 from typing import Any, Awaitable, Callable
 
 from marketbot.agent.plan_models import StepResult
 from marketbot.agent.runner import AgentRunSpec, MarketAgentRunner
+from marketbot.agent.tool_runtime import scoped_tool_execution
 
 
 def classify_execution_outcome(
@@ -65,12 +67,8 @@ class AgentExecutor:
 
     @contextmanager
     def _tool_scope(self, allowed_tools: set[str] | None):
-        previous = getattr(self.loop, "_active_allowed_tools", None)
-        self.loop._active_allowed_tools = set(allowed_tools) if allowed_tools else None
-        try:
+        with scoped_tool_execution(self.loop, allowed_tools):
             yield
-        finally:
-            self.loop._active_allowed_tools = previous
 
     async def execute_messages(
         self,
@@ -102,20 +100,34 @@ class AgentExecutor:
         chat_id: str,
         history: list[dict[str, Any]],
         on_progress: Callable[..., Awaitable[None]] | None = None,
+        plan_goal: str | None = None,
     ) -> StepResult:
         """Execute one plan step with a scoped tool whitelist."""
-        scoped_instruction = (
+        goal_context = f"Plan goal: {plan_goal}\n\n" if plan_goal else ""
+        scoped_instruction = goal_context + (
             f"Current step: {step.title}\n\n"
             f"Instruction: {step.instruction}\n\n"
             f"Success criteria: {step.success_criteria}\n\n"
             f"Allowed tools for this step: {', '.join(step.allowed_tools) if step.allowed_tools else '(none)'}"
         )
-        messages = self.loop.processor.build_messages(
+        built_messages = self.loop.processor.build_messages(
             session=session,
             current_message=scoped_instruction,
+            routing_message=plan_goal or scoped_instruction,
             channel=channel,
             chat_id=chat_id,
         )
+        # Preserve the processor's decision to omit stale session history for a
+        # live request while always retaining fresh evidence from this plan.
+        get_history = getattr(self.loop.processor, "get_recent_history", None)
+        session_history = get_history(session) if callable(get_history) else []
+        plan_evidence = history
+        if history[:len(session_history)] == session_history:
+            plan_evidence = history[len(session_history):]
+        messages = deepcopy([
+            built_messages[0], *built_messages[1:-1], *plan_evidence, built_messages[-1]
+        ])
+        initial_message_count = len(messages)
         final_content, tools_used, all_msgs, usage = await self.execute_messages(
             messages,
             on_progress=on_progress,
@@ -123,7 +135,9 @@ class AgentExecutor:
         )
         outcome = classify_execution_outcome(
             final_content=final_content,
-            messages=all_msgs,
+            # Earlier steps' failures remain evidence for synthesis, rather than
+            # making a subsequent tool-free synthesis step fail again.
+            messages=all_msgs[initial_message_count:],
             tools_used=tools_used,
         )
         status = "completed" if outcome == "success" else ("partial" if outcome == "partial" else "failed")

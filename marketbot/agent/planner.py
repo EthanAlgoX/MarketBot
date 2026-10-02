@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 from marketbot.agent.plan_models import ExecutionPlan, PlanStep
+from marketbot.market_routing import classify_market_request
 
 
 class TaskPlanner:
@@ -32,6 +33,26 @@ class TaskPlanner:
         "twitter_cli",
         "xiaohongshu_cli",
     )
+    _MARKET_READ_PREFERRED = (
+        "read_file",
+        "market_snapshot",
+        "market_news",
+        "market_fundamentals",
+        "market_macro",
+        "market_brief",
+        "web_search",
+        "web_fetch",
+    )
+    _PORTFOLIO_READ_PREFERRED = (
+        "read_file",
+        "market_snapshot",
+        "portfolio_risk",
+        "market_news",
+        "market_macro",
+        "market_fundamentals",
+        "web_search",
+        "web_fetch",
+    )
 
     def create_plan(
         self,
@@ -42,10 +63,19 @@ class TaskPlanner:
     ) -> ExecutionPlan:
         """Build a deterministic serial plan for complex requests."""
         steps: list[PlanStep] = []
-        read_tools = [name for name in self._READ_PREFERRED if name in visible_tools]
         write_tools = [name for name in self._WRITE_PREFERRED if name in visible_tools]
         normalized = str(request_text or "").strip()
         lowered = normalized.lower()
+        if any(marker in lowered for marker in (
+            "portfolio", "allocation", "holdings", "diversification", "stress test",
+            "投资组合", "资产配置", "持仓", "组合风险", "压力测试", "分散投资",
+        )):
+            read_preferred = self._PORTFOLIO_READ_PREFERRED
+        elif classify_market_request(text=normalized)["asset_like"]:
+            read_preferred = self._MARKET_READ_PREFERRED
+        else:
+            read_preferred = self._READ_PREFERRED
+        read_tools = [name for name in read_preferred if name in visible_tools]
 
         if read_tools:
             steps.append(

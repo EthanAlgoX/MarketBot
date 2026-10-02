@@ -16,6 +16,7 @@ import httpx
 from loguru import logger
 
 from marketbot.agent.tools.base import Tool
+from marketbot.agent.tools.thesis import ThesisTrackerTool  # noqa: F401
 from marketbot.domain.intel.search import IntelSearchService
 from marketbot.domain.market.sentiment import SentimentEngine
 from marketbot.domain.market.services import (
@@ -27,10 +28,10 @@ from marketbot.domain.market.services import (
     is_hk_symbol,
     is_us_symbol,
     normalize_a_share_symbol,
+    normalize_hk_symbol,
     preferred_a_share_symbol,
     to_tickflow_symbol,
 )
-from marketbot.domain.market.thesis import ThesisStore
 from marketbot.market_routing import classify_market_request
 from marketbot.rl.policy import HeuristicMarketSignalPolicy
 from marketbot.rl.recorder import MarketSignalRolloutRecorder
@@ -42,6 +43,8 @@ if TYPE_CHECKING:
 
 def _clamp(value: float, lower: float, upper: float) -> float:
     """Clamp value to [lower, upper]."""
+    if not math.isfinite(value):
+        raise ValueError("financial values must be finite")
     return max(lower, min(upper, value))
 
 
@@ -133,11 +136,11 @@ class MarketSnapshotTool(Tool):
 
     async def _fetch_yfinance(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         rows, warnings = await self._fetch_yahoo(symbols)
-        return [{**row, "provider": "yfinance"} for row in rows], warnings
+        return [{**row, "provider": "yahoo", "requestedProvider": "yfinance"} for row in rows], [*warnings, "yfinance quote adapter uses Yahoo HTTP; this is the same underlying source"]
 
     async def _fetch_tradingview(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         rows, warnings = await self._fetch_yahoo(symbols)
-        return [{**row, "provider": "tradingview"} for row in rows], warnings
+        return [{**row, "provider": "yahoo", "requestedProvider": "tradingview"} for row in rows], [*warnings, "tradingview quote adapter uses Yahoo HTTP; TradingView data is unavailable"]
 
     async def _fetch_eastmoney(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_eastmoney(symbols)
@@ -157,28 +160,90 @@ class MarketSnapshotTool(Tool):
     async def _fetch_auto(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         return await self._service.fetch_auto(symbols)
 
+    @staticmethod
+    def _quote_identity(symbol: str) -> str:
+        """Match provider CN/HK aliases to the originally requested symbols."""
+        symbol = str(symbol or "").strip().upper()
+        if re.fullmatch(r"(?:CN|SH|SZ|BJ)\d{6}", symbol):
+            symbol = symbol[2:]
+        if is_a_share_symbol(symbol):
+            return f"cn:{normalize_a_share_symbol(symbol)}"
+        if is_hk_symbol(symbol):
+            return f"hk:{normalize_hk_symbol(symbol)}"
+        return symbol
+
+    @staticmethod
+    def _yahoo_routes(symbols: list[str]) -> dict[str, list[str]]:
+        """Apply the existing Yahoo-mode source preferences per market."""
+        routes: dict[str, list[str]] = {}
+        for symbol in symbols:
+            if is_a_share_symbol(symbol):
+                source = "tencent_cn"
+            elif is_hk_symbol(symbol):
+                source = "tencent_hk"
+            elif is_us_symbol(symbol):
+                source = "tencent_us"
+            else:
+                source = "yahoo"
+            routes.setdefault(source, []).append(symbol)
+        return routes
+
+    async def _fetch_mixed_yahoo(
+        self, routes: dict[str, list[str]]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Keep healthy market subsets when another quote provider fails."""
+        fetchers = {
+            "tencent_cn": self._fetch_tencent_cn,
+            "tencent_hk": self._fetch_tencent_hk,
+            "tencent_us": self._fetch_tencent_us,
+            "yahoo": self._fetch_yahoo,
+        }
+
+        async def fetch_subset(source: str, symbols: list[str]):
+            try:
+                rows, warnings = await fetchers[source](symbols)
+            except Exception as exc:
+                failure_type = type(exc).__name__
+                warning = f"{source}: quote fetch failed ({failure_type})"
+                self._service.record_health(
+                    source,
+                    error=failure_type,
+                    reason="Quote provider failed for a subset of the requested symbols.",
+                    provider_chain=[source],
+                )
+                return [], [warning]
+            if not rows:
+                warnings = [*warnings, f"{source}: quote source returned no usable quotes"]
+            return rows, warnings
+
+        results = await asyncio.gather(*(
+            fetch_subset(source, symbols) for source, symbols in routes.items()
+        ))
+        return (
+            [row for rows, _ in results for row in rows],
+            [warning for _, warnings in results for warning in warnings],
+        )
+
     async def execute(
         self, symbols: list[str] | None = None, includeMacro: bool = False, **kwargs: Any
     ) -> str:
         requested = symbols or self._defaults
-        normalized = self._normalize_symbols(requested)[: self._max_symbols]
+        all_symbols = self._normalize_symbols(requested)
+        normalized = all_symbols[: self._max_symbols]
+        truncated = all_symbols[self._max_symbols :]
         if not normalized:
             return json.dumps({"error": "no valid symbols provided"}, ensure_ascii=False)
 
         self._service.reset_health()
-        use_cn_tencent = any(is_a_share_symbol(symbol) for symbol in normalized)
-        use_hk_tencent = any(is_hk_symbol(symbol) for symbol in normalized)
-        use_us_tencent = any(is_us_symbol(symbol) for symbol in normalized)
-        if self._source == "yahoo" and use_cn_tencent:
-            effective_source = "tencent_cn"
-        elif self._source == "yahoo" and use_hk_tencent:
-            effective_source = "tencent_hk"
-        elif self._source == "yahoo" and use_us_tencent:
-            effective_source = "tencent_us"
+        if self._source == "yahoo":
+            routes = self._yahoo_routes(normalized)
+            effective_source = next(iter(routes)) if len(routes) == 1 else "mixed"
         else:
             effective_source = self._source
 
-        if effective_source == "mock":
+        if effective_source == "mixed":
+            rows, warnings = await self._fetch_mixed_yahoo(routes)
+        elif effective_source == "mock":
             rows = []
             warnings = ["mock quote source is disabled"]
             self._service.record_health(
@@ -225,18 +290,48 @@ class MarketSnapshotTool(Tool):
             if not rows:
                 warnings.append("quote source returned no usable quotes")
 
+        valid_rows = []
+        for row in rows:
+            try:
+                valid_price = not isinstance(row.get("price"), bool) and math.isfinite(float(row["price"])) and float(row["price"]) > 0
+            except (TypeError, ValueError, KeyError, OverflowError):
+                valid_price = False
+            if not valid_price:
+                warnings.append(f"{row.get('symbol', 'unknown')}: invalid or unavailable quote price")
+                continue
+            row = dict(row)
+            for key in ("changePct", "changeAmount", "volume", "avgVolume", "amount", "flowRatio", "open", "high", "low", "preClose"):
+                if isinstance(row.get(key), (float, int)) and not math.isfinite(row[key]):
+                    row[key] = None
+                    warnings.append(f"{row.get('symbol')}: unavailable {key}")
+            row["flowHintMethod"] = "Relative volume proxy; not measured net fund flow"
+            valid_rows.append(row)
+        rows = valid_rows
+        covered = {self._quote_identity(row.get("symbol", "")) for row in rows}
+        missing = [symbol for symbol in normalized if self._quote_identity(symbol) not in covered]
+        if missing:
+            warnings = [*warnings, f"missing quotes for requested symbols: {', '.join(missing)}"]
+        if truncated:
+            warnings = [
+                *warnings,
+                f"snapshot symbol limit {self._max_symbols} reached; symbols not queried: {', '.join(truncated)}",
+            ]
+
         result: dict[str, Any] = {
             "asOf": _utc_now_iso(),
             "source": effective_source,
             "symbols": normalized,
             "quotes": rows,
+            "missingSymbols": missing,
+            "truncatedSymbols": truncated,
             "warnings": warnings,
             "sourceHealth": self._service.health_snapshot(),
             "routeTrace": self._service.route_trace(),
         }
         if includeMacro:
             result["macro"] = {
-                "mode": "risk-on" if sum((row.get("changePct") or 0) for row in rows) >= 0 else "risk-off",
+                "mode": ("risk-on" if sum((row.get("changePct") or 0) for row in rows) >= 0 else "risk-off") if rows else "unknown",
+                "method": "quote-change heuristic; not macro indicator analysis",
                 "source": self._config.macro_source if self._config else "fred",
             }
         return json.dumps(result, ensure_ascii=False)
@@ -618,6 +713,14 @@ class MarketSignalTool(Tool):
         symbol = symbol.strip().upper()
         if not symbol:
             return json.dumps({"error": "symbol is required"}, ensure_ascii=False)
+        for key, value in {"priceChangePct": priceChangePct, "newsSentiment": newsSentiment, "socialSentiment": socialSentiment, "macroRisk": macroRisk}.items():
+            if value is not None:
+                try:
+                    valid = not isinstance(value, bool) and math.isfinite(float(value))
+                except (ValueError, TypeError, OverflowError):
+                    valid = False
+                if not valid:
+                    return json.dumps({"ok": False, "error": {"type": "invalid_financial_input", "message": f"{key} must be a finite number"}}, ensure_ascii=False)
         min_conf, max_pos, _ = self._risk_cfg()
         features = MarketSignalFeatures(
             symbol=symbol,
@@ -955,7 +1058,7 @@ class MarketFundamentalsTool(Tool):
 
     async def _fetch_yfinance(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         rows, warnings = await self._fetch_yahoo(symbols)
-        return [{**row, "provider": "yfinance"} for row in rows], warnings
+        return [{**row, "provider": "yahoo", "requestedProvider": "yfinance"} for row in rows], [*warnings, "yfinance quote adapter uses Yahoo HTTP; this is the same underlying source"]
 
     async def _fetch_tickflow(self, symbols: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         warnings: list[str] = []
@@ -976,14 +1079,14 @@ class MarketFundamentalsTool(Tool):
             try:
                 from tickflow import TickFlow
             except Exception as e:  # pragma: no cover - optional dependency state
-                return [], warnings + [f"tickflow import failed: {e}"]
+                return [], warnings + [f"tickflow import failed: {type(e).__name__}"]
 
             client = TickFlow(api_key=self._tickflow_api_key, timeout=self._timeout)
             try:
                 instruments = client.instruments.batch([item[1] for item in normalized_pairs])
                 quotes = client.quotes.get(symbols=[item[1] for item in normalized_pairs])
             except Exception as e:
-                return [], warnings + [f"tickflow fundamentals fetch failed: {e}"]
+                return [], warnings + [f"tickflow fundamentals fetch failed: {type(e).__name__}"]
             finally:
                 client.close()
 
@@ -1257,10 +1360,10 @@ class MarketSocialSentimentTool(Tool):
         if "mock" in configured_sources:
             return ["mock"]
         if market in {"a-share", "hong-kong"}:
-            return ["mock"]
+            return ["unavailable"]
         if "reddit" in configured_sources:
             return ["reddit"]
-        return ["mock"]
+        return ["unavailable"]
 
     @staticmethod
     def _mock_summary(symbol: str, limit: int) -> dict[str, Any]:
@@ -1282,6 +1385,8 @@ class MarketSocialSentimentTool(Tool):
         ]
         return {
             "symbol": symbol,
+            "source": "mock",
+            "dataQuality": "synthetic",
             "sentiment": round(sentiment, 4),
             "confidence": round(confidence, 4),
             "mentions": mentions,
@@ -1306,8 +1411,8 @@ class MarketSocialSentimentTool(Tool):
                 response.raise_for_status()
                 payload = response.json()
         except Exception as e:
-            logger.error("market_social_sentiment reddit fetch failed for {}: {}", symbol, e)
-            return {"symbol": symbol, "sentiment": 0.0, "confidence": 0.1, "mentions": 0, "posts": []}, str(e)
+            logger.error("market_social_sentiment reddit fetch failed for {}: {}", symbol, type(e).__name__)
+            return {"symbol": symbol, "sentiment": 0.0, "confidence": 0.1, "mentions": 0, "posts": []}, type(e).__name__
 
         children = payload.get("data", {}).get("children", [])
         cutoff_ts = datetime.now(UTC).timestamp() - (self._lookback_hours * 3600)
@@ -1340,7 +1445,7 @@ class MarketSocialSentimentTool(Tool):
             published = (
                 datetime.fromtimestamp(created_utc, tz=UTC).isoformat().replace("+00:00", "Z")
                 if created_utc
-                else _utc_now_iso()
+                else None
             )
             permalink = str(data.get("permalink") or "")
             posts.append(
@@ -1384,19 +1489,19 @@ class MarketSocialSentimentTool(Tool):
 
             if "mock" in resolved_sources:
                 summaries.append(self._mock_summary(symbol, limit))
+                warnings.append(f"{symbol}: explicit mock social data; synthetic samples are not market evidence")
                 continue
 
             if "reddit" in resolved_sources:
                 summary, err = await self._fetch_reddit(symbol, limit)
                 if err:
-                    summary = self._mock_summary(symbol, limit)
-                    warnings.append(f"{symbol}: {err}")
-                    warnings.append(f"{symbol}: social source fallback: mock")
+                    summary = {"symbol": symbol, "sentiment": 0.0, "confidence": 0.0, "mentions": 0, "posts": [], "source": "unavailable", "dataQuality": "unavailable"}
+                    warnings.append(f"{symbol}: social data unavailable")
                 summaries.append(summary)
                 continue
 
-            summaries.append(self._mock_summary(symbol, limit))
-            warnings.append(f"{symbol}: unsupported social source, fallback to mock")
+            summaries.append({"symbol": symbol, "sentiment": 0.0, "confidence": 0.0, "mentions": 0, "posts": [], "source": "unavailable", "dataQuality": "unavailable"})
+            warnings.append(f"{symbol}: no supported live social source")
 
         total_mentions = sum(int(item.get("mentions", 0)) for item in summaries)
         overall_sentiment = 0.0
@@ -1481,155 +1586,6 @@ class IntelSearchTool(Tool):
             "hitCount": len(hits),
         }
         return json.dumps(payload, ensure_ascii=False)
-
-
-class ThesisTrackerTool(Tool):
-    """Create, inspect, and update tracked theses."""
-
-    name = "thesis_tracker"
-    description = (
-        "Create, inspect, list, and update tracked market theses in the local "
-        "workspace store. Useful for monitoring whether a thesis is strengthening, "
-        "weakening, unchanged, or falsified."
-    )
-    parameters = {
-        "type": "object",
-        "properties": {
-            "action": {
-                "type": "string",
-                "enum": ["create", "get", "list", "update"],
-                "description": "Operation to perform",
-            },
-            "thesisId": {"type": "string"},
-            "symbol": {"type": "string"},
-            "thesis": {"type": "string"},
-            "confidence": {"type": "number"},
-            "confidenceDelta": {"type": "number"},
-            "status": {"type": "string"},
-            "note": {"type": "string"},
-            "evidence": {"type": "string"},
-            "verdict": {
-                "type": "string",
-                "enum": ["strengthened", "weakened", "unchanged", "falsified"],
-            },
-            "tags": {"type": "array", "items": {"type": "string"}},
-            "drivers": {"type": "array", "items": {"type": "string"}},
-            "risks": {"type": "array", "items": {"type": "string"}},
-            "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20},
-        },
-        "required": ["action"],
-    }
-
-    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
-        self._config = config
-        self._workspace = Path(workspace) if workspace else None
-        self._store = ThesisStore(self._workspace) if self._workspace else None
-        backend = config.sentiment_backend if config else "lexicon"
-        model = config.sentiment_model if config else ""
-        self._sentiment = SentimentEngine(backend=backend, model=model)
-
-    async def execute(
-        self,
-        action: str,
-        thesisId: str | None = None,
-        symbol: str | None = None,
-        thesis: str | None = None,
-        confidence: float | None = None,
-        confidenceDelta: float | None = None,
-        status: str | None = None,
-        note: str = "",
-        evidence: str = "",
-        verdict: str | None = None,
-        tags: list[str] | None = None,
-        drivers: list[str] | None = None,
-        risks: list[str] | None = None,
-        limit: int = 20,
-        **kwargs: Any,
-    ) -> str:
-        if self._store is None:
-            return json.dumps({"error": "workspace is required for thesis tracking"}, ensure_ascii=False)
-
-        op = str(action or "").strip().lower()
-        if op == "list":
-            records = self._store.list_theses()[: max(1, limit)]
-            return json.dumps(
-                {
-                    "asOf": _utc_now_iso(),
-                    "action": "list",
-                    "theses": [record.to_dict() for record in records],
-                    "count": len(records),
-                },
-                ensure_ascii=False,
-            )
-
-        if op == "get":
-            clean_id = str(thesisId or "").strip()
-            if not clean_id:
-                return json.dumps({"error": "thesisId is required for get"}, ensure_ascii=False)
-            record = self._store.get_thesis(clean_id)
-            if record is None:
-                return json.dumps({"error": "thesis not found", "thesisId": clean_id}, ensure_ascii=False)
-            return json.dumps({"asOf": _utc_now_iso(), "action": "get", "thesis": record.to_dict()}, ensure_ascii=False)
-
-        if op == "create":
-            clean_symbol = str(symbol or "").strip().upper()
-            clean_thesis = str(thesis or "").strip()
-            if not clean_symbol or not clean_thesis:
-                return json.dumps({"error": "symbol and thesis are required for create"}, ensure_ascii=False)
-            record = self._store.create_thesis(
-                symbol=clean_symbol,
-                thesis=clean_thesis,
-                confidence=0.5 if confidence is None else float(confidence),
-                tags=tags,
-                drivers=drivers,
-                risks=risks,
-                note=note,
-            )
-            return json.dumps({"asOf": _utc_now_iso(), "action": "create", "thesis": record.to_dict()}, ensure_ascii=False)
-
-        if op == "update":
-            clean_id = str(thesisId or "").strip()
-            if not clean_id:
-                return json.dumps({"error": "thesisId is required for update"}, ensure_ascii=False)
-            existing = self._store.get_thesis(clean_id)
-            if existing is None:
-                return json.dumps({"error": "thesis not found", "thesisId": clean_id}, ensure_ascii=False)
-            verdict_value = verdict
-            derived_sentiment = None
-            if evidence.strip():
-                sentiment_result = self._sentiment.analyze_text(evidence)
-                derived_sentiment = sentiment_result.to_dict()
-                if not verdict_value:
-                    verdict_value = self._store.derive_verdict(sentiment_result.score)
-            if not verdict_value:
-                verdict_value = "unchanged"
-            next_status = status or self._store.verdict_status(verdict_value, existing.status)
-            record = self._store.update_thesis(
-                clean_id,
-                status=next_status,
-                confidence=confidence,
-                confidence_delta=confidenceDelta,
-                note=note,
-                verdict=verdict_value,
-                evidence=evidence,
-                tags=tags,
-                drivers=drivers,
-                risks=risks,
-            )
-            if record is None:
-                return json.dumps({"error": "thesis not found", "thesisId": clean_id}, ensure_ascii=False)
-            return json.dumps(
-                {
-                    "asOf": _utc_now_iso(),
-                    "action": "update",
-                    "verdict": verdict_value,
-                    "derivedSentiment": derived_sentiment,
-                    "thesis": record.to_dict(),
-                },
-                ensure_ascii=False,
-            )
-
-        return json.dumps({"error": f"unsupported action: {op}"}, ensure_ascii=False)
 
 
 class LogicChainVisualizerTool(Tool):
@@ -1801,6 +1757,13 @@ class MarketMacroTool(Tool):
             latest, delta, err = await self._fetch_fred_series(series_id)
             if err:
                 warnings.append(f"{name}: {err}")
+            for field, value in (("value", latest), ("delta", delta)):
+                if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)):
+                    warnings.append(f"{name}: invalid or nonfinite {field} was excluded")
+                    if field == "value":
+                        latest = None
+                    else:
+                        delta = None
             if latest is not None:
                 by_name[name] = latest
             rows.append(
@@ -1810,6 +1773,7 @@ class MarketMacroTool(Tool):
                     "value": latest,
                     "delta": round(delta, 4) if isinstance(delta, float) else None,
                     "source": "fred",
+                    **self._service.series_metadata(series_id),
                 }
             )
 
@@ -1830,12 +1794,15 @@ class MarketMacroTool(Tool):
             payload["routeTrace"] = self._service.route_trace()
             return json.dumps(payload, ensure_ascii=False)
 
-        fed = by_name.get("fedFunds", 4.5)
-        cpi = by_name.get("cpi", 3.0)
-        us10y = by_name.get("us10y", 4.2)
-
-        macro_risk = _clamp(((fed / 6.0) + max((cpi - 2.0) / 4.0, 0) + (us10y / 6.0)) / 3.0, 0.0, 1.0)
-        regime = "risk-off" if macro_risk >= 0.60 else "neutral" if macro_risk >= 0.40 else "risk-on"
+        required = ["fedFunds", "cpi", "us10y"]
+        missing = [name for name in required if name not in by_name]
+        if missing:
+            macro_risk, regime = 0.5, "unknown"
+            warnings.append(f"macro risk estimate unavailable; missing required indicators: {', '.join(missing)}")
+        else:
+            fed, cpi, us10y = (by_name[name] for name in required)
+            macro_risk = _clamp(((fed / 6.0) + max((cpi - 2.0) / 4.0, 0) + (us10y / 6.0)) / 3.0, 0.0, 1.0)
+            regime = "risk-off" if macro_risk >= 0.60 else "neutral" if macro_risk >= 0.40 else "risk-on"
 
         result = {
             "asOf": _utc_now_iso(),
@@ -1843,6 +1810,9 @@ class MarketMacroTool(Tool):
             "indicators": rows,
             "macroRisk": round(macro_risk, 4),
             "regime": regime,
+            "macroRiskDataStatus": "insufficient_data" if missing else "complete",
+            "methodology": {"kind": "heuristic", "requiredIndicators": required, "missingIndicators": missing,
+                            "note": "Uses reported federal funds and 10-year yields in percent and CPI year-over-year percent change (FRED units=pc1). Missing inputs produce macroRisk=0.5 as a neutral compatibility default; no indicator values are invented. Observation dates denote periods, not source publication instants."},
             "warnings": warnings,
             "sourceHealth": self._service.health_snapshot(),
             "routeTrace": self._service.route_trace(),

@@ -1,6 +1,7 @@
 """Session management for conversation history."""
 
 import asyncio
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,7 @@ class Session:
     last_consolidated: int = 0  # Number of messages already consolidated to files
     _persisted_messages: int = field(default=0, repr=False, compare=False)
     _metadata_records: int = field(default=0, repr=False, compare=False)
+    _persisted_digest: str | None = field(default=None, repr=False, compare=False)
 
     def add_message(self, role: str, content: str, **kwargs: Any) -> None:
         """Add a message to the session."""
@@ -68,10 +70,10 @@ class Session:
 
         out: list[dict[str, Any]] = []
         for m in sliced:
-            entry: dict[str, Any] = {"role": m["role"], "content": m.get("content", "")}
+            entry: dict[str, Any] = {"role": m["role"], "content": deepcopy(m.get("content", ""))}
             for k in ("tool_calls", "tool_call_id", "name"):
                 if k in m:
-                    entry[k] = m[k]
+                    entry[k] = deepcopy(m[k])
             out.append(entry)
         return out
 
@@ -90,13 +92,17 @@ class SessionManager:
     """
 
     def __init__(self, workspace: Path):
-        self.workspace = workspace
+        self.workspace = workspace.expanduser().resolve()
+        if (self.workspace / "sessions").is_symlink():
+            raise storage.SessionStorageError("Session storage must remain inside its workspace")
         self.sessions_dir = ensure_dir(self.workspace / "sessions")
         self.legacy_sessions_dir = Path.home() / ".marketbot" / "sessions"
         self._cache: dict[str, Session] = {}
 
     def _get_session_path(self, key: str) -> Path:
         """Get the file path for a session."""
+        if self.sessions_dir.is_symlink() or not self.sessions_dir.resolve().is_relative_to(self.workspace):
+            raise storage.SessionStorageError("Session storage must remain inside its workspace")
         return storage.session_path(self.sessions_dir, key)
 
     def _get_legacy_session_path(self, key: str) -> Path:
@@ -127,15 +133,30 @@ class SessionManager:
         """Load a session from disk."""
         path = self._get_session_path(key)
         if not path.exists():
-            legacy_path = self._get_legacy_session_path(key)
-            if legacy_path.exists():
-                storage.migrate_legacy_session(key, path, legacy_path)
+            for legacy_path in (
+                storage.legacy_session_path(self.sessions_dir, key),
+                self._get_legacy_session_path(key),
+            ):
+                try:
+                    exists = legacy_path.exists()
+                except OSError:
+                    # Old unhashed filenames can exceed platform limits, while
+                    # the new full-identity hash remains bounded and usable.
+                    continue
+                if exists:
+                    try:
+                        with storage.session_file_lock(path):
+                            storage.migrate_legacy_session(key, path, legacy_path)
+                    except storage.SessionIdentityError:
+                        logger.warning("Legacy session identity conflict; original file preserved")
+                        continue
+                    break
 
         if not path.exists():
             return None
 
         try:
-            payload = storage.load_session_jsonl(path)
+            payload = storage.load_session_jsonl(path, expected_key=key)
 
             return Session(
                 key=key,
@@ -146,40 +167,68 @@ class SessionManager:
                 last_consolidated=payload["last_consolidated"],
                 _persisted_messages=len(payload["messages"]),
                 _metadata_records=payload.get("metadata_records", 1),
+                _persisted_digest=storage.message_digest(payload["messages"]),
             )
-        except Exception as e:
-            logger.warning("Failed to load session {}: {}", key, e)
-            return None
+        except storage.SessionStorageError:
+            logger.warning("Session could not be loaded safely; original file preserved")
+            raise
 
     def save(self, session: Session) -> None:
         """Save a session to disk."""
-        self._save_to_disk(session)
+        try:
+            self._save_to_disk(session)
+        except storage.SessionConflictError:
+            self.invalidate(session.key)
+            raise
         self._cache[session.key] = session
 
     async def save_async(self, session: Session) -> None:
         """Save a session to disk without blocking the event loop."""
         snapshot = Session(
             key=session.key,
-            messages=[dict(message) for message in session.messages],
+            messages=deepcopy(session.messages),
             created_at=session.created_at,
             updated_at=session.updated_at,
-            metadata=dict(session.metadata),
+            metadata=deepcopy(session.metadata),
             last_consolidated=session.last_consolidated,
             _persisted_messages=session._persisted_messages,
             _metadata_records=session._metadata_records,
+            _persisted_digest=session._persisted_digest,
         )
-        await asyncio.to_thread(self._save_to_disk, snapshot)
+        try:
+            await asyncio.to_thread(self._save_to_disk, snapshot)
+        except storage.SessionConflictError:
+            self.invalidate(session.key)
+            raise
         session._persisted_messages = snapshot._persisted_messages
         session._metadata_records = snapshot._metadata_records
+        session._persisted_digest = snapshot._persisted_digest
         self._cache[session.key] = session
 
     def _save_to_disk(self, session: Session) -> None:
         """Persist a session snapshot to disk."""
         path = self._get_session_path(session.key)
+        with storage.session_file_lock(path):
+            self._save_locked(session, path)
+
+    @staticmethod
+    def _save_locked(session: Session, path: Path) -> None:
+        snapshot_digest = storage.message_digest(session.messages)
+        stored = storage.load_session_jsonl(path, expected_key=session.key) if path.exists() else None
+        reset = session._persisted_messages > len(session.messages)
+        if stored is not None:
+            stored_messages = stored["messages"]
+            if reset:
+                if session._persisted_digest != storage.message_digest(stored_messages):
+                    raise storage.SessionConflictError("Session changed in another writer; reload this session and retry. Existing messages were preserved.")
+            elif len(stored_messages) < session._persisted_messages or stored_messages != session.messages[:len(stored_messages)]:
+                raise storage.SessionConflictError("Session message history conflicts with another writer; reload this session and retry. Existing messages were preserved.")
+        elif session._persisted_messages:
+            raise storage.SessionConflictError("Saved session disappeared; reload this session and retry. Existing in-memory messages were preserved.")
         should_compact = (
-            not path.exists()
-            or session._persisted_messages > len(session.messages)
-            or session._metadata_records >= 8
+            stored is None
+            or reset
+            or stored["metadata_records"] >= 8
         )
         if should_compact:
             storage.save_session_jsonl(
@@ -193,9 +242,10 @@ class SessionManager:
             )
             session._persisted_messages = len(session.messages)
             session._metadata_records = 1
+            session._persisted_digest = snapshot_digest
             return
 
-        new_messages = session.messages[session._persisted_messages:]
+        new_messages = session.messages[len(stored["messages"]):]
         storage.append_session_jsonl(
             path,
             key=session.key,
@@ -206,7 +256,8 @@ class SessionManager:
             messages=new_messages,
         )
         session._persisted_messages = len(session.messages)
-        session._metadata_records += 1
+        session._metadata_records = stored["metadata_records"] + 1
+        session._persisted_digest = snapshot_digest
 
     def invalidate(self, key: str) -> None:
         """Remove a session from the in-memory cache."""

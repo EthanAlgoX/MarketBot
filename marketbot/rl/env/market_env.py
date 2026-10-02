@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -11,7 +12,23 @@ from marketbot.rl.reward import RewardBreakdown
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
+    if not all(math.isfinite(item) for item in (value, lower, upper)):
+        raise ValueError("Environment values must be finite")
     return max(lower, min(upper, value))
+
+
+def _finite_number(value: Any, field: str, *, minimum: float | None = None, maximum: float | None = None, positive: bool = False) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a finite number")
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(f"{field} must be a finite number") from None
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be a finite number")
+    if positive and number <= 0 or minimum is not None and number < minimum or maximum is not None and number > maximum:
+        raise ValueError(f"{field} is outside the environment bounds")
+    return number
 
 
 @dataclass(slots=True)
@@ -112,13 +129,16 @@ class LocalMarketEnv:
         state = self._require_lease(lease_id)
         params = dict(arguments or {})
         if tool_name == "market_snapshot":
-            return json.dumps(self._snapshot_payload(state), ensure_ascii=False)
+            return json.dumps(self._snapshot_payload(state), ensure_ascii=False, allow_nan=False)
         if tool_name == "portfolio_state":
-            return json.dumps(self._portfolio_payload(state), ensure_ascii=False)
+            return json.dumps(self._portfolio_payload(state), ensure_ascii=False, allow_nan=False)
         if tool_name == "submit_trade_action":
-            return json.dumps(self._submit_trade_action(state, params), ensure_ascii=False)
+            return json.dumps(self._submit_trade_action(state, params), ensure_ascii=False, allow_nan=False)
         if tool_name == "advance_time":
-            return json.dumps(self._advance_time(state, int(params.get("steps", 1))), ensure_ascii=False)
+            steps = params.get("steps", 1)
+            if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
+                raise ValueError("advance_time steps must be a positive integer")
+            return json.dumps(self._advance_time(state, steps), ensure_ascii=False, allow_nan=False)
         raise KeyError(f"unsupported tool: {tool_name}")
 
     async def evaluate(self, lease_id: str) -> float:
@@ -138,6 +158,8 @@ class LocalMarketEnv:
             turnover_penalty=round(state.turnover * state.turnover_coef, 6),
             slippage_penalty=slippage_penalty,
         )
+        for reward_field, value in breakdown.to_dict().items():
+            _finite_number(value, f"reward {reward_field}")
         return {
             "taskKey": state.task_key,
             "symbol": state.symbol,
@@ -176,7 +198,7 @@ class LocalMarketEnv:
         prices_raw = list(task_meta.get("prices") or [])
         if len(prices_raw) < 2:
             raise ValueError(f"task {task_key} must define at least two prices")
-        prices = [float(item) for item in prices_raw]
+        prices = [_finite_number(item, "prices", positive=True) for item in prices_raw]
         timestamps = [str(item) for item in (task_meta.get("timestamps") or [])]
         if len(timestamps) != len(prices):
             timestamps = [f"t{i}" for i in range(len(prices))]
@@ -193,10 +215,10 @@ class LocalMarketEnv:
             timestamps=timestamps,
             instruction=instruction,
             objective=str(task_meta.get("objective") or "maximize risk-adjusted return"),
-            max_position_pct=float(task_meta.get("max_position_pct", 1.0)),
-            drawdown_coef=float(task_meta.get("drawdown_coef", 0.5)),
-            turnover_coef=float(task_meta.get("turnover_coef", 0.02)),
-            slippage_bps=float(task_meta.get("slippage_bps", 5.0)),
+            max_position_pct=_finite_number(task_meta.get("max_position_pct", 1.0), "max_position_pct", minimum=0, maximum=1),
+            drawdown_coef=_finite_number(task_meta.get("drawdown_coef", 0.5), "drawdown_coef", minimum=0),
+            turnover_coef=_finite_number(task_meta.get("turnover_coef", 0.02), "turnover_coef", minimum=0),
+            slippage_bps=_finite_number(task_meta.get("slippage_bps", 5.0), "slippage_bps", minimum=0),
         )
 
     def _require_lease(self, lease_id: str) -> _LeaseState:
@@ -209,12 +231,13 @@ class LocalMarketEnv:
         if state.done:
             raise RuntimeError("episode already completed")
         action = str(params.get("action") or "watch").strip().lower()
-        requested_pct = float(params.get("position_pct", state.position_pct) or 0.0)
+        default_pct = state.max_position_pct if action == "buy" else state.position_pct
+        requested_pct = _finite_number(params.get("position_pct", default_pct), "position_pct")
         requested_pct = _clamp(requested_pct, 0.0, state.max_position_pct)
         previous_pct = state.position_pct
 
         if action == "buy":
-            target_pct = requested_pct if requested_pct > 0 else state.max_position_pct
+            target_pct = requested_pct
         elif action == "reduce":
             target_pct = min(previous_pct, requested_pct)
         elif action in {"sell", "flat"}:
@@ -256,8 +279,9 @@ class LocalMarketEnv:
             if next_price is None:
                 state.done = True
                 break
-            gross_return = state.position_pct * ((next_price / state.current_price) - 1.0)
-            state.equity = round(state.equity * (1.0 + gross_return), 6)
+            gross_return = _finite_number(state.position_pct * ((next_price / state.current_price) - 1.0), "calculated return")
+            next_equity = _finite_number(state.equity * (1.0 + gross_return), "calculated equity", minimum=0)
+            state.equity = round(next_equity, 6)
             state.peak_equity = max(state.peak_equity, state.equity)
             drawdown = 0.0
             if state.peak_equity > 0:

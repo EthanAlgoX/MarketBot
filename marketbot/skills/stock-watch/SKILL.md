@@ -15,7 +15,14 @@ Use this skill to monitor and analyze specific stocks, providing high-quality "D
 
 ## Workflow
 
-1. **Scheduling (Optional)**: If the user asks for periodic monitoring, use the `cron` tool to schedule the task.
+1. **Monitoring**: For a user asking for changes or thresholds, save an explicit
+   `market_watch` definition and rules (price_change/max_weight/freshness). Use
+   real quote/FX evidence IDs and actual observation times when evaluating it.
+   The first valid result sets a quiet baseline; stale inputs cannot advance it.
+   Schedule deterministic collection with `marketbot finance schedule <watchId>`
+   in the same configured workspace, then run the Gateway. External notification
+   requires an explicit channel/recipient request. `cron` remains available for
+   periodic narrative reports. A report is not a threshold-change alert.
 2. **Data Acquisition**: For each ticker, gather the following:
    - **Market Snapshot**: Price, volume, and daily change.
      - For A-share names, prefer TickFlow-backed realtime snapshot when configured.

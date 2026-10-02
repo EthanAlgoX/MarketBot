@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from datetime import datetime, timedelta
+import os
+import tempfile
+from copy import deepcopy
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -37,9 +40,9 @@ class MarketCache:
 
         if key in self._memory_cache:
             value, timestamp = self._memory_cache[key]
-            if datetime.now() - timestamp < timedelta(seconds=self.ttl_seconds):
+            if 0 <= (datetime.now(UTC) - timestamp).total_seconds() < self.ttl_seconds:
                 logger.debug("Cache hit (memory): {}", key[:8])
-                return value
+                return deepcopy(value)
             else:
                 del self._memory_cache[key]
 
@@ -48,10 +51,10 @@ class MarketCache:
             try:
                 data = json.loads(cache_path.read_text())
                 cached_at = datetime.fromisoformat(data["cached_at"])
-                if datetime.now() - cached_at < timedelta(seconds=self.ttl_seconds):
+                if cached_at.tzinfo is not None and 0 <= (datetime.now(UTC) - cached_at).total_seconds() < self.ttl_seconds:
                     self._memory_cache[key] = (data["value"], cached_at)
                     logger.debug("Cache hit (disk): {}", key[:8])
-                    return data["value"]
+                    return deepcopy(data["value"])
                 else:
                     cache_path.unlink()
             except Exception:
@@ -62,18 +65,26 @@ class MarketCache:
     def set(self, value: Any, prefix: str, *args, **kwargs) -> None:
         """Set value in cache (memory and disk)."""
         key = self._get_cache_key(prefix, *args, **kwargs)
-        timestamp = datetime.now()
+        timestamp = datetime.now(UTC)
 
-        self._memory_cache[key] = (value, timestamp)
+        self._memory_cache[key] = (deepcopy(value), timestamp)
 
         cache_path = self._get_cache_path(key)
+        temporary = None
         try:
-            cache_path.write_text(json.dumps({
+            serialized = json.dumps({
                 "value": value,
                 "cached_at": timestamp.isoformat(),
-            }))
+            }, allow_nan=False)
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.cache_dir, delete=False) as handle:
+                temporary = handle.name
+                handle.write(serialized)
+            os.replace(temporary, cache_path)
         except Exception:
             logger.warning("Failed to write cache to disk")
+        finally:
+            if temporary and os.path.exists(temporary):
+                os.unlink(temporary)
 
     def invalidate(self, prefix: str, *args, **kwargs) -> None:
         """Invalidate a specific cache entry."""

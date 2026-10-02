@@ -1,11 +1,11 @@
 <div align="center">
   <img src="marketbot_logo.png" alt="marketbot" width="420">
   <h1>marketbot</h1>
-  <p><strong>Skill-first finance analysis assistant with a lightweight agent runtime.</strong></p>
+  <p><strong>Cross-market research and portfolio risk agent for personal investors.</strong></p>
   <p><strong>English | <a href="README.md">中文</a></strong></p>
 </div>
 
-`marketbot` is an agent runtime built for financial analysis. It keeps the flexibility of a chat agent, but makes the finance layer explicit and maintainable:
+`marketbot` evolves with Nanobot's general agent architecture as a reference, focusing on cross-market research, portfolio risk, and ongoing monitoring for personal investors. It keeps the flexibility of a chat agent while making the finance layer explicit and maintainable:
 
 - `skills` orchestrate high-level analysis tasks
 - shared market-domain services handle `quote / news / macro`
@@ -16,6 +16,7 @@
 
 - generating market briefs for a symbol set or watchlist
 - building catalyst and event watchlists from holdings
+- calculating cross-currency holdings weights, cash share, concentration, and explicitly assumed stress scenarios with supplied prices and FX rates
 - running recurring watchlist monitoring and daily screening
 - routing requests to the right skills based on market, asset class, freshness, and runtime tool availability
 - sending channel-aware reports with reliability notes
@@ -35,6 +36,14 @@
   The same analysis stack can power CLI usage, saved reports, recurring jobs, and outbound bots.
 
 ## Shortest Path To First Use
+
+Onboarding includes bundled finance skills, a local finance MCP server, and an optional
+Alpha Vantage preset. Run `marketbot onboard --refresh` to add presets while preserving
+existing settings. See the [finance defaults guide](docs/nanobot_finance_defaults.md).
+See [positioning and open-source references](docs/marketbot_financial_agent_direction.md)
+for the product direction and current capability boundaries.
+See the [feature and execution audit](docs/marketbot_feature_logic_audit.md) and
+[financial workflow guide](docs/finance_workflows.md) for evidence, thesis checks, and change alerts.
 
 ```bash
 python3 -m venv .venv313

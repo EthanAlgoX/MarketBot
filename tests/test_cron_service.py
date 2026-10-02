@@ -96,3 +96,56 @@ def test_cron_payload_persists_intel_fields(tmp_path) -> None:
     assert payload.scope_key == ""
     assert payload.hours == 12
     assert payload.limit == 8
+
+
+def test_corrupt_cron_file_cannot_be_overwritten_by_new_schedule(tmp_path):
+    path = tmp_path / 'cron' / 'jobs.json'
+    path.parent.mkdir()
+    original = b'{ damaged schedule store'
+    path.write_bytes(original)
+    with pytest.raises(ValueError, match='not overwritten'):
+        CronService(path).add_job('new', CronSchedule(kind='every', every_ms=60000), '')
+    assert path.read_bytes() == original
+
+
+def test_stale_writer_cannot_erase_other_process_schedule(tmp_path):
+    path = tmp_path / 'cron' / 'jobs.json'
+    first, second = CronService(path), CronService(path)
+    first.add_job('first', CronSchedule(kind='every', every_ms=60000), '')
+    second.list_jobs()
+    first.add_job('concurrent', CronSchedule(kind='every', every_ms=60000), '')
+    with pytest.raises(ValueError, match='concurrently'):
+        second._save_store()
+    assert {j.name for j in CronService(path).list_jobs()} == {'first', 'concurrent'}
+
+
+@pytest.mark.asyncio
+async def test_external_edit_during_job_keeps_scheduler_running(tmp_path):
+    from marketbot.cron.service import _now_ms
+
+    path = tmp_path / 'jobs.json'
+    async def on_job(_job):
+        CronService(path).add_job('external', CronSchedule(kind='every', every_ms=60000), '')
+    service = CronService(path, on_job=on_job)
+    job = service.add_job('due', CronSchedule(kind='every', every_ms=60000), '')
+    job.state.next_run_at_ms = _now_ms() - 1
+    service._save_store()
+    service._running = True
+    try:
+        await service._on_timer()
+        assert service._running
+        assert service._timer_task is not None
+        assert {j.name for j in service.list_jobs()} == {'due', 'external'}
+    finally:
+        service.stop()
+
+
+def test_unknown_cron_version_is_preserved(tmp_path):
+    import json
+
+    path = tmp_path / 'jobs.json'
+    original = json.dumps({'version': 99, 'jobs': []})
+    path.write_text(original)
+    with pytest.raises(ValueError, match='not overwritten'):
+        CronService(path).add_job('new', CronSchedule(kind='every', every_ms=60000), '')
+    assert path.read_text() == original

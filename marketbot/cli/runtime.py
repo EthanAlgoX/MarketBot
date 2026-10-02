@@ -9,6 +9,7 @@ from typing import Any
 import typer
 from rich.console import Console
 
+from marketbot.config.finance import prepare_mcp_servers
 from marketbot.config.schema import Config
 
 
@@ -107,7 +108,7 @@ def build_agent_runtime(
         cron_service=cron,
         restrict_to_workspace=config.tools.restrict_to_workspace,
         session_manager=session_manager,
-        mcp_servers=config.tools.mcp_servers,
+        mcp_servers=prepare_mcp_servers(config),
         channels_config=config.channels,
         market_config=config.tools.market,
         memory_layer=config.agents.defaults.memory_layer,

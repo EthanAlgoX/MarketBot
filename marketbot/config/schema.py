@@ -431,13 +431,35 @@ class MarketToolsConfig(Base):
 class MCPServerConfig(Base):
     """MCP server connection configuration (stdio or HTTP)."""
 
+    enabled: bool = True
     type: Literal["stdio", "sse", "streamableHttp"] | None = None  # auto-detected if omitted
     command: str = ""  # Stdio: command to run (e.g. "npx")
     args: list[str] = Field(default_factory=list)  # Stdio: command arguments
     env: dict[str, str] = Field(default_factory=dict)  # Stdio: extra env vars
     url: str = ""  # HTTP/SSE: endpoint URL
     headers: dict[str, str] = Field(default_factory=dict)  # HTTP/SSE: custom headers
-    tool_timeout: int = 30  # seconds before a tool call is cancelled
+    tool_timeout: int = 30  # Preserve legacy timeout values when refreshing configuration.
+    startup_timeout: int = Field(20, ge=1, le=300)
+    enabled_tools: list[str] = Field(default_factory=lambda: ["*"])
+
+
+def default_finance_mcp_servers() -> dict[str, MCPServerConfig]:
+    """Bundled finance research plus an optional official data provider."""
+    return {
+        "finance": MCPServerConfig(
+            type="stdio",
+            command="python",
+            args=["-m", "marketbot.mcp.finance"],
+            tool_timeout=60,
+        ),
+        "alphavantage": MCPServerConfig(
+            enabled=False,
+            type="stdio",
+            command="uvx",
+            args=["marketdata-mcp-server", "${ALPHA_VANTAGE_API_KEY}"],
+            tool_timeout=60,
+        ),
+    }
 
 
 class ToolsConfig(Base):
@@ -451,7 +473,7 @@ class ToolsConfig(Base):
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
     market: MarketToolsConfig = Field(default_factory=MarketToolsConfig)
     restrict_to_workspace: bool = False  # If true, restrict all tool access to workspace directory
-    mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
+    mcp_servers: dict[str, MCPServerConfig] = Field(default_factory=default_finance_mcp_servers)
 
 
 class Config(BaseSettings):

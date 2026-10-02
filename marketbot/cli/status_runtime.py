@@ -8,6 +8,7 @@ from typing import Any
 
 from rich.table import Table
 
+from marketbot.config.finance import mcp_configuration_status
 from marketbot.runtime.diagnostics import collect_runtime_diagnostics
 
 
@@ -145,6 +146,12 @@ def build_status_payload(
         "agent": {
             "model": config.agents.defaults.model,
         },
+        "finance": {
+            "enabled": bool(config.tools.market.enabled),
+            "quoteSource": config.tools.market.quote_source,
+            "defaultSymbols": list(config.tools.market.default_symbols),
+        },
+        "mcp": mcp_configuration_status(config),
         "browser": {
             "enabled": browser_enabled,
             "mode": browser_cfg.mode,
@@ -251,6 +258,11 @@ def render_status(
     console.print(f"{logo} marketbot Status\n")
     console.print(f"Config: {config_path} {'[green]✓[/green]' if config_path.exists() else '[red]✗[/red]'}")
     console.print(f"Workspace: {workspace} {'[green]✓[/green]' if workspace.exists() else '[red]✗[/red]'}")
+    console.print("Finance tools: " + ("[green]enabled[/green]" if payload["finance"]["enabled"] else "[dim]disabled[/dim]"))
+    for server in payload["mcp"]:
+        console.print(f"MCP {server['name']}: {server['state']} ({server['transport']})")
+        if server["enabled"] and server["missingEnv"]:
+            console.print(f"  Missing environment: {', '.join(server['missingEnv'])}")
 
     browser_status = "[green]✓[/green]" if browser["enabled"] else "[dim]disabled[/dim]"
     if browser["enabled"] and not browser["commandFound"]:

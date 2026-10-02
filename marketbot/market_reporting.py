@@ -96,6 +96,11 @@ def render_market_report_document(
     if headline.strip():
         lines.append(f"- Trigger Headline: {headline.strip()}")
 
+    if payload.get("evidenceRecordId"):
+        lines += ["", "## Research Evidence", "", f"- Ledger record: `{payload['evidenceRecordId']}`", "- Inspect with evidence_get. Source observation times remain distinct from report generation time."]
+    if payload.get("evidenceRecording", {}).get("ok") is False:
+        lines.append("- Evidence recording failed; this report has no verified ledger record.")
+
     lines += [
         "",
         "## Summary",

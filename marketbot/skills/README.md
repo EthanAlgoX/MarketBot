@@ -2,6 +2,15 @@
 
 This directory contains built-in skills that extend marketbot's capabilities.
 
+Financial research skills are bundled with every installation and selected
+automatically from English or Chinese requests. Core analysis, catalysts,
+risk checks, and portfolio allocation require the matching runtime tools.
+Workspace skills with the same name override the bundled version.
+
+`portfolio-analyzer` uses the deterministic `portfolio_risk` tool for holdings
+valuation, explicit FX conversion, concentration, and assumed stress scenarios.
+Historical risk metrics require validated price series and a separate calculation.
+
 When no suitable local skill is selected, marketbot can also surface curated external suggestions from:
 
 - `https://github.com/openclaw/skills`
@@ -86,6 +95,7 @@ Current high-value fallback mappings:
 | `tmux` | Remote-control tmux sessions |
 | `clawhub` | Search and install skills from ClawHub registry |
 | `market-report` | Produce structured single-asset market analysis |
+| `finance-mcp` | Supplement native market research with configured financial MCP tools and verified data |
 | `options-payoff` | Explain option strategy payoff, breakevens, and bounded or unbounded risk |
 | `pair-correlation` | Analyze correlation, beta, rolling co-movement, and spread divergence |
 | `earnings-readout` | Summarize earnings beats, guidance changes, and price reaction drivers |

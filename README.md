@@ -1,11 +1,11 @@
 <div align="center">
   <img src="marketbot_logo.png" alt="marketbot" width="420">
   <h1>marketbot</h1>
-  <p><strong>一个以 skill 为核心、面向金融分析的轻量级 AI 助手。</strong></p>
+  <p><strong>面向个人投资者的跨市场研究与持仓风险 Agent。</strong></p>
   <p><strong><a href="README_en.md">English</a> | 中文</strong></p>
 </div>
 
-`marketbot` 是一个面向金融分析场景的 agent runtime。它保留了通用聊天 agent 的灵活性，但把金融工作拆成了清晰可维护的几层：
+`marketbot` 参考 Nanobot 的通用 Agent 架构演进，面向个人投资者的跨市场研究、持仓风险与持续跟踪。它保留通用聊天 agent 的灵活性，并把金融工作拆成可维护的几层：
 
 - 上层用 `skill` 编排分析任务
 - 中层用统一的市场领域服务处理 `quote / news / macro`
@@ -17,6 +17,7 @@
 
 - 针对一组标的生成市场简报
 - 给持仓生成热点事件和催化监控清单
+- 使用明确的价格和汇率计算跨币种持仓权重、现金比例、集中度与假设压力情景
 - 做 watchlist 的日常监控、筛选和周期性报告
 - 按市场、资产类别、freshness、工具可用性自动选择 skill
 - 在相近 skill 间按历史成功率和场景化动态分自动排序
@@ -38,6 +39,14 @@
   同一套能力可以服务 CLI、定时任务、报告存档和多渠道推送。
 
 ## 最短上手路径
+
+默认初始化已包含金融研究 skills、本地金融 MCP 和可选 Alpha Vantage 预设。
+已有安装运行 `marketbot onboard --refresh` 可保留配置并补齐预设；详见
+[Nanobot 参考与金融默认能力](docs/nanobot_finance_defaults.md)。
+产品定位、能力边界与类似项目借鉴见
+[金融 Agent 定位与开源参考](docs/marketbot_financial_agent_direction.md)。
+当前功能与执行逻辑见 [项目审计](docs/marketbot_feature_logic_audit.md)，
+证据、论点复核与持仓变化提醒见 [持续研究流程](docs/finance_workflows.md)。
 
 ```bash
 python3 -m venv .venv313

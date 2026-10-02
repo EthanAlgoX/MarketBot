@@ -1,13 +1,13 @@
 [project]
 name = "marketbot-ai"
 version = "0.1.4.post3"
-description = "A lightweight personal AI assistant framework"
+description = "A lightweight financial research AI agent with built-in finance skills and MCP integrations"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "marketbot contributors"}
 ]
-keywords = ["ai", "agent", "chatbot"]
+keywords = ["ai", "agent", "finance", "market-research", "mcp"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -78,14 +78,18 @@ packages = ["marketbot"]
 [tool.hatch.build.targets.wheel.sources]
 "marketbot" = "marketbot"
 
-# Include non-Python files in skills and templates
+# Ship complete skill trees, including data catalogs, feeds, agent metadata, and hooks.
 [tool.hatch.build]
+exclude = ["marketbot/.xiaohongshu-cli/**", "**/__pycache__/**", "**/*.pyc"]
 include = [
     "marketbot/**/*.py",
     "marketbot/templates/**/*.md",
-    "marketbot/skills/**/*.md",
-    "marketbot/skills/**/*.py",
-    "marketbot/skills/**/*.sh",
+    "marketbot/skills/**",
+]
+artifacts = [
+    "marketbot/skills/self-improving-agent/.learnings/*.md",
+    "marketbot/rl/env/*.py",
+    "marketbot/templates/*.md",
 ]
 
 [tool.hatch.build.targets.sdist]

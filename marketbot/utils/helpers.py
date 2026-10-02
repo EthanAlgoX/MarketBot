@@ -29,10 +29,10 @@ def get_data_path() -> Path:
     return ensure_dir(Path.home() / ".marketbot")
 
 
-def get_workspace_path(workspace: str | None = None) -> Path:
+def get_workspace_path(workspace: str | None = None, *, create: bool = True) -> Path:
     """Resolve and ensure workspace path. Defaults to ~/.marketbot/workspace."""
     path = Path(workspace).expanduser() if workspace else Path.home() / ".marketbot" / "workspace"
-    return ensure_dir(path)
+    return ensure_dir(path) if create else path
 
 
 def timestamp() -> str:

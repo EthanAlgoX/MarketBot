@@ -128,6 +128,9 @@ def run_market_report(
             body=body,
         )
     )
+    from marketbot.agent.tools.finance_evidence import capture_finance_result
+
+    payload = json.loads(capture_finance_result(config.workspace_path, "market_brief", json.dumps(payload, ensure_ascii=False)))
     resolved_session = resolve_market_report_session(
         normalized_session=normalized_session,
         timezone=timezone,

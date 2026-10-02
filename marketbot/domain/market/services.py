@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import re
 from datetime import UTC, datetime
@@ -15,6 +16,7 @@ import httpx
 from loguru import logger
 
 from marketbot.cache.market_cache import MarketCache
+from marketbot.domain.market.provenance import source_timestamp
 
 
 def clamp(value: float, lower: float, upper: float) -> float:
@@ -79,7 +81,7 @@ def normalize_hk_symbol(symbol: str) -> str:
 def is_us_symbol(symbol: str) -> bool:
     """Return True for plain US stock / ETF tickers that Tencent US quotes can serve."""
     text = str(symbol or "").strip().upper()
-    return bool(re.fullmatch(r"[A-Z]{1,6}", text))
+    return bool(re.fullmatch(r"[A-Z]{1,6}(?:\.[A-Z])?", text))
 
 
 def eastmoney_secid(symbol: str) -> str | None:
@@ -256,13 +258,13 @@ class MarketSnapshotService(MarketDomainService):
             try:
                 from tickflow import TickFlow
             except Exception as e:  # pragma: no cover - depends on optional package state
-                return [], warnings + [f"tickflow import failed: {e}"]
+                return [], warnings + [f"tickflow import failed: {type(e).__name__}"]
 
             client = TickFlow(api_key=self.tickflow_api_key, timeout=self.timeout)
             try:
                 payload = client.quotes.get(symbols=[item[1] for item in normalized_pairs])
             except Exception as e:
-                return [], warnings + [f"tickflow quote fetch failed: {e}"]
+                return [], warnings + [f"tickflow quote fetch failed: {type(e).__name__}"]
             finally:
                 client.close()
 
@@ -315,6 +317,9 @@ class MarketSnapshotService(MarketDomainService):
                         "low": raw.get("low"),
                         "preClose": prev_close,
                         "provider": "tickflow",
+                        "observedAt": None,
+                        "retrievedAt": utc_now_iso(),
+                        "priceType": "as-of",
                     }
                 )
             return rows, local_warnings
@@ -349,8 +354,8 @@ class MarketSnapshotService(MarketDomainService):
                 response.raise_for_status()
                 payload = response.json()
         except Exception as e:
-            logger.error("market_snapshot yahoo fetch failed: {}", e)
-            return [], [f"quote fetch failed: {e}"]
+            logger.error("market_snapshot yahoo fetch failed: {}", type(e).__name__)
+            return [], [f"quote fetch failed: {type(e).__name__}"]
 
         raw_rows = payload.get("quoteResponse", {}).get("result", [])
         by_symbol = {
@@ -383,6 +388,10 @@ class MarketSnapshotService(MarketDomainService):
                     "momentum": momentum,
                     "currency": raw.get("currency"),
                     "marketState": raw.get("marketState"),
+                    "provider": "yahoo",
+                    "observedAt": source_timestamp(raw.get("regularMarketTime")),
+                    "retrievedAt": utc_now_iso(),
+                    "priceType": "as-of",
                 }
             )
         return rows, warnings
@@ -435,8 +444,8 @@ class MarketSnapshotService(MarketDomainService):
                 params=params,
             )
         except Exception as e:
-            logger.error("market_snapshot eastmoney fetch failed: {}", e)
-            return [], warnings + [f"eastmoney quote fetch failed: {e}"]
+            logger.error("market_snapshot eastmoney fetch failed: {}", type(e).__name__)
+            return [], warnings + [f"eastmoney quote fetch failed: {type(e).__name__}"]
 
         rows_raw = payload.get("data", {}).get("diff", []) or []
         by_code = {
@@ -470,7 +479,11 @@ class MarketSnapshotService(MarketDomainService):
                     "flowHint": "neutral",
                     "momentum": momentum,
                     "currency": "HKD" if is_hk else "CNY",
-                    "marketState": "REGULAR",
+                    "marketState": "UNKNOWN",
+                    "provider": "eastmoney",
+                    "observedAt": None,
+                    "retrievedAt": utc_now_iso(),
+                    "priceType": "as-of",
                     "open": raw.get("f17"),
                     "high": raw.get("f15"),
                     "low": raw.get("f16"),
@@ -529,8 +542,8 @@ class MarketSnapshotService(MarketDomainService):
                 response.raise_for_status()
                 text = response.text
         except Exception as e:
-            logger.error("market_snapshot tencent {} fetch failed: {}", market, e)
-            return [], [f"tencent {market} quote fetch failed: {e}"]
+            logger.error("market_snapshot tencent {} fetch failed: {}", market, type(e).__name__)
+            return [], [f"tencent {market} quote fetch failed: {type(e).__name__}"]
 
         rows: list[dict[str, Any]] = []
         for line in [item.strip() for item in text.split(";") if item.strip()]:
@@ -544,7 +557,11 @@ class MarketSnapshotService(MarketDomainService):
             raw_symbol = parts[2].strip().upper()
             if not raw_symbol:
                 continue
-            symbol = raw_symbol.split(".", 1)[0] if market == "us" else raw_symbol
+            symbol = raw_symbol
+            if market == "us":
+                matches = [code for code in codes if raw_symbol == code or raw_symbol.startswith(code + ".")]
+                if matches:
+                    symbol = max(matches, key=len)
             try:
                 price = float(parts[3]) if parts[3] else None
                 pre_close = float(parts[4]) if parts[4] else None
@@ -573,8 +590,13 @@ class MarketSnapshotService(MarketDomainService):
                     "flowRatio": None,
                     "flowHint": "neutral",
                     "momentum": momentum,
-                    "currency": "HKD" if market == "hk" else "CNY" if market == "cn" else (parts[35] or "USD"),
-                    "marketState": "REGULAR",
+                    "currency": "HKD" if market == "hk" else "CNY" if market == "cn" else "USD",
+                    "marketState": "UNKNOWN",
+                    "provider": f"tencent_{market}",
+                    "sourceTime": parts[30],
+                    "observedAt": source_timestamp(parts[30], zone="Asia/Hong_Kong" if market == "hk" else "Asia/Shanghai" if market == "cn" else None),
+                    "retrievedAt": utc_now_iso(),
+                    "priceType": "as-of",
                     "open": open_price,
                     "high": high,
                     "low": low,
@@ -779,13 +801,13 @@ class MarketNewsService(MarketDomainService):
                 response.raise_for_status()
                 xml_text = response.text
         except Exception as e:
-            logger.error("market_news fetch failed for {}: {}", symbol, e)
-            return [], [f"{symbol}: {e}"]
+            logger.error("market_news fetch failed for {}: {}", symbol, type(e).__name__)
+            return [], [f"{symbol}: {type(e).__name__}"]
 
         try:
             root = ElementTree.fromstring(xml_text)
         except Exception as e:
-            return [], [f"{symbol}: invalid rss payload ({e})"]
+            return [], [f"{symbol}: invalid rss payload ({type(e).__name__})"]
 
         items: list[dict[str, Any]] = []
         for item in root.findall(".//item")[:limit]:
@@ -802,7 +824,9 @@ class MarketNewsService(MarketDomainService):
                     "title": title,
                     "source": source_name or "google-news",
                     "provider": "google",
-                    "publishedAt": pub_date or utc_now_iso(),
+                    "publishedAt": source_timestamp(pub_date),
+                    "sourcePublishedAt": pub_date or None,
+                    "retrievedAt": utc_now_iso(),
                     "url": link,
                 }
             )
@@ -827,7 +851,7 @@ class MarketNewsService(MarketDomainService):
                 response.raise_for_status()
                 data = response.json()
         except Exception as e:
-            return [], [f"{symbol}: tavily search failed ({e})"]
+            return [], [f"{symbol}: tavily search failed ({type(e).__name__})"]
 
         items = [
             {
@@ -835,7 +859,9 @@ class MarketNewsService(MarketDomainService):
                 "title": row.get("title", ""),
                 "source": row.get("url", ""),
                 "provider": "tavily",
-                "publishedAt": row.get("published_date") or utc_now_iso(),
+                "publishedAt": source_timestamp(row.get("published_date")),
+                "sourcePublishedAt": row.get("published_date"),
+                "retrievedAt": utc_now_iso(),
                 "url": row.get("url", ""),
                 "snippet": str(row.get("content", ""))[:500],
             }
@@ -857,7 +883,7 @@ class MarketNewsService(MarketDomainService):
                 response.raise_for_status()
                 data = response.json()
         except Exception as e:
-            return [], [f"{symbol}: bocha search failed ({e})"]
+            return [], [f"{symbol}: bocha search failed ({type(e).__name__})"]
 
         value_list = data.get("data", {}).get("webPages", {}).get("value", [])
         items = [
@@ -866,7 +892,9 @@ class MarketNewsService(MarketDomainService):
                 "title": row.get("name", ""),
                 "source": row.get("siteName") or row.get("url", ""),
                 "provider": "bocha",
-                "publishedAt": row.get("datePublished") or utc_now_iso(),
+                "publishedAt": source_timestamp(row.get("datePublished")),
+                "sourcePublishedAt": row.get("datePublished"),
+                "retrievedAt": utc_now_iso(),
                 "url": row.get("url", ""),
                 "snippet": str(row.get("summary") or row.get("snippet") or "")[:500],
             }
@@ -899,7 +927,7 @@ class MarketNewsService(MarketDomainService):
                 response.raise_for_status()
                 data = response.json()
         except Exception as e:
-            return [], [f"{symbol}: brave search failed ({e})"]
+            return [], [f"{symbol}: brave search failed ({type(e).__name__})"]
 
         items = [
             {
@@ -907,7 +935,9 @@ class MarketNewsService(MarketDomainService):
                 "title": row.get("title", ""),
                 "source": row.get("meta_url", {}).get("hostname") or row.get("url", ""),
                 "provider": "brave",
-                "publishedAt": row.get("age") or row.get("page_age") or utc_now_iso(),
+                "publishedAt": source_timestamp(row.get("page_age")),
+                "sourcePublishedAt": row.get("page_age") or row.get("age"),
+                "retrievedAt": utc_now_iso(),
                 "url": row.get("url", ""),
                 "snippet": str(row.get("description", ""))[:500],
             }
@@ -936,7 +966,7 @@ class MarketNewsService(MarketDomainService):
                 response.raise_for_status()
                 data = response.json()
         except Exception as e:
-            return [], [f"{symbol}: serpapi search failed ({e})"]
+            return [], [f"{symbol}: serpapi search failed ({type(e).__name__})"]
 
         items = [
             {
@@ -944,7 +974,9 @@ class MarketNewsService(MarketDomainService):
                 "title": row.get("title", ""),
                 "source": row.get("source") or row.get("displayed_link") or row.get("link", ""),
                 "provider": "serpapi",
-                "publishedAt": row.get("date") or utc_now_iso(),
+                "publishedAt": source_timestamp(row.get("date")),
+                "sourcePublishedAt": row.get("date"),
+                "retrievedAt": utc_now_iso(),
                 "url": row.get("link", ""),
                 "snippet": str(row.get("snippet", ""))[:500],
             }
@@ -1001,23 +1033,44 @@ class MarketMacroService(MarketDomainService):
         "dxy": "DTWEXBGS",
     }
 
+    @staticmethod
+    def series_definition(series_id: str) -> dict[str, Any]:
+        """State the units requested from FRED, including the CPI transformation."""
+        is_cpi = series_id == "CPIAUCSL"
+        return {"units": "index" if series_id == "DTWEXBGS" else "percent",
+                "transform": "pc1" if is_cpi else "lin",
+                "transformation": "year-over-year percent change" if is_cpi else "source level",
+                "deltaUnits": "index_points" if series_id == "DTWEXBGS" else "percentage_points"}
+
     def __init__(self, config: Any | None = None, workspace: Path | None = None):
         super().__init__(config=config, workspace=workspace)
         self.timeout = float(config.request_timeout_s) if config else 12.0
         self.source = config.macro_source if config else "fred"
         self.fred_api_key = (config.fred_api_key if config else "") or ""
+        self._series_metadata: dict[str, dict[str, Any]] = {}
+
+    def series_metadata(self, series_id: str) -> dict[str, Any]:
+        """Observation periods are source dates, not fabricated publication instants."""
+        return {**self.series_definition(series_id), "observationDate": None,
+                "observedAt": None, "retrievedAt": None, **self._series_metadata.get(series_id, {})}
 
     @staticmethod
     def manual_fallback(indicators: list[str]) -> dict[str, Any]:
         now = utc_now_iso()
-        rows = [{"name": k, "value": None, "delta": None, "source": "manual"} for k in indicators]
+        rows = [{"name": k, "value": None, "delta": None, "source": "manual",
+                 **MarketMacroService.series_definition(MarketMacroService.SERIES_MAP[k]),
+                 "observationDate": None, "observedAt": None} for k in indicators]
         return {
             "asOf": now,
             "source": "manual",
             "indicators": rows,
             "macroRisk": 0.5,
             "regime": "unknown",
-            "warnings": ["macro source is manual; provide FRED api key for live values"],
+            "macroRiskDataStatus": "insufficient_data",
+            "methodology": {"kind": "heuristic", "requiredIndicators": ["fedFunds", "cpi", "us10y"],
+                            "missingIndicators": ["fedFunds", "cpi", "us10y"],
+                            "note": "macroRisk=0.5 is a neutral compatibility default, not a measured risk estimate. No missing indicator values are invented."},
+            "warnings": ["macro source is manual; provide FRED api key for reported indicator values"],
         }
 
     async def fetch_fred_series(self, series_id: str) -> tuple[float | None, float | None, str | None]:
@@ -1030,13 +1083,17 @@ class MarketMacroService(MarketDomainService):
             )
             return None, None, "missing FRED api key"
 
-        async def _fetch() -> tuple[float | None, float | None, str | None]:
+        transform = self.series_definition(series_id)["transform"]
+
+        async def _fetch() -> dict[str, Any]:
+            result = {"value": None, "delta": None, "error": None, "observationDate": None, "retrievedAt": utc_now_iso()}
             params = {
                 "series_id": series_id,
                 "api_key": self.fred_api_key,
                 "file_type": "json",
                 "sort_order": "desc",
                 "limit": "2",
+                "units": transform,
             }
             url = f"https://api.stlouisfed.org/fred/series/observations?{urlencode(params)}"
             try:
@@ -1045,33 +1102,56 @@ class MarketMacroService(MarketDomainService):
                     response.raise_for_status()
                     payload = response.json()
             except Exception as e:
-                return None, None, str(e)
+                return {**result, "error": type(e).__name__}
+
+            if not isinstance(payload, dict) or not isinstance(payload.get("observations", []), list):
+                return {**result, "error": "invalid FRED observations response"}
+            if payload.get("units", transform) != transform:
+                return {**result, "error": "FRED response transformation differs from the requested units"}
 
             observations = payload.get("observations", [])
-            values: list[float] = []
+            values: list[tuple[float, str | None]] = []
+            invalid_values = False
             for row in observations:
-                raw = str(row.get("value", "."))
-                if raw == ".":
+                if not isinstance(row, dict):
+                    invalid_values = True
+                    continue
+                raw = row.get("value", ".")
+                if raw == "." or raw is None:
                     continue
                 try:
-                    values.append(float(raw))
-                except ValueError:
+                    number = float(raw)
+                    if isinstance(raw, bool) or not math.isfinite(number):
+                        raise ValueError
+                except (ValueError, TypeError, OverflowError):
+                    invalid_values = True
                     continue
+                date = row.get("date")
+                try:
+                    valid_date = isinstance(date, str) and datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m-%d") == date
+                except ValueError:
+                    valid_date = False
+                values.append((number, date if valid_date else None))
 
             if not values:
-                return None, None, "no observations"
+                return {**result, "error": "no finite observations" if invalid_values else "no observations"}
 
-            latest = values[0]
-            previous = values[1] if len(values) > 1 else values[0]
-            return latest, (latest - previous), None
+            latest, date = values[0]
+            delta = latest - values[1][0] if len(values) > 1 else None
+            if delta is not None and not math.isfinite(delta):
+                delta = None
+                invalid_values = True
+            return {**result, "value": latest, "delta": delta, "observationDate": date,
+                    "error": "invalid or nonfinite observations were excluded" if invalid_values else None}
 
         result, cached = await self.cached_call(
             "fred",
-            "market_macro_fred",
-            (series_id,),
+            "market_macro_fred_v2",
+            (series_id, transform),
             _fetch,
         )
-        latest, delta, err = result
+        latest, delta, err = result["value"], result["delta"], result["error"]
+        self._series_metadata[series_id] = {"observationDate": result["observationDate"], "retrievedAt": result["retrievedAt"]}
         self.record_health(
             "fred",
             error=err,

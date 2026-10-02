@@ -13,6 +13,7 @@ _KEY_TOOLS = {
     "market_news",
     "market_snapshot",
     "market_macro",
+    "portfolio_risk",
     "market_social_sentiment",
     "thesis_tracker",
     "intel_search",

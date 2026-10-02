@@ -123,10 +123,12 @@ def register_tools():
         MarketSourcePlanTool,
         ThesisTrackerTool,
     )
+    from marketbot.agent.tools.portfolio import PortfolioRiskTool
 
     ToolLoader.register_market(MarketSnapshotTool)
     ToolLoader.register_market(MarketEventExtractTool)
     ToolLoader.register_market(MarketSourcePlanTool)
+    ToolLoader.register_market(PortfolioRiskTool)
     ToolLoader.register_market(MarketSignalTool)
     ToolLoader.register_market(MarketChipDistributionTool)
     ToolLoader.register_market(MarketFundamentalsTool)

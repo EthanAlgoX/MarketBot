@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/HKUDS/nanobot",
+  "branch": "main",
+  "commit": "ae1eb02cd8a1266ea9912c048893310a28e9d9fe",
+  "updated_at": "2026-10-03T00:45:14.745485+08:00",
+  "local_path": "/Users/hyx/Documents/workspace/reference/nanobot",
+  "previous_snapshot_backup": "/Users/hyx/Documents/workspace/reference/nanobot-backup-20261002",
+  "purpose": "Reference for generic runner, progressive skills, MCP configuration and lifecycle; not a runtime dependency",
+  "license": "MIT"
+}

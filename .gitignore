@@ -83,6 +83,7 @@ marketbot-tech-news-digest.md
 .serena/
 
 # local xiaohongshu cli caches
+marketbot/.xiaohongshu-cli/cookies.json
 marketbot/.xiaohongshu-cli/index_cache.json
 marketbot/.xiaohongshu-cli/search_sessions.json
 marketbot/.xiaohongshu-cli/token_cache.json
@@ -101,7 +102,7 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
-env/
+/env/
 venv/
 .venv/
 pip-log.txt

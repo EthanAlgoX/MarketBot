@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 from unittest.mock import AsyncMock
 
+import pytest
+
 from marketbot.agent.loop import AgentLoop
 from marketbot.agent.tools.market import (
     IntelSearchTool,
@@ -151,7 +153,9 @@ def test_thesis_tracker_tool_create_update_and_list(tmp_path: Path) -> None:
             )
         )
     )
-    assert updated["verdict"] == "strengthened"
+    assert updated["verdict"] == "unchanged"
+    assert updated["thesis"]["confidence"] == 0.7
+    assert updated["decisionSource"] != "rule_verified"
     assert updated["derivedSentiment"]["backend"] == "lexicon"
     assert updated["thesis"]["history"][-1]["note"] == "post-earnings review"
 
@@ -562,6 +566,127 @@ def test_market_snapshot_yahoo_source_routes_hk_to_tencent(monkeypatch) -> None:
     assert payload["quotes"][0]["currency"] == "HKD"
 
 
+def test_market_snapshot_yahoo_routes_each_market_and_matches_aliases(monkeypatch) -> None:
+    tool = MarketSnapshotTool(config=MarketToolsConfig(quote_source="yahoo"))
+    symbols = ["SPY", "600519.SH", "SH600000", "0700.HK", "HK9961", "BTC-USD", "^GSPC"]
+    expected = {
+        "cn": ["600519.SH", "SH600000"],
+        "hk": ["0700.HK", "HK9961"],
+        "us": ["SPY"],
+    }
+    returned = {"cn": ["CN600519", "600000"], "hk": ["00700", "09961"], "us": ["SPY"]}
+
+    async def fake_tencent(*, symbols, market):
+        assert symbols == expected[market]
+        return [{"symbol": symbol, "price": 100.0} for symbol in returned[market]], []
+
+    async def fake_yahoo(symbols):
+        assert symbols == ["BTC-USD", "^GSPC"]
+        return [{"symbol": symbol, "price": 100.0} for symbol in symbols], []
+
+    monkeypatch.setattr(tool._service, "_fetch_tencent_quotes_uncached", fake_tencent)
+    monkeypatch.setattr(tool._service, "_fetch_yahoo_uncached", fake_yahoo)
+    payload = json.loads(_run(tool.execute(symbols=symbols)))
+
+    assert payload["source"] == "mixed"
+    assert payload["symbols"] == symbols
+    assert {row["symbol"] for row in payload["quotes"]} == {
+        "SPY", "CN600519", "600000", "00700", "09961", "BTC-USD", "^GSPC",
+    }
+    assert payload["missingSymbols"] == []
+    assert payload["warnings"] == []
+    assert set(payload["sourceHealth"]) == {"tencent_cn", "tencent_hk", "tencent_us", "yahoo"}
+    assert all(row["status"] == "ok" for row in payload["sourceHealth"].values())
+    assert {row["source"] for row in payload["routeTrace"]} == set(payload["sourceHealth"])
+
+
+def test_market_snapshot_mixed_keeps_healthy_quotes_and_reports_missing(monkeypatch) -> None:
+    tool = MarketSnapshotTool(config=MarketToolsConfig(quote_source="yahoo"))
+    symbols = ["SPY", "600519", "0700.HK", "BTC-USD"]
+
+    async def fake_tencent(*, symbols, market):
+        if market == "us":
+            raise RuntimeError("https://provider.invalid?apikey=private-key")
+        if market == "hk":
+            return [], ["HK quote temporarily unavailable"]
+        return [{"symbol": "600519.SH", "price": 1500.0}], []
+
+    async def fake_yahoo(symbols):
+        return [{"symbol": "BTC-USD", "price": 60000.0}], []
+
+    monkeypatch.setattr(tool._service, "_fetch_tencent_quotes_uncached", fake_tencent)
+    monkeypatch.setattr(tool._service, "_fetch_yahoo_uncached", fake_yahoo)
+    payload = json.loads(_run(tool.execute(symbols=symbols)))
+
+    assert {row["symbol"] for row in payload["quotes"]} == {"600519.SH", "BTC-USD"}
+    assert payload["missingSymbols"] == ["SPY", "0700.HK"]
+    assert "missing quotes for requested symbols: SPY, 0700.HK" in payload["warnings"]
+    assert "tencent_us: quote fetch failed (RuntimeError)" in payload["warnings"]
+    assert "HK quote temporarily unavailable" in payload["warnings"]
+    assert payload["sourceHealth"]["tencent_us"]["status"] == "error"
+    assert payload["sourceHealth"]["tencent_us"]["lastError"] == "RuntimeError"
+    assert payload["sourceHealth"]["tencent_cn"]["status"] == "ok"
+    assert payload["sourceHealth"]["yahoo"]["status"] == "ok"
+    assert "provider.invalid" not in json.dumps(payload)
+    assert "private-key" not in json.dumps(payload)
+
+
+@pytest.mark.parametrize(
+    ("symbol", "returned_symbol", "source"),
+    [
+        ("600519.SH", "600519", "tencent_cn"),
+        ("0700.HK", "00700", "tencent_hk"),
+        ("SPY", "SPY", "tencent_us"),
+        ("BTC-USD", "BTC-USD", "yahoo"),
+    ],
+)
+def test_market_snapshot_single_market_retains_selected_source(
+    monkeypatch, symbol, returned_symbol, source
+):
+    tool = MarketSnapshotTool(config=MarketToolsConfig(quote_source="yahoo"))
+    selected_fetch = AsyncMock(return_value=([{"symbol": returned_symbol, "price": 100.0}], []))
+    monkeypatch.setattr(tool, f"_fetch_{source}", selected_fetch)
+    payload = json.loads(_run(tool.execute(symbols=[symbol])))
+    selected_fetch.assert_awaited_once_with([symbol])
+    assert payload["source"] == source
+    assert payload["quotes"][0]["symbol"] == returned_symbol
+    assert payload["missingSymbols"] == []
+    assert payload["warnings"] == []
+
+
+def test_market_snapshot_reports_symbols_skipped_by_request_limit(monkeypatch):
+    tool = MarketSnapshotTool(config=MarketToolsConfig(quote_source="yahoo", snapshot_max_symbols=1))
+    selected_fetch = AsyncMock(return_value=([{"symbol": "SPY", "price": 100.0}], []))
+    monkeypatch.setattr(tool, "_fetch_tencent_us", selected_fetch)
+    payload = json.loads(_run(tool.execute(symbols=["SPY", "600519", "0700.HK"])))
+    selected_fetch.assert_awaited_once_with(["SPY"])
+    assert payload["symbols"] == ["SPY"]
+    assert payload["missingSymbols"] == []
+    assert payload["truncatedSymbols"] == ["600519", "0700.HK"]
+    assert "snapshot symbol limit 1 reached; symbols not queried: 600519, 0700.HK" in payload["warnings"]
+
+
+@pytest.mark.parametrize("source", ["eastmoney", "tickflow", "yfinance", "tradingview", "auto"])
+def test_market_snapshot_explicit_source_keeps_routing_and_reports_coverage(monkeypatch, source):
+    tool = MarketSnapshotTool(config=MarketToolsConfig(quote_source=source))
+    symbols = ["600519.SH", "SPY", "0700.HK"]
+    selected_fetch = AsyncMock(return_value=([{"symbol": "600519", "price": 1500.0}], []))
+    monkeypatch.setattr(tool, f"_fetch_{source}", selected_fetch)
+    for alternate in ("cn", "hk", "us"):
+        monkeypatch.setattr(
+            tool,
+            f"_fetch_tencent_{alternate}",
+            AsyncMock(side_effect=AssertionError("Explicit quote source must remain selected")),
+        )
+
+    payload = json.loads(_run(tool.execute(symbols=symbols)))
+    selected_fetch.assert_awaited_once_with(symbols)
+    assert payload["source"] == source
+    assert payload["quotes"][0]["symbol"] == "600519"
+    assert payload["missingSymbols"] == ["SPY", "0700.HK"]
+    assert "missing quotes for requested symbols: SPY, 0700.HK" in payload["warnings"]
+
+
 def test_market_event_extract_geopolitical_case() -> None:
     tool = MarketEventExtractTool()
     payload = json.loads(
@@ -970,7 +1095,7 @@ def test_market_social_sentiment_mock_source() -> None:
     assert payload["totalMentions"] >= 2
 
 
-def test_market_social_sentiment_a_share_defaults_to_mock_without_reddit(monkeypatch) -> None:
+def test_market_social_sentiment_a_share_discloses_missing_source_without_synthetic_fallback(monkeypatch) -> None:
     cfg = MarketToolsConfig()
     tool = MarketSocialSentimentTool(config=cfg)
 
@@ -981,8 +1106,9 @@ def test_market_social_sentiment_a_share_defaults_to_mock_without_reddit(monkeyp
     payload = json.loads(_run(tool.execute(symbols=["600000.SH"], limit=12)))
 
     assert payload["perSymbol"][0]["symbol"] == "600000.SH"
-    assert payload["warnings"] == []
-    assert payload["totalMentions"] >= 1
+    assert payload["warnings"]
+    assert payload["totalMentions"] == 0
+    assert payload["perSymbol"][0]["dataQuality"] == "unavailable"
 
 
 def test_market_brief_composes_outputs() -> None:
@@ -1220,7 +1346,7 @@ def test_market_brief_can_update_existing_thesis(tmp_path: Path) -> None:
     )
     assert payload["thesisTracking"] is not None
     assert payload["thesisTracking"]["action"] == "update"
-    assert payload["thesisTracking"]["verdict"] in {"weakened", "falsified"}
+    assert payload["thesisTracking"]["verdict"] == "unchanged"
     assert payload["thesisTracking"]["thesis"]["id"] == thesis_id
 
 

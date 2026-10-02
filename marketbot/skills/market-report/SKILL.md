@@ -1,7 +1,7 @@
 ---
 name: market-report
 description: Create a structured market analysis report with regime, levels, catalysts, and risks.
-metadata: {"marketbot":{"emoji":"📋","triggers":["analysis","outlook","trade plan","bias"],"output":"market-analysis-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_macro","market_signal","market_brief"],"required_tools":["market_snapshot","market_signal"],"markets":["a-share","hong-kong","us","global"],"asset_classes":["equity","crypto","commodity","etf"],"task_type":"orchestration","determinism":"tool-backed","priority":20}}
+metadata: {"marketbot":{"emoji":"📋","triggers":["analysis","outlook","trade plan","bias","市场分析","行情分析","走势分析","投资展望","交易计划"],"output":"market-analysis-report","risk":"medium","freshness":"market-live","tools":["market_snapshot","market_news","market_macro","market_signal","market_brief"],"required_tools":["market_snapshot","market_signal"],"markets":["a-share","hong-kong","us","global"],"asset_classes":["equity","crypto","commodity","etf"],"task_type":"orchestration","determinism":"tool-backed","priority":20}}
 ---
 
 # Market Report

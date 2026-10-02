@@ -41,11 +41,45 @@ def create_cron_job_handler(
     build_intel_daily_digest: Callable[..., Any],
 ):
     """Build the cron job callback used by the gateway."""
+    enqueued_alert_ids: set[str] = set()
 
     async def on_cron_job(job: Any) -> str | None:
         from marketbot.agent.tools.cron import CronTool
         from marketbot.agent.tools.message import MessageTool
         from marketbot.bus.events import OutboundMessage
+
+        if job.payload.kind == "finance_watch":
+            from marketbot.agent.tools.watch import MarketWatchTool
+            from marketbot.cli.finance_runtime import finance_config, poll_watch
+
+            config = finance_config(config_path, getattr(agent, "workspace", None))
+            result = await poll_watch(config, job.payload.scope_key)
+            if (result.get("error") or result.get("ok") is False) and result.get("status") != "data_gap":
+                raise RuntimeError("Scheduled finance watch failed; inspect its local state")
+            watch_tool = MarketWatchTool(config.workspace_path)
+            if job.payload.deliver and job.payload.to:
+                settings = getattr(config.channels, str(job.payload.channel), None)
+                if settings is None or not getattr(settings, "enabled", False):
+                    raise RuntimeError("Finance watch delivery channel is disabled; pending alerts were preserved")
+                outbox = json.loads(await watch_tool.execute(action="outbox", watchId=job.payload.scope_key))
+                if outbox.get("ok") is False:
+                    raise RuntimeError("Finance watch outbox is unavailable; pending alerts were preserved")
+                alerts = [item for item in outbox.get("alerts", []) if item["alertId"] not in enqueued_alert_ids]
+            else:
+                alerts = result.get("alerts", [])
+            if not alerts:
+                return None
+            response = json.dumps({"watchId": job.payload.scope_key, "alerts": alerts}, ensure_ascii=False)
+            if job.payload.deliver and job.payload.to:
+                await bus.publish_outbound(OutboundMessage(
+                    channel=job.payload.channel or "cli", chat_id=job.payload.to, content=response,
+                    metadata={"kind": "finance-watch", "watchId": job.payload.scope_key},
+                ))
+                # Enqueueing is not proof of remote delivery. Keep the durable
+                # outbox pending until explicitly acknowledged; on restart it
+                # retries with the same IDs. Deduplicate polling in this process.
+                enqueued_alert_ids.update(item["alertId"] for item in alerts)
+            return response
 
         if job.payload.kind == "intel_collect":
             _, intel_conn = open_intel_db(config_path)
@@ -144,7 +178,7 @@ def create_heartbeat_execute_handler(
                 heartbeat_content = ""
             heartbeat_spec = extract_market_heartbeat_spec(heartbeat_content)
             if heartbeat_spec:
-                tool = MarketBriefTool(config.tools.market)
+                tool = MarketBriefTool(config.tools.market, workspace=config.workspace_path)
                 payload = json.loads(
                     await tool.execute(
                         symbols=list(heartbeat_spec["symbols"]),
@@ -153,6 +187,9 @@ def create_heartbeat_execute_handler(
                         includeSocial=True,
                     )
                 )
+                from marketbot.agent.tools.finance_evidence import capture_finance_result
+
+                payload = json.loads(capture_finance_result(config.workspace_path, "market_brief", json.dumps(payload, ensure_ascii=False)))
                 report_markdown = render_market_report_document(
                     payload,
                     symbols=list(heartbeat_spec["symbols"]),

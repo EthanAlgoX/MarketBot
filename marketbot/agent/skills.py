@@ -152,7 +152,7 @@ class SkillsLoader:
             lines.append("  </browserAdapters>")
         for s in all_skills:
             name = escape_xml(s["name"])
-            path = s["path"]
+            path = escape_xml(s["path"])
             desc = escape_xml(self._get_skill_description(s["name"]))
             skill_meta = self._get_skill_meta(s["name"])
             capabilities = self.get_skill_capabilities(s["name"])
@@ -332,7 +332,10 @@ class SkillsLoader:
             add(asset_classes, "commodity")
         if route.get("macro"):
             add(asset_classes, "macro")
-        if "portfolio" in lowered or "allocation" in lowered or "diversification" in lowered:
+        if any(term in lowered for term in (
+            "portfolio", "allocation", "holdings", "diversification", "investment basket", "stress test",
+            "投资组合", "资产配置", "持仓组合", "分散投资", "组合风险", "压力测试",
+        )):
             add(asset_classes, "portfolio")
         if "etf" in lowered or any(symbol in {"SPY", "QQQ", "IWM", "GLD", "SLV"} for symbol in symbols):
             add(asset_classes, "etf")
@@ -813,10 +816,10 @@ class SkillsLoader:
 
         return reasons
 
-    def get_always_skills(self) -> list[str]:
+    def get_always_skills(self, available_tools: set[str] | None = None) -> list[str]:
         """Get skills marked as always=true that meet requirements."""
         result = []
-        for s in self.list_skills(filter_unavailable=True):
+        for s in self.list_skills(filter_unavailable=True, available_tools=available_tools):
             meta = self.get_skill_metadata(s["name"]) or {}
             skill_meta = self._parse_marketbot_metadata(meta.get("metadata", ""))
             if skill_meta.get("always") or meta.get("always"):

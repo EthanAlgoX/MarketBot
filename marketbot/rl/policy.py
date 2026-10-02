@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from marketbot.rl.types import MarketSignalDecision, MarketSignalFeatures, SignalAction
@@ -9,7 +10,23 @@ from marketbot.rl.types import MarketSignalDecision, MarketSignalFeatures, Signa
 
 def clamp(value: float, lower: float, upper: float) -> float:
     """Clamp a numeric value into a closed interval."""
+    if not all(math.isfinite(item) for item in (value, lower, upper)):
+        raise ValueError("Policy values must be finite")
     return max(lower, min(upper, value))
+
+
+def _finite_number(value: Any, field: str, *, minimum: float | None = None, maximum: float | None = None) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a finite number")
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(f"{field} must be a finite number") from None
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be a finite number")
+    if minimum is not None and number < minimum or maximum is not None and number > maximum:
+        raise ValueError(f"{field} is outside the policy bounds")
+    return number
 
 
 def evidence_keys(evidence: list[str]) -> list[str]:
@@ -39,14 +56,19 @@ class HeuristicMarketSignalPolicy:
         weights: tuple[float, float, float, float],
         mode: str = "heuristic",
     ) -> None:
-        self._min_confidence = min_confidence
-        self._max_position_pct = max_position_pct
-        self._stop_loss_pct = stop_loss_pct
-        self._weights = weights
+        self._min_confidence = _finite_number(min_confidence, "min_confidence", minimum=0, maximum=1)
+        self._max_position_pct = _finite_number(max_position_pct, "max_position_pct", minimum=0, maximum=1)
+        self._stop_loss_pct = _finite_number(stop_loss_pct, "stop_loss_pct", minimum=0, maximum=1)
+        if not isinstance(weights, (tuple, list)) or len(weights) != 4:
+            raise ValueError("Policy weights must contain four finite nonnegative numbers")
+        self._weights = tuple(_finite_number(value, "policy weight", minimum=0, maximum=1) for value in weights)
+        if not sum(self._weights) > 0:
+            raise ValueError("Policy weights must include a positive weight")
         self._mode = mode
 
     @staticmethod
     def action_from_score(score: float) -> str:
+        _finite_number(score, "score")
         if score >= 0.35:
             return "buy"
         if score <= -0.35:
@@ -58,10 +80,10 @@ class HeuristicMarketSignalPolicy:
     def decide(self, features: MarketSignalFeatures) -> MarketSignalDecision:
         wm, wn, ws, wr = self._weights
 
-        momentum = clamp(features.price_change_pct / 5.0, -1.0, 1.0)
-        news = clamp(features.news_sentiment, -1.0, 1.0)
-        social = clamp(features.social_sentiment, -1.0, 1.0)
-        macro_penalty = clamp(features.macro_risk, 0.0, 1.0)
+        momentum = clamp(_finite_number(features.price_change_pct, "price_change_pct") / 5.0, -1.0, 1.0)
+        news = clamp(_finite_number(features.news_sentiment, "news_sentiment"), -1.0, 1.0)
+        social = clamp(_finite_number(features.social_sentiment, "social_sentiment"), -1.0, 1.0)
+        macro_penalty = clamp(_finite_number(features.macro_risk, "macro_risk"), 0.0, 1.0)
 
         score = (wm * momentum) + (wn * news) + (ws * social) - (wr * macro_penalty)
         score = clamp(score, -1.0, 1.0)

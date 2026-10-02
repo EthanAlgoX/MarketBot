@@ -1,92 +1,83 @@
 ---
 name: portfolio-analyzer
-description: A comprehensive skill for analyzing, stress-testing, and optimizing a user's investment portfolio across risks, performance, and diversification.
-metadata: {"marketbot":{"emoji":"📊","triggers":["portfolio","allocation","diversification","stress test"],"output":"portfolio-analysis-report","risk":"high","freshness":"end-of-day","tools":["market_snapshot","market_macro","market_news"],"required_tools":["market_snapshot"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["portfolio"]}}
+description: Calculate cross-market holdings value, currency exposure, concentration, and explicitly assumed stress scenarios with auditable inputs.
+metadata: {"marketbot":{"emoji":"📊","triggers":["portfolio","allocation","holdings","diversification","stress test","投资组合","资产配置","持仓组合","分散投资","组合风险","压力测试"],"output":"portfolio-analysis-report","risk":"high","freshness":"end-of-day","tools":["portfolio_risk","market_snapshot","market_macro","market_news"],"required_tools":["portfolio_risk","market_snapshot"],"markets":["a-share","hong-kong","us","global","mixed"],"asset_classes":["portfolio"],"determinism":"tool-backed"}}
 ---
 
 # Portfolio Analyzer
 
-Use this skill to evaluate a user's collection of assets (portfolio). It orchestrates multiple tools and analysis methods to provide a holistic view of the portfolio's expected performance, risk distribution, and optimization potential.
+Help a personal investor understand how current holdings and new events affect
+their portfolio. Use the user's language. Calculate supported metrics with
+`portfolio_risk`; explain the returned values without inventing missing data.
 
-## When to use
+## Inputs and research
 
-- User provides a list of tickers and weights/shares and asks for an analysis (e.g., `Analyze my portfolio: AAPL 30%, NVDA 20%, SPY 30%, BND 20%`).
-- User asks about portfolio correlation, concentration risks, or diversification.
-- User requests a backtest, scenario simulation (stress test), or optimization suggestion for their holdings.
+1. Extract actual positions: ticker, quantity, price currency, and optional cash.
+   Obtain current prices with `market_snapshot` or an available finance MCP.
+   Retain the provider and the actual quote observation time when returned.
+   A response's retrieval time does not establish the quote's observation time.
+2. Confirm a reporting currency. Obtain or ask for explicit FX rates for every
+   foreign currency: each rate means **one unit of that currency in the reporting
+   currency**. Record source and observation time. Never add USD, CNY, and HKD
+   amounts directly or substitute a rate of one for an unknown currency.
+3. When the user supplies only weights, do not invent quantities or prices.
+   Summarize the supplied allocation as user inputs and ask for holdings or
+   market values to produce the tool-backed valuation. Clearly identify which
+   figures have not been computed by `portfolio_risk`.
+4. Query news and macro context relevant to the held assets. Explain which
+   holdings are exposed to an event and which investment assumptions need review.
 
-## Comprehensive Analysis Pipeline
+## Deterministic calculation
 
-A full portfolio analysis will pass through several distinct analytical steps. If a user only asks for a specific aspect (e.g., "What is the beta of my portfolio?"), jump directly to that step. Otherwise, provide the full structured output.
+Call `portfolio_risk` with `holdings`, `baseCurrency`, optional `cash`, `fxRates`,
+and optional `scenarios`. Example shape (all values below are illustrative inputs,
+not live market data):
 
-### 1. Portfolio Parsing & Market Data Fetch
-
-- Accept input flexibly: Extract tickers and calculate their relative weights (% of total portfolio).
-- Fetch historical prices, volatility, market cap, and sector classifications for all assets in the portfolio over at least a 1-year window (or longer if requested).
-
-### 2. Metrics Calculation
-
-Compute the core performance indicators:
-
-- **Expected Return (CAGR)**
-- **Volatility (Annualized Standard Deviation)**
-- **Sharpe Ratio & Sortino Ratio**
-- **Max Drawdown**
-- **Beta** (relative to SPY or another broad market index)
-
-### 3. Risk & Diversification Analysis
-
-- **Risk Decomposition**: Break down which assets contribute the most to the portfolio's overall volatility.
-- **Correlation Matrix**: Identify highly correlated assets (e.g., AAPL and NVDA).
-- **Concentration Risk**: Flag if a single stock (e.g., >20%) or a single sector (e.g., >40%) is overweight.
-- **Diversification Score**: Assess the portfolio's balance across asset classes.
-
-### 4. Scenario Simulation (Stress Testing)
-
-Simulate how the portfolio would likely behave under adverse conditions:
-
-- **Market Crash**: Simulate a rapid index drop.
-- **Rate Hike**: Simulate rising interest rates.
-
-### 5. Optimization & AI Insights
-
-- **Optimization Strategy**: Suggest an alternative weighting (e.g., Mean-Variance or Max Sharpe) that improves the risk-adjusted return. Provide the *before* and *after* Sharpe ratio.
-- **AI Summary**: Summarize the critical takeaways in plain English.
-
----
-
-## Output Format
-
-For a full portfolio review, use the following structured Markdown format:
-
-```md
-# 📊 Portfolio Analysis Report
-
-## 📈 1. Portfolio Overview
-- **Holdings**: <Asset 1 (Weight)>, <Asset 2 (Weight)>...
-- **Expected Return (CAGR)**: <%>
-- **Volatility**: <%>
-- **Sharpe Ratio**: <Ratio>
-- **Max Drawdown**: <%>
-
-## ⚠️ 2. Risk & Correlation Analysis
-- **Highest Risk Contributor**: <Asset> (<% of total risk>)
-- **Correlation Warning**: <e.g., High correlation (0.72) between AAPL and NVDA>
-- **Concentration Risk**: <Note on sector or single-stock overweight>
-
-## 🌪️ 3. Scenario Stress Test
-- **Market Crash Scenario**: Expected impact <%>
-- **Best Asset in Downturn**: <Asset>
-- **Worst Asset in Downturn**: <Asset>
-
-## 💡 4. Optimization Recommendations
-<Provide a suggested re-weighting to maximize Sharpe Ratio or minimize variance>
-- **Current Sharpe**: <Old> ➡️ **Optimized Sharpe**: <New>
-
-## 🤖 5. AI Key Insights
-1. <Insight 1, e.g., "Portfolio is heavily concentrated in tech (50%+)">
-2. <Insight 2, e.g., "Adding fixed income or international equity could improve diversification">
+```json
+{
+  "baseCurrency": "CNY",
+  "holdings": [
+    {"symbol": "AAPL", "quantity": "10", "price": "200", "currency": "USD", "source": "user supplied"},
+    {"symbol": "0700.HK", "quantity": "100", "price": "400", "currency": "HKD", "source": "user supplied"}
+  ],
+  "cash": [{"currency": "CNY", "amount": "10000"}],
+  "fxRates": {"USD": {"rate": "7"}, "HKD": {"rate": "0.9"}},
+  "scenarios": [{"name": "Assumed equity drawdown", "shockPct": "-20"}]
+}
 ```
 
-## Supported Tools
+- Preserve decimal strings, currency labels, input provenance, and warnings.
+- If the tool returns an error, state the missing or invalid input and repair it
+  before presenting total portfolio value or a complete risk assessment.
+- Explain position weights, cash share, currency exposure, and concentration.
+  HHI is concentration by asset value, not a forecast of portfolio volatility.
+- Stress results apply a supplied uniform price shock to holdings, with cash
+  and FX fixed. Label the shock as an assumption, never an expected loss or a
+  probability estimate. Do not invent a default shock without labelling it.
+- This tool models long positions and cash. It does not model derivatives,
+  leverage, short selling, taxes, fees, or ETF look-through sector exposure.
 
-To execute this skill, combine the agent's general data fetching capabilities (prices, historical data) with strong mathematical reasoning (calculating correlations, standard deviations) and AI summarization.
+## Output
+
+For ongoing tracking requested by the user, save the actual holdings, cash,
+reporting currency and explicit rules with `market_watch(action="save",
+kind="portfolio", ...)`. Record actual quote/FX observations and evaluate with
+their evidence IDs. Partial FX, stale prices, or missing cash on a replacement
+portfolio do not produce a new complete valuation. Read the local `outbox`;
+acknowledge an alert only after it is received. `marketbot finance schedule`
+provides deterministic periodic collection when the Gateway runs; external
+delivery requires the user's requested channel and recipient.
+
+Use a compact portfolio review with:
+
+1. Valuation time, reporting currency, input coverage and provenance gaps.
+2. Tool-computed total value, holdings weights, cash and currency exposure.
+3. Concentration findings and explicit assumptions for any stress scenario.
+4. Relevant events, affected holdings, and thesis conditions to monitor next.
+5. Missing data and any unsupported analytics requested by the user.
+
+Sharpe, Sortino, correlation, beta, CAGR, volatility, drawdown, and optimized
+weights require actual historical series and a separate validated calculation.
+Do not derive them from a current snapshot or fill a report template with model
+guesses. Report unavailable fields explicitly. Research and scenario explanations
+do not authorize trade execution.

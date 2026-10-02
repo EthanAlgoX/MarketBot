@@ -1,0 +1,108 @@
+{
+  "evaluation": "financial_workflow_acceptance",
+  "generatedAt": "2026-10-02T16:56:33.032763+00:00",
+  "data": "illustrative deterministic fixtures",
+  "passed": 15,
+  "total": 15,
+  "checks": [
+    {
+      "scenario": "cross_market_fx_cash_and_uniform_stress",
+      "passed": true,
+      "totalValue": "60000"
+    },
+    {
+      "scenario": "missing_fx_never_produces_partial_valuation",
+      "passed": true
+    },
+    {
+      "scenario": "ticker_alias_cannot_double_count_positions",
+      "passed": true
+    },
+    {
+      "scenario": "fractional_shares_use_decimal_arithmetic",
+      "passed": true
+    },
+    {
+      "scenario": "tool_facts_are_retrievable_and_digest_verified",
+      "passed": true
+    },
+    {
+      "scenario": "zero_confidence_survives_storage",
+      "passed": true
+    },
+    {
+      "scenario": "negative_sentiment_cannot_falsify_hypothesis",
+      "passed": true
+    },
+    {
+      "scenario": "real_evidence_id_cannot_authorize_forged_value",
+      "passed": true
+    },
+    {
+      "scenario": "retrieval_time_cannot_replace_observation_time",
+      "passed": true
+    },
+    {
+      "scenario": "fresh_recorded_fact_can_falsify_explicit_rule",
+      "passed": true
+    },
+    {
+      "scenario": "first_watch_observation_is_quiet",
+      "passed": true
+    },
+    {
+      "scenario": "below_threshold_changes_are_quiet",
+      "passed": true
+    },
+    {
+      "scenario": "threshold_episode_alerts_once",
+      "passed": true
+    },
+    {
+      "scenario": "stale_watch_data_cannot_advance_baseline",
+      "passed": true
+    },
+    {
+      "scenario": "acknowledged_local_alerts_do_not_redeliver",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Does not measure real LLM output quality or provider accuracy",
+    "Does not backtest returns or execute trades",
+    "External channel delivery is tested with isolated mocks"
+  ],
+  "fullSuite": {
+    "passed": 1143,
+    "durationSeconds": 48.64,
+    "python": "3.12.13",
+    "ruff": "passed",
+    "diffCheck": "passed"
+  },
+  "packaging": {
+    "pythonFiles": 163,
+    "skillAssets": 113,
+    "templates": 4,
+    "missing": [],
+    "cookieBundled": false
+  },
+  "installedMCP": {
+    "installedWheel": true,
+    "stdioInitialized": true,
+    "tools": 12,
+    "allReadOnly": true,
+    "decimalCalculation": true,
+    "evidenceRetrieval": true,
+    "cookieAbsent": true
+  },
+  "publicQuoteSmoke": {
+    "quoteCount": 4,
+    "missingSymbols": [],
+    "warnings": [],
+    "unknownTimeSymbols": [
+      "SPY",
+      "BRK.B"
+    ],
+    "doesNotVerifySourceAccuracy": true
+  }
+}

@@ -60,7 +60,19 @@ flowchart TD
 
 ## Next Refactor Targets
 
-- Replace the legacy `_run_agent_loop` body with a Nano-style reusable runner result object.
+- Move the existing runner facade's remaining product-specific policies into domain hooks; its structured result object is already present, but the low-level tool runtime still contains request policies.
 - Move request policy constants into declarative profiles keyed by route type.
 - Add a first-class market evidence bundle so reports can cite which tools produced each fact.
 - Introduce typed turn state for active route, selected skills, fallback, data reliability, and report artifacts.
+
+## 2026-10-03 Finance Update
+
+The Nanobot reference is pinned in `reference/nanobot.json`; its source remains a
+reference rather than a runtime dependency. MarketBot now has finance defaults,
+a reusable read-only finance MCP surface, and a deterministic `portfolio_risk`
+domain calculation. The generic execution paths enforce an empty tool scope as
+deny-all and pass earlier plan evidence to subsequent steps. Financial task
+plans prioritize domain tools over the generic file/browser catalog.
+
+Current product scope, concrete gaps and comparable open-source mechanisms are
+documented in [the financial agent direction](marketbot_financial_agent_direction.md).

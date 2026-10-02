@@ -252,6 +252,14 @@ def suggest_skills_for_message(
         "invalidation",
         "regime",
         "trend",
+        "分析",
+        "走势",
+        "展望",
+        "交易计划",
+        "趋势",
+        "支撑",
+        "阻力",
+        "技术面",
     )
     catalyst_terms = (
         "catalyst",
@@ -263,6 +271,13 @@ def suggest_skills_for_message(
         "news driver",
         "macro",
         "calendar",
+        "催化",
+        "事件",
+        "财报",
+        "业绩",
+        "新闻驱动",
+        "宏观",
+        "日历",
     )
     risk_terms = (
         "risk",
@@ -274,6 +289,13 @@ def suggest_skills_for_message(
         "safe",
         "max loss",
         "risk-reward",
+        "风险",
+        "仓位",
+        "头寸",
+        "止损",
+        "失效",
+        "最大亏损",
+        "盈亏比",
     )
     chart_terms = (
         "chart",
@@ -285,6 +307,10 @@ def suggest_skills_for_message(
         "atr",
         "fundamental",
         "quote",
+        "行情",
+        "报价",
+        "估值",
+        "基本面",
     )
     monitor_terms = (
         "crypto monitor",

@@ -2,40 +2,32 @@ name: Install Smoke
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  install-smoke:
+  wheel:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout CLI
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm (corepack retry)
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+      - name: Build and install the wheel in a fresh environment
         run: |
-          set -euo pipefail
-          corepack enable
-          for attempt in 1 2 3; do
-            if corepack prepare pnpm@10.23.0 --activate; then
-              pnpm -v
-              exit 0
-            fi
-            echo "corepack prepare failed (attempt $attempt/3). Retrying..."
-            sleep $((attempt * 10))
-          done
-          exit 1
-
-      - name: Install pnpm deps (minimal)
-        run: pnpm install --ignore-scripts --frozen-lockfile
-
-      - name: Run installer docker tests
-        env:
-          CLAWDBOT_INSTALL_URL: https://marketbot.ai/install.sh
-          CLAWDBOT_INSTALL_CLI_URL: https://marketbot.ai/install-cli.sh
-          CLAWDBOT_NO_ONBOARD: "1"
-          CLAWDBOT_INSTALL_SMOKE_SKIP_CLI: "1"
-          CLAWDBOT_INSTALL_SMOKE_SKIP_NONROOT: ${{ github.event_name == 'pull_request' && '1' || '0' }}
-          CLAWDBOT_INSTALL_SMOKE_SKIP_PREVIOUS: "1"
-        run: pnpm test:install:smoke
+          mkdir -p marketbot/.xiaohongshu-cli
+          python -c "from pathlib import Path; Path('marketbot/.xiaohongshu-cli/cookies.json').write_text('{\"web_session\":\"packaging-test-fixture\"}')"
+          uv build
+          uv venv /tmp/marketbot-install
+          uv pip install --python /tmp/marketbot-install/bin/python dist/*.whl
+      - name: Verify installed CLI, finance server, and bundled skills
+        working-directory: /tmp
+        run: |
+          /tmp/marketbot-install/bin/marketbot --help
+          /tmp/marketbot-install/bin/marketbot finance --help
+          /tmp/marketbot-install/bin/python -m marketbot.mcp.finance --help
+          /tmp/marketbot-install/bin/python -c "from importlib.resources import files; from marketbot.rl.env.market_env import LocalMarketEnv; assert files('marketbot').joinpath('skills/finance-mcp/SKILL.md').is_file(); assert files('marketbot').joinpath('skills/portfolio-analyzer/SKILL.md').is_file(); assert not files('marketbot').joinpath('.xiaohongshu-cli/cookies.json').is_file()"

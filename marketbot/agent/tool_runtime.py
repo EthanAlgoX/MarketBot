@@ -6,6 +6,8 @@ import asyncio
 import json
 import re
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from html import escape
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -14,6 +16,60 @@ from uuid import uuid4
 from loguru import logger
 
 from marketbot.providers.base import ToolCallRequest
+
+_TOOL_EXECUTION_SCOPE: ContextVar[tuple[tuple[Any, frozenset[str] | None], ...]] = ContextVar(
+    "marketbot_tool_execution_scope", default=()
+)
+_STRUCTURED_FINANCE_TOOLS = frozenset({
+    "market_snapshot", "market_fundamentals", "market_news", "market_macro",
+    "market_signal", "market_brief", "portfolio_risk", "evidence_get", "evidence_record",
+    "thesis_tracker", "market_watch",
+})
+
+
+@contextmanager
+def scoped_tool_execution(loop: Any, allowed_tools: set[str] | None):
+    """Bind an immutable execution boundary inherited by parallel tool tasks."""
+    scope = frozenset(allowed_tools) if allowed_tools is not None else None
+    token = _TOOL_EXECUTION_SCOPE.set((*_TOOL_EXECUTION_SCOPE.get(), (loop, scope)))
+    try:
+        yield
+    finally:
+        _TOOL_EXECUTION_SCOPE.reset(token)
+
+
+def active_tool_scope(loop: Any) -> frozenset[str] | set[str] | None:
+    """Return the current task's scope, falling back to legacy loop scopes."""
+    for owner, scope in reversed(_TOOL_EXECUTION_SCOPE.get()):
+        if owner is loop:
+            return scope
+    return getattr(loop, "_active_allowed_tools", None)
+
+
+def _tool_scope_allows(loop: Any, tool_name: str) -> bool:
+    scope = active_tool_scope(loop)
+    return scope is None or tool_name in scope
+
+
+def _tool_scope_error(loop: Any, tool_name: str) -> str | None:
+    if _tool_scope_allows(loop, tool_name):
+        return None
+    return json.dumps({
+        "ok": False,
+        "schema_version": "1",
+        "error": {
+            "tool": tool_name,
+            "type": "tool_scope_violation",
+            "message": f"Tool '{tool_name}' is not allowed in the current execution step.",
+            "retryable": False,
+        },
+    }, ensure_ascii=False)
+
+
+async def _execute_scoped_tool(loop: Any, name: str, arguments: dict[str, Any]) -> str:
+    """Apply the same boundary to direct and auxiliary execution paths."""
+    blocked = _tool_scope_error(loop, name)
+    return blocked if blocked is not None else await loop.tools.execute(name, arguments)
 
 
 def _fallback_preview(value: Any) -> str:
@@ -926,6 +982,8 @@ async def _direct_xiaohongshu_publish(loop: Any, messages: list[dict[str, Any]])
     raw_text = _direct_xiaohongshu_publish_fallback(messages)
     if raw_text is None:
         return None
+    if not _tool_scope_allows(loop, "xiaohongshu_cli"):
+        return None
     if not loop.tools.has("xiaohongshu_cli"):
         return "Error: xiaohongshu_cli tool is not available."
     payload = _extract_xiaohongshu_publish_payload(raw_text)
@@ -936,7 +994,7 @@ async def _direct_xiaohongshu_publish(loop: Any, messages: list[dict[str, Any]])
         _, image_path = await _render_xiaohongshu_poster(_resolve_publish_workspace(loop), title, body)
     except Exception as exc:
         return f"Error: 自动生成小红书图片失败: {exc}"
-    result = await loop.tools.execute(
+    result = await _execute_scoped_tool(loop,
         "xiaohongshu_cli",
         {
             "operation": "post",
@@ -953,6 +1011,8 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
     raw_text = _direct_twitter_publish_fallback(messages)
     if raw_text is None:
         return None
+    if not _tool_scope_allows(loop, "twitter_cli"):
+        return None
     if not loop.tools.has("twitter_cli"):
         return "Error: twitter_cli tool is not available."
     content = _extract_twitter_publish_text(raw_text)
@@ -967,7 +1027,7 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
         if image_path is not None:
             images.append(str(image_path))
     post_text = _prepare_twitter_post_text(content, with_image=bool(images))
-    result = await loop.tools.execute(
+    result = await _execute_scoped_tool(loop,
         "twitter_cli",
         {
             "operation": "post",
@@ -978,7 +1038,7 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
     lowered = str(result or "").lower()
     if "(186)" in lowered or "bit shorter" in lowered:
         for shortened in _twitter_retry_candidates(post_text):
-            result = await loop.tools.execute(
+            result = await _execute_scoped_tool(loop,
                 "twitter_cli",
                 {
                     "operation": "post",
@@ -992,7 +1052,7 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
     lowered = str(result or "").lower()
     if "(187)" in lowered or "duplicate" in lowered:
         for variant in _twitter_duplicate_retry_candidates(post_text):
-            result = await loop.tools.execute(
+            result = await _execute_scoped_tool(loop,
                 "twitter_cli",
                 {
                     "operation": "post",
@@ -1007,7 +1067,7 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
     tweet_id = _extract_twitter_publish_id(result)
     if images and tweet_id:
         try:
-            verify = await loop.tools.execute(
+            verify = await _execute_scoped_tool(loop,
                 "twitter_cli",
                 {
                     "operation": "tweet",
@@ -1028,10 +1088,12 @@ async def _direct_xiaohongshu_research(loop: Any, messages: list[dict[str, Any]]
     raw_text = _direct_xiaohongshu_research_fallback(messages)
     if raw_text is None:
         return None
+    if not _tool_scope_allows(loop, "xiaohongshu_cli"):
+        return None
     if not loop.tools.has("xiaohongshu_cli"):
         return "Error: xiaohongshu_cli tool is not available."
     keyword = _extract_xiaohongshu_research_keyword(raw_text)
-    result = await loop.tools.execute(
+    result = await _execute_scoped_tool(loop,
         "xiaohongshu_cli",
         {
             "operation": "search",
@@ -1162,8 +1224,8 @@ def compress_tool_result(cls: Any, tool_name: str, result: str) -> str:
     if len(result) <= cls._TOOL_RESULT_PROMPT_MAX_CHARS:
         return result
 
-    if tool_name == "market_brief":
-        # Preserve the structured market brief payload for explainability rendering.
+    if tool_name.removeprefix("mcp_finance_") in _STRUCTURED_FINANCE_TOOLS:
+        # Preserve computed finance evidence and the structured brief contract.
         return result
 
     stripped = result.strip()
@@ -1257,6 +1319,9 @@ async def execute_tool_calls(loop: Any, tool_calls: list) -> list[tuple[Any, str
     cache: dict[str, str] = {}
 
     async def _run_single(index: int, tool_call: Any) -> tuple[int, str, str]:
+        blocked = _tool_scope_error(loop, tool_call.name)
+        if blocked is not None:
+            return index, loop._tool_cache_key(tool_call), blocked
         normalized_args = loop._normalize_tool_arguments_for_request(tool_call.name, tool_call.arguments)
         args_str = json.dumps(normalized_args, ensure_ascii=False)
         logger.info("Tool call: {}({})", tool_call.name, args_str[:200])
@@ -1353,6 +1418,12 @@ async def run_agent_loop(
             iteration += 1
             loop._current_tool_rounds = tool_rounds
             tools_for_call = loop._tool_definitions_for_request()
+            scope = active_tool_scope(loop)
+            if scope is not None:
+                tools_for_call = [
+                    definition for definition in tools_for_call
+                    if (definition.get("function") or {}).get("name") in scope
+                ]
             if loop._active_request_flags.get("broad_market_scan") and tool_rounds >= 1:
                 tools_for_call = []
             if pseudo_tool_retry_used:
@@ -1423,11 +1494,12 @@ async def run_agent_loop(
                     if fallback:
                         messages, tools_used, tool_rounds = fallback
                 tool_rounds += 1
-                messages, tools_used, tool_rounds = await loop._auto_append_daily_opportunity_market_brief(
-                    messages,
-                    tools_used,
-                    tool_rounds=tool_rounds,
-                )
+                if _tool_scope_allows(loop, "market_brief"):
+                    messages, tools_used, tool_rounds = await loop._auto_append_daily_opportunity_market_brief(
+                        messages,
+                        tools_used,
+                        tool_rounds=tool_rounds,
+                    )
             else:
                 clean = loop._strip_think(response.content)
                 if (
@@ -1513,6 +1585,8 @@ async def _maybe_run_twitter_news_fallback(
 ) -> tuple[list[dict[str, Any]], list[str], int] | None:
     if not loop._active_request_flags.get("twitter_research"):
         return None
+    if not _tool_scope_allows(loop, "market_news"):
+        return None
     if tool_call.name != "twitter_cli":
         return None
     if getattr(loop, "_twitter_news_fallback_done", False):
@@ -1555,7 +1629,7 @@ async def _maybe_run_twitter_news_fallback(
         ],
     )
 
-    fallback_result = await loop.tools.execute(news_call.name, news_call.arguments)
+    fallback_result = await _execute_scoped_tool(loop, news_call.name, news_call.arguments)
     compressed = loop._compress_tool_result(news_call.name, fallback_result)
     tools_used.append(news_call.name)
     messages = loop.context.add_tool_result(

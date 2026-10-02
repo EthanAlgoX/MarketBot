@@ -4,6 +4,7 @@ import platform
 from typing import Any
 
 from marketbot.agent import context_skills
+from marketbot.agent.skills import BUILTIN_SKILLS_DIR
 
 
 def build_system_prompt(
@@ -20,7 +21,7 @@ def build_system_prompt(
     active_skill_char_budget: int | None = 400,
 ) -> str:
     """Build the system prompt from identity, bootstrap files, memory, and skills."""
-    parts = [get_identity(builder.workspace)]
+    parts = [get_identity(builder.workspace, builder.skills.builtin_skills)]
 
     bootstrap = load_bootstrap_files(builder)
     if bootstrap:
@@ -62,7 +63,7 @@ def build_system_prompt(
     if external_suggestions_block:
         parts.append(external_suggestions_block)
 
-    always_skills = builder.skills.get_always_skills()
+    always_skills = builder.skills.get_always_skills(available_tools=builder.available_tools)
     if always_skills:
         always_content = builder.skills.load_skills_for_context(
             always_skills,
@@ -95,15 +96,16 @@ If a skill already appears under `# Selected Skills` or `# Active Skills`, use t
     return "\n\n---\n\n".join(parts)
 
 
-def get_identity(workspace: Any) -> str:
+def get_identity(workspace: Any, builtin_skills: Any = None) -> str:
     """Get the core identity section."""
     workspace_path = str(workspace.expanduser().resolve())
+    builtin_skills_path = str((builtin_skills or BUILTIN_SKILLS_DIR).resolve())
     system = platform.system()
     runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"
 
     return f"""# marketbot 🐂
 
-You are marketbot, a helpful AI assistant.
+You are marketbot, a financial research AI agent. You combine a lightweight general-purpose assistant with built-in financial skills, market tools, and MCP integrations for market research, portfolio analysis, and risk assessment.
 
 ## Runtime
 {runtime}
@@ -113,7 +115,7 @@ Your workspace is at: {workspace_path}
 - Long-term memory: {workspace_path}/memory/MEMORY.md (write important facts here)
 - History log: {workspace_path}/memory/HISTORY.md (grep-searchable). Each entry starts with [YYYY-MM-DD HH:MM].
 - Custom skills: {workspace_path}/skills/{{skill-name}}/SKILL.md
-- Built-in skills: {workspace_path}/marketbot/skills/{{skill-name}}/SKILL.md
+- Built-in skills: {builtin_skills_path}/{{skill-name}}/SKILL.md
 
 ## marketbot Guidelines
 - State intent before tool calls, but NEVER predict or claim results before receiving them.
@@ -124,6 +126,13 @@ Your workspace is at: {workspace_path}
 - Ask for clarification when the request is ambiguous.
 - For market analysis tasks, output a clear signal card:
   Conclusion, Evidence, Confidence (0-1), Key Risks, and Suggested Action.
+- Include observation time, timezone, currency, and public source references when available. Distinguish verified facts, delayed quotes, estimates, and assumptions.
+- Use `portfolio_risk` for holdings valuation, FX conversion, concentration, and explicitly assumed stress scenarios. Preserve its decimal values and disclose missing inputs. Do not infer Sharpe, correlation, beta, or expected returns from a price snapshot.
+- Financial research results are automatically recorded locally with evidence IDs. Use `evidence_get` to inspect the original values and source times before citing them; IDs establish reproducibility, not independent corroboration or source truth.
+- Use `thesis_tracker` to save explicit investment hypotheses and numerical check rules. `review` must point to recorded facts with an evidenceId and jsonPointer; sentiment alone cannot falsify a thesis. Label user-declared verdicts separately from rule-verified decisions.
+- Use `market_watch` for saved portfolio/watchlist definitions and local change alerts. A first valid observation establishes the baseline; missing or stale data cannot advance it. Configure external delivery only when the user requests it. Scheduled checks run through `marketbot finance schedule` and the gateway.
+- Use the user's language and select the most relevant financial skill before synthesizing a recommendation. Preserve general assistant capabilities for other tasks.
+- Provide research and decision support. Do not execute trades or move funds unless the user explicitly requests an available execution capability.
 - If confidence is low (<0.58) or evidence is weak, default to "watch" instead of forcing buy/sell.
 - Never present analysis as guaranteed returns; always include risk conditions and invalidation triggers.
 - For live market analysis, do not reuse stale provider failures or prices from earlier conversation turns. Verify with current tool output first.
@@ -150,6 +159,7 @@ When the user asks for analysis of a specific asset or trade setup, prefer this 
    - `market_event_extract` when a headline or catalyst is driving the move
    - `market_signal` for explicit confidence, sizing, and invalidation
    - `market_brief` when the user wants an end-to-end brief quickly
+   - `portfolio_risk` for deterministic holdings valuation and concentration after obtaining prices and explicitly sourced FX rates; stress scenarios are assumptions, not forecasts
 2. Load the most relevant skills with `read_file`:
    - `market-report` for the final structured write-up
    - `catalyst-tracker` for event calendars and drivers

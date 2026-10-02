@@ -66,7 +66,10 @@ class AgentLoop:
     _TOOL_RESULT_MAX_CHARS = 500
     _TOOL_RESULT_PROMPT_MAX_CHARS = 1400
     _PARALLEL_SAFE_TOOL_PREFIXES = ("market_",)
-    _PARALLEL_SAFE_TOOLS = {"read_file", "list_dir", "web_search", "web_fetch"}
+    _PARALLEL_SAFE_TOOLS = {
+        "read_file", "list_dir", "web_search", "web_fetch", "portfolio_risk",
+        "mcp_finance_portfolio_risk",
+    }
     _PARALLEL_UNSAFE_TOOLS = {"write_file", "edit_file", "exec", "message", "spawn", "cron"}
     _BROAD_MARKET_SCAN_MARKERS = (
         "今日市场机会扫描",
@@ -210,6 +213,10 @@ class AgentLoop:
         self._consolidation_locks = self.processor._consolidation_locks
         self._active_tasks: dict[str, list[asyncio.Task]] = {}  # session_key -> tasks
         self._session_locks: dict[str, asyncio.Lock] = {}
+        # Router, planner and messaging tools retain mutable turn context. Serialize
+        # turns across sessions until those components all have task-local state.
+        # Tool execution within a turn still runs concurrently where permitted.
+        self._turn_lock = asyncio.Lock()
         self._active_request_flags: dict[str, bool] = {}
         self._active_allowed_tools: set[str] | None = None
         self._last_route_decision: dict[str, str] | None = None
@@ -279,7 +286,7 @@ class AgentLoop:
                                 name = str(function.get("name") or "").strip()
                                 if name:
                                     visible.add(name)
-        active_allowed_tools = getattr(self, "_active_allowed_tools", None)
+        active_allowed_tools = tool_runtime.active_tool_scope(self)
         if active_allowed_tools is not None:
             visible &= active_allowed_tools
         return visible
@@ -940,6 +947,24 @@ class AgentLoop:
         logger.info("Agent loop stopping")
 
     async def _process_message(
+        self,
+        msg: InboundMessage,
+        session_key: str | None = None,
+        on_progress: Callable[[str], Awaitable[None]] | None = None,
+    ) -> OutboundMessage | None:
+        async with self._turn_lock:
+            from marketbot.session.storage import SessionConflictError
+
+            try:
+                return await self._process_message_unlocked(msg, session_key, on_progress)
+            except SessionConflictError:
+                return OutboundMessage(
+                    channel=msg.channel, chat_id=msg.chat_id,
+                    content="This session was updated by another running instance. Saved messages were preserved. Retry after checking any actions already performed.",
+                    metadata={"error": "session_conflict", "retryable": True},
+                )
+
+    async def _process_message_unlocked(
         self,
         msg: InboundMessage,
         session_key: str | None = None,

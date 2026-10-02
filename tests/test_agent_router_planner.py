@@ -57,6 +57,34 @@ def test_classify_execution_outcome_distinguishes_success_and_failure() -> None:
     assert failure == "failure"
 
 
+def test_portfolio_plan_keeps_finance_tools_when_core_catalog_is_full() -> None:
+    visible = {
+        "read_file", "list_dir", "web_search", "web_fetch", "browser_site", "browser_page",
+        "market_snapshot", "market_news", "market_macro", "market_fundamentals",
+        "market_brief", "portfolio_risk", "write_file", "exec",
+    }
+    for request in ("分步骤检查持仓组合的跨市场风险", "Analyze my portfolio and stress test it"):
+        plan = TaskPlanner().create_plan(
+            request_text=request, visible_tools=visible, route_mode="planned_task",
+        )
+        tools = plan.steps[0].allowed_tools
+        assert {"market_snapshot", "portfolio_risk", "market_news"} <= set(tools)
+        assert "exec" not in tools
+        assert plan.steps[-1].allowed_tools == []
+
+
+def test_market_plan_prioritizes_quotes_and_fundamentals_over_browser_catalog() -> None:
+    visible = {
+        "read_file", "list_dir", "web_search", "web_fetch", "browser_site", "browser_page",
+        "market_snapshot", "market_news", "market_fundamentals", "market_macro", "market_brief",
+    }
+    plan = TaskPlanner().create_plan(
+        request_text="分步骤研究美股 NVDA 的财报和估值", visible_tools=visible,
+        route_mode="planned_task",
+    )
+    assert {"market_snapshot", "market_news", "market_fundamentals"} <= set(plan.steps[0].allowed_tools)
+
+
 def test_plan_runtime_uses_workspace_plans_dir(tmp_path: Path) -> None:
     runtime = PlanRuntime()
     loop = type("Loop", (), {"workspace": tmp_path})()

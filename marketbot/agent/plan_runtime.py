@@ -3,11 +3,28 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from marketbot.agent.plan_models import ExecutionPlan
+
+
+def _merge_step_history(history: list[dict], messages: list[dict], base_count: int) -> list[dict]:
+    """Carry full step transcripts without repeating their existing history."""
+    transcript = [deepcopy(message) for message in messages if message.get("role") != "system"]
+    if not transcript:
+        return deepcopy(history)
+    if transcript[:len(history)] == history:
+        return transcript
+    plan_history = history[base_count:]
+    if transcript[:len(plan_history)] == plan_history:
+        # The prompt builder can suppress old session history on live requests.
+        # Keep its original prefix for one-time turn persistence, without
+        # duplicating the plan-local evidence in subsequent prompts.
+        return [*deepcopy(history[:base_count]), *transcript]
+    return [*deepcopy(history), *transcript]
 
 
 class PlanRuntime:
@@ -73,39 +90,14 @@ class PlanRuntime:
         last_messages: list[dict[str, Any]] = []
         usage_totals: dict[str, int] = {}
         final_content: str | None = None
+        plan_history = deepcopy(loop.processor.get_recent_history(session))
+        base_history_count = len(plan_history)
+        last_step_result = None
+        last_decision = None
 
         session.metadata["active_plan_id"] = plan.id
         session.metadata["current_step_id"] = plan.current_step_id
-        loop._last_plan_path = str(self._persist_plan_snapshot(
-            loop,
-            plan=plan,
-            session=session,
-            channel=channel,
-            chat_id=chat_id,
-            final_content=final_content,
-            usage_totals=usage_totals,
-        ))
-
-        for step in plan.steps:
-            plan.current_step_id = step.id
-            session.metadata["current_step_id"] = step.id
-            step.status = "running"
-            if on_progress is not None:
-                await on_progress(f"Plan step `{step.title}`", tool_hint=False)
-
-            step_result = await loop.executor.execute_step(
-                session=session,
-                step=step,
-                channel=channel,
-                chat_id=chat_id,
-                history=loop.processor.get_recent_history(session),
-                on_progress=on_progress,
-            )
-            decision = loop.verifier.evaluate(step=step, step_result=step_result)
-            usage_totals = loop._merge_usage(usage_totals, step_result.usage)
-            all_tools_used.extend(step_result.tool_calls)
-            last_messages = step_result.messages or last_messages
-            final_content = step_result.summary or final_content
+        try:
             loop._last_plan_path = str(self._persist_plan_snapshot(
                 loop,
                 plan=plan,
@@ -114,53 +106,77 @@ class PlanRuntime:
                 chat_id=chat_id,
                 final_content=final_content,
                 usage_totals=usage_totals,
-                last_step_result=step_result,
-                last_decision=decision,
             ))
 
-            if decision.outcome == "advance":
-                step.status = "completed"
-                continue
-            if decision.outcome == "retry":
-                retry_result = await loop.executor.execute_step(
-                    session=session,
-                    step=step,
-                    channel=channel,
-                    chat_id=chat_id,
-                    history=loop.processor.get_recent_history(session),
-                    on_progress=on_progress,
-                )
-                usage_totals = loop._merge_usage(usage_totals, retry_result.usage)
-                all_tools_used.extend(retry_result.tool_calls)
-                last_messages = retry_result.messages or last_messages
-                final_content = retry_result.summary or final_content
-                loop._last_plan_path = str(self._persist_plan_snapshot(
-                    loop,
-                    plan=plan,
-                    session=session,
-                    channel=channel,
-                    chat_id=chat_id,
-                    final_content=final_content,
-                    usage_totals=usage_totals,
-                    last_step_result=retry_result,
-                ))
-                if retry_result.status == "completed":
+            for step in plan.steps:
+                plan.current_step_id = step.id
+                session.metadata["current_step_id"] = step.id
+                step.status = "running"
+                if on_progress is not None:
+                    await on_progress(f"Plan step `{step.title}`", tool_hint=False)
+
+                # Keep evidence within this plan until the turn is persisted once.
+                # Copies prevent provider or custom executor mutations from leaking
+                # into the session or into another step's inputs.
+                for attempt in range(2):
+                    step_result = await loop.executor.execute_step(
+                        session=session,
+                        step=step,
+                        channel=channel,
+                        chat_id=chat_id,
+                        history=deepcopy(plan_history),
+                        plan_goal=plan.goal,
+                        on_progress=on_progress,
+                    )
+                    decision = loop.verifier.evaluate(step=step, step_result=step_result)
+                    usage_totals = loop._merge_usage(usage_totals, step_result.usage)
+                    all_tools_used.extend(step_result.tool_calls)
+                    if step_result.messages:
+                        plan_history = _merge_step_history(
+                            plan_history, step_result.messages, base_history_count
+                        )
+                        system = step_result.messages[0]
+                        last_messages = deepcopy([
+                            *([system] if system.get("role") == "system" else []), *plan_history
+                        ])
+                    final_content = step_result.summary or final_content
+                    last_step_result, last_decision = step_result, decision
+                    loop._last_plan_path = str(self._persist_plan_snapshot(
+                        loop,
+                        plan=plan,
+                        session=session,
+                        channel=channel,
+                        chat_id=chat_id,
+                        final_content=final_content,
+                        usage_totals=usage_totals,
+                        last_step_result=step_result,
+                        last_decision=decision,
+                    ))
+                    if decision.outcome != "retry" or attempt == 1:
+                        break
+
+                if decision.outcome == "advance":
                     step.status = "completed"
                     continue
                 step.status = "failed"
                 break
-            step.status = "failed"
-            break
-
-        session.metadata.pop("current_step_id", None)
-        session.metadata.pop("active_plan_id", None)
-        loop._last_plan_path = str(self._persist_plan_snapshot(
-            loop,
-            plan=plan,
-            session=session,
-            channel=channel,
-            chat_id=chat_id,
-            final_content=final_content,
-            usage_totals=usage_totals,
-        ))
+        except BaseException:
+            for step in plan.steps:
+                if step.status == "running":
+                    step.status = "failed"
+            raise
+        finally:
+            session.metadata.pop("current_step_id", None)
+            session.metadata.pop("active_plan_id", None)
+            loop._last_plan_path = str(self._persist_plan_snapshot(
+                loop,
+                plan=plan,
+                session=session,
+                channel=channel,
+                chat_id=chat_id,
+                final_content=final_content,
+                usage_totals=usage_totals,
+                last_step_result=last_step_result,
+                last_decision=last_decision,
+            ))
         return final_content, all_tools_used, last_messages, usage_totals

@@ -1,7 +1,10 @@
 """Cron service for scheduling agent tasks."""
 
 import asyncio
+import hashlib
 import json
+import os
+import tempfile
 import time
 import uuid
 from datetime import datetime
@@ -11,6 +14,11 @@ from typing import Any, Callable, Coroutine
 from loguru import logger
 
 from marketbot.cron.types import CronJob, CronJobState, CronPayload, CronSchedule, CronStore
+from marketbot.utils.file_lock import exclusive_file_lock
+
+
+class CronStorageConflictError(ValueError):
+    """A stale scheduler must reload before it can write shared state."""
 
 
 def _now_ms() -> int:
@@ -72,6 +80,7 @@ class CronService:
         self.on_job = on_job
         self._store: CronStore | None = None
         self._last_mtime: float = 0.0
+        self._last_digest: str | None = None
         self._timer_task: asyncio.Task | None = None
         self._running = False
 
@@ -87,7 +96,12 @@ class CronService:
 
         if self.store_path.exists():
             try:
-                data = json.loads(self.store_path.read_text(encoding="utf-8"))
+                original = self.store_path.read_bytes()
+                data = json.loads(original)
+                if not isinstance(data, dict) or not isinstance(data.get("jobs"), list):
+                    raise ValueError("invalid cron store structure")
+                if data.get("version", 1) != 1:
+                    raise ValueError("unsupported cron store version")
                 jobs = []
                 for j in data.get("jobs", []):
                     jobs.append(CronJob(
@@ -123,11 +137,13 @@ class CronService:
                         delete_after_run=j.get("deleteAfterRun", False),
                     ))
                 self._store = CronStore(jobs=jobs)
-            except Exception as e:
-                logger.warning("Failed to load cron store: {}", e)
-                self._store = CronStore()
+                self._last_digest = hashlib.sha256(original).hexdigest()
+                self._last_mtime = self.store_path.stat().st_mtime
+            except (ValueError, TypeError, KeyError, OSError):
+                raise ValueError("Existing cron storage is corrupt or unreadable; it was not overwritten") from None
         else:
             self._store = CronStore()
+            self._last_digest = None
 
         return self._store
 
@@ -177,8 +193,27 @@ class CronService:
             ]
         }
 
-        self.store_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-        self._last_mtime = self.store_path.stat().st_mtime
+        content = json.dumps(data, indent=2, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        with exclusive_file_lock(self.store_path.with_suffix(".lock")):
+            current = hashlib.sha256(self.store_path.read_bytes()).hexdigest() if self.store_path.exists() else None
+            if current != self._last_digest:
+                # A gateway and CLI may modify the same file. Refuse stale writes
+                # instead of silently deleting tasks created by the other process.
+                self._store = None
+                raise CronStorageConflictError("Cron storage changed concurrently; retry after reloading")
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(dir=self.store_path.parent, delete=False) as handle:
+                    temporary = handle.name
+                    handle.write(content)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(temporary, self.store_path)
+                self._last_digest = hashlib.sha256(content).hexdigest()
+                self._last_mtime = self.store_path.stat().st_mtime
+            finally:
+                if temporary and os.path.exists(temporary):
+                    os.unlink(temporary)
 
     async def start(self) -> None:
         """Start the cron service."""
@@ -219,10 +254,11 @@ class CronService:
             self._timer_task.cancel()
 
         next_wake = self._get_next_wake_ms()
-        if not next_wake or not self._running:
+        if not self._running:
             return
 
-        delay_ms = max(0, next_wake - _now_ms())
+        # Also observe external CLI changes when no jobs existed at startup.
+        delay_ms = min(30_000, max(0, next_wake - _now_ms())) if next_wake else 30_000
         delay_s = delay_ms / 1000
 
         async def tick():
@@ -234,21 +270,30 @@ class CronService:
 
     async def _on_timer(self) -> None:
         """Handle timer tick - run due jobs."""
-        self._load_store()
-        if not self._store:
-            return
-
-        now = _now_ms()
-        due_jobs = [
-            j for j in self._store.jobs
-            if j.enabled and j.state.next_run_at_ms and now >= j.state.next_run_at_ms
-        ]
-
-        for job in due_jobs:
-            await self._execute_job(job)
-
-        self._save_store()
-        self._arm_timer()
+        try:
+            self._load_store()
+            if not self._store:
+                return
+            now = _now_ms()
+            due_jobs = [j for j in self._store.jobs if j.enabled and j.state.next_run_at_ms and now >= j.state.next_run_at_ms]
+            for job in due_jobs:
+                await self._execute_job(job)
+            try:
+                self._save_store()
+            except CronStorageConflictError:
+                # Preserve newer CLI definitions and do not leave the timer dead.
+                # Recompute from now to avoid immediately repeating a due task.
+                self._load_store()
+                self._recompute_next_runs()
+                self._save_store()
+                logger.warning("Cron: concurrent edit retained; next runs refreshed")
+        except CronStorageConflictError:
+            logger.warning("Cron: repeated concurrent edit; retrying at the next poll")
+        except (ValueError, OSError):
+            self._running = False
+            logger.error("Cron: storage unavailable or corrupt; scheduler stopped and existing file preserved")
+        finally:
+            self._arm_timer()
 
     async def _execute_job(self, job: CronJob) -> None:
         """Execute a single job."""
@@ -299,6 +344,8 @@ class CronService:
         channel: str | None = None,
         to: str | None = None,
         delete_after_run: bool = False,
+        *,
+        payload: CronPayload | None = None,
     ) -> CronJob:
         """Add a new job."""
         store = self._load_store()
@@ -310,7 +357,7 @@ class CronService:
             name=name,
             enabled=True,
             schedule=schedule,
-            payload=CronPayload(
+            payload=payload or CronPayload(
                 kind="agent_turn",
                 message=message,
                 deliver=deliver,
