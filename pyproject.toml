@@ -2,6 +2,7 @@
 name = "marketbot-ai"
 version = "0.1.4.post3"
 description = "A lightweight financial research AI agent with built-in finance skills and MCP integrations"
+readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
@@ -98,6 +99,7 @@ include = [
     "bridge/",
     "README.md",
     "README_en.md",
+    "README_zh-CN.md",
     "docs/",
     "examples/",
     "scripts/",

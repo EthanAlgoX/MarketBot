@@ -30,6 +30,7 @@ class BaseChannel(ABC):
         """
         self.config = config
         self.bus = bus
+        self.language = getattr(config, "language", "en")
         self._running = False
 
     @abstractmethod

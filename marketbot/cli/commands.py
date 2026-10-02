@@ -89,6 +89,7 @@ from marketbot.cli.status_runtime import (
     render_status,
 )
 from marketbot.config.schema import Config
+from marketbot.i18n import Language, msg
 from marketbot.market_reporting import (
     default_market_report_path,
     extract_market_heartbeat_spec,
@@ -852,11 +853,48 @@ def main(
     ),
     config: Path | None = typer.Option(None, "--config", "-c", help="Default config file for all subcommands"),
     workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Override the workspace for this invocation"),
+    language: Language | None = typer.Option(None, "--language", help="Language for this invocation: en or zh"),
 ):
     """marketbot - Financial Research Agent."""
     from marketbot.config.loader import configuration_scope
 
-    ctx.with_resource(configuration_scope(config, workspace))
+    ctx.with_resource(configuration_scope(config, workspace, language))
+
+
+@app.command("language")
+def language_command(
+    set_language: Language | None = typer.Option(None, "--set", help="Save the default language: en or zh"),
+    json_output: bool = typer.Option(False, "--json", help="Output machine-readable language settings."),
+):
+    """Show the current language or save a default."""
+    from marketbot.config.loader import get_config_path, get_language, load_config, save_config
+
+    path = get_config_path()
+    # Read stored values so transient workspace/language flags are not saved.
+    config = Config() if set_language is not None and not path.exists() else load_config(apply_overrides=False)
+    if set_language is not None:
+        config.agents.defaults.language = set_language.value
+        save_config(config, path)
+    language = get_language(config)
+    configured_language = config.agents.defaults.language
+    if json_output:
+        console.print_json(data={
+            "language": language,
+            "configuredLanguage": configured_language,
+            "configPath": str(path),
+            "saved": set_language is not None,
+        })
+        return
+    label = "English (en)" if language == "en" else "中文（zh）"
+    console.print(msg(f"Language: {label}", f"语言：{label}", language), markup=False, soft_wrap=True)
+    if configured_language != language:
+        console.print(msg(
+            f"Configured language: {configured_language}",
+            f"配置中保存的语言：{configured_language}",
+            language,
+        ), markup=False, soft_wrap=True)
+    if set_language is not None:
+        console.print(msg(f"Saved language to {path}", f"已将语言保存到 {path}", language), markup=False, soft_wrap=True)
 
 
 # ============================================================================
@@ -875,6 +913,7 @@ def onboard(
     from marketbot.config.loader import (
         apply_config_overrides,
         get_config_path,
+        get_language,
         load_config,
         save_config,
     )
@@ -884,21 +923,29 @@ def onboard(
     config_path = Path(config).expanduser().resolve() if config else get_config_path()
     existing = config_path.exists()
     overwrite = False
+    loaded_existing = None
+    load_error = None
+    if existing:
+        try:
+            loaded_existing = load_config(config_path, strict=True)
+        except ValueError as exc:
+            load_error = exc
+    language = get_language(loaded_existing)
 
     if existing and not refresh:
-        console.print(f"[yellow]Config already exists at {config_path}[/yellow]")
-        console.print("  [bold]y[/bold] = overwrite with defaults (existing values will be lost)")
-        console.print("  [bold]N[/bold] = refresh config, keeping existing values and adding new fields")
-        overwrite = typer.confirm("Overwrite?")
+        console.print(msg(f"Config already exists at {config_path}", f"配置已存在：{config_path}", language), markup=False, soft_wrap=True)
+        console.print(msg("  y = overwrite with defaults (existing values will be lost)", "  y = 使用默认配置覆盖（现有配置值将丢失）", language))
+        console.print(msg("  N = refresh config, keeping existing values and adding new fields", "  N = 保留现有配置值，补充新字段", language))
+        overwrite = typer.confirm(msg("Overwrite?", "覆盖现有配置？", language))
 
     if existing and not overwrite:
-        try:
-            loaded = load_config(config_path, strict=True)
-        except ValueError as exc:
-            console.print(f"[red]{exc}[/red]")
-            raise typer.Exit(1) from exc
+        if load_error is not None:
+            console.print(str(load_error), markup=False, soft_wrap=True)
+            raise typer.Exit(1) from None
+        loaded = loaded_existing
     else:
         loaded = apply_config_overrides(Config())
+    language = get_language(loaded)
     if workspace:
         loaded.agents.defaults.workspace = str(Path(workspace).expanduser().resolve())
     ensure_finance_defaults(loaded)
@@ -908,33 +955,35 @@ def onboard(
         save_config(loaded)
 
     if not existing:
-        console.print(f"[green]✓[/green] Created config at {config_path}")
+        console.print(msg(f"✓ Created config at {config_path}", f"✓ 已创建配置：{config_path}", language), markup=False, soft_wrap=True)
     elif overwrite:
-        console.print(f"[green]✓[/green] Config reset to defaults at {config_path}")
+        console.print(msg(f"✓ Config reset to defaults at {config_path}", f"✓ 已重置为默认配置：{config_path}", language), markup=False, soft_wrap=True)
     else:
-        console.print(f"[green]✓[/green] Config refreshed at {config_path} (existing values preserved)")
+        console.print(msg(f"✓ Config refreshed at {config_path} (existing values preserved)", f"✓ 已更新配置并保留现有值：{config_path}", language), markup=False, soft_wrap=True)
 
     # Create workspace
     workspace_path = get_workspace_path(loaded.agents.defaults.workspace, create=False)
     workspace_existed = workspace_path.exists()
     if not workspace_existed:
         workspace_path.mkdir(parents=True, exist_ok=True)
-        console.print(f"[green]✓[/green] Created workspace at {workspace_path}")
+        console.print(msg(f"✓ Created workspace at {workspace_path}", f"✓ 已创建工作区：{workspace_path}", language), markup=False, soft_wrap=True)
 
-    sync_workspace_templates(workspace_path)
-    console.print("[green]✓[/green] Finance skills bundled; finance MCP presets configured")
-    console.print("[dim]Alpha Vantage preset is optional: set ALPHA_VANTAGE_API_KEY and enable it in config.[/dim]")
+    for name in sync_workspace_templates(workspace_path, silent=True):
+        console.print(msg(f"  Created {name}", f"  已创建 {name}", language), markup=False, soft_wrap=True)
+    console.print(msg("✓ Finance skills bundled; finance MCP presets configured", "✓ 已提供金融技能并配置金融 MCP 预设", language))
+    console.print(msg("Alpha Vantage preset is optional: set ALPHA_VANTAGE_API_KEY and enable it in config.", "Alpha Vantage 为可选预设：设置 ALPHA_VANTAGE_API_KEY 后在配置中启用。", language))
 
-    console.print(f"\n{__logo__} marketbot is ready!")
-    console.print("\nNext steps:")
+    console.print(msg(f"\n{__logo__} marketbot is ready!", f"\n{__logo__} marketbot 已就绪！", language))
+    console.print(msg("\nNext steps:", "\n下一步：", language))
     config_flag = f' --config "{config_path}"'
-    console.print(f'  1. Inspect: marketbot{config_flag} status --json', markup=False, soft_wrap=True)
-    console.print("  2. Calculate portfolio risk with your holdings JSON; no LLM API key is needed.")
+    console.print(msg(f'  1. Inspect: marketbot{config_flag} status --json', f'  1. 查看状态：marketbot{config_flag} status --json', language), markup=False, soft_wrap=True)
+    console.print(msg("  2. Calculate portfolio risk with your holdings JSON; no LLM API key is needed.", "  2. 使用持仓 JSON 计算组合风险，无需 LLM API Key。", language))
     console.print(f'     marketbot{config_flag} finance call portfolio_risk --input holdings.json', markup=False, soft_wrap=True)
-    console.print("     See README for the holdings input format and financial workflows.")
-    console.print(f"  3. Optional chat: configure a model provider in {config_path}", markup=False, soft_wrap=True)
-    console.print(f'     marketbot{config_flag} agent -m "分析 NVDA 的机会、证据与风险"', markup=False, soft_wrap=True)
-    console.print("\n[dim]Chat apps: https://github.com/EthanAlgoX/MarketBot[/dim]")
+    console.print(msg("     See README for the holdings input format and financial workflows.", "     持仓格式与金融工作流示例见 README。", language))
+    console.print(msg(f"  3. Optional chat: configure a model provider in {config_path}", f"  3. 可选模型研究：在 {config_path} 中配置模型服务", language), markup=False, soft_wrap=True)
+    research_prompt = msg("Analyze NVDA's opportunities, evidence, and risks", "分析 NVDA 的机会、证据与风险", language)
+    console.print(f'     marketbot{config_flag} agent -m "{research_prompt}"', markup=False, soft_wrap=True)
+    console.print(msg("\nChat apps: https://github.com/EthanAlgoX/MarketBot", "\n聊天渠道：https://github.com/EthanAlgoX/MarketBot", language))
 
 
 
@@ -1069,10 +1118,8 @@ def intel_digest_daily(
     config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
 ):
     """Build a daily digest from recently collected intel items."""
-    from marketbot.config.loader import load_config
-
     config_path = Path(config) if config else None
-    _, conn = open_intel_db(config_path)
+    config_obj, conn = open_intel_db(config_path)
     try:
         digest_id, digest = build_intel_daily_digest(
             conn,
@@ -1080,6 +1127,7 @@ def intel_digest_daily(
             scope_key=scope_key,
             hours=hours,
             limit=limit,
+            language=config_obj.agents.defaults.language,
         )
     finally:
         conn.close()
@@ -1088,7 +1136,6 @@ def intel_digest_daily(
     console.print(Markdown(digest.body_markdown))
 
     if save:
-        config_obj = load_config(config_path)
         reports_dir = config_obj.workspace_path / "reports"
         reports_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -1407,6 +1454,7 @@ def gateway(
     cron.on_job = create_cron_job_handler(
         config_path=config_path,
         workspace=config.workspace_path,
+        language=config.agents.defaults.language,
         bus=bus,
         agent=agent,
         open_intel_db=open_intel_db,
@@ -1435,6 +1483,7 @@ def gateway(
     )
     on_heartbeat_notify = create_heartbeat_notify_handler(
         bus=bus,
+        language=config.agents.defaults.language,
         heartbeat_delivery=heartbeat_delivery,
         session_manager=session_manager,
         pick_target=_pick_heartbeat_target,
@@ -1610,7 +1659,9 @@ def market_report(
         parse_symbol_csv=_parse_symbol_csv,
         pick_notify_target=_pick_notify_target,
         send_message_once=_send_message_once,
-        market_brief_tool_factory=lambda market_config: MarketBriefTool(market_config, workspace=config.workspace_path),
+        market_brief_tool_factory=lambda market_config: MarketBriefTool(
+            market_config, workspace=config.workspace_path, language=config.agents.defaults.language,
+        ),
         infer_market_report_session=infer_market_report_session,
         resolve_market_timezone=resolve_market_timezone,
         render_market_report_document=render_market_report_document,

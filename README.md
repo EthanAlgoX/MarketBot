@@ -1,16 +1,25 @@
+[English](README.md) | [简体中文](README_zh-CN.md)
+
 # MarketBot
 
-[English](README_en.md) · [金融工作流](docs/finance_workflows.md) · [集成与部署](docs/integrations.md)
+[Financial workflows](docs/finance_workflows.md) · [Integrations and deployment](docs/integrations.md)
 
-MarketBot 是面向个人投资者的金融研究 Agent，服务于跨市场研究、持仓风险分析与持续跟踪。它参考 [Nanobot](https://github.com/HKUDS/nanobot) 的轻量 Agent 架构，在现有运行时上增加金融工具、技能和 MCP，并把研究证据、可验证假设与变化提醒连接成完整流程。
+MarketBot is a financial research agent for individual investors: cross-market research, portfolio risk and ongoing monitoring. It draws on [Nanobot](https://github.com/HKUDS/nanobot)'s lightweight agent architecture and extends the existing runtime with financial tools, skills and MCP integrations.
 
-金融特色来自可复查的流程：结论保留数据来源和时间；持仓按币种计算；投资假设按显式规则复核；持续跟踪只在满足条件或出现数据缺口时产生提醒。Skills 负责研究方法，工具负责取数和计算，模型负责组织分析。
+Its core workflow connects attributable evidence, currency-aware calculations, explicit thesis rules and change alerts. Skills provide research methods, tools retrieve and calculate facts, and the model organizes the analysis. Source timestamps and missing data remain visible throughout the workflow.
 
-当前为开发版本。本页对应 `codex/nanobot-finance-defaults` 分支；已发布的 PyPI 包可能尚未包含本页的全部功能。Python 要求 **3.11+**。模拟数据和规则信号用于研究与测试，项目不执行真实交易。
+The financial workflow provides four concrete capabilities:
 
-## 安装并完成第一次计算
+- **Attributable research:** inspect immutable evidence, actual observation times and explicit source gaps across markets.
+- **Currency-aware portfolio risk:** calculate holdings, cash, concentration and user-defined stress scenarios with Decimal arithmetic and explicit FX.
+- **Investment thesis tracking:** review numeric conditions against matching original evidence; incomplete or stale facts preserve the prior state.
+- **Ongoing change monitoring:** retain a valid baseline, alert on threshold transitions and portfolio changes, and keep a durable local outbox.
 
-以下命令从源码安装，使用项目内独立配置和工作目录。后续命令均在仓库根目录执行，沿用这两个变量。
+This README describes development branch `codex/nanobot-finance-defaults`. Published PyPI packages may not yet include all these features. **Python 3.11+** is required. Illustrative prices and rule-based signals support research and testing; MarketBot does not execute real trades.
+
+## Install and complete your first calculation
+
+Install from source and create an isolated configuration and workspace. Run subsequent examples from the repository root, keeping these two variables set.
 
 ```bash
 git clone --branch codex/nanobot-finance-defaults --single-branch https://github.com/EthanAlgoX/MarketBot.git
@@ -26,55 +35,82 @@ marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" s
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" finance call portfolio_risk --input examples/finance/portfolio.json
 ```
 
-最后一个命令无需模型、行情账号或联网。示例价格和汇率是人工假设：资产总值应为 **60000 CNY**，股票统一下跌 20% 后为 **50000 CNY**，现金不受股票冲击影响。数值使用 Decimal 计算；缺少币种或必要汇率时返回错误，不给出不完整估值。
+The calculation requires no model, market-data account or network connection. Example prices and exchange rates are assumptions: total value should be **60000 CNY**, declining to **50000 CNY** after a uniform 20% equity shock. Cash is unaffected. Decimal arithmetic preserves numerical precision; missing currency or required FX rates return an error instead of a partial valuation.
 
-配置与 workspace 是两个独立路径。所有命令支持放在子命令前的 `--config` 和 `--workspace`；已有的子命令局部参数仍可使用。省略参数时使用 `~/.marketbot/config.json` 和配置中的 workspace。自定义配置不存在时，先 `onboard`；现有文件损坏时命令会报错并保留文件。
+Configuration and workspace are separate paths. Every command accepts global `--config` and `--workspace` before the subcommand; existing local options remain available. Without overrides, commands use `~/.marketbot/config.json` and its configured workspace. Initialize a missing custom configuration with `onboard`. Invalid existing configuration fails without replacing the file.
 
-已有安装可执行以下命令补充金融默认配置，保留现有模型、渠道和用户设置：
+Refresh an existing installation while preserving provider, channel and user settings:
 
 ```bash
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" onboard --refresh
 ```
 
-## 金融研究流程
+## Choose English or Simplified Chinese
 
-### 1. 计算持仓并保留证据
+English is the default language: `agents.defaults.language` is `"en"`. Use `"zh"` for Simplified Chinese. Command names and JSON field names remain stable in English; original provider data and user-written research notes retain their text.
 
-`finance call` 直接运行金融工具，输入是 JSON 对象，输出是 JSON；失败会返回非零退出码。上面的持仓计算会返回 `evidenceRecordId`。把该 ID 写入查询文件，即可读取完整计算输入、结果和摘要校验信息：
+```json
+{"agents": {"defaults": {"language": "en"}}}
+```
+
+Use a global override for one invocation. Ordinary commands leave the saved preference unchanged. `onboard` is an explicit exception: creating or refreshing configuration saves the selected language.
 
 ```bash
-# 把 ev_... 替换为刚才返回的完整 evidenceRecordId
+marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" --language zh status
+marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" --language zh agent -m "研究600519、0700.HK和SPY，列出实际观测时间、证据与风险。"
+```
+
+Save a preference, inspect it, or switch back to English:
+
+```bash
+marketbot --config "$MARKETBOT_CONFIG_PATH" language --set zh
+marketbot --config "$MARKETBOT_CONFIG_PATH" language --json
+marketbot --config "$MARKETBOT_CONFIG_PATH" language --set en
+```
+
+Agent replies, market report sections and intelligence daily digest sections follow the selected language; an explicit user request for another output language takes priority. Initialization, language settings and key status screens support both languages. Technical `--help`, command names, JSON fields, provider errors and financial tool warnings retain their original text.
+
+The agent invocation requires a configured model. Existing custom workspace instructions are preserved; review any instructions that explicitly request a different response language. The Chinese documentation is available through the language links at the top of each guide.
+
+## Financial workflow
+
+### 1. Calculate a portfolio and retain evidence
+
+`finance call` executes financial tools directly, taking a JSON object and returning JSON. Failures use a nonzero exit code. Portfolio calculation returns an `evidenceRecordId`; retrieve its full calculation inputs, output and digest verification information:
+
+```bash
+# Replace ev_... with the complete evidenceRecordId from the calculation
 python -c 'import json; json.dump({"evidenceId": "ev_..."}, open(".local/readme/evidence.json", "w"))'
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" finance call evidence_get --input .local/readme/evidence.json
 ```
 
-`evidence_list` 可以按标的、类型和来源查询。原始观察时间 `observedAt`、发布时间 `publishedAt` 与采集时间分开存储；采集时间不能代替行情时间。证据引用用于追溯来源，不能证明来源本身一定正确。
+`evidence_list` supports symbol, kind and source filters. Observation, publication and retrieval timestamps remain separate; retrieval time cannot replace the actual source time. An evidence reference supports inspection, not a guarantee that the source is correct.
 
-### 2. 建立可复核的投资假设
+### 2. Create a verifiable investment hypothesis
 
 ```bash
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" finance call thesis_tracker --input examples/finance/thesis.json
 ```
 
-记录返回的 `thesis.id`。该示例只建立“价格低于 1000 CNY 时证伪”的假设，并保留 `confidence: 0`。后续 `update` 保存研究备注；`review` 使用证据 ID、JSON Pointer 和显式规则核对事实。负面文字、模型判断和缺失或过期数据不会自动证伪。完整的查询、复核和 FX 示例见 [金融工作流](docs/finance_workflows.md)。
+Retain the returned `thesis.id`. This example creates an explicit rule that falsifies the hypothesis if a verified observed price falls below 1000 CNY, and preserves zero confidence. `update` stores research notes; `review` checks evidence IDs and JSON Pointers against rules. Negative language, model opinions, missing facts and stale data cannot automatically falsify a thesis. See [financial workflows](docs/finance_workflows.md) for complete lookup, review and FX examples.
 
-### 3. 持续跟踪变化
+### 3. Monitor meaningful changes
 
 ```bash
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" finance call market_watch --input examples/finance/watch.json
-# 将 WATCH_ID 替换为返回的 watch.watchId
+# Replace WATCH_ID with the returned watch.watchId
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" finance poll WATCH_ID
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" finance schedule WATCH_ID --every-minutes 15
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" finance schedule-list
-# 后台持续运行；按 Ctrl+C 停止
+# Keep the process running; Ctrl+C stops it
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" gateway --finance-only
 ```
 
-`poll` 需要可用的公开行情接口。首次有效观察建立基线；默认价格变化以该固定基线比较，同一阈值事件只提醒一次。过期、未知时间、缺失行情或缺失 FX 产生 `data_gap`，不会推进基线；此时 `poll` 非零退出属于明确的数据质量失败。休市期间应合理调整 `maxAgeSeconds`，不要把旧收盘价当作当前价。
+`poll` requires a reachable public quote source. The first valid observation establishes a baseline; default price rules compare against that fixed baseline and alert once per threshold episode. Stale prices, unknown source times, missing quotes or FX produce `data_gap` without advancing the baseline. A nonzero poll exit code then signals a data-quality failure. Set `maxAgeSeconds` appropriately for market closures without presenting an old close as a current quote.
 
-调度只保存任务，运行中的 Gateway 才会执行。`--finance-only` 无需模型，只执行原生金融和情报定时任务；普通 Gateway 同时支持聊天、模型任务与 Heartbeat，需要模型配置。删除任务用 `finance unschedule JOB_ID`。本地提醒保存在 watch outbox，查询和确认使用 `market_watch` 的 `outbox` / `ack`；渠道投递需配置账号和明确的 `--deliver --channel CHANNEL --to TARGET`。投递按至少一次处理，失败后可能重试。
+Scheduling only persists a job. A running Gateway executes it. `--finance-only` runs native finance and intelligence jobs without a model. Full Gateway also handles chat, model jobs and Heartbeat and requires model configuration. Remove jobs with `finance unschedule JOB_ID`. Local alerts remain in the watch outbox; query and acknowledge them through `market_watch` actions `outbox` / `ack`. Channel delivery requires configured credentials and explicit `--deliver --channel CHANNEL --to TARGET`. Delivery is at least once, so retries can duplicate an externally received message.
 
-### 4. 获取行情、新闻和报告
+### 4. Retrieve market data and reports
 
 ```bash
 mkdir -p .local/readme
@@ -83,13 +119,13 @@ marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" f
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" market report --symbols 600519,0700.HK,SPY --save
 ```
 
-公开源可能限流、延迟或不可达。查看 `warnings`、`sourceHealth`、每条行情的 provider、currency、priceType 和时间；缺少新闻不代表没有事件。`mock` 明确标记为模拟。FRED 宏观数据和部分搜索、TickFlow、Alpha Vantage 能力需要独立 API key；未配置时应读取缺失提示，不把回退分数当作真实宏观事实。
+Public sources may be delayed, rate-limited or unavailable. Inspect warnings, source health and each quote's provider, currency, price type and timestamp. Empty news is not proof that nothing happened. Mock data is explicitly labeled. FRED and some search, TickFlow and Alpha Vantage capabilities require separate keys. Missing-data fallbacks are not actual macroeconomic observations.
 
-## 配置模型后使用 Agent
+## Configure a model and use the agent
 
-先完成上面的本地计算。模型账号仅在使用 `agent`、完整 Gateway、模型任务或模型 Heartbeat 时需要。
+Complete the local calculation first. A model is required for `agent`, full Gateway, model jobs and model Heartbeat.
 
-下面为 OpenAI 兼容接口的配置方式。把变量设置为你自己的服务地址、模型 ID 和 key；脚本合并到已有配置，不会移除金融预设。配置文件应留在本机。
+For an OpenAI-compatible service, set your own endpoint, model ID and key. The script merges provider settings into the existing configuration and retains the financial presets. Keep this file local.
 
 ```bash
 export MARKETBOT_MODEL='YOUR_MODEL_ID'
@@ -107,34 +143,34 @@ path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 path.chmod(0o600)
 PY
 unset MARKETBOT_API_KEY
-marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" agent -m "研究 600519、0700.HK 和 SPY：列出数据时间、证据、风险与待验证事项。"
+marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" agent -m "Research 600519, 0700.HK and SPY: show observation times, evidence, risks and open questions."
 ```
 
-交互模式为 `marketbot ... agent`，`--session` 指定会话，`--no-markdown` 输出纯文本。运行时支持工具调用、子任务、会话保存、记忆整理、技能选择与 MCP。结果质量还取决于模型和数据；确定性协议测试不能代替真实模型评测。其他提供商与 OAuth 登录见 [集成指南](docs/integrations.md)。
+Use `marketbot ... agent` for interactive chat, `--session` for a specific conversation and `--no-markdown` for plain text. The runtime supports tool calls, subtasks, saved sessions, memory consolidation, skill selection and MCP. Quality depends on the actual model and data; deterministic protocol fixtures do not assess real model quality. Other providers and OAuth login are covered in the [integration guide](docs/integrations.md).
 
-## 功能入口与边界
+## Features and boundaries
 
-| 功能 | 入口 | 使用条件与边界 |
+| Feature | Entry points | Requirements and limits |
 | --- | --- | --- |
-| 配置、初始化、诊断 | `onboard`, `status`, `channels status` | 状态显示配置和依赖可用性；OAuth `not_checked` 不表示已登录 |
-| 18 个原生金融工具 | `finance call`, Agent 工具调用 | 行情、基本面、新闻、情绪、宏观、规则信号、筹码估算、来源规划、事件提取、逻辑图、简报、情报查询、持仓、证据与假设、监控 |
-| 金融 MCP | `python -m marketbot.mcp.finance` | stdio 协议，12 个只读工具，复用原生实现；需要写操作的流程使用原生工具 |
-| 63 个内置技能及动态评分 | `skills search`, `skills install`, `skills score show/reset` | 研究方法、市场、ETF、组合、风险等；技能使用成功率不等于投资收益率 |
-| 情报采集与摘要 | `intel source-add/source-list/collect/digest-daily/digest-list/digest-show` | RSS / 网站来源，去重和本地数据库；页面正文抓取不等于完整网页解析 |
-| 原生定时任务 | `intel schedule-*`, `finance schedule*`, `gateway --finance-only` | 支持 cron / 间隔调度，进程需持续运行 |
-| Agent 与 Heartbeat | `agent`, `gateway`, `market heartbeat-setup` | 配置模型；Heartbeat 是模型驱动任务，finance-only 不运行它 |
-| 10 种聊天渠道 | `channels status/login`, `gateway` | Telegram、Discord、WhatsApp、Feishu、Mochat、DingTalk、Slack、Email、QQ、Matrix；真实账号验收另需平台凭据 |
-| 浏览器、飞书、小红书、Twitter | 配置 `tools.browser/larkCli/xiaohongshuCli/twitterCli` | 可选 CLI 桥接，需要安装工具和登录；外部写操作由权限策略约束 |
-| 本地 RL 与训练数据导出 | `rl evaluate/collect/build-dataset/train/export-openclaw` | 历史价格模拟、奖励计算和脚本导出；当前适配器不完成模型参数训练 |
-| RL HTTP 与指标服务 | `rl serve-env/serve-metrics`, `rl *openclaw*` | 独立本地 HTTP 服务和训练产物观察；Slime/GPU 执行需要外部训练环境 |
-| 容器部署 | Dockerfile / Compose | Gateway 是进程，不提供 HTTP API；WhatsApp bridge 需单独运行 |
+| Configuration and diagnostics | `onboard`, `status`, `channels status` | Configuration and dependency availability; OAuth `not_checked` does not mean logged in |
+| 18 native financial tools | `finance call`, agent tool calls | Quotes, fundamentals, news, sentiment, macro, rule signals, chip estimates, source planning, events, logic graphs, briefs, intelligence, portfolios, evidence, theses and watches |
+| Financial MCP | `python -m marketbot.mcp.finance` | stdio, 12 read-only tools sharing native implementations; use native tools for write workflows |
+| 63 bundled skills and scoring | `skills search/install`, `skills score show/reset` | Research, markets, ETFs, portfolios and risk; operational success scores are not investment returns |
+| Intelligence | `intel source-add/source-list/collect/digest-daily/digest-list/digest-show` | RSS and websites, deduplication and local storage; fetching HTML is not complete page understanding |
+| Native scheduling | `intel schedule-*`, `finance schedule*`, `gateway --finance-only` | Cron or interval jobs; keep the process running |
+| Agent and Heartbeat | `agent`, `gateway`, `market heartbeat-setup` | Require a model; finance-only does not execute model Heartbeat |
+| 10 chat channels | `channels status/login`, `gateway` | Telegram, Discord, WhatsApp, Feishu, Mochat, DingTalk, Slack, Email, QQ, Matrix; actual account tests require platform credentials |
+| Browser, Lark, Xiaohongshu, Twitter | `tools.browser/larkCli/xiaohongshuCli/twitterCli` configuration | Optional authenticated CLI bridges; external writes follow configured permissions |
+| Local RL and dataset exports | `rl evaluate/collect/build-dataset/train/export-openclaw` | Price simulation, rewards and export artifacts; current adapters do not train model parameters |
+| RL HTTP and metrics | `rl serve-env/serve-metrics`, `rl *openclaw*` | Separate local HTTP services and training artifact inspection; Slime/GPU execution requires an external environment |
+| Containers | Dockerfile / Compose | Gateway is a process without an HTTP API; WhatsApp bridge runs separately |
 
-`marketbot --help`、`marketbot finance --help`、`marketbot intel --help`、`marketbot rl --help` 给出完整参数。技能提示不新增数据接口；基本面摘要、筹码估算和规则信号也不等同于完整财报、真实持仓分布或收益保证。
+Consult `marketbot --help`, `marketbot finance --help`, `marketbot intel --help` and `marketbot rl --help` for full options. Skills do not add data APIs by themselves. Fundamental summaries, chip estimates and rule signals do not supply complete filings, actual ownership distributions or guaranteed returns.
 
-## 情报与 RL 示例
+## Intelligence and RL examples
 
 ```bash
-# 公共 RSS 是否可达取决于所在网络，记录实际返回的 Source ID
+# Public RSS availability depends on your network. Retain the actual Source ID.
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" intel source-add --name "Federal Reserve" --type rss --url https://www.federalreserve.gov/feeds/press_all.xml
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" intel source-list
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" intel collect
@@ -142,9 +178,9 @@ marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" i
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" intel digest-list
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" intel schedule-daily --every-minutes 60
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" intel schedule-list
-# 移除使用 intel schedule-remove JOB_ID；运行使用 gateway --finance-only
+# Remove with intel schedule-remove JOB_ID; run with gateway --finance-only
 
-# 示例价格仅用于模拟，并非历史回测结论
+# Illustrative prices, not a historical backtest conclusion
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" rl evaluate --symbol SPY --prices 100,101,99,103 --action buy --json
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" rl collect --symbol SPY --prices 100,101,99,103 --output .local/readme/episodes.jsonl --json
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" rl build-dataset --input .local/readme/episodes.jsonl --output .local/readme/dataset.jsonl
@@ -152,29 +188,29 @@ marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" r
 marketbot --config "$MARKETBOT_CONFIG_PATH" --workspace "$MARKETBOT_WORKSPACE" rl export-openclaw --dataset .local/readme/dataset.jsonl --output-dir .local/readme/openclaw --dry-run --json
 ```
 
-`rl train --no-dry-run` 目前也只导出适配器产物；生成的 Slime shim 使用规则信号，不是已训练模型的推理。OpenClaw 启动、指标和完整部署方法见 [集成指南](docs/integrations.md) 与 [RL 设计说明](docs/marketbot_rl_integration_plan.md)。
+`rl train --no-dry-run` currently also exports artifacts only. The generated Slime shim uses rule-based signals, not inference from a trained model. See the [integration guide](docs/integrations.md) and [RL design](docs/marketbot_rl_integration_plan.md) for launch, monitoring and environment requirements.
 
-## 复现评测
+## Reproduce the evaluation
 
 ```bash
 python -m pip install -e '.[dev]'
 python -m pytest tests
 python scripts/evaluate_finance.py --output .local/finance-evaluation.json
 python scripts/evaluate_readme.py --output .local/readme-evaluation.json
-# 可选：公开行情、新闻、宏观接口验收，依赖网络和源可用性
+# Optional public quote/news/macro checks, dependent on network and sources
 python scripts/evaluate_readme.py --network --output .local/readme-network-evaluation.json
 ```
 
-README 评测使用临时 workspace，按文档执行真实 CLI；RSS 和模型协议通过本地 HTTP fixture 验证，MCP 通过独立 stdio 进程验证。fixture 的结果标记为模拟，不代表真实模型质量、渠道送达、盈利能力或线上数据准确性。安装包也需在仓库外的干净虚拟环境复测。
+The README evaluator uses temporary workspaces and real CLI subprocesses, local HTTP fixtures for RSS and model protocols, and an independent MCP stdio process. Fixtures do not validate real model quality, external channel delivery, profitability or live data accuracy. Repeat the walkthrough with a clean wheel installation outside the repository.
 
-本轮评测的覆盖、问题修复与未配置项见 [功能评测报告](docs/readme_feature_evaluation_2026-10-03.md)。金融验收重点包含 Decimal 精度、跨币种估值、缺失 FX、证据完整性、过期数据、伪造观察、假设复核和提醒幂等性。
+See the [English-first evaluation](docs/english_first_language_evaluation_2026-10-03.md) for the current bilingual release checks and the [feature evaluation report](docs/readme_feature_evaluation_2026-10-03.md) for broader coverage, fixes and unconfigured integrations. Financial acceptance covers precision, FX, evidence integrity, stale data, forged observations, explicit hypothesis review and alert idempotency.
 
-## 架构与参考
+## Architecture and references
 
-`marketbot/agent` 负责 Agent 循环、会话、记忆、工具与技能；`runtime` 负责组装；`domain/market` 负责金融逻辑和证据存储；`domain/intel` 负责情报；`channels` 负责渠道；`mcp` 负责协议；`rl` 负责模拟和训练桥接。金融原生工具、CLI 与 MCP 共享领域实现。
+`marketbot/agent` owns the agent loop, sessions, memory, tools and skills; `runtime` composes services; `domain/market` owns financial logic and evidence; `domain/intel` owns intelligence; `channels` handles platforms; `mcp` owns the protocol; `rl` owns simulation and training bridges. CLI, native finance tools and MCP share domain implementations.
 
-Nanobot 本地参考由 `reference/nanobot.json` 记录来源和快照。本次同步到 `ae1eb02cd8a1266ea9912c048893310a28e9d9fe`；参考仓库放在 workspace 的共享 `reference/nanobot` 目录。该同步用于架构对照，MarketBot 的运行时仍由本仓库维护。
+`reference/nanobot.json` tracks the upstream reference snapshot, updated to `ae1eb02cd8a1266ea9912c048893310a28e9d9fe`. The local checkout lives in the workspace's shared `reference/nanobot` directory. MarketBot continues to maintain its own runtime.
 
-可借鉴的开源项目包括 [OpenBB](https://github.com/OpenBB-finance/OpenBB)、[TradingAgents](https://github.com/TauricResearch/TradingAgents)、[AI Hedge Fund](https://github.com/virattt/ai-hedge-fund)、[FinRobot](https://github.com/AI4Finance-Foundation/FinRobot)、[Qlib](https://github.com/microsoft/qlib) 和 [RD-Agent](https://github.com/microsoft/RD-Agent)。已整理其参考方向、许可证与取舍，见 [金融 Agent 产品方向](docs/marketbot_financial_agent_direction.md)。后续优先扩展用户持仓与研究档案、公司公告、事件日历、来源交叉核对和成本可观察性。
+Other references include [OpenBB](https://github.com/OpenBB-finance/OpenBB), [TradingAgents](https://github.com/TauricResearch/TradingAgents), [AI Hedge Fund](https://github.com/virattt/ai-hedge-fund), [FinRobot](https://github.com/AI4Finance-Foundation/FinRobot), [Qlib](https://github.com/microsoft/qlib) and [RD-Agent](https://github.com/microsoft/RD-Agent). Reference directions, licenses and tradeoffs are recorded in the [product direction](docs/marketbot_financial_agent_direction.md). Priorities include user portfolios and research history, filings, event calendars, source cross-checking and observable costs.
 
-MIT License。项目使用及分发第三方技能与参考代码时，应保留对应来源和许可证说明。
+MIT License. Preserve attribution and applicable licenses when distributing third-party skills or reference code.

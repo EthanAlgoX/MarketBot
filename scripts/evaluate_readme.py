@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import signal
 import sqlite3
 import subprocess
@@ -27,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class FixtureHandler(BaseHTTPRequestHandler):
     model_calls = 0
     tool_result = None
+    system_languages: list[str] = []
 
     def log_message(self, *_args):
         pass
@@ -47,6 +49,9 @@ class FixtureHandler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         payload = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         FixtureHandler.model_calls += 1
+        system = '\n'.join(str(message.get('content', '')) for message in payload.get('messages', []) if message.get('role') == 'system')
+        match = re.search(r'Default response language: (?:English|Simplified Chinese) \((en|zh)\)\.', system)
+        FixtureHandler.system_languages.append(match.group(1) if match else 'missing')
         results = [message for message in payload.get('messages', []) if message.get('role') == 'tool']
         if results:
             parsed = json.loads(results[-1]['content'])
@@ -79,8 +84,9 @@ class Walkthrough:
         self.env.pop('PYTHONPATH', None)
         self.env.pop('MARKETBOT_FINANCE_CONFIG', None)
 
-    def run(self, arguments, *, expect=0, timeout=40):
-        result = subprocess.run([self.python, '-m', 'marketbot', '--config', str(self.config), '--workspace', str(self.workspace), *map(str, arguments)], cwd=self.directory, env=self.env, capture_output=True, text=True, timeout=timeout)
+    def run(self, arguments, *, expect=0, timeout=40, language=None):
+        language_flags = ['--language', language] if language is not None else []
+        result = subprocess.run([self.python, '-m', 'marketbot', '--config', str(self.config), '--workspace', str(self.workspace), *language_flags, *map(str, arguments)], cwd=self.directory, env=self.env, capture_output=True, text=True, timeout=timeout)
         assert result.returncode == expect, f'{arguments}: exit {result.returncode}, expected {expect}: {(result.stdout + result.stderr)[-2500:]}'
         return result.stdout
 
@@ -89,11 +95,11 @@ class Walkthrough:
         assert result.returncode == 0, (result.stdout + result.stderr)[-2500:]
         return result.stdout
 
-    def call(self, tool, arguments=None, *, example=None, expect=0):
+    def call(self, tool, arguments=None, *, example=None, expect=0, language=None):
         path = ROOT / 'examples' / 'finance' / example if example else self.directory / 'input.json'
         if example is None:
             path.write_text(json.dumps(arguments or {}))
-        return json.loads(self.run(['finance', 'call', tool, '--input', path], expect=expect))
+        return json.loads(self.run(['finance', 'call', tool, '--input', path], expect=expect, language=language))
 
     def check(self, name, function, *, data='local/illustrative'):
         started = time.monotonic()
@@ -110,7 +116,8 @@ class Walkthrough:
         self.run(['onboard', '--refresh'])
         payload = json.loads(self.run(['status', '--json']))
         assert str(self.workspace) in json.dumps(payload)
-        return {'initialized': True, 'refresh': True}
+        assert payload['agent']['language'] == 'en'
+        return {'initialized': True, 'refresh': True, 'defaultLanguage': 'en'}
 
     def inventory(self):
         source = '''import json,io
@@ -139,17 +146,37 @@ print(json.dumps({"commands":rows,"nativeTools":18,"skills":len(skills)}))'''
         inventory = json.loads(self.code(source))
         commands = inventory['commands']
         checked = 0
+        documented = {}
+        selector_links = 0
         import shlex
-        for name in ('README.md', 'README_en.md', 'docs/integrations.md'):
-            for line in (ROOT / name).read_text().splitlines():
+        guides = ('README.md', 'README_zh-CN.md', 'README_en.md',
+                  'docs/integrations.md', 'docs/integrations_zh-CN.md',
+                  'docs/finance_workflows.md', 'docs/finance_workflows_zh-CN.md')
+        for name in guides:
+            document = ROOT / name
+            lines = document.read_text().splitlines()
+            selectors = dict(re.findall(r'\[(English|简体中文)\]\(([^)]+)\)', lines[0]))
+            assert set(selectors) == {'English', '简体中文'}, f'{name}: missing language selector'
+            for label, target in selectors.items():
+                linked = document.parent / target
+                assert linked.is_file(), f'{name}: broken {label} link {target}'
+                selector_links += 1
+            if name.startswith('README'):
+                assert selectors == {'English': 'README.md', '简体中文': 'README_zh-CN.md'}, name
+            documented[name] = 0
+            for line in lines:
                 if not line.startswith('marketbot '):
                     continue
                 tokens = shlex.split(line)
                 index, path = 1, []
                 while index < len(tokens):
                     token = tokens[index]
-                    if token in ('--config', '--workspace'):
-                        index += 2
+                    root_option = token.split('=')[0]
+                    if root_option in ('--config', '-c', '--workspace', '-w', '--language'):
+                        assert root_option in commands[''], f'{name}: unsupported root option {token}'
+                        if '=' not in token:
+                            assert index + 1 < len(tokens), f'{name}: missing value for {token}'
+                        index += 1 if '=' in token else 2
                     elif ' '.join([*path, token]) in commands:
                         path.append(token)
                         index += 1
@@ -162,7 +189,8 @@ print(json.dumps({"commands":rows,"nativeTools":18,"skills":len(skills)}))'''
                     if token.startswith('-'):
                         assert token.split('=')[0] in options, f'{name}: unsupported option {token} for {command_path}'
                 checked += 1
-        return {**{k: v for k, v in inventory.items() if k != 'commands'}, 'cliEntriesWithHelp': len(commands), 'documentedCommandsValidated': checked}
+                documented[name] += 1
+        return {**{k: v for k, v in inventory.items() if k != 'commands'}, 'cliEntriesWithHelp': len(commands), 'documentedCommandsValidated': checked, 'documentedCommandsByGuide': documented, 'languageSelectorLinksValidated': selector_links}
 
     def portfolio(self):
         result = self.call('portfolio_risk', example='portfolio.json')
@@ -305,16 +333,75 @@ async def main():
 asyncio.run(main())'''
         return json.loads(self.code(source, self.config, self.workspace))
 
-    def agent(self, url):
+    def agent(self, url, *, language=None, expected_language='en', session='cli:readme-en'):
         data = json.loads(self.config.read_text())
         data['agents']['defaults'].update(provider='custom', model='readme-protocol-fixture')
         data['providers']['custom'].update(apiKey='no-key', apiBase=url + '/v1')
         self.config.write_text(json.dumps(data))
-        output = self.run(['agent', '--no-markdown', '-m', 'Calculate a supplied USD holding: AAPL quantity 0.1, price 0.2. Use portfolio_risk.'], timeout=55)
+        before = FixtureHandler.model_calls
+        output = self.run(['agent', '--session', session, '--no-markdown', '-m', 'Calculate a supplied USD holding: AAPL quantity 0.1, price 0.2. Use portfolio_risk.'], timeout=55, language=language)
         assert 'README_PROTOCOL_OK' in output and 'totalValue=0.02' in output, output
-        assert FixtureHandler.model_calls == 2 and FixtureHandler.tool_result['evidenceRecordId']
+        calls = FixtureHandler.model_calls - before
+        assert calls == 2 and FixtureHandler.tool_result['evidenceRecordId']
+        assert FixtureHandler.system_languages[before:] == [expected_language] * calls, FixtureHandler.system_languages
         assert list((self.workspace / 'sessions').glob('*.jsonl'))
-        return {'httpModelCalls': 2, 'realToolTotalValue': '0.02', 'evidenceRecorded': True, 'sessionSaved': True, 'actualModelQuality': 'not_tested'}
+        return {'httpModelCalls': calls, 'systemPromptLanguage': expected_language, 'session': session, 'realToolTotalValue': '0.02', 'evidenceRecorded': True, 'sessionSaved': True, 'actualModelQuality': 'not_tested'}
+
+    def language(self, url):
+        assert FixtureHandler.model_calls == 2 and FixtureHandler.system_languages == ['en', 'en'], 'The English Agent must run first'
+        assert json.loads(self.run(['language', '--json']))['language'] == 'en'
+        original = self.config.read_bytes()
+        assert 'marketbot 状态' in self.run(['status'], language='zh')
+        temporary = json.loads(self.run(['status', '--json'], language='zh'))
+        assert temporary['agent']['language'] == 'zh'
+        assert self.config.read_bytes() == original, 'A temporary override modified configuration'
+
+        data = json.loads(original)
+        original_market = data['tools']['market'].copy()
+        data['tools']['market'].update(quoteSource='mock', newsSources=[], macroSource='manual')
+        self.config.write_text(json.dumps(data))
+        brief_input = {'symbols': ['600519'], 'includeNews': False, 'includeMacro': False, 'includeSocial': False, 'includeChips': False, 'includeFundamentals': False}
+        portfolio_input = {'baseCurrency': 'USD', 'holdings': [{'symbol': 'AAPL', 'quantity': '0.1', 'price': '0.2', 'currency': 'USD'}]}
+        try:
+            english_brief = self.call('market_brief', brief_input)
+            english_portfolio = self.call('portfolio_risk', portfolio_input)
+            assert '### Quote Observations' in english_brief['briefMarkdown'], 'The default brief is not English'
+            with sqlite3.connect(self.workspace / 'data' / 'intel.db') as conn:
+                source_facts = conn.execute('SELECT id,title,url,content_text FROM intel_raw_items ORDER BY id').fetchall()
+
+            self.run(['language', '--set', 'zh'])
+            assert json.loads(self.config.read_text())['agents']['defaults']['language'] == 'zh'
+            assert json.loads(self.run(['language', '--json']))['language'] == 'zh'
+            chinese_brief = self.call('market_brief', brief_input)
+            chinese_portfolio = self.call('portfolio_risk', portfolio_input)
+            assert '### 行情观察' in chinese_brief['briefMarkdown'] and chinese_brief['language'] == 'zh', 'The persisted Chinese language did not reach the brief'
+            assert set(english_brief) == set(chinese_brief), 'Brief JSON fields changed with language'
+            quote_keys = ('symbol', 'price', 'currency', 'provider', 'priceType')
+            def quote_facts(brief):
+                return [{key: row.get(key) for key in quote_keys} for row in brief['snapshot']['quotes']]
+            assert quote_facts(english_brief) == quote_facts(chinese_brief), 'Quote source facts changed with language'
+            assert english_brief['snapshot']['warnings'] == chinese_brief['snapshot']['warnings'], 'Original quote warnings were translated'
+            assert set(english_portfolio) == set(chinese_portfolio), 'Portfolio JSON fields changed with language'
+            for key in ('baseCurrency', 'totalValue', 'holdings', 'cash', 'concentration', 'scenarios'):
+                assert english_portfolio.get(key) == chinese_portfolio.get(key), key
+            assert chinese_portfolio['totalValue'] == '0.02'
+
+            self.run(['intel', 'digest-daily', '--hours', '24', '--limit', '20', '--no-save'])
+            with sqlite3.connect(self.workspace / 'data' / 'intel.db') as conn:
+                title, markdown = conn.execute('SELECT title,body_markdown FROM intel_digests ORDER BY id DESC LIMIT 1').fetchone()
+                assert title.startswith('情报日报') and '## 摘要' in markdown and '## 主要条目' in markdown, 'The persisted Chinese language did not reach the digest'
+                assert 'SPY illustrative event' in markdown, 'Source text was translated'
+                assert conn.execute('SELECT id,title,url,content_text FROM intel_raw_items ORDER BY id').fetchall() == source_facts
+            chinese_agent = self.agent(url, expected_language='zh', session='cli:readme-zh')
+            assert FixtureHandler.model_calls == 4
+        finally:
+            restored = json.loads(self.config.read_text())
+            restored['tools']['market'] = original_market
+            self.config.write_text(json.dumps(restored))
+            self.run(['language', '--set', 'en'])
+        assert json.loads(self.config.read_text())['agents']['defaults']['language'] == 'en'
+        assert json.loads(self.run(['status', '--json']))['agent']['language'] == 'en'
+        return {'defaultLanguage': 'en', 'temporaryChineseDidNotPersist': True, 'persistedChinese': True, 'chineseBriefAndIntelDigest': True, 'jsonSchemaAndSourceFactsPreserved': True, 'quoteRows': len(chinese_brief['snapshot']['quotes']), 'illustrativePortfolioTotalValue': chinese_portfolio['totalValue'], 'originalRSSItemsPreserved': len(source_facts), 'chineseAgent': chinese_agent, 'totalHttpModelCalls': 4, 'systemPromptLanguages': FixtureHandler.system_languages, 'restoredLanguage': 'en'}
 
     def rl(self):
         episode = self.directory / 'episodes.jsonl'
@@ -359,6 +446,9 @@ def main():
     python = args.python.absolute()  # Do not resolve venv symlinks to the system interpreter.
     with tempfile.TemporaryDirectory(prefix='marketbot-readme-') as directory:
         run = Walkthrough(python, Path(directory))
+        FixtureHandler.model_calls = 0
+        FixtureHandler.tool_result = None
+        FixtureHandler.system_languages = []
         server = ThreadingHTTPServer(('127.0.0.1', 0), FixtureHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -376,6 +466,7 @@ def main():
             run.check('MCP_stdio_initialize_list_and_call', run.mcp, data='real stdio, illustrative portfolio')
             run.check('RL_simulate_collect_dataset_export_and_inspect', run.rl)
             run.check('agent_HTTP_tool_evidence_session_roundtrip', lambda: run.agent(url), data='local HTTP OpenAI-compatible fixture')
+            run.check('english_default_temporary_and_persistent_chinese_roundtrip', lambda: run.language(url), data='local HTTP model/RSS fixtures and supplied portfolio prices')
             if args.network:
                 run.check('public_quote_news_macro_probe', run.network, data='real public sources, no paid credentials')
         finally:

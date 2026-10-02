@@ -9,6 +9,8 @@ from typing import Any
 from rich.table import Table
 
 from marketbot.config.finance import mcp_configuration_status
+from marketbot.config.loader import get_language
+from marketbot.i18n import msg
 from marketbot.runtime.diagnostics import collect_runtime_diagnostics
 
 
@@ -27,10 +29,12 @@ def _local_command_status(command: Any) -> dict[str, Any]:
 
 def render_channels_status_table(config: Any) -> Table:
     """Build the channel status table for CLI output."""
-    table = Table(title="Channel Status")
-    table.add_column("Channel", style="cyan")
-    table.add_column("Enabled", style="green")
-    table.add_column("Configuration", style="yellow")
+    language = get_language(config)
+    table = Table(title=msg("Channel Status", "渠道状态", language))
+    table.add_column(msg("Channel", "渠道", language), style="cyan")
+    table.add_column(msg("Enabled", "已启用", language), style="green")
+    table.add_column(msg("Configuration", "配置", language), style="yellow")
+    missing = f"[dim]{msg('not configured', '未配置', language)}[/dim]"
 
     wa = config.channels.whatsapp
     table.add_row("WhatsApp", "✓" if wa.enabled else "✗", wa.bridge_url)
@@ -39,31 +43,31 @@ def render_channels_status_table(config: Any) -> Table:
     table.add_row("Discord", "✓" if dc.enabled else "✗", dc.gateway_url)
 
     fs = config.channels.feishu
-    fs_config = f"app_id: {fs.app_id[:10]}..." if fs.app_id else "[dim]not configured[/dim]"
+    fs_config = f"app_id: {fs.app_id[:10]}..." if fs.app_id else missing
     table.add_row("Feishu", "✓" if fs.enabled else "✗", fs_config)
 
     mc = config.channels.mochat
-    mc_base = mc.base_url or "[dim]not configured[/dim]"
+    mc_base = mc.base_url or missing
     table.add_row("Mochat", "✓" if mc.enabled else "✗", mc_base)
 
     tg = config.channels.telegram
-    tg_config = f"token: {tg.token[:10]}..." if tg.token else "[dim]not configured[/dim]"
+    tg_config = f"token: {tg.token[:10]}..." if tg.token else missing
     table.add_row("Telegram", "✓" if tg.enabled else "✗", tg_config)
 
     slack = config.channels.slack
-    slack_config = "socket" if slack.app_token and slack.bot_token else "[dim]not configured[/dim]"
+    slack_config = "socket" if slack.app_token and slack.bot_token else missing
     table.add_row("Slack", "✓" if slack.enabled else "✗", slack_config)
 
     dt = config.channels.dingtalk
-    dt_config = f"client_id: {dt.client_id[:10]}..." if dt.client_id else "[dim]not configured[/dim]"
+    dt_config = f"client_id: {dt.client_id[:10]}..." if dt.client_id else missing
     table.add_row("DingTalk", "✓" if dt.enabled else "✗", dt_config)
 
     qq = config.channels.qq
-    qq_config = f"app_id: {qq.app_id[:10]}..." if qq.app_id else "[dim]not configured[/dim]"
+    qq_config = f"app_id: {qq.app_id[:10]}..." if qq.app_id else missing
     table.add_row("QQ", "✓" if qq.enabled else "✗", qq_config)
 
     em = config.channels.email
-    em_config = em.imap_host if em.imap_host else "[dim]not configured[/dim]"
+    em_config = em.imap_host if em.imap_host else missing
     table.add_row("Email", "✓" if em.enabled else "✗", em_config)
     matrix = config.channels.matrix
     table.add_row("Matrix", "✓" if matrix.enabled else "✗", matrix.homeserver)
@@ -74,6 +78,7 @@ def build_channels_status_payload(config: Any) -> dict[str, Any]:
     """Build machine-readable channel status for CLI automation."""
     channels = config.channels
     return {
+        "language": get_language(config),
         "channels": [
             {
                 "name": "whatsapp",
@@ -164,6 +169,7 @@ def build_status_payload(
         },
         "agent": {
             "model": config.agents.defaults.model,
+            "language": get_language(config),
         },
         "finance": {
             "enabled": bool(config.tools.market.enabled),
@@ -277,132 +283,95 @@ def render_status(
 ) -> None:
     """Render the human-readable status command output."""
     payload = build_status_payload(config, config_path, bus=bus, session_manager=session_manager)
+    language = get_language(config)
     workspace = config.workspace_path
     browser = payload["browser"]
     twitter_cli = payload["twitterCli"]
     lark_cli = payload["larkCli"]
     xhs_cli = payload["xiaohongshuCli"]
 
-    console.print(f"{logo} marketbot Status\n")
-    console.print(f"Config: {config_path} {'[green]✓[/green]' if config_path.exists() else '[red]✗[/red]'}")
-    console.print(f"Workspace: {workspace} {'[green]✓[/green]' if workspace.exists() else '[red]✗[/red]'}")
-    console.print("Finance tools: " + ("[green]enabled[/green]" if payload["finance"]["enabled"] else "[dim]disabled[/dim]"))
+    def show(english: str, chinese: str, value: Any) -> None:
+        console.print(f"{msg(english, chinese, language)}: {value}", markup=False, soft_wrap=True)
+
+    def enabled(value: bool) -> str:
+        return msg("enabled", "已启用", language) if value else msg("disabled", "已禁用", language)
+
+    def cli_status(settings: dict[str, Any]) -> str:
+        if not settings["enabled"]:
+            return enabled(False)
+        return "✓" if settings["commandAvailable"] else msg("! command not found", "! 未找到可执行命令", language)
+
+    console.print(msg(f"{logo} marketbot Status\n", f"{logo} marketbot 状态\n", language), markup=False)
+    show("Language", "语言", "English (en)" if language == "en" else "中文（zh）")
+    show("Config", "配置", f"{config_path} {'✓' if config_path.exists() else '✗'}")
+    show("Workspace", "工作区", f"{workspace} {'✓' if workspace.exists() else '✗'}")
+    show("Finance tools", "金融工具", enabled(payload["finance"]["enabled"]))
     for server in payload["mcp"]:
-        console.print(f"MCP {server['name']}: {server['state']} ({server['transport']})")
+        show(f"MCP {server['name']}", f"MCP {server['name']}", f"{server['state']} ({server['transport']})")
         if server["enabled"] and server["missingEnv"]:
-            console.print(f"  Missing environment: {', '.join(server['missingEnv'])}")
+            show("  Missing environment", "  缺少环境变量", ", ".join(server["missingEnv"]))
 
-    browser_status = "[green]✓[/green]" if browser["enabled"] else "[dim]disabled[/dim]"
-    if browser["enabled"] and not browser["commandFound"]:
-        browser_status = "[yellow]! command not found[/yellow]"
-    console.print(f"Browser: {browser_status}")
+    show("Browser", "浏览器", cli_status(browser))
     if browser["enabled"]:
-        console.print(f"Browser mode: {browser['mode']}")
-        console.print(f"Browser command: {browser['command']}")
-        console.print("Browser eval: " + ("[red]enabled[/red]" if browser["allowEval"] else "[dim]disabled[/dim]"))
-        console.print(
-            "Browser request capture: "
-            + ("[yellow]enabled[/yellow]" if browser["allowRequestCapture"] else "[dim]disabled[/dim]")
-        )
-        console.print(
-            "Browser request bodies: "
-            + ("[red]enabled[/red]" if browser["allowRequestBodies"] else "[dim]disabled[/dim]")
-        )
+        show("Browser mode", "浏览器模式", browser["mode"])
+        show("Browser command", "浏览器命令", browser["command"])
+        show("Browser eval", "浏览器脚本执行", enabled(browser["allowEval"]))
+        show("Browser request capture", "浏览器请求捕获", enabled(browser["allowRequestCapture"]))
+        show("Browser request bodies", "浏览器请求正文", enabled(browser["allowRequestBodies"]))
         if browser["allowSites"]:
-            console.print(f"Browser allowSites: {', '.join(browser['allowSites'])}")
+            show("Browser allowSites", "浏览器允许的网站", ", ".join(browser["allowSites"]))
         if browser["allowAdapters"]:
-            console.print(f"Browser allowAdapters: {', '.join(browser['allowAdapters'])}")
+            show("Browser allowAdapters", "浏览器允许的适配器", ", ".join(browser["allowAdapters"]))
         if browser["allowDomains"]:
-            console.print(f"Browser allowDomains: {', '.join(browser['allowDomains'])}")
+            show("Browser allowDomains", "浏览器允许的域名", ", ".join(browser["allowDomains"]))
         if browser["allowUrlPrefixes"]:
-            console.print(f"Browser allowUrlPrefixes: {', '.join(browser['allowUrlPrefixes'])}")
+            show("Browser allowUrlPrefixes", "浏览器允许的 URL 前缀", ", ".join(browser["allowUrlPrefixes"]))
 
-    lark_status = "[green]✓[/green]" if lark_cli["enabled"] else "[dim]disabled[/dim]"
-    if lark_cli["enabled"] and not lark_cli["commandFound"]:
-        lark_status = "[yellow]! command not found[/yellow]"
-    console.print(f"Lark CLI: {lark_status}")
+    show("Lark CLI", "飞书 CLI", cli_status(lark_cli))
     if lark_cli["enabled"]:
-        console.print(f"Lark CLI command: {lark_cli['command']}")
+        show("Lark CLI command", "飞书 CLI 命令", lark_cli["command"])
         if lark_cli["configDir"]:
-            console.print(f"Lark CLI configDir: {lark_cli['configDir']}")
-        console.print(
-            "Lark CLI writes: " + ("[yellow]enabled[/yellow]" if lark_cli["allowWrite"] else "[dim]disabled[/dim]")
-        )
-        console.print(
-            "Lark CLI auth: " + ("[yellow]enabled[/yellow]" if lark_cli["allowAuth"] else "[dim]disabled[/dim]")
-        )
+            show("Lark CLI configDir", "飞书 CLI 配置目录", lark_cli["configDir"])
+        show("Lark CLI writes", "飞书 CLI 写入权限", enabled(lark_cli["allowWrite"]))
+        show("Lark CLI auth", "飞书 CLI 授权操作", enabled(lark_cli["allowAuth"]))
 
-    twitter_status = "[green]✓[/green]" if twitter_cli["enabled"] else "[dim]disabled[/dim]"
-    if twitter_cli["enabled"] and not twitter_cli["commandFound"]:
-        twitter_status = "[yellow]! command not found[/yellow]"
-    console.print(f"Twitter CLI: {twitter_status}")
+    show("Twitter CLI", "Twitter CLI", cli_status(twitter_cli))
     if twitter_cli["enabled"]:
-        console.print(f"Twitter CLI command: {twitter_cli['command']}")
+        show("Twitter CLI command", "Twitter CLI 命令", twitter_cli["command"])
         if twitter_cli["browser"]:
-            console.print(f"Twitter CLI browser: {twitter_cli['browser']}")
+            show("Twitter CLI browser", "Twitter CLI 浏览器", twitter_cli["browser"])
         if twitter_cli["chromeProfile"]:
-            console.print(f"Twitter CLI chromeProfile: {twitter_cli['chromeProfile']}")
+            show("Twitter CLI chromeProfile", "Twitter CLI 浏览器用户配置", twitter_cli["chromeProfile"])
         if twitter_cli["proxy"]:
-            console.print(f"Twitter CLI proxy: {twitter_cli['proxy']}")
+            show("Twitter CLI proxy", "Twitter CLI 代理", twitter_cli["proxy"])
         if twitter_cli["homeDir"]:
-            console.print(f"Twitter CLI homeDir: {twitter_cli['homeDir']}")
-        console.print(
-            "Twitter CLI writes: "
-            + ("[yellow]enabled[/yellow]" if twitter_cli["allowWrite"] else "[dim]disabled[/dim]")
-        )
+            show("Twitter CLI homeDir", "Twitter CLI 数据目录", twitter_cli["homeDir"])
+        show("Twitter CLI writes", "Twitter CLI 写入权限", enabled(twitter_cli["allowWrite"]))
 
-    xhs_status = "[green]✓[/green]" if xhs_cli["enabled"] else "[dim]disabled[/dim]"
-    if xhs_cli["enabled"] and not xhs_cli["commandAvailable"]:
-        xhs_status = "[yellow]! command not found[/yellow]"
-    console.print(f"Xiaohongshu CLI: {xhs_status}")
+    show("Xiaohongshu CLI", "小红书 CLI", cli_status(xhs_cli))
     if xhs_cli["enabled"]:
-        console.print(f"Xiaohongshu CLI command: {xhs_cli['command']}", markup=False, soft_wrap=True)
-        console.print(f"Xiaohongshu CLI cookie source: {xhs_cli['cookieSource']}", markup=False, soft_wrap=True)
+        show("Xiaohongshu CLI command", "小红书 CLI 命令", xhs_cli["command"])
+        show("Xiaohongshu CLI cookie source", "小红书 CLI Cookie 来源", xhs_cli["cookieSource"])
         if xhs_cli["homeDir"]:
-            console.print(f"Xiaohongshu CLI homeDir: {xhs_cli['homeDir']}", markup=False, soft_wrap=True)
-        console.print(
-            "Xiaohongshu CLI writes (post): "
-            + ("[yellow]enabled[/yellow]" if xhs_cli["allowWrite"] else "[dim]disabled[/dim]")
-        )
-        console.print("Xiaohongshu CLI: login status not checked")
+            show("Xiaohongshu CLI homeDir", "小红书 CLI 数据目录", xhs_cli["homeDir"])
+        show("Xiaohongshu CLI writes (post)", "小红书 CLI 发布权限（post）", enabled(xhs_cli["allowWrite"]))
+        show("Xiaohongshu CLI", "小红书 CLI", msg("login status not checked", "未检查登录状态", language))
 
     if config_path.exists():
-        console.print(f"Model: {config.agents.defaults.model}")
+        show("Model", "模型", config.agents.defaults.model)
         for spec in payload["providers"]:
             if spec["type"] == "oauth":
-                console.print(f"{spec['label']}: [dim]OAuth login status not checked[/dim]")
+                show(spec["label"], spec["label"], msg("OAuth login status not checked", "未检查 OAuth 登录状态", language))
             elif spec["type"] == "local":
-                if spec.get("apiBase"):
-                    console.print(f"{spec['label']}: [green]✓ {spec['apiBase']}[/green]")
-                else:
-                    console.print(f"{spec['label']}: [dim]not set[/dim]")
+                show(spec["label"], spec["label"], f"✓ {spec['apiBase']}" if spec.get("apiBase") else msg("not set", "未设置", language))
             else:
-                configured = bool(spec["configured"])
-                console.print(f"{spec['label']}: {'[green]✓[/green]' if configured else '[dim]not set[/dim]'}")
+                show(spec["label"], spec["label"], "✓" if spec["configured"] else msg("not set", "未设置", language))
     if payload.get("bus"):
         inbound = payload["bus"]["inbound"]
         outbound = payload["bus"]["outbound"]
-        console.print(
-            "Queue inbound: "
-            + f"{inbound['size']}/{inbound['maxsize']} "
-            + f"(published={inbound['published']}, wait={inbound['publish_wait_s']:.3f}s)"
-        )
-        console.print(
-            "Queue outbound: "
-            + f"{outbound['size']}/{outbound['maxsize']} "
-            + f"(published={outbound['published']}, wait={outbound['publish_wait_s']:.3f}s)"
-        )
+        show("Queue inbound", "接收队列", f"{inbound['size']}/{inbound['maxsize']} (published={inbound['published']}, wait={inbound['publish_wait_s']:.3f}s)")
+        show("Queue outbound", "发送队列", f"{outbound['size']}/{outbound['maxsize']} (published={outbound['published']}, wait={outbound['publish_wait_s']:.3f}s)")
     if payload.get("sessions"):
         sessions = payload["sessions"]
-        console.print(
-            "Sessions: "
-            + f"stored={sessions['storedSessions']} "
-            + f"cached={sessions['cachedSessions']} "
-            + f"cached_messages={sessions['cachedMessages']}"
-        )
-        console.print(
-            "Session storage: "
-            + f"bytes={sessions['storedBytes']} "
-            + f"legacy={sessions['legacySessions']} "
-            + f"compact_threshold={sessions['compactMetadataThreshold']}"
-        )
+        show("Sessions", "会话", f"stored={sessions['storedSessions']} cached={sessions['cachedSessions']} cached_messages={sessions['cachedMessages']}")
+        show("Session storage", "会话存储", f"bytes={sessions['storedBytes']} legacy={sessions['legacySessions']} compact_threshold={sessions['compactMetadataThreshold']}")

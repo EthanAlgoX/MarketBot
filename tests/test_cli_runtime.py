@@ -24,6 +24,7 @@ def test_build_agent_runtime_wires_config_into_agent_loop(monkeypatch, tmp_path)
     config = Config()
     config.agents.defaults.workspace = str(tmp_path)
     config.agents.defaults.model = "test-model"
+    config.agents.defaults.language = "zh"
     config.tools.web.search.api_key = "brave-key"
     config.tools.web.proxy = "http://127.0.0.1:8080"
     config.tools.restrict_to_workspace = True
@@ -67,6 +68,7 @@ def test_build_agent_runtime_wires_config_into_agent_loop(monkeypatch, tmp_path)
     assert captured["agent_kwargs"]["brave_api_key"] == "brave-key"
     assert captured["agent_kwargs"]["web_proxy"] == "http://127.0.0.1:8080"
     assert captured["agent_kwargs"]["restrict_to_workspace"] is True
+    assert captured["agent_kwargs"]["language"] == "zh"
 
 
 def test_make_provider_passes_custom_extra_headers() -> None:

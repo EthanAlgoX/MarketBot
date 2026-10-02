@@ -8,9 +8,11 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from marketbot.config.schema import Config
+from marketbot.i18n import Language
 
 _config_override: ContextVar[Path | None] = ContextVar("marketbot_config_path", default=None)
 _workspace_override: ContextVar[Path | None] = ContextVar("marketbot_workspace", default=None)
+_language_override: ContextVar[str | None] = ContextVar("marketbot_language", default=None)
 _cli_scope: ContextVar[bool] = ContextVar("marketbot_cli_scope", default=False)
 
 
@@ -19,25 +21,40 @@ class ConfigurationError(ValueError):
 
 
 @contextmanager
-def configuration_scope(config_path: Path | None = None, workspace: Path | None = None):
+def configuration_scope(
+    config_path: Path | None = None,
+    workspace: Path | None = None,
+    language: str | Language | None = None,
+):
     """Apply CLI defaults only for this invocation, including its async tasks."""
+    selected_language = Language(language).value if language is not None else None
     config_token = _config_override.set(config_path.expanduser().resolve() if config_path else None)
     workspace_token = _workspace_override.set(workspace.expanduser().resolve() if workspace else None)
+    language_token = _language_override.set(selected_language)
     cli_token = _cli_scope.set(True)
     try:
         yield
     finally:
         _cli_scope.reset(cli_token)
+        _language_override.reset(language_token)
         _workspace_override.reset(workspace_token)
         _config_override.reset(config_token)
 
 
 def apply_config_overrides(config: Config) -> Config:
-    """Apply the scoped workspace to loaded or newly initialized settings."""
+    """Apply invocation overrides to loaded or newly initialized settings."""
     workspace = _workspace_override.get()
     if workspace is not None:
         config.agents.defaults.workspace = str(workspace)
+    language = _language_override.get()
+    if language is not None:
+        config.agents.defaults.language = language
     return config
+
+
+def get_language(config: Config | None = None) -> str:
+    """Return the invocation flag, configured language, or English default."""
+    return _language_override.get() or (config.agents.defaults.language if config is not None else "en")
 
 
 def get_config_path() -> Path:
@@ -51,12 +68,18 @@ def get_data_dir() -> Path:
     return get_data_path()
 
 
-def load_config(config_path: Path | None = None, *, strict: bool = False) -> Config:
+def load_config(
+    config_path: Path | None = None,
+    *,
+    strict: bool = False,
+    apply_overrides: bool = True,
+) -> Config:
     """
     Load configuration from file or create default.
 
     Args:
         config_path: Optional path to config file. Uses default if not provided.
+        apply_overrides: Apply invocation language/workspace overrides when true.
 
     Returns:
         Loaded configuration object.
@@ -73,7 +96,8 @@ def load_config(config_path: Path | None = None, *, strict: bool = False) -> Con
             if not isinstance(data, dict):
                 raise ValueError("Configuration root must be an object")
             data = _migrate_config(data)
-            return apply_config_overrides(Config.model_validate(data))
+            config = Config.model_validate(data)
+            return apply_config_overrides(config) if apply_overrides else config
         except (json.JSONDecodeError, ValueError, OSError) as e:
             diagnostic = _safe_diagnostic(e)
             if strict:
@@ -81,7 +105,8 @@ def load_config(config_path: Path | None = None, *, strict: bool = False) -> Con
             print(f"Warning: Invalid configuration at {path}; existing file was preserved ({diagnostic})")
             print("Using default configuration.")
 
-    return apply_config_overrides(Config())
+    config = Config()
+    return apply_config_overrides(config) if apply_overrides else config
 
 
 def _safe_diagnostic(error: Exception) -> str:

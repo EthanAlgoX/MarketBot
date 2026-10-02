@@ -15,6 +15,8 @@ from uuid import uuid4
 
 from loguru import logger
 
+from marketbot.agent.response_language import effective_response_language
+from marketbot.i18n import localized
 from marketbot.providers.base import ToolCallRequest
 
 _TOOL_EXECUTION_SCOPE: ContextVar[tuple[tuple[Any, frozenset[str] | None], ...]] = ContextVar(
@@ -255,11 +257,15 @@ def _should_auto_generate_twitter_image(text: str) -> bool:
 def _extract_xiaohongshu_publish_payload(raw_text: str) -> tuple[str, str] | None:
     """Extract title/body from a free-form publish request."""
     text = str(raw_text or "").replace("\r\n", "\n")
-    for marker in ("内容如下", "如下"):
-        idx = text.find(marker)
-        if idx >= 0:
-            text = text[idx + len(marker):]
-            break
+    english_marker = re.search(r"\bcontent below\s*[:：]", text, re.IGNORECASE)
+    if english_marker:
+        text = text[english_marker.end():]
+    else:
+        for marker in ("内容如下", "如下"):
+            idx = text.find(marker)
+            if idx >= 0:
+                text = text[idx + len(marker):]
+                break
     lines: list[str] = []
     for raw_line in text.split("\n"):
         line = raw_line.strip()
@@ -288,11 +294,15 @@ def _extract_xiaohongshu_publish_payload(raw_text: str) -> tuple[str, str] | Non
 def _extract_twitter_publish_text(raw_text: str) -> str | None:
     """Extract tweet body from a free-form publish request."""
     text = str(raw_text or "").replace("\r\n", "\n")
-    for marker in ("内容如下", "如下"):
-        idx = text.find(marker)
-        if idx >= 0:
-            text = text[idx + len(marker):]
-            break
+    english_marker = re.search(r"\bcontent below\s*[:：]", text, re.IGNORECASE)
+    if english_marker:
+        text = text[english_marker.end():]
+    else:
+        for marker in ("内容如下", "如下"):
+            idx = text.find(marker)
+            if idx >= 0:
+                text = text[idx + len(marker):]
+                break
     lines: list[str] = []
     for raw_line in text.split("\n"):
         line = raw_line.strip()
@@ -448,7 +458,7 @@ def _twitter_retry_candidates(text: str) -> list[str]:
     return candidates
 
 
-def _twitter_duplicate_retry_candidates(text: str) -> list[str]:
+def _twitter_duplicate_retry_candidates(text: str, *, language: str = "en") -> list[str]:
     """Build minimal variants for Twitter duplicate-content rejections."""
     base = str(text or "").strip()
     if not base:
@@ -457,7 +467,7 @@ def _twitter_duplicate_retry_candidates(text: str) -> list[str]:
     variants = (
         f"{base}\n\n#MarketBot",
         f"{base}\n\nvia MarketBot",
-        f"{base}\n\n更新版",
+        f"{base}\n\n{localized('Updated', '更新版', language)}",
     )
     for candidate in variants:
         normalized = candidate.strip()
@@ -516,11 +526,11 @@ def _tweet_payload_has_media(result: str) -> bool:
     return False
 
 
-def _format_xiaohongshu_publish_result(result: str) -> str:
+def _format_xiaohongshu_publish_result(result: str, *, language: str = "en") -> str:
     """Return a compact user-facing publish confirmation."""
     text = str(result or "").strip()
     if not text:
-        return "小红书已发送。"
+        return localized('Xiaohongshu posted.', '小红书已发送。', language)
     try:
         payload = json.loads(text)
     except Exception:
@@ -531,25 +541,25 @@ def _format_xiaohongshu_publish_result(result: str) -> str:
         data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
         note_id = str(data.get("id") or "").strip()
         score = data.get("score")
-        message = "小红书已发送成功。"
+        message = localized('Xiaohongshu posted successfully.', '小红书已发送成功。', language)
         if note_id:
             message += f"\nID: `{note_id}`"
         if isinstance(score, (int, float)):
-            message += f"\n质量分: {score}"
+            message += f"\n{localized('Quality score', '质量分', language)}: {score}"
         return message
     error = payload.get("error")
     if isinstance(error, dict):
         detail = str(error.get("message") or error.get("type") or "").strip()
         if detail:
-            return f"小红书发送失败：{detail}"
+            return localized("Xiaohongshu post failed: ", "小红书发送失败：", language) + detail
     return text
 
 
-def _format_twitter_publish_result(result: str) -> str:
+def _format_twitter_publish_result(result: str, *, language: str = "en") -> str:
     """Return a compact user-facing Twitter publish confirmation."""
     text = str(result or "").strip()
     if not text:
-        return "推特已发送。"
+        return localized('Twitter posted.', '推特已发送。', language)
     try:
         payload = json.loads(text)
     except Exception:
@@ -560,21 +570,21 @@ def _format_twitter_publish_result(result: str) -> str:
         data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
         tweet_id = str(data.get("id") or data.get("tweet_id") or data.get("rest_id") or "").strip()
         url = str(data.get("url") or "").strip()
-        message = "推特已发送成功。"
+        message = localized('Twitter posted successfully.', '推特已发送成功。', language)
         if tweet_id:
             message += f"\nID: `{tweet_id}`"
         if url:
-            message += f"\n链接: {url}"
+            message += f"\n{localized('Link', '链接', language)}: {url}"
         return message
     error = payload.get("error")
     if isinstance(error, dict):
         detail = str(error.get("message") or error.get("type") or "").strip()
         if detail:
-            return f"推特发送失败：{detail}"
+            return localized("Twitter post failed: ", "推特发送失败：", language) + detail
     return text
 
 
-def _summarize_xiaohongshu_titles(notes: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
+def _summarize_xiaohongshu_titles(notes: list[dict[str, Any]], *, language: str = "en") -> tuple[list[str], list[str]]:
     """Infer style and content themes from note titles."""
     titles = [str((note or {}).get("title") or "").strip() for note in notes if str((note or {}).get("title") or "").strip()]
     joined = "\n".join(titles)
@@ -582,37 +592,37 @@ def _summarize_xiaohongshu_titles(notes: list[dict[str, Any]]) -> tuple[list[str
     content: list[str] = []
 
     if any(token in joined for token in ("复盘", "总结", "周记", "月报")):
-        style.append("复盘总结型")
+        style.append(localized('Reviews and recaps', '复盘总结型', language))
     if any(token in joined for token in ("教程", "方法", "步骤", "入门", "建议")):
-        style.append("方法教程型")
+        style.append(localized('Guides and tutorials', '方法教程型', language))
     if any(token in joined for token in ("避坑", "不要", "提醒", "风险")):
-        style.append("避坑提醒型")
+        style.append(localized('Risk and pitfall reminders', '避坑提醒型', language))
     if any(token in joined for token in ("清单", "盘点", "合集", "模板")):
-        style.append("清单模板型")
+        style.append(localized('Checklists and templates', '清单模板型', language))
     if any(char in joined for char in ("？", "!", "！")) or any(token in joined for token in ("为什么", "如何", "到底")):
-        style.append("问题钩子标题")
+        style.append(localized('Question-led titles', '问题钩子标题', language))
     if any(any(ch.isdigit() for ch in title) for title in titles):
-        style.append("数字结果导向")
+        style.append(localized('Results expressed in numbers', '数字结果导向', language))
     if not style:
-        style.append("经验分享型")
+        style.append(localized('Personal experiences', '经验分享型', language))
 
     if any(token in joined for token in ("副业", "赚钱", "变现", "收入")):
-        content.append("个人赚钱路径与副业变现")
+        content.append(localized('Personal income and side businesses', '个人赚钱路径与副业变现', language))
     if any(token in joined for token in ("理财", "存钱", "基金", "资产配置")):
-        content.append("个人理财与资产配置")
+        content.append(localized('Personal finance and asset allocation', '个人理财与资产配置', language))
     if any(token in joined for token in ("股票", "A股", "港股", "美股", "交易")):
-        content.append("股票市场观察与交易经验")
+        content.append(localized('Stock market observations and trading experiences', '股票市场观察与交易经验', language))
     if any(token in joined for token in ("风险", "回撤", "仓位", "止损")):
-        content.append("风险控制与仓位管理")
+        content.append(localized('Risk controls and position sizing', '风险控制与仓位管理', language))
     if any(token in joined for token in ("心态", "认知", "情绪", "复盘")):
-        content.append("交易心态与认知复盘")
+        content.append(localized('Trading psychology and lessons learned', '交易心态与认知复盘', language))
     if not content:
-        content.append("金融入门、理财经验和市场热点解读")
+        content.append(localized('Finance basics, personal experiences, and market topics', '金融入门、理财经验和市场热点解读', language))
 
     return style[:4], content[:4]
 
 
-def _format_xiaohongshu_research_result(keyword: str, result: str) -> str:
+def _format_xiaohongshu_research_result(keyword: str, result: str, *, language: str = "en") -> str:
     """Turn compact xiaohongshu_cli search JSON into a concise user-facing analysis."""
     text = str(result or "").strip()
     try:
@@ -626,31 +636,31 @@ def _format_xiaohongshu_research_result(keyword: str, result: str) -> str:
         if isinstance(error, dict):
             detail = str(error.get("message") or error.get("type") or "").strip()
             if detail:
-                return f"小红书搜索失败：{detail}"
+                return localized("Xiaohongshu search failed: ", "小红书搜索失败：", language) + detail
         return text
     data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
     notes = data.get("notes") if isinstance(data.get("notes"), list) else []
     titles = [str((note or {}).get("title") or "").strip() for note in notes if str((note or {}).get("title") or "").strip()]
-    style, content = _summarize_xiaohongshu_titles(notes)
+    style, content = _summarize_xiaohongshu_titles(notes, language=language)
     engagement = data.get("engagement") if isinstance(data.get("engagement"), dict) else {}
-    lines = [f"小红书热门“{keyword}”相关帖子，当前更像这几种风格："]
+    lines = [localized('Popular Xiaohongshu posts about "{keyword}" show these styles:', '小红书热门“{keyword}”相关帖子，当前更像这几种风格：', language).format(keyword=keyword)]
     lines.extend(f"- {item}" for item in style)
     lines.append("")
-    lines.append("内容方向主要集中在：")
+    lines.append(localized('Main content themes:', '内容方向主要集中在：', language))
     lines.extend(f"- {item}" for item in content)
     if titles:
         lines.append("")
-        lines.append("样本标题：")
+        lines.append(localized('Sample titles:', '样本标题：', language))
         lines.extend(f"- {title}" for title in titles[:4])
     sample_size = engagement.get("sample_size")
     avg_likes = engagement.get("avg_likes")
     if sample_size:
         lines.append("")
-        lines.append(f"样本量: {sample_size}")
+        lines.append(f"{localized('Sample size', '样本量', language)}: {sample_size}")
         if isinstance(avg_likes, (int, float)):
-            lines.append(f"平均点赞: {avg_likes}")
+            lines.append(f"{localized('Average likes', '平均点赞', language)}: {avg_likes}")
     lines.append("")
-    lines.append("判断依据：以上结论基于热门标题样本的归纳，不是全文内容分析。")
+    lines.append(localized('Basis: these observations summarize sampled popular titles; they are not an analysis of the full content.', '判断依据：以上结论基于热门标题样本的归纳，不是全文内容分析。', language))
     return "\n".join(lines)
 
 
@@ -988,12 +998,12 @@ async def _direct_xiaohongshu_publish(loop: Any, messages: list[dict[str, Any]])
         return "Error: xiaohongshu_cli tool is not available."
     payload = _extract_xiaohongshu_publish_payload(raw_text)
     if payload is None:
-        return "Error: 未能解析小红书标题和正文，请在“内容如下”后提供标题和正文。"
+        return localized('Error: Could not parse the Xiaohongshu title and body. Provide them after "Content below:".', 'Error: 未能解析小红书标题和正文，请在“内容如下”后提供标题和正文。', effective_response_language(getattr(loop, "language", "en")))
     title, body = payload
     try:
         _, image_path = await _render_xiaohongshu_poster(_resolve_publish_workspace(loop), title, body)
     except Exception as exc:
-        return f"Error: 自动生成小红书图片失败: {exc}"
+        return localized("Error: Xiaohongshu image generation failed: ", "Error: 自动生成小红书图片失败: ", effective_response_language(getattr(loop, "language", "en"))) + str(exc)
     result = await _execute_scoped_tool(loop,
         "xiaohongshu_cli",
         {
@@ -1003,7 +1013,7 @@ async def _direct_xiaohongshu_publish(loop: Any, messages: list[dict[str, Any]])
             "images": [str(image_path)],
         },
     )
-    return _format_xiaohongshu_publish_result(result)
+    return _format_xiaohongshu_publish_result(result, language=effective_response_language(getattr(loop, "language", "en")))
 
 
 async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> str | None:
@@ -1017,7 +1027,7 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
         return "Error: twitter_cli tool is not available."
     content = _extract_twitter_publish_text(raw_text)
     if not content:
-        return "Error: 未能解析推文正文，请在“内容如下”后提供正文。"
+        return localized('Error: Could not parse the tweet. Provide its text after "Content below:".', 'Error: 未能解析推文正文，请在“内容如下”后提供正文。', effective_response_language(getattr(loop, "language", "en")))
     images: list[str] = []
     if _should_auto_generate_twitter_image(raw_text):
         try:
@@ -1051,7 +1061,7 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
                 break
     lowered = str(result or "").lower()
     if "(187)" in lowered or "duplicate" in lowered:
-        for variant in _twitter_duplicate_retry_candidates(post_text):
+        for variant in _twitter_duplicate_retry_candidates(post_text, language=effective_response_language(getattr(loop, "language", "en"))):
             result = await _execute_scoped_tool(loop,
                 "twitter_cli",
                 {
@@ -1063,7 +1073,7 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
             lowered = str(result or "").lower()
             if "(187)" not in lowered and "duplicate" not in lowered:
                 break
-    formatted = _format_twitter_publish_result(result)
+    formatted = _format_twitter_publish_result(result, language=effective_response_language(getattr(loop, "language", "en")))
     tweet_id = _extract_twitter_publish_id(result)
     if images and tweet_id:
         try:
@@ -1079,7 +1089,7 @@ async def _direct_twitter_publish(loop: Any, messages: list[dict[str, Any]]) -> 
         except Exception:
             verify = None
         if verify is not None and not _tweet_payload_has_media(verify):
-            return f"{formatted}\n注意：发推成功，但未校验到配图已挂载，请打开链接确认。"
+            return formatted + "\n" + localized("Note: the tweet was posted, but its image attachment could not be verified. Open the link to check.", "注意：发推成功，但未校验到配图已挂载，请打开链接确认。", effective_response_language(getattr(loop, "language", "en")))
     return formatted
 
 
@@ -1103,7 +1113,7 @@ async def _direct_xiaohongshu_research(loop: Any, messages: list[dict[str, Any]]
             "page": 1,
         },
     )
-    return _format_xiaohongshu_research_result(keyword, result)
+    return _format_xiaohongshu_research_result(keyword, result, language=effective_response_language(getattr(loop, "language", "en")))
 
 
 def _summarize_tool_payload(tool_name: str, result: str) -> str | None:

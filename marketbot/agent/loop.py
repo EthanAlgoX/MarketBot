@@ -128,6 +128,7 @@ class AgentLoop:
         market_config: MarketToolsConfig | None = None,
         memory_layer: str = "L1",
         layered_consolidation: bool = False,
+        language: str = "en",
     ):
         from marketbot.config.schema import ExecToolConfig
         workspace = self._normalize_workspace(workspace)
@@ -153,8 +154,9 @@ class AgentLoop:
         self.market_config = market_config
         self.memory_layer = memory_layer
         self.layered_consolidation = layered_consolidation
+        self.language = language
 
-        self.context = ContextBuilder(workspace)
+        self.context = ContextBuilder(workspace, language=language)
         self.context.set_memory_layer(self.memory_layer)
         self.memory_store = MemoryStore(workspace)
         self.retriever = RecursiveRetriever(self.memory_store)
@@ -182,6 +184,7 @@ class AgentLoop:
             lark_cli_config=lark_cli_config,
             exec_config=self.exec_config,
             restrict_to_workspace=restrict_to_workspace,
+            language=language,
         )
         self.processor = MessageProcessor(
             context=self.context,
@@ -253,6 +256,7 @@ class AgentLoop:
             lark_cli_config=self.lark_cli_config,
             cron_service=self.cron_service,
             market_config=self.market_config,
+            language=self.language,
         )
         register_core_tools(self.tools, ctx)
         MarketDomainPlugin().register(self.tools, ctx)
@@ -400,13 +404,18 @@ class AgentLoop:
         """Convert routed external skill suggestions into install-ready suggestions."""
         return response_postprocess.build_external_skill_install_suggestions(self)
 
-    @staticmethod
     def _append_external_skill_suggestions(
+        self,
         final_content: str | None,
         suggestions: list[dict[str, str]] | None,
     ) -> str | None:
         """Append install-ready external skill suggestions to the final reply."""
-        return response_postprocess.append_external_skill_suggestions(final_content, suggestions)
+        from marketbot.agent.response_language import effective_response_language
+
+        return response_postprocess.append_external_skill_suggestions(
+            final_content, suggestions,
+            language=effective_response_language(getattr(self, "language", "en")),
+        )
 
     def _build_response_metadata(
         self,
@@ -782,10 +791,14 @@ class AgentLoop:
         """Return True when the payload is an error/debug response instead of a real report."""
         return request_policy.looks_like_daily_opportunity_failure(content)
 
-    @staticmethod
-    def _append_saved_report_path(final_content: str | None, report_path: Path | None) -> str | None:
+    def _append_saved_report_path(self, final_content: str | None, report_path: Path | None) -> str | None:
         """Append the local markdown path when a report was persisted."""
-        return response_postprocess.append_saved_report_path(final_content, report_path)
+        from marketbot.agent.response_language import effective_response_language
+
+        return response_postprocess.append_saved_report_path(
+            final_content, report_path,
+            language=effective_response_language(getattr(self, "language", "en")),
+        )
 
     def _match_daily_opportunity_report_query(self, text: str | None) -> bool:
         """Return True when the user is asking for saved daily-opportunity report locations."""
@@ -953,16 +966,26 @@ class AgentLoop:
         on_progress: Callable[[str], Awaitable[None]] | None = None,
     ) -> OutboundMessage | None:
         async with self._turn_lock:
+            from marketbot.agent.response_language import (
+                effective_response_language,
+                response_language_scope,
+            )
+            from marketbot.i18n import msg as localized
             from marketbot.session.storage import SessionConflictError
 
-            try:
-                return await self._process_message_unlocked(msg, session_key, on_progress)
-            except SessionConflictError:
-                return OutboundMessage(
-                    channel=msg.channel, chat_id=msg.chat_id,
-                    content="This session was updated by another running instance. Saved messages were preserved. Retry after checking any actions already performed.",
-                    metadata={"error": "session_conflict", "retryable": True},
-                )
+            with response_language_scope(msg.content, default=getattr(self, "language", "en")):
+                try:
+                    return await self._process_message_unlocked(msg, session_key, on_progress)
+                except SessionConflictError:
+                    return OutboundMessage(
+                        channel=msg.channel, chat_id=msg.chat_id,
+                        content=localized(
+                            "This session was updated by another running instance. Saved messages were preserved. Retry after checking any actions already performed.",
+                            "当前会话已被另一个运行实例更新，已保存的消息得以保留。请检查已执行的操作后重试。",
+                            effective_response_language(getattr(self, "language", "en")),
+                        ),
+                        metadata={"error": "session_conflict", "retryable": True},
+                    )
 
     async def _process_message_unlocked(
         self,

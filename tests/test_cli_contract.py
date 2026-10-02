@@ -176,6 +176,7 @@ def test_invalid_intel_commands_fail_before_persisting(tmp_path, isolated_cli, c
 
 async def test_gateway_intel_jobs_use_runtime_workspace_and_close_database(tmp_path):
     opened, closed = [], []
+    languages = []
     connection = SimpleNamespace(close=lambda: closed.append(True))
     workspace = tmp_path / "overridden"
 
@@ -187,10 +188,15 @@ async def test_gateway_intel_jobs_use_runtime_workspace_and_close_database(tmp_p
         assert conn is connection
         return []
 
-    handler = create_cron_job_handler(config_path=tmp_path / "config.json", workspace=workspace, agent=None, native_only=True, bus=MessageBus(), open_intel_db=open_db, collect_intel_sources=collect, render_intel_collect_summary=lambda _results: "collected", build_intel_daily_digest=lambda *args, **kwargs: None)
+    def summary(_results, *, language):
+        languages.append(language)
+        return "collected"
+
+    handler = create_cron_job_handler(config_path=tmp_path / "config.json", workspace=workspace, language="zh", agent=None, native_only=True, bus=MessageBus(), open_intel_db=open_db, collect_intel_sources=collect, render_intel_collect_summary=summary, build_intel_daily_digest=lambda *args, **kwargs: None)
     assert await handler(SimpleNamespace(payload=CronPayload(kind="intel_collect"))) == "collected"
     assert opened == [(tmp_path / "config.json", workspace)]
     assert closed == [True]
+    assert languages == ["zh"]
 
 
 async def test_scheduled_intel_collection_marks_total_failure(tmp_path):
@@ -309,14 +315,14 @@ def test_market_report_passes_workspace_to_finance_tool(tmp_path, isolated_cli, 
     constructed = []
 
     class Brief:
-        def __init__(self, config, *, workspace):
-            constructed.append(workspace)
+        def __init__(self, config, *, workspace, language):
+            constructed.append((workspace, language))
 
     def report(**kwargs):
         kwargs["market_brief_tool_factory"](kwargs["config"].tools.market)
 
     monkeypatch.setattr(market_tools, "MarketBriefTool", Brief)
     monkeypatch.setattr(commands, "run_market_report", report)
-    result = runner.invoke(commands.app, ["--config", str(path), "market", "report", "--symbols", "SPY"])
+    result = runner.invoke(commands.app, ["--config", str(path), "--language", "zh", "market", "report", "--symbols", "SPY"])
     assert result.exit_code == 0, result.exception
-    assert constructed == [workspace]
+    assert constructed == [(workspace, "zh")]

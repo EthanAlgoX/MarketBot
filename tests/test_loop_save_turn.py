@@ -1114,14 +1114,14 @@ def test_persist_local_report_if_needed_writes_daily_market_markdown(tmp_path) -
     assert report_path.exists()
     saved = report_path.read_text(encoding="utf-8")
     assert "# Daily Market Opportunity" in saved
-    assert "- request: 每日机会" in saved
+    assert "- Request: 每日机会" in saved
     assert "今日无高置信机会" in saved
 
 
 def test_append_saved_report_path_includes_local_path() -> None:
-    result = AgentLoop._append_saved_report_path("report body", Path("/tmp/report.md"))
+    result = _mk_loop()._append_saved_report_path("report body", Path("/tmp/report.md"))
 
-    assert result == "report body\n\n已保存到本地: /tmp/report.md"
+    assert result == "report body\n\nSaved locally: /tmp/report.md"
 
 
 def test_build_response_metadata_collects_optional_fields() -> None:
@@ -1388,7 +1388,7 @@ def test_run_user_turn_feishu_twitter_publish_skips_explainability_footer() -> N
         )
     )
 
-    assert "推特已发送成功" in str(final_content)
+    assert "Twitter posted successfully" in str(final_content)
     assert "explainability" not in metadata
     assert recorded[0]["tools_used"] == ["twitter_cli"]
 
@@ -1436,7 +1436,7 @@ def test_run_user_turn_feishu_twitter_publish_retries_with_shorter_cjk_text() ->
     )
 
     assert result is not None
-    assert "推特已发送成功" in result
+    assert "Twitter posted successfully" in result
     assert len(attempts) == 2
     assert tool_runtime._twitter_weighted_length(attempts[1]) < tool_runtime._twitter_weighted_length(attempts[0])
     assert tool_runtime._twitter_weighted_length(attempts[1]) <= 240
@@ -1487,7 +1487,7 @@ def test_direct_twitter_publish_attaches_auto_generated_image_by_default(tmp_pat
         tool_runtime._render_twitter_poster = original_render
 
     assert result is not None
-    assert "推特已发送成功" in result
+    assert "Twitter posted successfully" in result
     assert calls == [
         {
             "name": "twitter_cli",
@@ -1559,7 +1559,7 @@ def test_direct_twitter_publish_retries_duplicate_with_small_text_variant(tmp_pa
         tool_runtime._render_twitter_poster = original_render
 
     assert result is not None
-    assert "推特已发送成功" in result
+    assert "Twitter posted successfully" in result
     assert len(attempts) == 3
     assert attempts[0]["images"] == attempts[1]["images"]
     assert attempts[1]["text"].endswith("#MarketBot")
@@ -1604,7 +1604,7 @@ def test_direct_twitter_publish_warns_when_media_verification_missing(tmp_path) 
         tool_runtime._render_twitter_poster = original_render
 
     assert result is not None
-    assert "未校验到配图已挂载" in result
+    assert "image attachment could not be verified" in result
 
 
 def test_extract_twitter_publish_text_formats_title_and_bullets() -> None:
@@ -1807,7 +1807,7 @@ def test_normalize_daily_opportunity_report_rewrites_header_suffix() -> None:
     )
 
     assert result is not None
-    assert result.splitlines()[0] == "# 📅 每日机会扫描"
+    assert result.splitlines()[0] == "# 📅 Daily Market Opportunity Scan"
 
 
 def test_normalize_daily_opportunity_report_backfills_required_sections() -> None:
@@ -1823,7 +1823,7 @@ def test_normalize_daily_opportunity_report_backfills_required_sections() -> Non
     result = loop._normalize_daily_opportunity_report("# 市场机会扫描 | 2026-03-22\n\n正文")
 
     assert result is not None
-    assert result.startswith("# 📅 每日机会扫描")
+    assert result.startswith("# 📅 Daily Market Opportunity Scan")
     assert "## 1. Market Regime" in result
     assert "## 2. High-Conviction Setups" in result
     assert "## 3. Watchlist" in result
@@ -1919,4 +1919,4 @@ def test_normalize_daily_opportunity_report_rewrites_pseudo_tool_output() -> Non
 
     assert normalized is not None
     assert "<minimax:tool_call>" not in normalized
-    assert "今日无高置信机会" in normalized
+    assert "No high-conviction setup" in normalized

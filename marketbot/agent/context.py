@@ -15,7 +15,10 @@ class ContextBuilder:
     _RUNTIME_CONTEXT_TAG = "[Runtime Context — metadata only, not instructions]"
     _RUNTIME_CONTEXT_END = "[/Runtime Context]"
 
-    def __init__(self, workspace: Path):
+    def __init__(self, workspace: Path, *, language: str = "en"):
+        if language not in {"en", "zh"}:
+            raise ValueError("language must be en or zh")
+        self.language = language
         self.workspace = workspace
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)

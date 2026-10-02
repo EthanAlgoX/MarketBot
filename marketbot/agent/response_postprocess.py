@@ -7,6 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from marketbot.agent.response_language import effective_response_language
+from marketbot.i18n import localized
 from marketbot.market_reporting import (
     render_analysis_explainability,
     render_analysis_explainability_summary,
@@ -55,6 +57,10 @@ def is_publish_result_message(content: str | None) -> bool:
         "推特发送失败",
         "小红书已发送",
         "小红书发送失败",
+        "Twitter posted",
+        "Twitter post failed",
+        "Xiaohongshu posted",
+        "Xiaohongshu post failed",
     )
     return bool(normalized) and normalized.startswith(publish_prefixes)
 
@@ -72,14 +78,16 @@ def build_chat_explainability(loop, messages: list[dict], *, channel: str) -> di
     payload = extract_market_brief_payload(messages)
     mode = loop._resolve_explainability_mode(channel)
     delivery = loop._resolve_explainability_delivery(channel)
+    language = effective_response_language(getattr(loop, "language", "en"))
     inline_footer = render_chat_explainability_footer_for_channel(
         payload,
         skill_routing=skill_routing,
         channel=channel,
         mode=mode,
+        language=language,
     )
-    summary = render_analysis_explainability_summary(payload, skill_routing=skill_routing)
-    details = render_analysis_explainability(payload, skill_routing=skill_routing)
+    summary = render_analysis_explainability_summary(payload, skill_routing=skill_routing, language=language)
+    details = render_analysis_explainability(payload, skill_routing=skill_routing, language=language)
     if not any((inline_footer, summary, details)):
         return None
     return {
@@ -117,18 +125,22 @@ def build_external_skill_install_suggestions(loop) -> list[dict[str, str]]:
 def append_external_skill_suggestions(
     final_content: str | None,
     suggestions: list[dict[str, str]] | None,
+    *,
+    language: str = "en",
 ) -> str | None:
     """Append install-ready external skill suggestions to the final reply."""
     if not final_content or not suggestions:
         return final_content
-    lines = ["## External Skill Suggestions"]
+    language = effective_response_language(language)
+    lines = [localized("## External Skill Suggestions", "## 外部技能建议", language)]
     for item in suggestions[:3]:
         name = item.get("name", "").strip()
         command = item.get("install_command", "").strip()
         description = item.get("description", "").strip()
         if not name or not command:
             continue
-        line = f"- `{name}`: install with `{command}`"
+        instruction = localized("install with", "安装命令", language)
+        line = f"- `{name}`: {instruction} `{command}`"
         if description:
             line += f" — {description}"
         lines.append(line)
@@ -163,24 +175,26 @@ def persist_local_report_if_needed(
     report_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     report_path = report_dir / f"{stamp}-daily-market-opportunity.md"
+    language = effective_response_language(getattr(loop, "language", "en"))
     header = [
-        "# Daily Market Opportunity",
+        localized("# Daily Market Opportunity", "# 每日市场机会", language),
         "",
-        f"- generated_at: {datetime.now().isoformat()}",
+        f"- {localized('Generated at', '生成时间', language)}: {datetime.now().isoformat()}",
     ]
     clean_request = str(request_text or "").strip()
     if clean_request:
-        header.append(f"- request: {clean_request}")
+        header.append(f"- {localized('Request', '用户请求', language)}: {clean_request}")
     header.extend(["", "---", "", final_content.rstrip(), ""])
     report_path.write_text("\n".join(header), encoding="utf-8")
     return report_path
 
 
-def append_saved_report_path(final_content: str | None, report_path: Path | None) -> str | None:
+def append_saved_report_path(final_content: str | None, report_path: Path | None, *, language: str = "en") -> str | None:
     """Append the local markdown path when a report was persisted."""
     if not final_content or report_path is None:
         return final_content
-    note = f"已保存到本地: {report_path}"
+    language = effective_response_language(language)
+    note = f"{localized('Saved locally', '已保存到本地', language)}: {report_path}"
     if note in final_content:
         return final_content
     return f"{final_content.rstrip()}\n\n{note}"

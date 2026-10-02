@@ -75,7 +75,9 @@ def maybe_persist_market_report(
     return report_path
 
 
-def render_market_report_output(*, console: Any, payload: dict[str, Any], json_output: bool) -> None:
+def render_market_report_output(
+    *, console: Any, payload: dict[str, Any], json_output: bool
+) -> None:
     """Render the final CLI output for market report."""
     if json_output:
         console.print_json(data=payload)
@@ -130,7 +132,11 @@ def run_market_report(
     )
     from marketbot.agent.tools.finance_evidence import capture_finance_result
 
-    payload = json.loads(capture_finance_result(config.workspace_path, "market_brief", json.dumps(payload, ensure_ascii=False)))
+    payload = json.loads(
+        capture_finance_result(
+            config.workspace_path, "market_brief", json.dumps(payload, ensure_ascii=False)
+        )
+    )
     resolved_session = resolve_market_report_session(
         normalized_session=normalized_session,
         timezone=timezone,
@@ -143,6 +149,7 @@ def run_market_report(
         headline=headline,
         session=resolved_session,
         timezone_name=timezone,
+        language=config.agents.defaults.language,
     )
     report_path = maybe_persist_market_report(
         config=config,
@@ -168,8 +175,11 @@ def run_market_report(
             timezone_name=timezone,
             report_path=report_path,
             channel=channel_name,
+            language=config.agents.defaults.language,
         )
-        asyncio.run(send_message_once(config, channel_name, target_chat_id, notify_text, [str(report_path)]))
+        asyncio.run(
+            send_message_once(config, channel_name, target_chat_id, notify_text, [str(report_path)])
+        )
         console.print(f"[green]✓[/green] Sent report to {channel_name}:{target_chat_id}")
 
     render_market_report_output(console=console, payload=payload, json_output=json_output)

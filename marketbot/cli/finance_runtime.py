@@ -45,7 +45,7 @@ def call_finance_tool(
     except (ValueError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from None
     registry = ToolRegistry()
-    for item in create_market_tools(config.tools.market, config.workspace_path):
+    for item in create_market_tools(config.tools.market, config.workspace_path, language=config.agents.defaults.language):
         if (item.name.startswith("market_") and item.name not in {"market_source_plan", "market_watch"}) or item.name == "portfolio_risk":
             item = FinanceEvidenceTool(item, config.workspace_path)
         registry.register(item)

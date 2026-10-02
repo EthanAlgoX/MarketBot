@@ -113,5 +113,6 @@ def build_agent_runtime(
         market_config=config.tools.market,
         memory_layer=config.agents.defaults.memory_layer,
         layered_consolidation=config.agents.defaults.layered_consolidation,
+        language=config.agents.defaults.language,
     )
     return AgentRuntime(bus=bus, provider=provider, cron=cron, agent_loop=agent_loop)

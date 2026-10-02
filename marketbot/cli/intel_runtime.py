@@ -55,28 +55,38 @@ async def collect_intel_sources(conn, *, scope: str, scope_key: str):
     return results
 
 
-def render_intel_collect_summary(results) -> str:
+def render_intel_collect_summary(results, *, language: str = "en") -> str:
     """Render a compact summary for intel collection runs."""
     total_sources = len(results)
     ok_count = sum(1 for item in results if item.ok)
     inserted = sum(int(getattr(item, "items_inserted", 0) or 0) for item in results)
+    from marketbot.i18n import msg
+
     lines = [
-        f"Intel collect completed: {ok_count}/{total_sources} sources ok.",
-        f"Inserted items: {inserted}",
+        msg(
+            f"Intel collect completed: {ok_count}/{total_sources} sources ok.",
+            f"情报采集完成：{ok_count}/{total_sources} 个来源成功。",
+            language,
+        ),
+        msg(f"Inserted items: {inserted}", f"新增条目：{inserted}", language),
     ]
     errors = [item for item in results if not item.ok and item.error]
     if errors:
-        lines.append("Errors:")
+        lines.append(msg("Errors:", "错误：", language))
         lines.extend(f"- source #{item.source_id}: {item.error}" for item in errors[:5])
     return "\n".join(lines)
 
 
-def build_intel_daily_digest(conn, *, scope: str, scope_key: str, hours: int, limit: int):
+def build_intel_daily_digest(
+    conn, *, scope: str, scope_key: str, hours: int, limit: int, language: str = "en"
+):
     """Build and load the latest daily digest for a scope."""
     from marketbot.domain.intel.digest import build_daily_digest
     from marketbot.domain.intel.storage import get_digest
 
-    digest_id = build_daily_digest(conn, scope=scope, scope_key=scope_key, hours=hours, limit=limit)
+    digest_id = build_daily_digest(
+        conn, scope=scope, scope_key=scope_key, hours=hours, limit=limit, language=language
+    )
     digest = get_digest(conn, digest_id)
     if digest is None:
         raise ValueError("The newly created intel digest could not be loaded")

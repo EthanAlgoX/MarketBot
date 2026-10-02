@@ -56,6 +56,7 @@ class ToolBootstrapContext:
     lark_cli_config: "LarkCliToolsConfig | None" = None
     cron_service: "CronService | None" = None
     market_config: "MarketToolsConfig | None" = None
+    language: str = "en"
 
 
 class DomainPlugin(Protocol):

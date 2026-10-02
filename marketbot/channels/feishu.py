@@ -13,10 +13,12 @@ from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
+from marketbot.agent.response_language import resolve_response_language
 from marketbot.bus.events import OutboundMessage
 from marketbot.bus.queue import MessageBus
 from marketbot.channels.base import BaseChannel
 from marketbot.config.schema import FeishuConfig
+from marketbot.i18n import localized
 
 FEISHU_AVAILABLE = importlib.util.find_spec("lark_oapi") is not None
 
@@ -1023,7 +1025,7 @@ class FeishuChannel(BaseChannel):
             # Send an immediate acknowledgement so longer analyses do not look like a dead bot.
             reply_to = chat_id if chat_type == "group" else sender_id
             receive_id_type = "chat_id" if reply_to.startswith("oc_") else "open_id"
-            ack_body = json.dumps({"text": "已收到，正在分析，请稍等。"}, ensure_ascii=False)
+            ack_body = json.dumps({"text": localized("Received. Analyzing your request; please wait.", "已收到，正在分析，请稍等。", resolve_response_language(content, self.language))}, ensure_ascii=False)
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(
                 None,

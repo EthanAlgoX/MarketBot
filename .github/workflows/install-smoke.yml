@@ -37,6 +37,8 @@ jobs:
               names = source.getnames()
               assert any(name.endswith('/examples/finance/portfolio.json') for name in names)
               assert any(name.endswith('/scripts/evaluate_readme.py') for name in names)
+              for document in ('README.md', 'README_zh-CN.md', 'README_en.md', 'docs/integrations.md', 'docs/integrations_zh-CN.md', 'docs/finance_workflows.md', 'docs/finance_workflows_zh-CN.md'):
+                  assert any(name.endswith('/' + document) for name in names), document
               assert not any('/node_modules/' in name or '/bridge/dist/' in name or name.endswith('.dylib') or name.endswith('cookies.json') for name in names)
           PY
           uv venv --python 3.12 /tmp/marketbot-install

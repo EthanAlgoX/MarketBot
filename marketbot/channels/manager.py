@@ -60,6 +60,7 @@ class ChannelManager:
                 channel_cls = getattr(module, class_name)
                 extra_kwargs = kwargs_factory(self.config, self.bus) if kwargs_factory else {}
                 self.channels[name] = channel_cls(channel_config, self.bus, **extra_kwargs)
+                self.channels[name].language = getattr(self.config.agents.defaults, "language", "en")
                 logger.info("{} channel enabled", class_name.replace("Channel", ""))
             except ImportError as e:
                 logger.warning("{} channel not available: {}", class_name.replace("Channel", ""), e)

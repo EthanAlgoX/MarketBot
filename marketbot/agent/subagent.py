@@ -56,6 +56,7 @@ class SubagentManager:
         lark_cli_config: Any | None = None,
         exec_config: "ExecToolConfig | None" = None,
         restrict_to_workspace: bool = False,
+        language: str = "en",
     ):
         from marketbot.config.schema import ExecToolConfig
         self.provider = provider
@@ -73,6 +74,7 @@ class SubagentManager:
         self.lark_cli_config = lark_cli_config
         self.exec_config = exec_config or ExecToolConfig()
         self.restrict_to_workspace = restrict_to_workspace
+        self.language = language
         self._running_tasks: dict[str, asyncio.Task[None]] = {}
         self._session_tasks: dict[str, set[str]] = {}  # session_key -> {task_id, ...}
         self.router = RequestRouter()
@@ -360,6 +362,10 @@ Stay focused on the assigned task. Your final response will be reported back to 
         if skills_summary:
             parts.append(f"## Skills\n\nRead SKILL.md with read_file to use a skill.\n\n{skills_summary}")
 
+        from marketbot.agent.context_prompt import language_instruction
+        from marketbot.agent.response_language import effective_response_language
+
+        parts.append(language_instruction(effective_response_language(self.language)))
         return "\n\n".join(parts)
 
     async def cancel_by_session(self, session_key: str) -> int:

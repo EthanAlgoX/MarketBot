@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 import httpx
 from loguru import logger
 
+from marketbot.agent.response_language import effective_response_language
 from marketbot.agent.tools.base import Tool
 from marketbot.agent.tools.thesis import ThesisTrackerTool  # noqa: F401
 from marketbot.domain.intel.search import IntelSearchService
@@ -33,6 +34,7 @@ from marketbot.domain.market.services import (
     preferred_a_share_symbol,
     to_tickflow_symbol,
 )
+from marketbot.i18n import localized
 from marketbot.market_routing import classify_market_request
 from marketbot.rl.policy import HeuristicMarketSignalPolicy
 from marketbot.rl.recorder import MarketSignalRolloutRecorder
@@ -1842,6 +1844,7 @@ class MarketBriefTool(Tool):
         "type": "object",
         "properties": {
             "symbols": {"type": "array", "items": {"type": "string"}},
+            "language": {"type": "string", "enum": ["en", "zh"], "description": "Language for human-readable brief text; defaults to the configured agent language."},
             "headline": {"type": "string", "description": "Optional key headline to analyze"},
             "body": {"type": "string", "description": "Optional detail body for the headline"},
             "includeNews": {"type": "boolean", "default": True},
@@ -1859,8 +1862,9 @@ class MarketBriefTool(Tool):
         },
     }
 
-    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None):
+    def __init__(self, config: MarketToolsConfig | None = None, workspace: Path | None = None, *, language: str = "en"):
         self._config = config
+        self.language = language
         self._snapshot = MarketSnapshotTool(config=config, workspace=workspace)
         self._event = MarketEventExtractTool(config=config)
         self._signal = MarketSignalTool(config=config, workspace=workspace)
@@ -1874,16 +1878,16 @@ class MarketBriefTool(Tool):
         self._macro = MarketMacroTool(config=config, workspace=workspace)
 
     @staticmethod
-    def _scenario_recommendations(action_rows: list[dict[str, Any]], macro_risk: float) -> dict[str, list[str]]:
+    def _scenario_recommendations(action_rows: list[dict[str, Any]], macro_risk: float, *, language: str = "en") -> dict[str, list[str]]:
         buys = [row["symbol"] for row in action_rows if row["action"] == "buy" and row["confidence"] >= 0.65]
         sells = [row["symbol"] for row in action_rows if row["action"] in {"sell", "reduce"}]
 
-        aggressive = [f"Prioritize long setup: {', '.join(buys)}"] if buys else ["No high-confidence long setup"]
-        neutral = ["Follow watchlist signals and stagger entries", "Keep position sizing under configured cap"]
+        aggressive = [localized("Prioritize long setup: ", "优先观察做多机会：", language) + ', '.join(buys)] if buys else [localized("No high-confidence long setup", "没有高置信做多机会", language)]
+        neutral = [localized("Follow watchlist signals and stagger entries", "跟踪观察名单信号并分批入场", language), localized("Keep position sizing under configured cap", "仓位不超过配置上限", language)]
         defensive = (
-            [f"Reduce exposure on: {', '.join(sells)}", "Increase cash/hedge ratio"]
+            [localized("Reduce exposure on: ", "降低以下标的的敞口：", language) + ', '.join(sells), localized("Increase cash/hedge ratio", "提高现金或对冲比例", language)]
             if sells or macro_risk >= 0.60
-            else ["No forced de-risking trigger", "Maintain stop-loss discipline"]
+            else [localized("No forced de-risking trigger", "没有强制降低风险的触发条件", language), localized("Maintain stop-loss discipline", "遵守止损纪律", language)]
         )
         return {
             "aggressive": aggressive,
@@ -2000,38 +2004,45 @@ class MarketBriefTool(Tool):
         return rows
 
     @staticmethod
-    def _reliability_markdown_lines(data_reliability: dict[str, Any]) -> list[str]:
+    def _reliability_markdown_lines(data_reliability: dict[str, Any], *, language: str = "en") -> list[str]:
         """Render a compact reliability section for the markdown brief."""
+        labels = {"snapshot": "行情", "news": "新闻", "macro": "宏观"}
+        states = {"unknown": "未知", "ok": "正常", "error": "错误", "unavailable": "不可用", "stale": "已过期", "fallback": "已回退", "degraded": "已降级", "cached": "缓存"}
+
+        def state(value: str) -> str:
+            return states.get(value, value) if language == "zh" else value
+
         lines = [
             "",
-            "### Data Reliability",
-            f"- Overall: {data_reliability.get('overallStatus', 'unknown')}",
+            localized("### Data Reliability", "### 数据可靠性", language),
+            f"- {localized('Overall', '总体状态', language)}: {state(data_reliability.get('overallStatus', 'unknown'))}",
         ]
         for name, component in data_reliability.get("components", {}).items():
+            display_name = labels.get(name, name) if language == "zh" else name
             if not component.get("enabled"):
-                lines.append(f"- {name}: disabled")
+                lines.append(f"- {display_name}: {localized('disabled', '已禁用', language)}")
                 continue
             source_health = component.get("sourceHealth", {})
             source_bits = [
-                f"{source}={state.get('status', 'unknown')}"
-                for source, state in source_health.items()
-                if isinstance(state, dict)
+                f"{source}={state(health.get('status', 'unknown'))}"
+                for source, health in source_health.items()
+                if isinstance(health, dict)
             ]
             selected_reason = ""
             for trace in component.get("routeTrace", []):
                 if isinstance(trace, dict) and trace.get("selected") and trace.get("reason"):
                     selected_reason = str(trace["reason"])
                     break
-            detail = ", ".join(source_bits) if source_bits else component.get("status", "unknown")
+            detail = ", ".join(source_bits) if source_bits else state(component.get("status", "unknown"))
             warnings = component.get("warnings", [])
-            suffix = f" | warnings={len(warnings)}" if warnings else ""
-            lines.append(f"- {name}: {detail}{suffix}")
+            suffix = f" | {localized('warnings', '警告数', language)}={len(warnings)}" if warnings else ""
+            lines.append(f"- {display_name}: {detail}{suffix}")
             if selected_reason:
-                lines.append(f"  - reason: {selected_reason}")
+                lines.append(f"  - {localized('reason', '说明', language)}: {selected_reason}")
         return lines
 
     @staticmethod
-    def _news_availability_markdown_lines(news: dict[str, Any]) -> list[str]:
+    def _news_availability_markdown_lines(news: dict[str, Any], *, language: str = "en") -> list[str]:
         """Render explicit per-symbol news availability notes when live items are missing."""
         provider_by_symbol = news.get("providerBySymbol") if isinstance(news.get("providerBySymbol"), dict) else {}
         if not provider_by_symbol:
@@ -2043,11 +2054,11 @@ class MarketBriefTool(Tool):
 
         lines = [
             "",
-            "### News Availability",
-            "- Live news items were unavailable for some symbols. No mock news was used.",
+            localized("### News Availability", "### 新闻可用性", language),
+            localized("- Live news items were unavailable for some symbols. No mock news was used.", "- 部分标的无法获取真实新闻，未使用模拟新闻替代。", language),
         ]
         for symbol in unavailable:
-            lines.append(f"- {symbol}: live news unavailable")
+            lines.append(f"- {symbol}: {localized('live news unavailable', '真实新闻不可用', language)}")
         return lines
 
     @staticmethod
@@ -2057,18 +2068,23 @@ class MarketBriefTool(Tool):
         event: dict[str, Any] | None,
         quotes: list[dict[str, Any]],
         macro: dict[str, Any],
+        language: str = "en",
     ) -> list[str]:
         """Build a compact causal chain from current brief inputs."""
         clean_headline = str(headline or "").strip()
         event_type = str((event or {}).get("eventType") or "market catalyst").replace("_", " ")
+        if language == "zh":
+            event_type = {"earnings": "财报", "rate hike": "加息", "rate cut": "降息", "geopolitical conflict": "地缘冲突", "product launch": "产品发布", "market catalyst": "市场催化事件"}.get(event_type, event_type)
         impacted = [str(row.get("symbol", "")).upper() for row in quotes if str(row.get("symbol", "")).strip()]
-        impact_label = ", ".join(impacted[:3]) if impacted else "target assets"
+        impact_label = ", ".join(impacted[:3]) if impacted else localized("target assets", "目标资产", language)
         regime = str(macro.get("regime") or "market regime")
+        if language == "zh":
+            regime = {"unknown": "未知环境", "neutral": "中性环境", "risk-on": "风险偏好环境", "risk-off": "风险规避环境", "market regime": "当前市场环境"}.get(regime, regime)
         steps = [
-            clean_headline or f"{event_type.title()} emerges",
-            f"{event_type.title()} changes expectations",
-            f"Positioning and sentiment shift in {impact_label}",
-            f"Market reprices under {regime}",
+            clean_headline or localized("{event} emerges", "出现{event}", language).format(event=event_type.title()),
+            localized("{event} changes expectations", "{event}改变市场预期", language).format(event=event_type.title()),
+            localized("Positioning and sentiment shift in {assets}", "{assets}的持仓与情绪发生变化", language).format(assets=impact_label),
+            localized("Market reprices under {regime}", "市场在{regime}下重新定价", language).format(regime=regime),
         ]
         deduped: list[str] = []
         for step in steps:
@@ -2093,8 +2109,12 @@ class MarketBriefTool(Tool):
         thesisId: str = "",
         thesisText: str = "",
         maxQuoteAgeSeconds: int = 3600,
+        language: str | None = None,
         **kwargs: Any,
     ) -> str:
+        language = effective_response_language(self.language) if language is None else language
+        if not isinstance(language, str) or language not in {"en", "zh"}:
+            return json.dumps({"ok": False, "error": {"type": "invalid_language", "message": "language must be en or zh"}})
         if isinstance(maxQuoteAgeSeconds, bool) or not isinstance(maxQuoteAgeSeconds, int) or not 1 <= maxQuoteAgeSeconds <= 31536000:
             return json.dumps({"error": "maxQuoteAgeSeconds must be an integer from 1 to 31536000"})
         snapshot = json.loads(await self._snapshot.execute(symbols=symbols, includeMacro=includeMacro))
@@ -2201,7 +2221,7 @@ class MarketBriefTool(Tool):
         composite = (score_avg * 0.75) + (social_overall * 0.25)
         sentiment_index = round(_clamp((composite + 1.0) / 2.0, 0.0, 1.0), 4)
         sentiment_state = "bullish" if sentiment_index >= 0.60 else "bearish" if sentiment_index <= 0.40 else "neutral"
-        scenarios = self._scenario_recommendations(actions, macro_risk)
+        scenarios = self._scenario_recommendations(actions, macro_risk, language=language)
         market_route = classify_market_request(
             symbols=[str(row.get("symbol", "")).upper() for row in quotes],
             headline=headline,
@@ -2220,9 +2240,15 @@ class MarketBriefTool(Tool):
             logic_chain = json.loads(
                 await self._logic_chain.execute(
                     title=headline.strip(),
-                    steps=self._logic_chain_steps(headline=headline, event=event, quotes=quotes, macro=macro),
+                    steps=self._logic_chain_steps(headline=headline, event=event, quotes=quotes, macro=macro, language=language),
                 )
             )
+            if language == "zh" and logic_chain.get("markdown"):
+                logic_chain["markdown"] = "\n".join([
+                    f"# 逻辑链: {logic_chain['title']}", "", "## 步骤",
+                    *(f"- {node}" for node in logic_chain["nodes"]),
+                    "", "## 图示", "", "```mermaid", logic_chain["mermaid"], "```",
+                ])
         thesis_tracking = None
         thesis_mode = str(thesisMode or "off").strip().lower()
         if thesis_mode in {"create", "update"}:
@@ -2264,78 +2290,90 @@ class MarketBriefTool(Tool):
                     )
                 )
 
+        def label(en: str, zh: str) -> str:
+            return localized(en, zh, language)
+
+        def display_state(value: Any) -> str:
+            text = str(value)
+            translations = {
+                "unknown": "未知", "general": "综合", "neutral": "中性", "bullish": "看多", "bearish": "看空",
+                "buy": "买入", "sell": "卖出", "reduce": "减仓", "watch": "观察", "hold": "持有",
+                "fresh": "新鲜", "stale": "已过期", "future": "未来时间", "non_observed": "非真实观察",
+                "risk-off": "规避风险", "risk-on": "偏好风险", "create": "创建", "update": "更新",
+                "active": "有效", "falsified": "已证伪", "closed": "已关闭",
+            }
+            return translations.get(text, text) if language == "zh" else text
+
+        unknown = label("unknown", "未知")
         lines = [
-            "## Market Brief",
-            f"- Generated At: {_utc_now_iso()} (report/retrieval time; not source observation time)",
-            f"- Market Focus: {market_route.get('primary', 'general')}",
-            f"- Market Sentiment Index: {sentiment_index:.2f} ({sentiment_state}; heuristic estimate)",
-            ("- Macro Regime: unknown; macroRisk unavailable (0.50 is a neutral compatibility default)"
+            label("## Market Brief", "## 市场简报"),
+            label("- Generated At: {time} (report/retrieval time; not source observation time)", "- 生成时间: {time}（报告或采集时间，不是来源观察时间）").format(time=_utc_now_iso()),
+            f"- {label('Market Focus', '市场范围')}: {market_route.get('primary', 'general')}",
+            label("- Market Sentiment Index: {index:.2f} ({state}; heuristic estimate)", "- 市场情绪指数: {index:.2f}（{state}；启发式估算）").format(index=sentiment_index, state=display_state(sentiment_state)),
+            (label("- Macro Regime: unknown; macroRisk unavailable (0.50 is a neutral compatibility default)", "- 宏观环境: 未知；宏观风险值不可用（0.50 仅为兼容性的中性默认值）")
              if macro.get("regime", "unknown") == "unknown" else
-             f"- Macro Regime: {macro.get('regime')} (heuristic risk={macro_risk:.2f})"),
-            f"- Social Sentiment: {social_overall:.2f}",
+             label("- Macro Regime: {regime} (heuristic risk={risk:.2f})", "- 宏观环境: {regime}（启发式风险值={risk:.2f}）").format(regime=display_state(macro.get('regime')), risk=macro_risk)),
+            f"- {label('Social Sentiment', '社交情绪')}: {social_overall:.2f}",
         ]
-        lines += ["", "### Quote Observations", f"- Freshness cutoff: {maxQuoteAgeSeconds} seconds; provider success does not establish real-time data."]
+        lines += ["", label("### Quote Observations", "### 行情观察"), label("- Freshness cutoff: {seconds} seconds; provider success does not establish real-time data.", "- 新鲜度上限: {seconds} 秒；供应商请求成功不等于数据具有实时性。").format(seconds=maxQuoteAgeSeconds)]
         for quote in quote_freshness:
-            lines.append(f"- {quote['symbol']}: {quote['price']} {quote['currency']} | source={quote['source']} | observedAt={quote['observedAt'] or 'unknown'} | retrievedAt={quote['retrievedAt'] or 'unknown'} | freshness={quote['freshness']} | ageSeconds={quote['ageSeconds'] if quote['ageSeconds'] is not None else 'unknown'}")
-        lines += ["", "### Heuristic Interpretation", "- Signals and scenario text are computed interpretations of the available inputs; stale or unknown observations do not establish a current investment conclusion.", "", "### Signals"]
+            lines.append(label("- {symbol}: {price} {currency} | source={source} | observedAt={observed} | retrievedAt={retrieved} | freshness={freshness} | ageSeconds={age}", "- {symbol}: {price} {currency} | 来源={source} | 观察时间={observed} | 采集时间={retrieved} | 新鲜度={freshness} | 数据年龄秒数={age}").format(
+                symbol=quote['symbol'], price=quote['price'], currency=quote['currency'], source=quote['source'],
+                observed=quote['observedAt'] or unknown, retrieved=quote['retrievedAt'] or unknown,
+                freshness=display_state(quote['freshness']), age=quote['ageSeconds'] if quote['ageSeconds'] is not None else unknown))
+        lines += ["", label("### Heuristic Interpretation", "### 启发式解读"), label("- Signals and scenario text are computed interpretations of the available inputs; stale or unknown observations do not establish a current investment conclusion.", "- 信号和场景文案是基于现有输入的计算解读；过期或时间未知的数据不能支持当前投资结论。"), "", label("### Signals", "### 信号")]
         for row in actions:
-            lines.append(
-                f"- {row['symbol']}: {str(row['action']).upper()} | confidence={float(row['confidence']):.2f} | score={float(row['score']):.2f}"
-            )
+            lines.append(label("- {symbol}: {action} | confidence={confidence:.2f} | score={score:.2f}", "- {symbol}: {action} | 置信度={confidence:.2f} | 评分={score:.2f}").format(symbol=row['symbol'], action=display_state(row['action']).upper(), confidence=float(row['confidence']), score=float(row['score'])))
             chip = chips_by_symbol.get(row["symbol"])
             if chip:
-                lines.append(
-                    f"  - Chips: profit={float(chip.get('profitRatio', 0.0)):.2f} | avgCost={float(chip.get('avgCost', 0.0)):.2f} | 90% band={float(chip.get('cost90Low', 0.0)):.2f}-{float(chip.get('cost90High', 0.0)):.2f}"
-                )
+                lines.append(label("  - Chips: profit={profit:.2f} | avgCost={cost:.2f} | 90% band={low:.2f}-{high:.2f}", "  - 筹码估算: 盈利比例={profit:.2f} | 平均成本={cost:.2f} | 90% 成本区间={low:.2f}-{high:.2f}").format(profit=float(chip.get('profitRatio', 0.0)), cost=float(chip.get('avgCost', 0.0)), low=float(chip.get('cost90Low', 0.0)), high=float(chip.get('cost90High', 0.0))))
             fundamentals_row = fundamentals_by_symbol.get(row["symbol"])
             if fundamentals_row:
                 pe = fundamentals_row.get("trailingPE")
                 pb = fundamentals_row.get("priceToBook")
                 market_cap = fundamentals_row.get("marketCap")
                 lines.append(
-                    f"  - Fundamentals: PE={float(pe):.2f} | PB={float(pb):.2f} | MktCap={float(market_cap):.0f}"
+                    label("  - Fundamentals: PE={pe:.2f} | PB={pb:.2f} | MktCap={cap:.0f}", "  - 基本面: 市盈率={pe:.2f} | 市净率={pb:.2f} | 市值={cap:.0f}").format(pe=float(pe), pb=float(pb), cap=float(market_cap))
                     if pe is not None and pb is not None and market_cap is not None
-                    else f"  - Fundamentals: {fundamentals_row.get('provider', 'unknown')} profile loaded"
+                    else label("  - Fundamentals: {provider} profile loaded", "  - 基本面: 已读取 {provider} 概况").format(provider=fundamentals_row.get('provider', unknown))
                 )
         lines += [
             "",
-            "### Scenario Playbook",
-            f"- Aggressive: {'; '.join(scenarios['aggressive'])}",
-            f"- Neutral: {'; '.join(scenarios['neutral'])}",
-            f"- Defensive: {'; '.join(scenarios['defensive'])}",
+            label("### Scenario Playbook", "### 场景预案"),
+            f"- {label('Aggressive', '积极')}: {'; '.join(scenarios['aggressive'])}",
+            f"- {label('Neutral', '中性')}: {'; '.join(scenarios['neutral'])}",
+            f"- {label('Defensive', '防御')}: {'; '.join(scenarios['defensive'])}",
         ]
 
         if event:
             lines += [
                 "",
-                "### Event Impact",
-                f"- Event: {event.get('eventType')}",
-                f"- Sentiment: {event.get('sentimentLabel')} ({float(event.get('sentimentScore', 0.0)):.2f})",
+                label("### Event Impact", "### 事件影响"),
+                f"- {label('Event', '事件')}: {event.get('eventType')}",
+                f"- {label('Sentiment', '情绪')}: {display_state(event.get('sentimentLabel'))} ({float(event.get('sentimentScore', 0.0)):.2f})",
             ]
         if int(intel_context.get("hitCount", 0)) > 0:
-            lines += ["", "### Prior Intel Context"]
+            lines += ["", label("### Prior Intel Context", "### 历史情报上下文")]
             for hit in intel_context.get("hits", [])[:3]:
                 if not isinstance(hit, dict):
                     continue
-                lines.append(
-                    f"- {hit.get('title', 'untitled')} | source={hit.get('sourceName', 'unknown')} | score={float(hit.get('score', 0.0)):.2f}"
-                )
+                lines.append(label("- {title} | source={source} | score={score:.2f}", "- {title} | 来源={source} | 评分={score:.2f}").format(title=hit.get('title', label('untitled', '无标题')), source=hit.get('sourceName', unknown), score=float(hit.get('score', 0.0))))
         if logic_chain and logic_chain.get("markdown"):
-            lines += ["", "### Logic Chain Appendix", str(logic_chain["markdown"])]
+            lines += ["", label("### Logic Chain Appendix", "### 逻辑链附录"), str(logic_chain["markdown"])]
         if thesis_tracking and thesis_tracking.get("thesis"):
             tracked = thesis_tracking.get("thesis", {})
             lines += [
                 "",
-                "### Thesis Tracking",
-                f"- Mode: {thesis_mode}",
-                f"- Thesis ID: {tracked.get('id', '')}",
-                f"- Status: {tracked.get('status', '')}",
-                f"- Confidence: {float(tracked.get('confidence', 0.0)):.2f}",
+                label("### Thesis Tracking", "### 投资假设跟踪"),
+                f"- {label('Mode', '模式')}: {display_state(thesis_mode)}",
+                f"- {label('Thesis ID', '假设 ID')}: {tracked.get('id', '')}",
+                f"- {label('Status', '状态')}: {display_state(tracked.get('status', ''))}",
+                f"- {label('Confidence', '置信度')}: {float(tracked.get('confidence', 0.0)):.2f}",
             ]
             if thesis_tracking.get("verdict"):
-                lines.append(f"- Verdict: {thesis_tracking.get('verdict')}")
-        lines += self._reliability_markdown_lines(data_reliability)
-        lines += self._news_availability_markdown_lines(news)
+                lines.append(f"- {label('Verdict', '结论')}: {thesis_tracking.get('verdict')}")
+        lines += self._reliability_markdown_lines(data_reliability, language=language)
+        lines += self._news_availability_markdown_lines(news, language=language)
 
         result = {
             "asOf": _utc_now_iso(),
@@ -2357,5 +2395,6 @@ class MarketBriefTool(Tool):
             "dataReliability": data_reliability,
             "quoteFreshness": quote_freshness,
             "briefMarkdown": "\n".join(lines),
+            "language": language,
         }
         return json.dumps(result, ensure_ascii=False)

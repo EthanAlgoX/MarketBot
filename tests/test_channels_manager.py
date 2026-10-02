@@ -44,6 +44,20 @@ def test_channel_manager_initializes_enabled_channels_via_registry(monkeypatch) 
     channel = manager.channels["telegram"]
     assert isinstance(channel, _FakeChannel)
     assert channel.extra_kwargs == {"groq_api_key": "groq-key"}
+    assert channel.language == "en"
+
+
+def test_channel_manager_propagates_configured_language(monkeypatch) -> None:
+    config = Config()
+    config.agents.defaults.language = "zh"
+    config.channels.feishu.enabled = True
+    config.channels.feishu.allow_from = ["*"]
+    monkeypatch.setattr(
+        "marketbot.channels.manager.importlib.import_module",
+        lambda _name: SimpleNamespace(FeishuChannel=_FakeChannel),
+    )
+    manager = ChannelManager(config, MessageBus())
+    assert manager.channels["feishu"].language == "zh"
 
 
 def test_channel_manager_rejects_enabled_channel_with_empty_allow_list(monkeypatch) -> None:

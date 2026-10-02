@@ -32,6 +32,7 @@ def create_market_tools(
     workspace: Path,
     *,
     read_only: bool = False,
+    language: str = "en",
 ) -> list[Tool]:
     """Share the native finance tool implementations with the bundled MCP server.
 
@@ -65,7 +66,7 @@ def create_market_tools(
         MarketMacroTool(config=config, workspace=workspace),
     ])
     if not read_only:
-        tools.append(MarketBriefTool(config=config, workspace=workspace))
+        tools.append(MarketBriefTool(config=config, workspace=workspace, language=language))
         tools.extend([IntelSearchTool(config=config, workspace=workspace), EvidenceRecordTool(workspace), ThesisTrackerTool(config=config, workspace=workspace), MarketWatchTool(workspace)])
     return tools
 
@@ -76,7 +77,7 @@ class MarketDomainPlugin:
     def register(self, registry: ToolRegistry, ctx: ToolBootstrapContext) -> None:
         from marketbot.agent.tools.finance_evidence import FinanceEvidenceTool
 
-        for tool in create_market_tools(ctx.market_config, ctx.workspace):
+        for tool in create_market_tools(ctx.market_config, ctx.workspace, language=ctx.language):
             if (tool.name.startswith("market_") and tool.name not in {"market_source_plan", "market_watch"}) or tool.name == "portfolio_risk":
                 tool = FinanceEvidenceTool(tool, ctx.workspace)
             registry.register(tool)

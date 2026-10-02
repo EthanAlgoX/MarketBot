@@ -29,10 +29,13 @@ class NativeCronService(CronService):
         self.blocked_error: NativeJobsRequiredError | None = None
 
     def validate_jobs(self) -> None:
-        unsupported = [job.id for job in self.list_jobs() if job.payload.kind not in NATIVE_JOB_KINDS]
+        unsupported = [
+            job.id for job in self.list_jobs() if job.payload.kind not in NATIVE_JOB_KINDS
+        ]
         if unsupported:
             raise NativeJobsRequiredError(
-                "--finance-only cannot run model-dependent cron jobs: " + ", ".join(unsupported)
+                "--finance-only cannot run model-dependent cron jobs: "
+                + ", ".join(unsupported)
                 + ". Use a model-enabled gateway or remove these jobs; they were preserved."
             )
 
@@ -55,11 +58,13 @@ async def run_native_gateway_services(*, bus: Any, channels: Any, cron: NativeCr
     async def reject_chat() -> None:
         while True:
             message = await bus.consume_inbound()
-            await bus.publish_outbound(OutboundMessage(
-                channel=message.channel,
-                chat_id=message.chat_id,
-                content="This gateway runs finance/intel scheduled jobs only. Chat requires a model-enabled gateway.",
-            ))
+            await bus.publish_outbound(
+                OutboundMessage(
+                    channel=message.channel,
+                    chat_id=message.chat_id,
+                    content="This gateway runs finance/intel scheduled jobs only. Chat requires a model-enabled gateway.",
+                )
+            )
 
     async def wait_for_unsupported_job() -> None:
         await cron.blocked.wait()
@@ -68,7 +73,11 @@ async def run_native_gateway_services(*, bus: Any, channels: Any, cron: NativeCr
     tasks = []
     try:
         await cron.start()
-        tasks = [asyncio.create_task(reject_chat()), asyncio.create_task(channels.start_all()), asyncio.create_task(wait_for_unsupported_job())]
+        tasks = [
+            asyncio.create_task(reject_chat()),
+            asyncio.create_task(channels.start_all()),
+            asyncio.create_task(wait_for_unsupported_job()),
+        ]
         await asyncio.gather(*tasks)
     finally:
         cron.stop()
@@ -79,9 +88,14 @@ async def run_native_gateway_services(*, bus: Any, channels: Any, cron: NativeCr
 
 
 def run_finance_only_gateway(
-    *, config: Any, config_path: Path | None, console: Any,
-    open_intel_db: Callable[..., tuple[Any, Any]], collect_intel_sources: Callable[..., Awaitable[Any]],
-    render_intel_collect_summary: Callable[[Any], str], build_intel_daily_digest: Callable[..., Any],
+    *,
+    config: Any,
+    config_path: Path | None,
+    console: Any,
+    open_intel_db: Callable[..., tuple[Any, Any]],
+    collect_intel_sources: Callable[..., Awaitable[Any]],
+    render_intel_collect_summary: Callable[[Any], str],
+    build_intel_daily_digest: Callable[..., Any],
 ) -> None:
     """Start the explicit provider-free finance/intel scheduler."""
     from marketbot.bus.queue import MessageBus
@@ -94,15 +108,25 @@ def run_finance_only_gateway(
     except NativeJobsRequiredError as exc:
         raise typer.BadParameter(str(exc)) from None
     cron.on_job = create_cron_job_handler(
-        config_path=config_path, workspace=config.workspace_path, native_only=True,
-        bus=bus, agent=None, open_intel_db=open_intel_db, collect_intel_sources=collect_intel_sources,
-        render_intel_collect_summary=render_intel_collect_summary, build_intel_daily_digest=build_intel_daily_digest,
+        config_path=config_path,
+        workspace=config.workspace_path,
+        native_only=True,
+        bus=bus,
+        agent=None,
+        open_intel_db=open_intel_db,
+        collect_intel_sources=collect_intel_sources,
+        render_intel_collect_summary=render_intel_collect_summary,
+        build_intel_daily_digest=build_intel_daily_digest,
+        language=config.agents.defaults.language,
     )
     channels = ChannelManager(config, bus)
     console.print("Finance-only gateway: native finance/intel scheduled jobs.")
     console.print("LLM chat and heartbeat disabled.")
     console.print(f"Native cron jobs: {cron.status()['jobs']}")
-    console.print("Delivery channels: " + (", ".join(channels.enabled_channels) or "none (local results only)"))
+    console.print(
+        "Delivery channels: "
+        + (", ".join(channels.enabled_channels) or "none (local results only)")
+    )
     try:
         asyncio.run(run_native_gateway_services(bus=bus, channels=channels, cron=cron))
     except KeyboardInterrupt:
@@ -112,7 +136,9 @@ def run_finance_only_gateway(
         raise typer.Exit(1) from None
 
 
-def build_runtime_delivery_metadata(*, bus: Any = None, session_manager: Any = None) -> dict[str, Any]:
+def build_runtime_delivery_metadata(
+    *, bus: Any = None, session_manager: Any = None
+) -> dict[str, Any]:
     """Build outbound metadata carrying shared runtime diagnostics when available."""
     return collect_runtime_diagnostics(bus=bus, session_manager=session_manager)
 
@@ -143,6 +169,7 @@ def create_cron_job_handler(
     build_intel_daily_digest: Callable[..., Any],
     workspace: Path | None = None,
     native_only: bool = False,
+    language: str = "en",
 ):
     """Build the cron job callback used by the gateway."""
     enqueued_alert_ids: set[str] = set()
@@ -161,27 +188,45 @@ def create_cron_job_handler(
 
             config = finance_config(config_path, runtime_workspace)
             result = await poll_watch(config, job.payload.scope_key)
-            if (result.get("error") or result.get("ok") is False) and result.get("status") != "data_gap":
+            if (result.get("error") or result.get("ok") is False) and result.get(
+                "status"
+            ) != "data_gap":
                 raise RuntimeError("Scheduled finance watch failed; inspect its local state")
             watch_tool = MarketWatchTool(config.workspace_path)
             if job.payload.deliver and job.payload.to:
                 settings = getattr(config.channels, str(job.payload.channel), None)
                 if settings is None or not getattr(settings, "enabled", False):
-                    raise RuntimeError("Finance watch delivery channel is disabled; pending alerts were preserved")
-                outbox = json.loads(await watch_tool.execute(action="outbox", watchId=job.payload.scope_key))
+                    raise RuntimeError(
+                        "Finance watch delivery channel is disabled; pending alerts were preserved"
+                    )
+                outbox = json.loads(
+                    await watch_tool.execute(action="outbox", watchId=job.payload.scope_key)
+                )
                 if outbox.get("ok") is False:
-                    raise RuntimeError("Finance watch outbox is unavailable; pending alerts were preserved")
-                alerts = [item for item in outbox.get("alerts", []) if item["alertId"] not in enqueued_alert_ids]
+                    raise RuntimeError(
+                        "Finance watch outbox is unavailable; pending alerts were preserved"
+                    )
+                alerts = [
+                    item
+                    for item in outbox.get("alerts", [])
+                    if item["alertId"] not in enqueued_alert_ids
+                ]
             else:
                 alerts = result.get("alerts", [])
             if not alerts:
                 return None
-            response = json.dumps({"watchId": job.payload.scope_key, "alerts": alerts}, ensure_ascii=False)
+            response = json.dumps(
+                {"watchId": job.payload.scope_key, "alerts": alerts}, ensure_ascii=False
+            )
             if job.payload.deliver and job.payload.to:
-                await bus.publish_outbound(OutboundMessage(
-                    channel=job.payload.channel or "cli", chat_id=job.payload.to, content=response,
-                    metadata={"kind": "finance-watch", "watchId": job.payload.scope_key},
-                ))
+                await bus.publish_outbound(
+                    OutboundMessage(
+                        channel=job.payload.channel or "cli",
+                        chat_id=job.payload.to,
+                        content=response,
+                        metadata={"kind": "finance-watch", "watchId": job.payload.scope_key},
+                    )
+                )
                 # Enqueueing is not proof of remote delivery. Keep the durable
                 # outbox pending until explicitly acknowledged; on restart it
                 # retries with the same IDs. Deduplicate polling in this process.
@@ -189,7 +234,11 @@ def create_cron_job_handler(
             return response
 
         if job.payload.kind == "intel_collect":
-            _, intel_conn = open_intel_db(config_path, workspace=runtime_workspace) if runtime_workspace else open_intel_db(config_path)
+            _, intel_conn = (
+                open_intel_db(config_path, workspace=runtime_workspace)
+                if runtime_workspace
+                else open_intel_db(config_path)
+            )
             try:
                 results = await collect_intel_sources(
                     intel_conn,
@@ -197,13 +246,19 @@ def create_cron_job_handler(
                     scope_key=job.payload.scope_key,
                 )
                 if results and not any(item.ok for item in results):
-                    raise RuntimeError("All intel sources failed; inspect intel source-list for details")
-                return render_intel_collect_summary(results)
+                    raise RuntimeError(
+                        "All intel sources failed; inspect intel source-list for details"
+                    )
+                return render_intel_collect_summary(results, language=language)
             finally:
                 intel_conn.close()
 
         if job.payload.kind == "intel_digest_daily":
-            _, intel_conn = open_intel_db(config_path, workspace=runtime_workspace) if runtime_workspace else open_intel_db(config_path)
+            _, intel_conn = (
+                open_intel_db(config_path, workspace=runtime_workspace)
+                if runtime_workspace
+                else open_intel_db(config_path)
+            )
             try:
                 _, digest = build_intel_daily_digest(
                     intel_conn,
@@ -211,6 +266,7 @@ def create_cron_job_handler(
                     scope_key=job.payload.scope_key,
                     hours=job.payload.hours,
                     limit=job.payload.limit,
+                    language=language,
                 )
                 if job.payload.deliver and job.payload.to:
                     await bus.publish_outbound(
@@ -287,7 +343,11 @@ def create_heartbeat_execute_handler(
                 heartbeat_content = ""
             heartbeat_spec = extract_market_heartbeat_spec(heartbeat_content)
             if heartbeat_spec:
-                tool = MarketBriefTool(config.tools.market, workspace=config.workspace_path)
+                tool = MarketBriefTool(
+                    config.tools.market,
+                    workspace=config.workspace_path,
+                    language=config.agents.defaults.language,
+                )
                 payload = json.loads(
                     await tool.execute(
                         symbols=list(heartbeat_spec["symbols"]),
@@ -298,13 +358,20 @@ def create_heartbeat_execute_handler(
                 )
                 from marketbot.agent.tools.finance_evidence import capture_finance_result
 
-                payload = json.loads(capture_finance_result(config.workspace_path, "market_brief", json.dumps(payload, ensure_ascii=False)))
+                payload = json.loads(
+                    capture_finance_result(
+                        config.workspace_path,
+                        "market_brief",
+                        json.dumps(payload, ensure_ascii=False),
+                    )
+                )
                 report_markdown = render_market_report_document(
                     payload,
                     symbols=list(heartbeat_spec["symbols"]),
                     headline="",
                     session=str(heartbeat_spec["session"]),
                     timezone_name=str(heartbeat_spec["timezone"]),
+                    language=config.agents.defaults.language,
                 )
                 report_path = default_market_report_path(
                     config.workspace_path,
@@ -348,6 +415,7 @@ def create_heartbeat_notify_handler(
     session_manager: Any | None,
     pick_target: Callable[[], tuple[str, str]],
     render_market_report_notification: Callable[..., str],
+    language: str = "en",
 ):
     """Build the heartbeat delivery callback used by the gateway."""
 
@@ -370,6 +438,7 @@ def create_heartbeat_notify_handler(
                 timezone_name=timezone_name,
                 report_path=report_path,
                 channel=channel,
+                language=language,
             )
             await bus.publish_outbound(
                 OutboundMessage(

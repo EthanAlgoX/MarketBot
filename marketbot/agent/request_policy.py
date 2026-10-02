@@ -8,6 +8,9 @@ from typing import Any
 
 from loguru import logger
 
+from marketbot.agent.response_language import effective_response_language
+from marketbot.i18n import localized
+
 _TICKER_PATTERN = re.compile(r"\b[A-Z]{1,5}\b")
 _GUIDANCE_HINTS = ("guidance", "outlook", "forecast")
 _EARNINGS_CONTEXT_TERMS = ("earnings", "revenue", "datacenter", "gross margin", "call")
@@ -21,57 +24,52 @@ def normalize_daily_opportunity_report(loop: Any, final_content: str | None) -> 
     normalized = str(final_content).strip()
     if not normalized:
         return final_content
+    language = effective_response_language(getattr(loop, "language", "en"))
+    title = localized("# 📅 Daily Market Opportunity Scan", "# 📅 每日机会扫描", language)
+    sections = [
+        localized("## 1. Market Regime", "## 1. 市场状态", language),
+        localized("## 2. High-Conviction Setups", "## 2. 高置信机会", language),
+        localized("## 3. Watchlist", "## 3. 观察名单", language),
+        localized("## 4. Invalidations", "## 4. 失效条件", language),
+        localized("## 5. Data Gaps", "## 5. 数据缺口", language),
+    ]
+    unavailable = localized("some fields unavailable", "部分字段不可用", language)
     if looks_like_daily_opportunity_failure(normalized):
         lowered = normalized.lower()
         if "<minimax:tool_call>" in lowered or "<invoke name=" in lowered:
-            return (
-                "# 📅 每日机会扫描\n\n"
-                "## 1. Market Regime\n"
-                "- some fields unavailable\n\n"
-                "## 2. High-Conviction Setups\n"
-                "- 今日无高置信机会，维持观察名单\n\n"
-                "## 3. Watchlist\n"
-                "- 本轮固定扫描已执行，但上游模型返回了无效工具指令，未能生成稳定摘要\n\n"
-                "## 4. Invalidations\n"
-                "- 重试后若恢复正常回包，再更新下一交易日观察名单\n\n"
-                "## 5. Data Gaps\n"
-                "- model returned invalid pseudo-tool output after the fixed scan"
-            )
+            notes = [
+                unavailable,
+                localized("No high-conviction setup; keep the watchlist.", "今日无高置信机会，维持观察名单。", language),
+                localized("The model returned invalid tool instructions; a reliable summary could not be generated.", "模型返回了无效工具指令，未能生成可靠摘要。", language),
+                localized("Retry before updating the next trading day's watchlist.", "重试成功后再更新下一交易日观察名单。", language),
+                localized("Model returned invalid pseudo-tool output.", "模型返回了无效的伪工具调用内容。", language),
+            ]
+            return title + "\n\n" + "\n\n".join(f"{section}\n- {note}" for section, note in zip(sections, notes))
         return final_content
 
     lines = normalized.splitlines()
     if lines:
         first = lines[0].strip()
         if first.startswith("#"):
-            lines[0] = "# 📅 每日机会扫描"
+            lines[0] = title
+        else:
+            lines = [title, "", *lines]
     normalized = "\n".join(lines)
 
-    replacements = {
-        "## 市场状态": "## 1. Market Regime",
-        "## 市场背景": "## 1. Market Regime",
-        "## 高置信机会": "## 2. High-Conviction Setups",
-        "## 今日无高置信机会": "## 2. High-Conviction Setups",
-        "## 观察名单": "## 3. Watchlist",
-        "## 失效条件": "## 4. Invalidations",
-        "## 风险提示": "## 4. Invalidations",
-        "## 数据缺口": "## 5. Data Gaps",
-        "## 数据可靠性": "## 5. Data Gaps",
-    }
-    for source, target in replacements.items():
-        normalized = normalized.replace(source, target)
-
-    required_sections = [
-        "## 1. Market Regime",
-        "## 2. High-Conviction Setups",
-        "## 3. Watchlist",
-        "## 4. Invalidations",
-        "## 5. Data Gaps",
+    aliases = [
+        ("## 市场状态", "## 市场背景", "## 1. Market Regime", "## 1. 市场状态"),
+        ("## 高置信机会", "## 今日无高置信机会", "## 2. High-Conviction Setups", "## 2. 高置信机会"),
+        ("## 观察名单", "## 3. Watchlist", "## 3. 观察名单"),
+        ("## 失效条件", "## 风险提示", "## 4. Invalidations", "## 4. 失效条件"),
+        ("## 数据缺口", "## 数据可靠性", "## 5. Data Gaps", "## 5. 数据缺口"),
     ]
-    if "## 1. Market Regime" not in normalized:
-        normalized = normalized.replace("# 📅 每日机会扫描", "# 📅 每日机会扫描\n\n## 1. Market Regime", 1)
-    for section in required_sections[1:]:
+    replacements = {source: target for sources, target in zip(aliases, sections) for source in sources}
+    normalized = "\n".join(replacements.get(line.strip(), line) for line in normalized.splitlines())
+    if sections[0] not in normalized:
+        normalized = normalized.replace(title, title + "\n\n" + sections[0], 1)
+    for section in sections[1:]:
         if section not in normalized:
-            normalized = f"{normalized.rstrip()}\n\n{section}\n- some fields unavailable"
+            normalized = f"{normalized.rstrip()}\n\n{section}\n- {unavailable}"
     return normalized
 
 
@@ -166,20 +164,21 @@ def match_daily_opportunity_report_query(text: str | None) -> bool:
 def build_daily_opportunity_report_query_response(loop: Any) -> str:
     """Return a local-path summary for saved daily-opportunity markdown reports."""
     report_dir = loop.workspace / "reports" / "daily-market-opportunity"
-    lines = [f"每日机会 markdown 默认保存在: {report_dir}"]
+    language = effective_response_language(getattr(loop, "language", "en"))
+    lines = [localized("Daily opportunity markdown is saved in", "每日机会 markdown 默认保存在", language) + f": {report_dir}"]
     if report_dir.exists():
         files = sorted(report_dir.glob("*.md"), reverse=True)
         if files:
             lines.append("")
-            lines.append("最近文档:")
+            lines.append(localized("Recent reports:", "最近文档:", language))
             for path in files[:5]:
                 lines.append(f"- {path}")
         else:
             lines.append("")
-            lines.append("当前目录下还没有 .md 文档。")
+            lines.append(localized("No .md reports are present in this directory yet.", "当前目录下还没有 .md 文档。", language))
     else:
         lines.append("")
-        lines.append("目录尚未生成。先执行一次“每日机会”后会自动创建。")
+        lines.append(localized("The directory will be created after the first daily opportunity scan.", "目录尚未生成。先执行一次“每日机会”后会自动创建。", language))
     return "\n".join(lines)
 
 

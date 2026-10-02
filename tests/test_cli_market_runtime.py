@@ -29,6 +29,7 @@ def test_run_market_report_sends_notification_with_saved_report(tmp_path) -> Non
     send_mock = AsyncMock()
     config = SimpleNamespace(
         workspace_path=tmp_path,
+        agents=SimpleNamespace(defaults=SimpleNamespace(language="zh")),
         tools=SimpleNamespace(
             market=SimpleNamespace(default_symbols=["NVDA"]),
         ),
@@ -44,6 +45,16 @@ def test_run_market_report_sends_notification_with_saved_report(tmp_path) -> Non
 
     def _default_report_path(workspace: Path, session: str, timezone: str) -> Path:
         return workspace / "reports" / f"market_report_{session}_{timezone.replace('/', '_')}.md"
+
+    languages = []
+
+    def _render_document(*args, language, **kwargs):
+        languages.append(language)
+        return "# 市场研究报告"
+
+    def _render_notification(*args, language, **kwargs):
+        languages.append(language)
+        return "市场报告提醒"
 
     run_market_report(
         config=config,
@@ -64,9 +75,9 @@ def test_run_market_report_sends_notification_with_saved_report(tmp_path) -> Non
         market_brief_tool_factory=lambda _cfg: _Tool(),
         infer_market_report_session=lambda _dt: "intraday",
         resolve_market_timezone=lambda _tz: None,
-        render_market_report_document=lambda *_args, **_kwargs: "# Market Report",
+        render_market_report_document=_render_document,
         default_market_report_path=_default_report_path,
-        render_market_report_notification=lambda *_args, **_kwargs: "Market Report Alert",
+        render_market_report_notification=_render_notification,
     )
 
     report_path = tmp_path / "reports" / "market_report_premarket_America_New_York.md"
@@ -74,7 +85,8 @@ def test_run_market_report_sends_notification_with_saved_report(tmp_path) -> Non
     send_mock.assert_awaited_once()
     assert send_mock.await_args.args[1] == "telegram"
     assert send_mock.await_args.args[2] == "10001"
-    assert send_mock.await_args.args[3] == "Market Report Alert"
+    assert send_mock.await_args.args[3] == "市场报告提醒"
+    assert languages == ["zh", "zh"]
     assert send_mock.await_args.args[4] == [str(report_path)]
     assert any("Sent report to telegram:10001" in line for line in console.lines)
     assert any("No market brief generated." not in line for line in console.lines)

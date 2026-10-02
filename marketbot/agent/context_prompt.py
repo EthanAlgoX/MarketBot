@@ -93,7 +93,22 @@ If a skill already appears under `# Selected Skills` or `# Active Skills`, use t
 
 {skills_summary}""")
 
+    parts.append(language_instruction(getattr(builder, "language", "en")))
     return "\n\n---\n\n".join(parts)
+
+
+def language_instruction(language: str = "en") -> str:
+    """Keep the response policy separate from user-maintained workspace files."""
+    name = "Simplified Chinese" if language == "zh" else "English"
+    return (
+        f"# Response Language\n\nDefault response language: {name} ({language}).\n"
+        f"Write user-facing explanations and research conclusions in {name}. "
+        "Do not infer a different default solely from the language of an incoming message. "
+        "Honor an explicit user request to use another language for that response. "
+        "Preserve original quotations, proper names, ticker symbols, numeric values, "
+        "URLs, command names and JSON field names. This policy controls presentation, "
+        "not financial evidence or calculations."
+    )
 
 
 def get_identity(workspace: Any, builtin_skills: Any = None) -> str:
@@ -131,7 +146,7 @@ Your workspace is at: {workspace_path}
 - Financial research results are automatically recorded locally with evidence IDs. Use `evidence_get` to inspect the original values and source times before citing them; IDs establish reproducibility, not independent corroboration or source truth.
 - Use `thesis_tracker` to save explicit investment hypotheses and numerical check rules. `review` must point to recorded facts with an evidenceId and jsonPointer; sentiment alone cannot falsify a thesis. Label user-declared verdicts separately from rule-verified decisions.
 - Use `market_watch` for saved portfolio/watchlist definitions and local change alerts. A first valid observation establishes the baseline; missing or stale data cannot advance it. Configure external delivery only when the user requests it. Scheduled checks run through `marketbot finance schedule` and the gateway.
-- Use the user's language and select the most relevant financial skill before synthesizing a recommendation. Preserve general assistant capabilities for other tasks.
+- Follow the configured response language (English by default), honor explicit user language requests, and select the most relevant financial skill before synthesizing a recommendation. Preserve general assistant capabilities for other tasks.
 - Provide research and decision support. Do not execute trades or move funds unless the user explicitly requests an available execution capability.
 - If confidence is low (<0.58) or evidence is weak, default to "watch" instead of forcing buy/sell.
 - Never present analysis as guaranteed returns; always include risk conditions and invalidation triggers.
