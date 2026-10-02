@@ -9,8 +9,11 @@ together, and disabling a watch never deletes its observation history.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
+import stat
+import tempfile
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import UTC, datetime
@@ -25,6 +28,24 @@ _SYMBOL = re.compile(r"[A-Za-z0-9^][A-Za-z0-9._^=:/-]{0,39}")
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}")
 _APPLICATION_ID = 0x4D425754  # MBWT, distinct from the evidence database.
 _NON_OBSERVED = {"derived", "estimated", "estimate", "synthetic", "mock", "mocked", "forecast", "prediction", "hypothetical", "invalid", "missing", "unavailable", "stale"}
+_SCHEMA = """
+BEGIN IMMEDIATE;
+CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE watches (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL, active INTEGER NOT NULL,
+    revision INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    spec TEXT NOT NULL, state TEXT NOT NULL
+);
+CREATE TABLE audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, watch_id TEXT NOT NULL,
+    action TEXT NOT NULL, at TEXT NOT NULL, payload TEXT NOT NULL
+);
+CREATE TABLE outbox (
+    id TEXT PRIMARY KEY, watch_id TEXT NOT NULL, created_at TEXT NOT NULL,
+    payload TEXT NOT NULL, acknowledged_at TEXT
+);
+INSERT INTO metadata VALUES ('schema_version', '1');
+"""
 
 
 def _non_observed(row: Any) -> bool:
@@ -183,13 +204,74 @@ class WatchStore:
             evidence_store = EvidenceStore(self.workspace)
         self.evidence = evidence_store
 
+    def _check_paths(self) -> bool:
+        """Inspect each path once; SQLite sidecars may disappear between operations."""
+        def metadata_if_present(path: Path):
+            try:
+                return path.lstat()
+            except FileNotFoundError:
+                return None
+
+        for directory in (self.workspace, self.path.parent):
+            metadata = metadata_if_present(directory)
+            if metadata is not None and not stat.S_ISDIR(metadata.st_mode):
+                raise ValueError("Watch storage must remain inside its workspace.")
+        database_exists = False
+        for path in (self.path, Path(str(self.path) + "-journal"), Path(str(self.path) + "-wal"), Path(str(self.path) + "-shm")):
+            metadata = metadata_if_present(path)
+            if metadata is None:
+                continue
+            if not stat.S_ISREG(metadata.st_mode):
+                raise ValueError("Watch storage path is unsafe.")
+            if path == self.path:
+                database_exists = True
+                if metadata.st_size == 0:
+                    raise ValueError("Existing watch storage is empty; existing data was preserved.")
+        if not self.path.resolve().is_relative_to(self.workspace):
+            raise ValueError("Watch storage must remain inside its workspace.")
+        return database_exists
+
+    @staticmethod
+    def _initialize_database(connection: sqlite3.Connection) -> None:
+        connection.executescript(_SCHEMA)
+        connection.execute(f"PRAGMA application_id={_APPLICATION_ID}")
+        connection.commit()
+
+    def _ensure_database(self) -> None:
+        if self._check_paths():
+            return
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self._check_paths():
+            return
+        temporary: Path | None = None
+        try:
+            descriptor, name = tempfile.mkstemp(prefix=".market-watch-", suffix=".sqlite3", dir=self.path.parent)
+            os.close(descriptor)
+            temporary = Path(name)
+            connection = sqlite3.connect(temporary)
+            try:
+                self._initialize_database(connection)
+            finally:
+                connection.close()
+            # Publish a complete database without replacing a concurrent writer's
+            # database, an existing empty file, or an unsafe storage path.
+            try:
+                os.link(temporary, self.path)
+            except FileExistsError:
+                pass
+            self._check_paths()
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+
     @contextmanager
     def _connection(self, *, write: bool = False):
-        exists = self.path.is_file() and self.path.stat().st_size > 0
+        exists = self._check_paths()
         if write:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-        database = self.path if write else self.path.as_uri() + "?mode=ro" if exists else ":memory:"
-        connection = sqlite3.connect(database, timeout=10, isolation_level=None, uri=not write and exists)
+            self._ensure_database()
+            exists = True
+        database = self.path.as_uri() + ("?mode=rw" if write else "?mode=ro") if exists else ":memory:"
+        connection = sqlite3.connect(database, timeout=10, isolation_level=None, uri=exists)
         connection.row_factory = sqlite3.Row
         try:
             if exists:
@@ -203,29 +285,7 @@ class WatchStore:
                     if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone() is None:
                         raise ValueError("Incomplete watch storage schema; existing data was preserved.")
             else:
-                connection.executescript("""
-                BEGIN IMMEDIATE;
-                CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS watches (
-                    id TEXT PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL, active INTEGER NOT NULL,
-                    revision INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-                    spec TEXT NOT NULL, state TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS audit (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT, watch_id TEXT NOT NULL,
-                    action TEXT NOT NULL, at TEXT NOT NULL, payload TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS outbox (
-                    id TEXT PRIMARY KEY, watch_id TEXT NOT NULL, created_at TEXT NOT NULL,
-                    payload TEXT NOT NULL, acknowledged_at TEXT
-                );
-                INSERT OR IGNORE INTO metadata VALUES ('schema_version', '1');
-                """)
-                version = connection.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
-                if version is None or version[0] != "1":
-                    raise ValueError("Unsupported watch storage schema; existing data was preserved.")
-                connection.execute(f"PRAGMA application_id={_APPLICATION_ID}")
-                connection.commit()
+                self._initialize_database(connection)
             if write:
                 connection.execute("BEGIN IMMEDIATE")
             yield connection

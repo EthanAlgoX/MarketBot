@@ -1,14 +1,18 @@
 """Financial monitoring must stay quiet, preserve truth, and survive restarts."""
 
 import json
+import multiprocessing
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from decimal import Decimal
+from pathlib import Path
+from threading import Barrier
 
 import pytest
 
 from marketbot.agent.tools.registry import ToolRegistry
 from marketbot.agent.tools.watch import MarketWatchTool
+from marketbot.domain.market import watch as watch_module
 from marketbot.domain.market.evidence import EvidenceStore
 from marketbot.domain.market.watch import WatchStore
 
@@ -304,9 +308,133 @@ def test_watch_reads_do_not_create_files_and_unknown_schema_is_preserved(tmp_pat
     with sqlite3.connect(store.path) as connection:
         connection.execute("UPDATE metadata SET value='99' WHERE key='schema_version'")
     content = store.path.read_bytes()
-    with pytest.raises(ValueError, match="Unsupported"):
-        store.list()
-    assert store.path.read_bytes() == content
+    for action in (store.list, lambda: store.save(name="Unknown schema", symbols=["AAPL"])):
+        with pytest.raises(ValueError, match="Unsupported"):
+            action()
+        assert store.path.read_bytes() == content
+
+
+@pytest.mark.parametrize("original", [b"", b"preserve damaged watch database"])
+def test_existing_empty_or_corrupt_database_is_never_initialized_or_modified(tmp_path, original):
+    store = WatchStore(tmp_path)
+    store.path.parent.mkdir(parents=True)
+    store.path.write_bytes(original)
+    actions = (store.list, store.outbox, lambda: store.get("missing"),
+               lambda: store.save(name="Preserve", symbols=["AAPL"]),
+               lambda: store.remove("missing"), lambda: store.ack("missing"))
+    for action in actions:
+        with pytest.raises((ValueError, sqlite3.DatabaseError)):
+            action()
+        assert store.path.read_bytes() == original
+    assert not list(store.path.parent.glob(".market-watch-*"))
+
+
+def test_foreign_watch_database_is_preserved_for_reads_and_writes(tmp_path):
+    store = WatchStore(tmp_path)
+    store.path.parent.mkdir(parents=True)
+    with sqlite3.connect(store.path) as connection:
+        connection.execute("PRAGMA application_id=12345")
+        connection.execute("CREATE TABLE foreign_data (value TEXT)")
+        connection.execute("INSERT INTO foreign_data VALUES ('preserve')")
+    original = store.path.read_bytes()
+    for action in (store.list, lambda: store.save(name="Foreign", symbols=["AAPL"])):
+        with pytest.raises(ValueError, match="Foreign"):
+            action()
+        assert store.path.read_bytes() == original
+
+
+@pytest.mark.parametrize("suffix", ["", "-journal", "-wal", "-shm"])
+def test_watch_database_and_sidecar_symlinks_cannot_modify_outside_files(tmp_path, suffix):
+    workspace = tmp_path / "workspace"
+    store = WatchStore(workspace)
+    store.path.parent.mkdir(parents=True)
+    outside = tmp_path / "outside.sqlite3"
+    original = b"preserve external file"
+    outside.write_bytes(original)
+    target = Path(str(store.path) + suffix)
+    target.symlink_to(outside)
+    for action in (store.list, lambda: store.save(name="Boundary", symbols=["AAPL"])):
+        with pytest.raises(ValueError, match="unsafe"):
+            action()
+        assert outside.read_bytes() == original
+        assert target.is_symlink()
+    assert not list(store.path.parent.glob(".market-watch-*"))
+
+
+def test_watch_data_directory_symlink_is_rejected_without_external_writes(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (workspace / "data").symlink_to(outside, target_is_directory=True)
+    store = WatchStore(workspace)
+    for action in (store.list, lambda: store.save(name="Boundary", symbols=["AAPL"])):
+        with pytest.raises(ValueError, match="workspace"):
+            action()
+        assert list(outside.iterdir()) == []
+
+
+@pytest.mark.parametrize("suffix", ["", "-journal", "-wal", "-shm"])
+def test_watch_database_and_sidecars_must_be_regular_files(tmp_path, suffix):
+    store = WatchStore(tmp_path)
+    target = Path(str(store.path) + suffix)
+    target.mkdir(parents=True)
+    for action in (store.list, lambda: store.save(name="Boundary", symbols=["AAPL"])):
+        with pytest.raises(ValueError, match="unsafe"):
+            action()
+        assert target.is_dir()
+        assert list(target.iterdir()) == []
+
+
+@pytest.mark.parametrize("suffix", ["-journal", "-wal", "-shm"])
+def test_disappearing_watch_sqlite_sidecars_do_not_reject_valid_store(tmp_path, monkeypatch, suffix):
+    store, watch_id = _watch(tmp_path)
+    sidecar = Path(str(store.path) + suffix)
+    sidecar.write_bytes(b"transient")
+    original_lstat = Path.lstat
+
+    def disappearing_lstat(path, *args, **kwargs):
+        metadata = original_lstat(path, *args, **kwargs)
+        if path == sidecar:
+            sidecar.unlink()
+        return metadata
+
+    monkeypatch.setattr(Path, "lstat", disappearing_lstat)
+    assert store.get(watch_id)["ok"]
+    assert not sidecar.exists()
+
+
+def test_concurrent_first_watch_databases_are_published_only_after_full_initialization(tmp_path, monkeypatch):
+    ready = Barrier(8)
+    original_link = watch_module.os.link
+
+    def publish(source, destination, *args, **kwargs):
+        with sqlite3.connect(Path(source).as_uri() + "?mode=ro", uri=True) as connection:
+            assert connection.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0] == "1"
+            assert connection.execute("PRAGMA application_id").fetchone()[0] == watch_module._APPLICATION_ID
+            assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        ready.wait(timeout=10)
+        return original_link(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr(watch_module.os, "link", publish)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(lambda index: WatchStore(tmp_path).save(name=f"Atomic {index}", symbols=["AAPL"]), range(8)))
+    assert all(result["ok"] for result in results)
+    assert len(WatchStore(tmp_path).list()["watches"]) == 8
+    assert not list((tmp_path / "data").glob(".market-watch-*"))
+
+
+def _process_save_watch(arguments):
+    workspace, index = arguments
+    return WatchStore(Path(workspace)).save(name=f"Process {index}", symbols=["AAPL"])
+
+
+def test_processes_can_initialize_watch_storage_without_losing_definitions(tmp_path):
+    with ProcessPoolExecutor(max_workers=4, mp_context=multiprocessing.get_context("spawn")) as executor:
+        results = list(executor.map(_process_save_watch, [(str(tmp_path), index) for index in range(12)]))
+    assert all(result["ok"] for result in results)
+    assert len(WatchStore(tmp_path).list()["watches"]) == 12
+    assert not list((tmp_path / "data").glob(".market-watch-*"))
 
 
 def test_evidence_failure_rolls_back_watch_state_and_outbox(tmp_path, monkeypatch):

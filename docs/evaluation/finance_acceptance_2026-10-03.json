@@ -1,6 +1,6 @@
 {
   "evaluation": "financial_workflow_acceptance",
-  "generatedAt": "2026-10-02T16:56:33.032763+00:00",
+  "generatedAt": "2026-10-02T17:18:34.223979+00:00",
   "data": "illustrative deterministic fixtures",
   "passed": 15,
   "total": 15,
@@ -73,11 +73,12 @@
     "External channel delivery is tested with isolated mocks"
   ],
   "fullSuite": {
-    "passed": 1143,
-    "durationSeconds": 48.64,
+    "passed": 1171,
+    "durationSeconds": 44.48,
     "python": "3.12.13",
     "ruff": "passed",
-    "diffCheck": "passed"
+    "diffCheck": "passed",
+    "gitTrackedFilesOnly": true
   },
   "packaging": {
     "pythonFiles": 163,
@@ -104,5 +105,18 @@
       "BRK.B"
     ],
     "doesNotVerifySourceAccuracy": true
+  },
+  "storageFollowup": {
+    "evidenceConcurrencyRounds": 10,
+    "watchTestsPassed": 80,
+    "financialIntegrationTestsPassed": 150,
+    "emptyCorruptForeignDatabasesPreserved": true,
+    "symlinkBoundariesRejected": true,
+    "atomicFirstInitialization": true
+  },
+  "credentialGate": {
+    "trackedFilesPassed": true,
+    "syntheticNewCredentialRejected": true,
+    "auditedNonSecretBaselineEntries": 39
   }
 }

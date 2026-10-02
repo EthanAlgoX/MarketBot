@@ -23,8 +23,13 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Install project and development dependencies
         run: uv sync --extra dev
+      - name: Lint Python implementation and tests
+        run: uv run ruff check marketbot tests scripts/evaluate_finance.py scripts/report_pytest_ci.py
       - name: Test complete Python suite
-        run: uv run pytest -q
+        run: uv run pytest -q --junitxml=.tmp/pytest-results.xml
+      - name: Publish test results and failure annotations
+        if: always()
+        run: uv run python scripts/report_pytest_ci.py .tmp/pytest-results.xml
       - name: Evaluate financial workflows
         run: uv run python scripts/evaluate_finance.py
       - name: Build distributions
@@ -40,4 +45,4 @@ jobs:
       - name: Scan for credentials
         run: |
           python -m pip install detect-secrets==1.5.0
-          detect-secrets scan --baseline .secrets.baseline
+          git ls-files -z | xargs -0 detect-secrets-hook --no-verify --baseline .secrets.baseline

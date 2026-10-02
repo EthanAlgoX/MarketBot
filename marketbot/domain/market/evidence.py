@@ -13,6 +13,7 @@ import math
 import os
 import re
 import sqlite3
+import stat
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -302,15 +303,26 @@ class EvidenceStore:
         self.path = self.directory / "ledger.sqlite3"
 
     def _check_paths(self) -> None:
-        if self.workspace.exists() and not self.workspace.is_dir():
+        def mode_if_present(path: Path) -> int | None:
+            try:
+                return path.lstat().st_mode
+            except FileNotFoundError:
+                # SQLite creates/removes journals while other clients check the
+                # store. Absence is valid; separate exists/type queries race.
+                return None
+
+        workspace_mode = mode_if_present(self.workspace)
+        if workspace_mode is not None and not stat.S_ISDIR(workspace_mode):
             raise EvidenceStoreError("Evidence workspace must be a directory")
         current = self.workspace
         for part in ("data", "research", "evidence"):
             current /= part
-            if current.is_symlink() or (current.exists() and not current.is_dir()):
+            mode = mode_if_present(current)
+            if mode is not None and not stat.S_ISDIR(mode):
                 raise EvidenceStoreError("Evidence storage must remain inside its workspace")
         for path in (self.path, Path(str(self.path) + "-journal"), Path(str(self.path) + "-wal"), Path(str(self.path) + "-shm")):
-            if path.is_symlink() or (path.exists() and not path.is_file()):
+            mode = mode_if_present(path)
+            if mode is not None and not stat.S_ISREG(mode):
                 raise EvidenceStoreError("Evidence storage path is unsafe")
         if not self.path.resolve().is_relative_to(self.workspace):
             raise EvidenceStoreError("Evidence storage must remain inside its workspace")

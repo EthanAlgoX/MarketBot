@@ -227,6 +227,72 @@ def test_symlink_escape_is_rejected_and_outside_files_remain_untouched(tmp_path)
     assert list(outside.iterdir()) == []
 
 
+@pytest.mark.parametrize("suffix", ["-journal", "-wal", "-shm"])
+def test_disappearing_sqlite_sidecars_do_not_falsely_mark_store_unsafe(tmp_path, monkeypatch, suffix):
+    store = EvidenceStore(tmp_path)
+    record = _record(store)
+    sidecar = Path(str(store.path) + suffix)
+    sidecar.write_bytes(b"transient")
+    original_lstat, original_exists = Path.lstat, Path.exists
+
+    def disappearing_lstat(path, *args, **kwargs):
+        metadata = original_lstat(path, *args, **kwargs)
+        if path == sidecar:
+            path.unlink()
+        return metadata
+
+    def stale_exists(path, *args, **kwargs):
+        # Reproduce an existence answer obtained before SQLite removed the file.
+        # A second type query sees no file and previously mislabeled it unsafe.
+        return True if path == sidecar else original_exists(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "lstat", disappearing_lstat)
+    monkeypatch.setattr(Path, "exists", stale_exists)
+    assert store.get(record.evidence_id) == record
+    assert not original_exists(sidecar)
+
+
+def test_journal_removed_before_lstat_is_allowed(tmp_path, monkeypatch):
+    store = EvidenceStore(tmp_path)
+    record = _record(store)
+    journal = Path(str(store.path) + "-journal")
+    journal.write_bytes(b"transient")
+    original_lstat = Path.lstat
+
+    def disappearing_lstat(path, *args, **kwargs):
+        if path == journal:
+            path.unlink(missing_ok=True)
+        return original_lstat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "lstat", disappearing_lstat)
+    assert store.get(record.evidence_id) == record
+
+
+@pytest.mark.parametrize("suffix", ["", "-journal", "-wal", "-shm"])
+def test_database_and_all_sidecar_symlinks_are_strictly_rejected(tmp_path, suffix):
+    store = EvidenceStore(tmp_path)
+    record = _record(store)
+    outside = tmp_path / "outside.sqlite3"
+    outside.write_bytes(b"must remain untouched")
+    target = Path(str(store.path) + suffix)
+    if target.exists():
+        target.unlink()
+    target.symlink_to(outside)
+    with pytest.raises(EvidenceStoreError, match="unsafe"):
+        store.get(record.evidence_id)
+    assert outside.read_bytes() == b"must remain untouched"
+    assert target.is_symlink()
+
+
+@pytest.mark.parametrize("suffix", ["-journal", "-wal", "-shm"])
+def test_sqlite_sidecar_directories_are_not_treated_as_missing_files(tmp_path, suffix):
+    store = EvidenceStore(tmp_path)
+    record = _record(store)
+    Path(str(store.path) + suffix).mkdir()
+    with pytest.raises(EvidenceStoreError, match="unsafe"):
+        store.get(record.evidence_id)
+
+
 def _process_record(arguments):
     workspace, index = arguments
     record = EvidenceStore(Path(workspace)).record(kind="quote", source="process", payload={"price": index % 4})
