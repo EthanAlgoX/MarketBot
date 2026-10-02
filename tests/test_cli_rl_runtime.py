@@ -11,7 +11,7 @@ class _Console:
     def __init__(self) -> None:
         self.lines: list[str] = []
 
-    def print(self, text="") -> None:
+    def print(self, text="", **kwargs) -> None:
         self.lines.append(str(text))
 
     def print_json(self, data=None) -> None:

@@ -31,11 +31,19 @@ def report(path: Path) -> None:
             if failure is None:
                 continue
             name = f"{case.get('classname', '')}::{case.get('name', '')}"
-            detail = (failure.text or failure.get("message", "No failure details"))[:12000]
+            detail = failure.text or failure.get("message", "No failure details")
+            if len(detail) > 12000:
+                detail = "Traceback excerpt (final 12,000 characters):\n" + detail[-12000:]
             failures.append((name, detail))
+            # GitHub truncates annotation messages around 4 KiB. Tracebacks
+            # end with the failing assertion, so retain their tail here.
+            encoded = detail.encode("utf-8")
+            annotation = encoded[-3000:].decode("utf-8", errors="replace")
+            if len(encoded) > 3000:
+                annotation = "Earlier traceback is available in the job summary.\n" + annotation
             print(
                 f"::error title={escape_command(name, property_value=True)}::"
-                f"{escape_command(detail)}"
+                f"{escape_command(annotation)}"
             )
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:

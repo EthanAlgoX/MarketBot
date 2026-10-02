@@ -99,17 +99,17 @@ def run_openclaw_launch(
             return
         console.print("[bold]OpenClaw Launch Plan[/bold]")
         console.print(f"Mode: {payload['launchMode']}")
-        console.print(f"Bundle: {summary.bundle_dir}")
+        console.print(f"Bundle: {summary.bundle_dir}", soft_wrap=True, markup=False)
         if remote_env:
-            console.print(f"Env Script: {summary.env_script_path}")
-            console.print(f"Health URL: {payload['envHealthUrl']}")
-            console.print(f"Env Logs: {env_stdout_path} | {env_stderr_path}")
-        console.print(f"Train Script: {launch_script}")
-        console.print(f"Train Logs: {train_stdout_path} | {train_stderr_path}")
-        console.print(f"Training Report: {training_report_path}")
-        console.print(f"Runs Index: {Path(summary.bundle_dir).parent / 'runs_index.jsonl'}")
-        console.print(f"Report Markdown: {report_archive_paths['summaryMarkdown']}")
-        console.print(f"Report CSV: {report_archive_paths['summaryCsv']}")
+            console.print(f"Env Script: {summary.env_script_path}", soft_wrap=True, markup=False)
+            console.print(f"Health URL: {payload['envHealthUrl']}", soft_wrap=True, markup=False)
+            console.print(f"Env Logs: {env_stdout_path} | {env_stderr_path}", soft_wrap=True, markup=False)
+        console.print(f"Train Script: {launch_script}", soft_wrap=True, markup=False)
+        console.print(f"Train Logs: {train_stdout_path} | {train_stderr_path}", soft_wrap=True, markup=False)
+        console.print(f"Training Report: {training_report_path}", soft_wrap=True, markup=False)
+        console.print(f"Runs Index: {Path(summary.bundle_dir).parent / 'runs_index.jsonl'}", soft_wrap=True, markup=False)
+        console.print(f"Report Markdown: {report_archive_paths['summaryMarkdown']}", soft_wrap=True, markup=False)
+        console.print(f"Report CSV: {report_archive_paths['summaryCsv']}", soft_wrap=True, markup=False)
         console.print("[dim]Dry-run only: no processes were started.[/dim]")
         return
 
@@ -187,17 +187,17 @@ def run_openclaw_launch(
             raise typer.Exit(1)
         console.print("[bold red]OpenClaw Launch Failed[/bold red]")
         console.print(f"Mode: {payload['launchMode']}")
-        console.print(f"Bundle: {summary.bundle_dir}")
+        console.print(f"Bundle: {summary.bundle_dir}", soft_wrap=True, markup=False)
         if remote_env and "envPid" in payload:
             console.print(f"Env PID: {payload['envPid']}")
-            console.print(f"Health URL: {payload['envHealthUrl']}")
-            console.print(f"Env Logs: {env_stdout_path} | {env_stderr_path}")
-        console.print(f"Train Script: {launch_script}")
-        console.print(f"Train Logs: {train_stdout_path} | {train_stderr_path}")
-        console.print(f"Training Report: {training_report_path}")
-        console.print(f"Runs Index: {runs_index_path}")
-        console.print(f"Report Markdown: {report_archive['summaryMarkdown']}")
-        console.print(f"Report CSV: {report_archive['summaryCsv']}")
+            console.print(f"Health URL: {payload['envHealthUrl']}", soft_wrap=True, markup=False)
+            console.print(f"Env Logs: {env_stdout_path} | {env_stderr_path}", soft_wrap=True, markup=False)
+        console.print(f"Train Script: {launch_script}", soft_wrap=True, markup=False)
+        console.print(f"Train Logs: {train_stdout_path} | {train_stderr_path}", soft_wrap=True, markup=False)
+        console.print(f"Training Report: {training_report_path}", soft_wrap=True, markup=False)
+        console.print(f"Runs Index: {runs_index_path}", soft_wrap=True, markup=False)
+        console.print(f"Report Markdown: {report_archive['summaryMarkdown']}", soft_wrap=True, markup=False)
+        console.print(f"Report CSV: {report_archive['summaryCsv']}", soft_wrap=True, markup=False)
         train_stderr_tail = str(payload["logTail"].get("trainStderr") or "").strip()
         if train_stderr_tail:
             console.print("[red]Train stderr tail:[/red]")
@@ -220,22 +220,22 @@ def run_openclaw_launch(
 
     console.print("[bold]OpenClaw Launch[/bold]")
     console.print(f"Mode: {payload['launchMode']}")
-    console.print(f"Bundle: {summary.bundle_dir}")
+    console.print(f"Bundle: {summary.bundle_dir}", soft_wrap=True, markup=False)
     if remote_env and "envPid" in payload:
         console.print(f"Env PID: {payload['envPid']}")
-        console.print(f"Health URL: {payload['envHealthUrl']}")
-        console.print(f"Env Logs: {env_stdout_path} | {env_stderr_path}")
+        console.print(f"Health URL: {payload['envHealthUrl']}", soft_wrap=True, markup=False)
+        console.print(f"Env Logs: {env_stdout_path} | {env_stderr_path}", soft_wrap=True, markup=False)
         env_tail = str(payload["logTail"].get("envStdout") or "").strip()
         if env_tail:
             console.print("[dim]Env stdout tail:[/dim]")
             console.print(env_tail)
-    console.print(f"Train Script: {launch_script}")
-    console.print(f"Train Logs: {train_stdout_path} | {train_stderr_path}")
-    console.print(f"Summary: {summary_path}")
-    console.print(f"Training Report: {training_report_path}")
-    console.print(f"Runs Index: {runs_index_path}")
-    console.print(f"Report Markdown: {report_archive['summaryMarkdown']}")
-    console.print(f"Report CSV: {report_archive['summaryCsv']}")
+    console.print(f"Train Script: {launch_script}", soft_wrap=True, markup=False)
+    console.print(f"Train Logs: {train_stdout_path} | {train_stderr_path}", soft_wrap=True, markup=False)
+    console.print(f"Summary: {summary_path}", soft_wrap=True, markup=False)
+    console.print(f"Training Report: {training_report_path}", soft_wrap=True, markup=False)
+    console.print(f"Runs Index: {runs_index_path}", soft_wrap=True, markup=False)
+    console.print(f"Report Markdown: {report_archive['summaryMarkdown']}", soft_wrap=True, markup=False)
+    console.print(f"Report CSV: {report_archive['summaryCsv']}", soft_wrap=True, markup=False)
     train_tail = str(payload["logTail"].get("trainStdout") or "").strip()
     if train_tail:
         console.print("[dim]Train stdout tail:[/dim]")
@@ -261,7 +261,7 @@ def run_openclaw_inspect(
         return
 
     console.print("[bold]OpenClaw Run Inspect[/bold]")
-    console.print(f"Bundle: {target}")
+    console.print(f"Bundle: {target}", soft_wrap=True, markup=False)
     if payload["runSummary"]:
         run_summary = payload["runSummary"]
         console.print(
@@ -270,19 +270,23 @@ def run_openclaw_inspect(
         )
     console.print(
         f"Checkpoint: {payload['checkpoint']['path']} | Exists: {payload['checkpoint']['exists']} | "
-        f"Files: {payload['checkpoint']['fileCount']} | Latest Step: {payload['checkpoint']['latestStep']}"
+        f"Files: {payload['checkpoint']['fileCount']} | Latest Step: {payload['checkpoint']['latestStep']}",
+        soft_wrap=True,
+        markup=False,
     )
-    console.print(f"Env URL: {payload['resolvedEnv']['envServerUrl']}")
+    console.print(f"Env URL: {payload['resolvedEnv']['envServerUrl']}", soft_wrap=True, markup=False)
     if payload["training"]["wandbUrl"]:
-        console.print(f"W&B: {payload['training']['wandbUrl']}")
+        console.print(f"W&B: {payload['training']['wandbUrl']}", soft_wrap=True, markup=False)
     if payload["training"]["latestMetrics"]:
         console.print(f"Metrics: {payload['training']['latestMetrics']}")
-    console.print(f"Runs Index: {payload['files']['runsIndex']}")
+    console.print(f"Runs Index: {payload['files']['runsIndex']}", soft_wrap=True, markup=False)
     console.print(
         f"Logs: {payload['logs']['envStdout']} | {payload['logs']['envStderr']} | "
-        f"{payload['logs']['trainStdout']} | {payload['logs']['trainStderr']}"
+        f"{payload['logs']['trainStdout']} | {payload['logs']['trainStderr']}",
+        soft_wrap=True,
+        markup=False,
     )
-    console.print(f"Training Report: {payload['files']['trainingReport']}")
+    console.print(f"Training Report: {payload['files']['trainingReport']}", soft_wrap=True, markup=False)
     train_stderr_tail = str(payload["logTail"]["trainStderr"]).strip()
     if train_stderr_tail:
         console.print("[dim]Train stderr tail:[/dim]")
@@ -325,7 +329,7 @@ def run_openclaw_list_runs(
         return
 
     console.print("[bold]OpenClaw Runs[/bold]")
-    console.print(f"Index: {target}")
+    console.print(f"Index: {target}", soft_wrap=True, markup=False)
     console.print(f"Showing: {payload['count']} / {payload['filteredCount']} filtered ({payload['totalCount']} total)")
     if outcome:
         console.print(f"Outcome Filter: {outcome}")
@@ -343,8 +347,8 @@ def run_openclaw_list_runs(
         )
         best = compare_summary.get("best") or {}
         worst = compare_summary.get("worst") or {}
-        console.print(f"Best: {best.get('value')} | {best.get('bundleDir')}")
-        console.print(f"Worst: {worst.get('value')} | {worst.get('bundleDir')}")
+        console.print(f"Best: {best.get('value')} | {best.get('bundleDir')}", soft_wrap=True, markup=False)
+        console.print(f"Worst: {worst.get('value')} | {worst.get('bundleDir')}", soft_wrap=True, markup=False)
     grouped_summary = payload["groupedSummary"]
     if grouped_summary:
         group_table = Table(show_header=True, header_style="bold")
@@ -432,8 +436,8 @@ def run_openclaw_compare_runs(
         output_path.write_text(rendered, encoding="utf-8")
         console.print("[bold]OpenClaw Run Comparison[/bold]")
         console.print(f"Format: {normalized_format}")
-        console.print(f"Output: {output_path}")
-        console.print(f"Index: {target}")
+        console.print(f"Output: {output_path}", soft_wrap=True, markup=False)
+        console.print(f"Index: {target}", soft_wrap=True, markup=False)
         return
 
     if normalized_format == "json":
@@ -487,7 +491,7 @@ def run_latest_openclaw_report(
     console.print("[bold]Latest OpenClaw Report[/bold]")
     console.print(f"Format: {normalized_format}")
     console.print(f"Date: {payload['date']}")
-    console.print(f"Path: {latest_path}")
+    console.print(f"Path: {latest_path}", soft_wrap=True, markup=False)
     if print_content:
         console.print(payload["content"], end="" if str(payload["content"]).endswith("\n") else "\n")
 
@@ -554,9 +558,9 @@ def run_latest_openclaw_metrics(
         f"Alerts: new={state_counts.get('new', 0)} | ongoing={state_counts.get('ongoing', 0)} | "
         f"resolved={state_counts.get('resolved', 0)}"
     )
-    console.print(f"Alert State: {payload['alertsStatePath']}")
-    console.print(f"Markdown: {payload['summaryMarkdown']}")
-    console.print(f"CSV: {payload['summaryCsv']}")
+    console.print(f"Alert State: {payload['alertsStatePath']}", soft_wrap=True, markup=False)
+    console.print(f"Markdown: {payload['summaryMarkdown']}", soft_wrap=True, markup=False)
+    console.print(f"CSV: {payload['summaryCsv']}", soft_wrap=True, markup=False)
     if not payload["ok"]:
         console.print("[red]Threshold check failed.[/red]")
         raise typer.Exit(1)
@@ -596,11 +600,11 @@ def run_openclaw_metrics_server(
         alertmanager_renderer=render_openclaw_alertmanager_payload,
     )
     console.print("[bold]OpenClaw Metrics Server[/bold]")
-    console.print(f"Listening: {server.base_url}")
-    console.print(f"Metrics: {server.base_url}/metrics")
-    console.print(f"Summary: {server.base_url}/summary.json")
-    console.print(f"Alerts: {server.base_url}/alerts")
-    console.print(f"Alertmanager: {server.base_url}/alerts/prometheus")
+    console.print(f"Listening: {server.base_url}", soft_wrap=True, markup=False)
+    console.print(f"Metrics: {server.base_url}/metrics", soft_wrap=True, markup=False)
+    console.print(f"Summary: {server.base_url}/summary.json", soft_wrap=True, markup=False)
+    console.print(f"Alerts: {server.base_url}/alerts", soft_wrap=True, markup=False)
+    console.print(f"Alertmanager: {server.base_url}/alerts/prometheus", soft_wrap=True, markup=False)
     try:
         server.serve_forever()
     except KeyboardInterrupt:  # pragma: no cover

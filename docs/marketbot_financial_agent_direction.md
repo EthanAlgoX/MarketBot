@@ -19,7 +19,7 @@ Skills 提供流程，MCP 提供接入。产品的长期积累来自研究证据
 ## 基于 Nanobot 的实现边界
 
 本轮再次 fetch 主项目与 Nanobot：MarketBot 的远端 main 为 `4faa7fd`，Nanobot
-参考版本为 `4fd6807`，完整 SHA 和本地路径见 [参考记录](../reference/nanobot.json)。
+参考版本为 `ae1eb02`，完整 SHA 和本地路径见 [参考记录](../reference/nanobot.json)。
 MarketBot 保留现有 Python 项目与金融领域代码，按 Nanobot 的执行层、扩展层与
 产品层边界演进。当前没有把整个 Nanobot 最新源码替换成运行依赖，也不宣称已同步
 它的全部 WebUI、Provider、上下文治理和插件能力。
@@ -40,7 +40,7 @@ Nanobot 官方[架构说明](https://github.com/HKUDS/nanobot/blob/main/docs/arc
 
 | 能力 | 已有实现 | 需要补齐的部分 |
 | --- | --- | --- |
-| 数据获取与观察 | `services.py` 的缓存、sourceHealth、routeTrace；多市场行情与缺失标的披露 | 工具响应时间与源数据观察时间区分、交易日/交易时段、财报口径与历史可见性 |
+| 数据获取与观察 | `services.py` 的缓存、sourceHealth、routeTrace；多市场行情与缺失标的披露；观察/抓取/发布时间分开，未知时刻保留缺口 | 交易日/交易时段服务、财报口径与历史可见性、更多供应商的可靠时区 |
 | 研究执行 | Router / Planner / Executor / Verifier、计划落盘、技能路由与回退 | 本轮修复空白名单实际放开工具、后续步骤未收到前序证据；仍需更强的内容验证 |
 | 报告解释 | market_brief 含多个组件原始 JSON、可靠性信息；每日机会 Markdown 存档 | 本轮新增不可变证据账本、逐条来源/时间与 claim 绑定；后续完善历史研究回放和来源冲突检测 |
 | 投资论点 | `theses.json` 记录观点、drivers、risks、状态和更新历史；本轮修复同标的不同中文论点的 ID 碰撞 | 本轮增加规则 + evidence/jsonPointer 复核；情绪不再自动证伪；定性前提仍需研究者判断 |

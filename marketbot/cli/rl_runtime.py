@@ -116,7 +116,7 @@ def run_rl_build_dataset(
     if not records:
         raise typer.BadParameter(f"no dataset records could be built from {source}")
     written = write_jsonl(target, records)
-    console.print(f"[green]✓[/green] Wrote {len(records)} {resolved_type} records to {written}")
+    console.print(f"✓ Wrote {len(records)} {resolved_type} records to {written}", soft_wrap=True, markup=False)
 
 
 def run_rl_collect(
@@ -178,7 +178,7 @@ def run_rl_collect(
         f"{reward['score']:.4f} | Return: {reward['realized_return']:.4f} | "
         f"MaxDD: {evaluation['maxDrawdown']:.4f} | Turnover: {evaluation['turnover']:.4f}"
     )
-    console.print(f"[green]✓[/green] Appended episode to {written}")
+    console.print(f"✓ Appended episode to {written}", soft_wrap=True, markup=False)
 
 
 def run_rl_train(
@@ -215,10 +215,10 @@ def run_rl_train(
     console.print("[bold]RL Train Export[/bold]")
     console.print(f"Adapter: {summary.adapter}")
     console.print(f"Examples: {summary.example_count}")
-    console.print(f"Artifacts: {summary.artifact_path}")
-    console.print(f"Manifest: {summary.manifest_path}")
+    console.print(f"Artifacts: {summary.artifact_path}", soft_wrap=True, markup=False)
+    console.print(f"Manifest: {summary.manifest_path}", soft_wrap=True, markup=False)
     if summary.script_path:
-        console.print(f"Script: {summary.script_path}")
+        console.print(f"Script: {summary.script_path}", soft_wrap=True, markup=False)
     if summary.dry_run:
         console.print("[dim]Dry-run only: no external trainer was invoked.[/dim]")
 
@@ -258,16 +258,16 @@ def run_rl_export_openclaw(
 
     console.print("[bold]OpenClaw Export[/bold]")
     console.print(f"Examples: {summary.adapter_summary.example_count}")
-    console.print(f"Artifacts: {summary.adapter_summary.artifact_path}")
-    console.print(f"Manifest: {summary.adapter_summary.manifest_path}")
-    console.print(f"Generate Shim: {summary.generate_path}")
-    console.print(f"Script: {summary.script_path}")
-    console.print(f"README: {summary.readme_path}")
-    console.print(f"OpenClaw Root: {summary.openclaw_root}")
-    console.print(f"OpenClaw Launcher: {summary.terminal_script_path}")
-    console.print(f"Env Script: {summary.env_script_path}")
-    console.print(f"Remote Script: {summary.remote_script_path}")
-    console.print(f"Task Catalog: {summary.task_catalog_path}")
-    console.print(f"Env Template: {summary.env_example_path}")
+    console.print(f"Artifacts: {summary.adapter_summary.artifact_path}", soft_wrap=True, markup=False)
+    console.print(f"Manifest: {summary.adapter_summary.manifest_path}", soft_wrap=True, markup=False)
+    console.print(f"Generate Shim: {summary.generate_path}", soft_wrap=True, markup=False)
+    console.print(f"Script: {summary.script_path}", soft_wrap=True, markup=False)
+    console.print(f"README: {summary.readme_path}", soft_wrap=True, markup=False)
+    console.print(f"OpenClaw Root: {summary.openclaw_root}", soft_wrap=True, markup=False)
+    console.print(f"OpenClaw Launcher: {summary.terminal_script_path}", soft_wrap=True, markup=False)
+    console.print(f"Env Script: {summary.env_script_path}", soft_wrap=True, markup=False)
+    console.print(f"Remote Script: {summary.remote_script_path}", soft_wrap=True, markup=False)
+    console.print(f"Task Catalog: {summary.task_catalog_path}", soft_wrap=True, markup=False)
+    console.print(f"Env Template: {summary.env_example_path}", soft_wrap=True, markup=False)
     if summary.adapter_summary.dry_run:
         console.print("[dim]Dry-run only: no external trainer was invoked.[/dim]")

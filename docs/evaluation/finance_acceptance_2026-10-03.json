@@ -73,12 +73,13 @@
     "External channel delivery is tested with isolated mocks"
   ],
   "fullSuite": {
-    "passed": 1171,
-    "durationSeconds": 44.48,
+    "passed": 1181,
+    "durationSeconds": 50.27,
     "python": "3.12.13",
     "ruff": "passed",
     "diffCheck": "passed",
-    "gitTrackedFilesOnly": true
+    "gitTrackedFilesOnly": true,
+    "evaluatedAt": "2026-10-02T17:38:41.739264+00:00"
   },
   "packaging": {
     "pythonFiles": 163,
@@ -118,5 +119,10 @@
     "trackedFilesPassed": true,
     "syntheticNewCredentialRejected": true,
     "auditedNonSecretBaselineEntries": 39
+  },
+  "cliFollowup": {
+    "narrowTerminalRegressionsPassed": 10,
+    "cliTestsPassed": 84,
+    "literalPathsPreserved": true
   }
 }
