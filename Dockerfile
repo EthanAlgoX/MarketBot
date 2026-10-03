@@ -16,13 +16,8 @@ RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 
-# Install Python dependencies first (cached layer)
+# Copy the package sources and required bridge assets before installation
 COPY pyproject.toml README.md LICENSE ./
-RUN mkdir -p marketbot bridge && touch marketbot/__init__.py && \
-    uv pip install --system --no-cache . && \
-    rm -rf marketbot bridge
-
-# Copy the full source and install
 COPY marketbot/ marketbot/
 COPY bridge/ bridge/
 RUN uv pip install --system --no-cache .
@@ -31,6 +26,7 @@ RUN uv pip install --system --no-cache .
 WORKDIR /app/bridge
 RUN npm install && npm run build
 WORKDIR /app
+RUN marketbot --help > /dev/null
 
 # Create config directory
 RUN mkdir -p /root/.marketbot
