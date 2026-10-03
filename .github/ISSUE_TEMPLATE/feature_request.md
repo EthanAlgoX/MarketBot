@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea or improvement for MarketBotbot.
+about: Suggest an idea or improvement for MarketBot.
 title: "[Feature]: "
 labels: enhancement
 ---
@@ -9,7 +9,7 @@ labels: enhancement
 Describe the problem you are trying to solve or the opportunity you see.
 
 ## Proposed solution
-What would you like MarketBotbot to do?
+What would you like MarketBot to do?
 
 ## Alternatives considered
 Any other approaches you have considered?

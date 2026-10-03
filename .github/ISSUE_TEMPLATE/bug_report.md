@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a problem or unexpected behavior in MarketBotbot.
+about: Report a problem or unexpected behavior in MarketBot.
 title: "[Bug]: "
 labels: bug
 ---
@@ -20,7 +20,7 @@ What did you expect to happen?
 What actually happened?
 
 ## Environment
-- MarketBotbot version:
+- MarketBot version:
 - OS:
 - Install method (pnpm/npx/docker/etc):
 

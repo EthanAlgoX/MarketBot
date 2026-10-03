@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Onboarding
-    url: https://discord.gg/marketbot
-    about: New to MarketBotbot? Join Discord for setup guidance from Krill in #help.
+  - name: Installation help
+    url: https://github.com/EthanAlgoX/MarketBot#install-and-complete-your-first-calculation
+    about: Follow the README installation walkthrough. Use its language links for Simplified Chinese.
   - name: Support
-    url: https://discord.gg/marketbot
-    about: Get help from Krill and the community on Discord in #help.
+    url: https://github.com/EthanAlgoX/MarketBot/issues
+    about: Search MarketBot issues or open a support question. Remove credentials and private data before posting.

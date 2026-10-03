@@ -8,14 +8,14 @@ MarketBot 是面向个人投资者的金融研究 Agent，服务于跨市场研�
 
 金融特色来自可复查的流程：结论保留数据来源和时间；持仓按币种计算；投资假设按显式规则复核；持续跟踪只在满足条件或出现数据缺口时产生提醒。Skills 负责研究方法，工具负责取数和计算，模型负责组织分析。
 
-当前为开发版本。本页对应 `codex/finance-agent` 分支；已发布的 PyPI 包可能尚未包含本页的全部功能。Python 要求 **3.11+**。模拟数据和规则信号用于研究与测试，项目不执行真实交易。
+本页对应当前 `main` 分支；已发布的 PyPI 包可能尚未包含本页的全部功能。Python 要求 **3.11+**。模拟数据和规则信号用于研究与测试，项目不执行真实交易。
 
 ## 安装并完成第一次计算
 
 以下命令从源码安装，使用项目内独立配置和工作目录。后续命令均在仓库根目录执行，沿用这两个变量。
 
 ```bash
-git clone --branch codex/finance-agent --single-branch https://github.com/EthanAlgoX/MarketBot.git
+git clone --branch main --single-branch https://github.com/EthanAlgoX/MarketBot.git
 cd MarketBot
 python3 -m venv .venv
 source .venv/bin/activate

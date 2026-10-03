@@ -15,14 +15,14 @@ The financial workflow provides four concrete capabilities:
 - **Investment thesis tracking:** review numeric conditions against matching original evidence; incomplete or stale facts preserve the prior state.
 - **Ongoing change monitoring:** retain a valid baseline, alert on threshold transitions and portfolio changes, and keep a durable local outbox.
 
-This README describes development branch `codex/finance-agent`. Published PyPI packages may not yet include all these features. **Python 3.11+** is required. Illustrative prices and rule-based signals support research and testing; MarketBot does not execute real trades.
+This README describes the current `main` branch. Published PyPI packages may not yet include all these features. **Python 3.11+** is required. Illustrative prices and rule-based signals support research and testing; MarketBot does not execute real trades.
 
 ## Install and complete your first calculation
 
 Install from source and create an isolated configuration and workspace. Run subsequent examples from the repository root, keeping these two variables set.
 
 ```bash
-git clone --branch codex/finance-agent --single-branch https://github.com/EthanAlgoX/MarketBot.git
+git clone --branch main --single-branch https://github.com/EthanAlgoX/MarketBot.git
 cd MarketBot
 python3 -m venv .venv
 source .venv/bin/activate
