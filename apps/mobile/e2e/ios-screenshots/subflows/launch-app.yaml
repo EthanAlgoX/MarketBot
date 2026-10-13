@@ -1,0 +1,22 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+appId: com.marketbot.app
+---
+# Restart without clearing app data, so a dev client's bundler URL stays put.
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "Account|Sign up for 金融助手|Sign in to 金融助手"
+    timeout: 40000
+- runFlow:
+    when:
+      visible: "Account"
+    commands:
+      - tapOn: "Account"
+      - scrollUntilVisible:
+          element: "Sign out"
+          direction: DOWN
+          timeout: 15000
+      - tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Sign up for 金融助手|Sign in to 金融助手"
+    timeout: 20000

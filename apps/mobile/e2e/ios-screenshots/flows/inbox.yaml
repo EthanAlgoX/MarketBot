@@ -1,0 +1,23 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+appId: com.marketbot.app
+name: Inbox
+---
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      MARKETBOT_ACTIVE_EMAIL: ${MARKETBOT_SCREENSHOT_EMAIL}
+- extendedWaitUntil:
+    visible: ".*Researcher.*"
+    timeout: 20000
+- takeScreenshot: 01-inbox
+- tapOn: "Activity"
+- extendedWaitUntil:
+    visible: ".*Recent.*"
+    timeout: 15000
+- takeScreenshot: 02-activity
+- tapOn: "Activity"
+- openLink: "marketbot:///artifacts"
+- extendedWaitUntil:
+    visible: ".*launch-notes.txt.*|.*No artifacts yet.*|.*Artifacts.*"
+    timeout: 15000
+- takeScreenshot: 03-artifacts

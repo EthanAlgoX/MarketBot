@@ -1,0 +1,31 @@
+{
+  "name": "@marketbot/api",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/dev-watch.mjs src/index.ts",
+    "start": "tsx src/index.ts",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root ../.. apps/api/src",
+    "secrets:infisical": "tsx src/cli/secrets-infisical.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "@orpc/server": "1.15.0",
+    "@marketbot/adapter-kit": "workspace:*",
+    "@marketbot/adapters": "workspace:*",
+    "@marketbot/auth": "workspace:*",
+    "@marketbot/contracts": "workspace:*",
+    "@marketbot/core": "workspace:*",
+    "@marketbot/db": "workspace:*",
+    "@marketbot/logging": "workspace:*",
+    "@marketbot/memory": "workspace:*",
+    "hono": "4.13.7"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  },
+  "x-project-modifications": "Modified for marketbot on 2026-10-13; see MODIFICATIONS.md."
+}

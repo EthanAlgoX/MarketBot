@@ -1,0 +1,323 @@
+import { useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import type { MobileBot, MobileBotSection } from "../lib/api";
+import { mobileTokens } from "../lib/appearance";
+import { useI18n } from "../lib/i18n";
+import { native, useThemedStyles } from "../lib/native";
+import { errorText } from "../lib/user-error";
+import { NativeActionButton } from "./native-action-button";
+import { NativeSymbol } from "./native-symbol";
+
+export type BotOrganizationUpdate = {
+  pinned?: boolean;
+  sectionId?: string | null;
+  notifyOnFinish?: boolean;
+};
+
+export function BotOrganizeModal({
+  bot,
+  sections,
+  onClose,
+  onUpdate,
+  onCreateSection,
+  onRenameSection,
+}: {
+  bot: Pick<MobileBot, "name" | "pinned" | "sectionId"> &
+    Partial<Pick<MobileBot, "notifyOnFinish">>;
+  sections: MobileBotSection[];
+  onClose: () => void;
+  onUpdate: (update: BotOrganizationUpdate) => Promise<void>;
+  onCreateSection: (name: string) => Promise<void>;
+  onRenameSection: (sectionId: string, name: string) => Promise<void>;
+}) {
+  const styles = useThemedStyles(createBotOrganizeStyles);
+  const { t } = useI18n();
+  const currentSection = sections.find((section) => section.id === bot.sectionId) ?? null;
+  const [mode, setMode] = useState<"idle" | "create" | "rename">("idle");
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(request: () => Promise<void>) {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await request();
+      onClose();
+    } catch (err) {
+      setError(errorText(err, t("Could not update chat")));
+      setSaving(false);
+    }
+  }
+
+  function startCreate() {
+    setMode("create");
+    setName("");
+    setError(null);
+  }
+
+  function startRename() {
+    if (!currentSection) return;
+    setMode("rename");
+    setName(currentSection.name);
+    setError(null);
+  }
+
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.overlay}
+      >
+        <Pressable
+          accessibilityLabel={t("Close chat organization")}
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+        />
+        <View style={styles.sheet}>
+          <Text style={styles.title} numberOfLines={1}>
+            {bot.name}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={saving}
+            onPress={() => void save(() => onUpdate({ pinned: !bot.pinned }))}
+            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+          >
+            <NativeSymbol
+              ios={bot.pinned ? "pin.slash" : "pin"}
+              android={bot.pinned ? "pin-outline" : "pin"}
+              size={18}
+            />
+            <Text style={styles.actionLabel}>{bot.pinned ? t("Unpin") : t("Pin")}</Text>
+          </Pressable>
+          {typeof bot.notifyOnFinish === "boolean" ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={saving}
+              onPress={() => void save(() => onUpdate({ notifyOnFinish: !bot.notifyOnFinish }))}
+              style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+            >
+              <NativeSymbol
+                ios={bot.notifyOnFinish ? "bell.slash" : "bell"}
+                android={bot.notifyOnFinish ? "notifications-off-outline" : "notifications-outline"}
+                size={18}
+              />
+              <Text style={styles.actionLabel}>
+                {bot.notifyOnFinish ? t("Silence notifications") : t("Resume notifications")}
+              </Text>
+            </Pressable>
+          ) : null}
+          <Text style={styles.sectionLabel}>{t("Move to")}</Text>
+          <ScrollView style={styles.sectionOptions} keyboardShouldPersistTaps="handled">
+            {sections.map((section) => (
+              <SectionOption
+                key={section.id}
+                label={section.name}
+                selected={bot.sectionId === section.id}
+                disabled={saving || bot.sectionId === section.id}
+                onPress={() => void save(() => onUpdate({ sectionId: section.id }))}
+              />
+            ))}
+            <SectionOption
+              label={t("Unassigned")}
+              selected={bot.sectionId === null}
+              disabled={saving || bot.sectionId === null}
+              onPress={() => void save(() => onUpdate({ sectionId: null }))}
+            />
+          </ScrollView>
+          {mode === "create" || mode === "rename" ? (
+            <View style={styles.newSectionRow}>
+              <TextInput
+                autoFocus
+                value={name}
+                onChangeText={setName}
+                maxLength={60}
+                placeholder={t("Section name")}
+                placeholderTextColor={native.secondaryLabel}
+                style={styles.newSectionInput}
+              />
+              <NativeActionButton
+                label={mode === "rename" ? t("Save") : t("Create")}
+                accessibilityLabel={
+                  mode === "rename" ? t("Save section name") : t("Create section")
+                }
+                fill={false}
+                style={{ alignSelf: "center" }}
+                disabled={
+                  saving ||
+                  !name.trim() ||
+                  (mode === "rename" && name.trim() === currentSection?.name)
+                }
+                onPress={() => {
+                  const trimmed = name.trim();
+                  if (mode === "rename" && currentSection) {
+                    void save(() => onRenameSection(currentSection.id, trimmed));
+                    return;
+                  }
+                  void save(() => onCreateSection(trimmed));
+                }}
+              />
+            </View>
+          ) : (
+            <>
+              <Pressable
+                disabled={saving}
+                onPress={startCreate}
+                style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+              >
+                <NativeSymbol ios="folder.badge.plus" android="folder-outline" size={18} />
+                <Text style={styles.actionLabel}>{t("New section")}</Text>
+              </Pressable>
+              {currentSection ? (
+                <Pressable
+                  disabled={saving}
+                  onPress={startRename}
+                  style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+                >
+                  <NativeSymbol ios="pencil" android="pencil-outline" size={18} />
+                  <Text style={styles.actionLabel}>{t("Rename section")}</Text>
+                </Pressable>
+              ) : null}
+            </>
+          )}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <NativeActionButton
+            label={t("Cancel")}
+            prominence="secondary"
+            fill
+            style={styles.cancel}
+            onPress={onClose}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function SectionOption({
+  label,
+  selected,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const styles = useThemedStyles(createBotOrganizeStyles);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.sectionOption, pressed && styles.pressed]}
+    >
+      <NativeSymbol ios="folder" android="folder-outline" size={18} />
+      <Text style={styles.actionLabel} numberOfLines={1}>
+        {label}
+      </Text>
+      {selected ? <NativeSymbol ios="checkmark" android="checkmark" size={17} /> : null}
+    </Pressable>
+  );
+}
+
+function createBotOrganizeStyles() {
+  const tokens = mobileTokens();
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: tokens.overlay,
+    },
+    sheet: {
+      maxHeight: "82%",
+      flexShrink: 1,
+      borderTopLeftRadius: 22,
+      borderTopRightRadius: 22,
+      backgroundColor: native.fillPressed,
+      paddingHorizontal: 16,
+      paddingTop: 18,
+      paddingBottom: 28,
+    },
+    title: {
+      color: native.label,
+      fontSize: 18,
+      fontWeight: "600",
+      paddingHorizontal: 8,
+      paddingBottom: 10,
+    },
+    action: {
+      minHeight: 46,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderRadius: 11,
+      paddingHorizontal: 10,
+    },
+    pressed: {
+      backgroundColor: native.fill,
+    },
+    actionLabel: {
+      flex: 1,
+      color: native.label,
+      fontSize: 16,
+    },
+    sectionLabel: {
+      color: native.secondaryLabel,
+      fontSize: 13,
+      fontWeight: "600",
+      paddingHorizontal: 10,
+      paddingTop: 12,
+      paddingBottom: 6,
+    },
+    sectionOptions: {
+      maxHeight: 230,
+      flexShrink: 1,
+    },
+    sectionOption: {
+      minHeight: 44,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderRadius: 11,
+      paddingHorizontal: 10,
+    },
+    newSectionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+    },
+    newSectionInput: {
+      flex: 1,
+      height: 40,
+      borderRadius: 10,
+      backgroundColor: native.fill,
+      color: native.label,
+      paddingHorizontal: 12,
+      fontSize: 16,
+    },
+    error: {
+      color: tokens.destructive,
+      fontSize: 13,
+      paddingHorizontal: 10,
+      paddingTop: 8,
+    },
+    cancel: { marginTop: 14 },
+  });
+}

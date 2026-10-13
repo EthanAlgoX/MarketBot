@@ -1,0 +1,55 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import type { MessageBlock } from "@marketbot/contracts";
+
+/** Exact token a silent routine must emit as its entire final assistant reply. */
+export const NO_RESPONSE = "NO_RESPONSE";
+
+function textBlocksOf(
+  blocks: readonly MessageBlock[],
+): Array<Extract<MessageBlock, { kind: "text" }>> {
+  return blocks.filter(
+    (block): block is Extract<MessageBlock, { kind: "text" }> => block.kind === "text",
+  );
+}
+
+function joinedText(blocks: readonly MessageBlock[]): string {
+  return textBlocksOf(blocks)
+    .map((block) => block.text)
+    .join("");
+}
+
+/**
+ * The sentinel alone, once or repeated. Text segments of one turn are joined
+ * with no separator, so a model that re-emits the sentinel after each tool
+ * batch yields `NO_RESPONSENO_RESPONSE`; that is still a silent reply, not prose.
+ */
+const SENTINEL_ONLY = /^(?:NO_RESPONSE\s*)+$/;
+
+/** True when trimmed text is only the silent-routine sentinel, once or repeated. Extra prose does not match. */
+export function isExactNoResponse(text: string): boolean {
+  return SENTINEL_ONLY.test(text.trim());
+}
+
+/**
+ * Exact-only silent-reply stripper. If the trimmed final text is exactly
+ * `NO_RESPONSE`, drop that text so the run can finish with no chat bubble.
+ * Sibling tool/step blocks do not count as extra prose. Any surrounding
+ * words leave the reply intact.
+ */
+export function stripNoResponseReply(
+  assembled: string,
+  blocks: MessageBlock[],
+): { assembled: string; blocks: MessageBlock[] } {
+  const assembledTrimmed = assembled.trim();
+  const blockText = joinedText(blocks).trim();
+  const visible = assembledTrimmed || blockText;
+  if (!isExactNoResponse(visible)) return { assembled, blocks };
+  // Fail closed: extra prose in either the assembled final or a text block keeps the reply.
+  if (assembledTrimmed && blockText && !isExactNoResponse(blockText)) {
+    return { assembled, blocks };
+  }
+  return {
+    assembled: "",
+    blocks: blocks.filter((block) => block.kind !== "text"),
+  };
+}

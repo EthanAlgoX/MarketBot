@@ -1,121 +1,65 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+.deepsec/
 node_modules
-**/node_modules/
-.env
-docker-compose.extra.yml
-dist
-*.bun-build
-pnpm-lock.yaml
-bun.lock
-bun.lockb
-coverage
-.pnpm-store
-.worktrees/
-.DS_Store
-**/.DS_Store
-ui/src/ui/__screenshots__/
-ui/playwright-report/
-ui/test-results/
-
-# Bun build artifacts
-*.bun-build
-apps/macos/.build/
-apps/shared/MoltbotKit/.build/
-apps/shared/MarketBotKit/.build/
-**/ModuleCache/
-bin/
-bin/clawdbot-mac
-bin/docs-list
-apps/macos/.build-local/
-apps/macos/.swiftpm/
-apps/shared/MoltbotKit/.swiftpm/
-apps/shared/MarketBotKit/.swiftpm/
-Core/
-apps/ios/*.xcodeproj/
-apps/ios/*.xcworkspace/
-apps/ios/.swiftpm/
-vendor/
-apps/ios/Clawdbot.xcodeproj/
-apps/ios/Clawdbot.xcodeproj/**
-apps/macos/.build/**
-**/*.bun-build
-apps/ios/*.xcfilelist
-
-# Vendor build artifacts
-vendor/a2ui/renderers/lit/dist/
-src/canvas-host/a2ui/*.bundle.js
-src/canvas-host/a2ui/*.map
-.bundle.hash
-
-# fastlane (iOS)
-apps/ios/fastlane/README.md
-apps/ios/fastlane/report.xml
-apps/ios/fastlane/Preview.html
-apps/ios/fastlane/screenshots/
-apps/ios/fastlane/test_output/
-apps/ios/fastlane/logs/
-apps/ios/fastlane/.env
-apps/ios/fastlane/report.xml
-
-# fastlane build artifacts (local)
-apps/ios/*.ipa
-apps/ios/*.dSYM.zip
-
-# provisioning profiles (local)
-apps/ios/*.mobileprovision
-.env
-
-# Local untracked files
-.tmp/
-.local/
-.learnings/
-$TMPDIR/
-.codex-home/
-.codex-node/
-data/finance-cache/
-.vscode/
-IDENTITY.md
-USER.md
-.tgz
-marketbot.json
-marketbot-tech-news-digest.md
-
-# local tooling
-.serena/
-
-# local xiaohongshu cli caches
-marketbot/.xiaohongshu-cli/cookies.json
-marketbot/.xiaohongshu-cli/index_cache.json
-marketbot/.xiaohongshu-cli/search_sessions.json
-marketbot/.xiaohongshu-cli/token_cache.json
-
-# config backups
-marketbot.json.bak*
-
-# Reference repos (local only)
-daily_stock_analysis-main/
-UI-TARS-desktop-main/
-openclaw-main/
-
-# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-/env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
+*.py[cod]
+.turbo
+dist
+build
+coverage
+.playwright-report
+.playwright-cli
+test-results
+playwright-report
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+data
+apps/**/data
+.tmp
+.DS_Store
+apps/web/dist
+apps/desktop/dist
+apps/desktop/out
+apps/desktop/e2e/screenshots
+apps/mobile/.expo
+apps/mobile/dist
+apps/mobile/android
+apps/mobile/ios
+packages/db/src/generated
+infra/sandboxes/supervisor/dist
+*.log
+.vercel
 .cache
-nosetests.xml
-coverage.xml
-*,cover
-.hypothesis/
-.pytest_cache/
+artifacts
+backups
+test-report
+verify-report
+.astro
+.deploy.lock
+.last-deployed-revision
+design/
+PRODUCT_PLAN.md
 
-# claw-screener
-claw-screener/node_modules/
-claw-screener/*.db
+# Lingui compiled catalogs — Vite plugin compiles .po at build time
+apps/web/src/locales/**/*.mjs
+apps/web/src/locales/**/*.js
+apps/web/scripts/msgids.json
+playwright-report-www
+
+# Isolated development runtimes, credentials, database files and logs.
+.local/
+# This service is an independent, pinned checkout with its own Git history.
+services/financial-engine/
+services/.financial-engine-*/
+
+# Local verification output and Python runtime environments
+**/output/
+.venv/
+.minimal-venv/
+.pytest_cache/
+.ruff_cache/
+*.sqlite
+*.sqlite3
+*.db

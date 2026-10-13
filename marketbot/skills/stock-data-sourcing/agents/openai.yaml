@@ -1,4 +1,0 @@
-interface:
-  display_name: "Stock Data Sourcing"
-  short_description: "Route A/H/US market and news data sources."
-  default_prompt: "Use $stock-data-sourcing to choose the best market and news data sources for this stock analysis task."

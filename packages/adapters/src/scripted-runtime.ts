@@ -1,0 +1,602 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import type {
+  AdapterContext,
+  AgentRunRequest,
+  AgentRuntime,
+  AgentRuntimeEvent,
+} from "@marketbot/adapter-kit";
+import { abortableDelay, inferHandoffTargetName } from "@marketbot/core";
+
+const running = new Map<string, AbortController>();
+
+export class ScriptedAgentRuntime implements AgentRuntime {
+  describe() {
+    return {
+      id: "scripted",
+      contractVersion: "1",
+      adapterVersion: "0.1.0",
+      capabilities: { streaming: true, compaction: false, tools: true, scripted: true },
+    };
+  }
+
+  async abort(runId: string): Promise<void> {
+    running.get(runId)?.abort();
+  }
+
+  async *run(
+    request: AgentRunRequest,
+    context?: Partial<AdapterContext>,
+  ): AsyncIterable<AgentRuntimeEvent> {
+    const controller = new AbortController();
+    running.set(request.runId, controller);
+    const signal = context?.signal ?? controller.signal;
+    try {
+      if (shouldFail(request.prompt)) {
+        throw new Error("Scripted run failure");
+      }
+      if (shouldHang(request.prompt)) {
+        yield { type: "progress", text: "still working…", activity: true };
+        while (!controller.signal.aborted && !signal.aborted) {
+          await abortableDelay(50, controller.signal);
+          if (controller.signal.aborted || signal.aborted) break;
+          yield { type: "progress", text: "still working…", activity: true };
+        }
+        yield { type: "done", text: "stopped" };
+        return;
+      }
+      const script = request.script ?? inferScript(request.prompt, request.resumeFromCheckpoint);
+      // Per-run call index so repeated tools (e.g. message_agent) get distinct
+      // executionIds — delivery keys and effect replays key off this value.
+      let toolCallSeq = 0;
+      for (const turn of script) {
+        if (signal.aborted || controller.signal.aborted) {
+          yield { type: "done", text: "stopped" };
+          return;
+        }
+        if (turn.assistant) {
+          yield { type: "progress", text: "working…", activity: true };
+          yield { type: "text", text: turn.assistant };
+        }
+        for (const call of turn.toolCalls ?? []) {
+          const executionId = `${request.runId}:${call.name}:${toolCallSeq++}`;
+          if (call.name === "run_subagent") {
+            const agentId = `${request.runId}:subagent`;
+            const name = String(call.args.name ?? "helper");
+            const task = String(call.args.task ?? request.prompt);
+            yield {
+              type: "subagent",
+              agentId,
+              name,
+              task,
+              status: "running",
+              progress: "working…",
+            };
+            yield {
+              type: "tool",
+              name: call.name,
+              args: call.args,
+              executionId,
+            };
+            yield {
+              type: "subagent",
+              agentId,
+              name,
+              task,
+              status: "completed",
+              result: `done. i handled: ${task.slice(0, 180)}`,
+            };
+            continue;
+          }
+          yield {
+            type: "tool",
+            name: call.name,
+            args: call.args,
+            executionId,
+          };
+        }
+        if (turn.ask) {
+          yield {
+            type: "ask",
+            text: turn.ask.text,
+            detail: turn.ask.detail,
+            actions: turn.ask.actions,
+          };
+          return;
+        }
+        if (turn.takeover) {
+          yield { type: "takeover", reason: turn.takeover.reason };
+          return;
+        }
+        if (turn.complete) {
+          yield {
+            type: "usage",
+            inputTokens: 12,
+            outputTokens: 40,
+            cacheReadTokens: 0,
+            cacheWriteTokens: 0,
+            provider: "scripted",
+            model: "scripted",
+          };
+          yield { type: "done", text: turn.assistant };
+          return;
+        }
+      }
+      yield { type: "text", text: "done." };
+      yield { type: "done", text: "done." };
+    } finally {
+      controller.abort();
+      running.delete(request.runId);
+    }
+  }
+}
+
+export function inferScript(
+  prompt: string,
+  resumeFromCheckpoint?: string,
+): NonNullable<AgentRunRequest["script"]> {
+  const lower = prompt.toLowerCase();
+  if (resumeFromCheckpoint === "takeover-skipped") {
+    return [
+      {
+        assistant: "login was skipped. continuing without treating sign-in as done.",
+        complete: true,
+      },
+    ];
+  }
+  if (resumeFromCheckpoint === "takeover") {
+    return [
+      {
+        assistant:
+          "signed in. the session stays in this computer — protected input never hit the thread.",
+        complete: true,
+      },
+    ];
+  }
+  // Before every content-based intent so payload text cannot steal the branch.
+  const shellCommand = /run the shell command\s+([\s\S]+)$/i.exec(prompt)?.[1]?.trim();
+  if (shellCommand) {
+    return [
+      {
+        assistant: "running it on my computer.",
+        toolCalls: [{ name: "shell", args: { command: shellCommand } }],
+        complete: true,
+      },
+    ];
+  }
+  if (lower.includes("message the bot named") || lower.includes("message bot named")) {
+    const name = namedBot(prompt) ?? "Peer";
+    const message =
+      /named\s+[A-Za-z0-9][A-Za-z0-9_-]{0,39}\s+(?:saying|with|:)\s*([\s\S]+)$/i
+        .exec(prompt)?.[1]
+        ?.trim() ?? `Please help with: ${prompt}`;
+    return [
+      {
+        assistant: "messaging that bot now.",
+        toolCalls: [
+          {
+            name: "message_bot",
+            args: {
+              confirm_name: name,
+              message,
+              intent: "request",
+            },
+          },
+        ],
+        complete: true,
+      },
+    ];
+  }
+  if (
+    lower.includes("launch a cloud agent") ||
+    lower.includes("start a cloud agent") ||
+    lower.includes("cloud coding agent")
+  ) {
+    return [
+      {
+        assistant: "launching a cloud agent for that.",
+        toolCalls: [
+          {
+            name: "cloud_agent_launch",
+            args: {
+              prompt: "Add a README with setup instructions",
+              repository: "https://github.com/example/demo",
+              openPr: true,
+            },
+          },
+        ],
+        complete: true,
+      },
+    ];
+  }
+  if (lower.includes("show a login card")) {
+    return [
+      {
+        assistant: "i need that sign-in in a protected card.",
+        toolCalls: [
+          {
+            name: "request_secret",
+            args: {
+              label: "Example sign-in",
+              purpose: "password",
+              credential: {
+                name: "example_login",
+                origin: "https://login.example.test",
+                auth: { type: "login" },
+              },
+            },
+          },
+        ],
+      },
+    ];
+  }
+  if (
+    lower.includes("masked secret card") ||
+    lower.includes("show a secret card") ||
+    lower.includes("request a masked api key")
+  ) {
+    return [
+      {
+        assistant: "i need that value in a protected field.",
+        toolCalls: [
+          {
+            name: "request_secret",
+            args: {
+              label: "API key",
+              purpose: "api_key",
+              credential: {
+                name: "example_api",
+                origin: "https://api.example.test",
+                auth: { type: "bearer" },
+              },
+            },
+          },
+        ],
+      },
+    ];
+  }
+  if (lower.includes("mcp approval card")) {
+    return [
+      {
+        assistant: "i will register that server for your approval.",
+        toolCalls: [
+          {
+            name: "add_mcp_server",
+            args: {
+              name: "Fixture MCP",
+              transport: "stdio",
+              command: "echo",
+              assignToSelf: true,
+            },
+          },
+        ],
+      },
+    ];
+  }
+  if (lower.includes("quote markdown fixture")) {
+    const marker = /quote markdown fixture\s+(\S+)/i.exec(prompt)?.[1] ?? "md-fixture";
+    return [
+      {
+        assistant: `${marker}
+1. list-a
+2. list-b
+
+| k | v |
+| --- | --- |
+| cell-a | cell-b |
+| cell-c | cell-d |
+
+\`\`\`
+code-a
+---
+code-b
+\`\`\``,
+        complete: true,
+      },
+    ];
+  }
+  if (
+    lower.includes("tappable choices") ||
+    lower.includes("choice buttons") ||
+    lower.includes("pick from these cities")
+  ) {
+    return [
+      {
+        assistant: "pick one to continue.",
+        ask: {
+          text: "Which city should I use?",
+          detail: "Tap one option.",
+          actions: [
+            { id: "choice-1", label: "Berlin" },
+            { id: "choice-2", label: "Seoul" },
+            { id: "choice-3", label: "Toronto" },
+            { id: "choice-4", label: "Lisbon" },
+          ],
+        },
+      },
+    ];
+  }
+  if (
+    lower.includes("ask me") ||
+    lower.includes("which city") ||
+    lower.includes("need a decision")
+  ) {
+    return [
+      {
+        assistant: "i need a decision before i continue.",
+        ask: { text: "Which city should I use?", detail: "Reply with one city name." },
+      },
+    ];
+  }
+  if (lower.includes("take over") || lower.includes("sign in") || lower.includes("login")) {
+    return [
+      { assistant: "i need you on the screen for a one-time sign-in. handing you the computer." },
+      { takeover: { reason: "Sign in to continue. Protected input stays off the thread." } },
+    ];
+  }
+  if (
+    lower.includes("observe your screen") ||
+    lower.includes("look at your screen") ||
+    lower.includes("use your screen")
+  ) {
+    const typed = /type\s+([A-Za-z0-9._-]+)/i.exec(prompt)?.[1] ?? "ready";
+    return [
+      {
+        assistant: "using my screen now.",
+        toolCalls: [
+          { name: "computer_observe", args: {} },
+          {
+            name: "computer_act",
+            args: {
+              actions: [{ kind: "type", text: typed }],
+              observe: true,
+            },
+          },
+        ],
+        complete: true,
+      },
+    ];
+  }
+  if (
+    lower.includes("delete the bot named") ||
+    lower.includes("delete the child bot") ||
+    lower.includes("delete child")
+  ) {
+    const name = namedBot(prompt) ?? "Scout";
+    return [
+      {
+        assistant: "archiving that bot.",
+        toolCalls: [{ name: "archive_bot", args: { confirm_name: name } }],
+        complete: true,
+      },
+    ];
+  }
+  if (
+    lower.includes("create a space") ||
+    lower.includes("create space") ||
+    lower.includes("new space named") ||
+    lower.includes("new private space")
+  ) {
+    const name = namedSpace(prompt) ?? "New space";
+    return [
+      {
+        assistant: "i can create that separate space after you confirm the boundary.",
+        toolCalls: [{ name: "create_space", args: { name } }],
+        complete: true,
+      },
+    ];
+  }
+  if (
+    lower.includes("spawn a bot") ||
+    lower.includes("spawn a child") ||
+    lower.includes("create a bot named") ||
+    lower.includes("create a child bot")
+  ) {
+    const name = namedBot(prompt) ?? "Helper";
+    return [
+      {
+        assistant: "creating a bot for that.",
+        toolCalls: [
+          {
+            name: "spawn_bot",
+            args: {
+              name,
+              title: `${name} specialist`,
+              instructions: `You are ${name}.`,
+              prompt: "Start on the assigned work.",
+            },
+          },
+        ],
+        complete: true,
+      },
+    ];
+  }
+  if (
+    lower.includes("silence finish notifications") ||
+    lower.includes("turn off finish notifications")
+  ) {
+    return [
+      {
+        assistant: "silencing finish notifications.",
+        toolCalls: [{ name: "update_bot", args: { notifyOnFinish: false } }],
+        complete: true,
+      },
+    ];
+  }
+  if (
+    lower.includes("resume finish notifications") ||
+    lower.includes("turn on finish notifications")
+  ) {
+    return [
+      {
+        assistant: "enabling finish notifications.",
+        toolCalls: [{ name: "update_bot", args: { notifyOnFinish: true } }],
+        complete: true,
+      },
+    ];
+  }
+  if (lower.includes("subagent") || lower.includes("delegate to a helper")) {
+    return [
+      {
+        assistant: "spinning up a helper for that.",
+        toolCalls: [{ name: "run_subagent", args: { name: "helper", task: prompt } }],
+        complete: true,
+      },
+    ];
+  }
+  if (
+    lower.includes("hand this to") ||
+    lower.includes("hand off to") ||
+    lower.includes("handoff to") ||
+    (lower.includes("@writer") && lower.includes("draft"))
+  ) {
+    const target = inferHandoffTargetName(prompt) ?? "Writer";
+    return [
+      {
+        assistant: "handing this off in the group thread.",
+        toolCalls: [
+          {
+            name: "handoff_to_bot",
+            args: {
+              confirm_name: target,
+              message: prompt,
+            },
+          },
+        ],
+        complete: true,
+      },
+    ];
+  }
+  if (lower.startsWith("run taught skill:") || lower.includes("this is a safe test")) {
+    return [
+      {
+        assistant:
+          "Running the taught skill using its saved playbook. I will follow the demonstrated steps and report the result.",
+        complete: true,
+      },
+    ];
+  }
+  if (/^run\s+/.test(lower)) {
+    return [
+      {
+        assistant:
+          "Using the saved taught skill playbook for that request and following its steps.",
+        complete: true,
+      },
+    ];
+  }
+  if (lower.includes("connector") || lower.includes("crm") || lower.includes("destination")) {
+    return [
+      {
+        assistant: "writing the record through the connected destination.",
+        toolCalls: [
+          {
+            name: "destination.write",
+            args: { collection: "notes", title: "MarketBot result", body: prompt },
+          },
+        ],
+        complete: true,
+      },
+    ];
+  }
+  if (lower.includes("attach") && (lower.includes("thread") || lower.includes("into the thread"))) {
+    const said = /says?\s+(.+)$/i.exec(prompt)?.[1]?.replace(/[.]+$/, "") ?? prompt;
+    const content = `${said.trim()}\n`;
+    const filePath =
+      /(?:called|named|path|file)\s+([A-Za-z0-9._/-]+)/i.exec(prompt)?.[1] ?? "notes/result.txt";
+    return [
+      { assistant: "writing that into my home and attaching it to the thread." },
+      { toolCalls: [{ name: "write_file", args: { path: filePath, content } }] },
+      { toolCalls: [{ name: "attach_file", args: { path: filePath } }], complete: true },
+    ];
+  }
+  if (
+    lower.includes("save shared memory") ||
+    lower.includes("update shared memory") ||
+    lower.includes("write shared memory")
+  ) {
+    const contentMatch =
+      /\b(?:with|content):\s*([\s\S]+)$/i.exec(prompt) ?? /\bwith\s+([\s\S]+)$/i.exec(prompt);
+    const content = contentMatch?.[1]?.trim();
+    const header = contentMatch ? prompt.slice(0, contentMatch.index) : prompt;
+    const named =
+      /(?:named|called|path|file)\s+([A-Za-z0-9._/-]+)/i.exec(header)?.[1] ??
+      /shared memory\s+([A-Za-z0-9._/-]+\.[A-Za-z0-9]+)/i.exec(header)?.[1];
+    const path = named && named.toLowerCase() !== "with" ? named : "MEMORY.md";
+    if (!content) {
+      return [
+        {
+          assistant:
+            "say what to save, for example: save shared memory MEMORY.md with: the new facts.",
+          complete: true,
+        },
+      ];
+    }
+    return [
+      {
+        assistant: "saving that to shared memory.",
+        toolCalls: [{ name: "save_shared_memory", args: { path, content } }],
+        complete: true,
+      },
+    ];
+  }
+  if (
+    lower.includes("write") &&
+    (lower.includes("file") || lower.includes("home") || lower.includes("note"))
+  ) {
+    const said = /says?\s+(.+)$/i.exec(prompt)?.[1]?.replace(/[.]+$/, "") ?? prompt;
+    const content = `${said.trim()}\n`;
+    const filePath =
+      /(?:called|named)\s+([A-Za-z0-9._/-]+)/i.exec(prompt)?.[1] ?? "notes/result.txt";
+    return [
+      { toolCalls: [{ name: "write_file", args: { path: filePath, content } }] },
+      { assistant: "writing that into my home now.", complete: true },
+    ];
+  }
+  if (lower.includes("remember")) {
+    return [
+      {
+        assistant: "noted — i will keep that in memory.",
+        memory: [{ scope: "bot", path: "MEMORY.md", content: `# Memory\n\n- ${prompt}\n` }],
+        complete: true,
+      },
+    ];
+  }
+  return [
+    {
+      assistant: `on it. i will work this in the background and come back with a result.\n\n${summarize(prompt)}`,
+    },
+    {
+      files: [{ path: "notes/last-task.md", content: `# Task\n\n${prompt}\n` }],
+      complete: true,
+    },
+  ];
+}
+
+function shouldFail(prompt: string): boolean {
+  return prompt.toLowerCase().includes("fail this run");
+}
+
+function shouldHang(prompt: string): boolean {
+  const lower = prompt.toLowerCase();
+  return (
+    lower.includes("keep working") ||
+    lower.includes("work until i stop") ||
+    lower.includes("until i stop you") ||
+    lower.includes("hang until stopped")
+  );
+}
+
+function namedBot(prompt: string) {
+  return /named\s+([A-Za-z0-9][A-Za-z0-9_-]{0,39})/i.exec(prompt)?.[1];
+}
+
+function namedSpace(prompt: string) {
+  return /space\s+(?:named|called)\s+["“]?([^"”\n]{1,60})/i
+    .exec(prompt)?.[1]
+    ?.replace(/[.!?]+$/, "")
+    .trim();
+}
+
+function summarize(prompt: string): string {
+  return `done. i handled: ${prompt.slice(0, 180)}`;
+}

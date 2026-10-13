@@ -1,0 +1,13 @@
+---
+import { START_HREF, START_LABEL } from "../site";
+import Logo from "./Logo.astro";
+---
+
+<header class="site-header container">
+  <Logo />
+  <nav class="site-nav" aria-label="主导航">
+    <a href="/#workflow">功能</a>
+    <a href="/#scope">当前版本</a>
+    <a class="button button-small" href={START_HREF}>{START_LABEL}<span aria-hidden="true">↗</span></a>
+  </nav>
+</header>

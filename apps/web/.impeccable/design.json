@@ -1,0 +1,472 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-11T18:08:35.396880Z",
+  "title": "Design System: marketbot",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "primary",
+        "canonical": "#f1f1ef"
+      },
+      "primary-foreground": {
+        "role": "primary",
+        "displayName": "primary-foreground",
+        "canonical": "#0b0c0e"
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "background",
+        "canonical": "#0b0c0e",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "foreground",
+        "canonical": "#ececee",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "card",
+        "canonical": "#141518",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "secondary": {
+        "role": "neutral",
+        "displayName": "secondary",
+        "canonical": "#18191e",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "muted-foreground",
+        "canonical": "#85858a",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "border",
+        "canonical": "#1e2026",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "input": {
+        "role": "neutral",
+        "displayName": "input",
+        "canonical": "#18191e",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "ring": {
+        "role": "status",
+        "displayName": "ring",
+        "canonical": "#3b82f6"
+      },
+      "link": {
+        "role": "status",
+        "displayName": "link",
+        "canonical": "#3b82f6"
+      },
+      "destructive": {
+        "role": "status",
+        "displayName": "destructive",
+        "canonical": "#ef4444"
+      },
+      "success": {
+        "role": "status",
+        "displayName": "success",
+        "canonical": "#4ecb71"
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "warning",
+        "canonical": "#e9c46a"
+      },
+      "light-primary": {
+        "role": "primary",
+        "displayName": "light-primary",
+        "canonical": "#1a1a1a"
+      },
+      "light-primary-foreground": {
+        "role": "primary",
+        "displayName": "light-primary-foreground",
+        "canonical": "#f1f1ef"
+      },
+      "light-background": {
+        "role": "neutral",
+        "displayName": "light-background",
+        "canonical": "#fafaf8",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "light-foreground": {
+        "role": "neutral",
+        "displayName": "light-foreground",
+        "canonical": "#1a1a1a",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "light-card": {
+        "role": "neutral",
+        "displayName": "light-card",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "light-secondary": {
+        "role": "neutral",
+        "displayName": "light-secondary",
+        "canonical": "#f0f0ed",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "light-muted-foreground": {
+        "role": "neutral",
+        "displayName": "light-muted-foreground",
+        "canonical": "#6c6c70",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "light-border": {
+        "role": "neutral",
+        "displayName": "light-border",
+        "canonical": "#f0f0ed",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "light-input": {
+        "role": "neutral",
+        "displayName": "light-input",
+        "canonical": "#eaeae6",
+        "tonalRamp": [
+          "#0b0c0e",
+          "#141518",
+          "#18191e",
+          "#1e2026",
+          "#1a1a1a",
+          "#6c6c70",
+          "#f0f0ed",
+          "#fafaf8"
+        ]
+      },
+      "light-ring": {
+        "role": "status",
+        "displayName": "light-ring",
+        "canonical": "#6c6c70"
+      },
+      "light-link": {
+        "role": "status",
+        "displayName": "light-link",
+        "canonical": "#2563eb"
+      },
+      "light-destructive": {
+        "role": "status",
+        "displayName": "light-destructive",
+        "canonical": "#dc2626"
+      },
+      "light-success": {
+        "role": "status",
+        "displayName": "light-success",
+        "canonical": "#228b3b"
+      },
+      "light-warning": {
+        "role": "status",
+        "displayName": "light-warning",
+        "canonical": "#b7791f"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "headline",
+        "purpose": "页面名称"
+      },
+      "title": {
+        "displayName": "title",
+        "purpose": "模块标题"
+      },
+      "body": {
+        "displayName": "body",
+        "purpose": "字段和操作说明"
+      },
+      "reading": {
+        "displayName": "reading",
+        "purpose": "新闻摘要和展开报告"
+      },
+      "label": {
+        "displayName": "label",
+        "purpose": "按钮及字段标签"
+      },
+      "metadata": {
+        "displayName": "metadata",
+        "purpose": "来源、时间、版本和辅助状态"
+      },
+      "label-small": {
+        "displayName": "label-small",
+        "purpose": "紧凑徽标标签"
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-boundary",
+        "value": "0 0 0 1px color-mix(in srgb,var(--foreground) 10%,transparent)",
+        "purpose": "共享 Card 的低对比边界。"
+      },
+      {
+        "name": "focus-ring",
+        "value": "0 0 0 3px color-mix(in srgb,var(--ring) 50%,transparent)",
+        "purpose": "共享控件的 focus-visible 外圈。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "default-state-transition",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "通用按钮和输入的状态过渡。"
+      },
+      {
+        "name": "dialog-transition",
+        "value": "100ms",
+        "purpose": "共享 Dialog 打开和关闭的淡入/缩放时长。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "沿用共享 Button 的实际变体；预览文字为操作标签，不代表业务执行。",
+      "html": "<button class=\"ds-button-primary\" type=\"button\">归档今日</button>",
+      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border:1px solid transparent;border-radius:calc(var(--radius,.75rem));font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;transition:all 150ms cubic-bezier(.4,0,.2,1);font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;background:var(--primary,#f1f1ef);color:var(--primary-foreground,#0b0c0e);}.ds-button-primary:hover{background:color-mix(in srgb,var(--primary,#f1f1ef) 80%,transparent);}.ds-button-primary:focus-visible{outline:none;border-color:var(--ring,#3b82f6);box-shadow:0 0 0 3px color-mix(in srgb,var(--ring,#3b82f6) 50%,transparent);}.ds-button-primary:active{transform:translateY(1px);}.ds-button-primary:disabled{pointer-events:none;opacity:.5;}@media(max-width:639px){.ds-button-primary{min-height:44px;}}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "沿用共享 Button 的实际变体；预览文字为操作标签，不代表业务执行。",
+      "html": "<button class=\"ds-button-secondary\" type=\"button\">采集新闻</button>",
+      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border:1px solid transparent;border-radius:calc(var(--radius,.75rem));font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;transition:all 150ms cubic-bezier(.4,0,.2,1);font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;background:var(--secondary,#18191e);color:var(--secondary-foreground,#ececee);}.ds-button-secondary:hover{background:color-mix(in oklch,var(--secondary,#18191e),var(--foreground,#ececee) 5%);}.ds-button-secondary:focus-visible{outline:none;border-color:var(--ring,#3b82f6);box-shadow:0 0 0 3px color-mix(in srgb,var(--ring,#3b82f6) 50%,transparent);}.ds-button-secondary:active{transform:translateY(1px);}.ds-button-secondary:disabled{pointer-events:none;opacity:.5;}@media(max-width:639px){.ds-button-secondary{min-height:44px;}}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "沿用共享 Button 的实际变体；预览文字为操作标签，不代表业务执行。",
+      "html": "<button class=\"ds-button-outline\" type=\"button\">操作</button>",
+      "css": ".ds-button-outline{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border:1px solid transparent;border-radius:calc(var(--radius,.75rem));font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;transition:all 150ms cubic-bezier(.4,0,.2,1);font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;background:var(--background,#0b0c0e);color:var(--foreground,#ececee);border-color:var(--border,#1e2026);}.ds-button-outline:hover{background:var(--muted,#141518);}.ds-button-outline:focus-visible{outline:none;border-color:var(--ring,#3b82f6);box-shadow:0 0 0 3px color-mix(in srgb,var(--ring,#3b82f6) 50%,transparent);}.ds-button-outline:active{transform:translateY(1px);}.ds-button-outline:disabled{pointer-events:none;opacity:.5;}@media(max-width:639px){.ds-button-outline{min-height:44px;}}:host-context([data-theme=\"dark\"]) .ds-button-outline{border-color:var(--input,#18191e);background:color-mix(in srgb,var(--input,#18191e) 30%,transparent);}:host-context([data-theme=\"dark\"]) .ds-button-outline:hover{background:color-mix(in srgb,var(--input,#18191e) 50%,transparent);}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "沿用共享 Button 的实际变体；预览文字为操作标签，不代表业务执行。",
+      "html": "<button class=\"ds-button-ghost\" type=\"button\">刷新</button>",
+      "css": ".ds-button-ghost{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border:1px solid transparent;border-radius:calc(var(--radius,.75rem));font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;transition:all 150ms cubic-bezier(.4,0,.2,1);font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;background:transparent;color:var(--foreground,#ececee);}.ds-button-ghost:hover{background:var(--muted,#141518);}.ds-button-ghost:focus-visible{outline:none;border-color:var(--ring,#3b82f6);box-shadow:0 0 0 3px color-mix(in srgb,var(--ring,#3b82f6) 50%,transparent);}.ds-button-ghost:active{transform:translateY(1px);}.ds-button-ghost:disabled{pointer-events:none;opacity:.5;}@media(max-width:639px){.ds-button-ghost{min-height:44px;}}:host-context([data-theme=\"dark\"]) .ds-button-ghost:hover{background:color-mix(in srgb,var(--muted,#141518) 50%,transparent);}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "共享 Input 的边界、焦点和禁用状态。",
+      "html": "<label class=\"ds-field-label\" for=\"ds-symbol\">股票代码或交易对</label><input id=\"ds-symbol\" class=\"ds-field\" type=\"text\" />",
+      "css": ".ds-field-label{display:block;margin-bottom:8px;color:var(--foreground,#ececee);font-size:14px;font-weight:500;font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;}.ds-field{height:32px;width:100%;padding:4px 10px;background:transparent;color:var(--foreground,#ececee);border:1px solid var(--input,#18191e);border-radius:var(--radius,.75rem);font-size:16px;transition:color 150ms cubic-bezier(.4,0,.2,1),background 150ms cubic-bezier(.4,0,.2,1),border-color 150ms cubic-bezier(.4,0,.2,1);font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;}.ds-field:focus-visible{outline:none;border-color:var(--ring,#3b82f6);box-shadow:0 0 0 3px color-mix(in srgb,var(--ring,#3b82f6) 50%,transparent);}.ds-field:disabled{opacity:.5;cursor:not-allowed;background:color-mix(in srgb,var(--input,#18191e) 50%,transparent);}@media(min-width:768px){.ds-field{font-size:14px;}}:host-context([data-theme=\"dark\"]) .ds-field{background:color-mix(in srgb,var(--input,#18191e) 30%,transparent);}:host-context([data-theme=\"dark\"]) .ds-field:disabled{background:color-mix(in srgb,var(--input,#18191e) 80%,transparent);}"
+    },
+    {
+      "name": "Outline Badge",
+      "kind": "chip",
+      "refersTo": "badge-outline",
+      "description": "质量或能力标签；span 状态徽标本身不可点击。",
+      "html": "<span class=\"ds-badge\">只读</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;height:20px;padding:2px 8px;border:1px solid var(--border,#1e2026);border-radius:32px;color:var(--foreground,#ececee);font-size:12px;line-height:16px;font-weight:500;font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "共享 Card 的表面和低对比边界；预览使用真实空状态文案。",
+      "html": "<section class=\"ds-card\"><h3 class=\"ds-card-title\">研究记录</h3><p class=\"ds-card-description\">还没有研究任务。创建任务后，可以查看进度和当时的分析结果。</p></section>",
+      "css": ".ds-card{display:flex;flex-direction:column;gap:16px;padding:16px;background:var(--card,#141518);color:var(--card-foreground,#ececee);border-radius:calc(var(--radius,.75rem) + 4px);box-shadow:0 0 0 1px color-mix(in srgb,var(--foreground,#ececee) 10%,transparent);font-size:14px;font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;}.ds-card-title{margin:0;font-size:16px;line-height:22px;font-weight:500;}.ds-card-description{margin:0;font-size:14px;color:var(--muted-foreground,#85858a);}"
+    },
+    {
+      "name": "Finance Navigation",
+      "kind": "nav",
+      "refersTo": "finance-navigation-selected",
+      "description": "页内按钮导航，选中态和横向滚动；预览不接入路由。",
+      "html": "<nav class=\"ds-finance-nav\" aria-label=\"金融工作台导航\"><button class=\"ds-finance-tab\" aria-pressed=\"false\">总览</button><button class=\"ds-finance-tab\" aria-pressed=\"true\">新闻与日报</button><button class=\"ds-finance-tab\" aria-pressed=\"false\">持仓</button><button class=\"ds-finance-tab\" aria-pressed=\"false\">研究</button><button class=\"ds-finance-tab\" aria-pressed=\"false\">模拟策略</button><button class=\"ds-finance-tab\" aria-pressed=\"false\">服务状态</button></nav>",
+      "css": ".ds-finance-nav{display:flex;gap:4px;padding:8px 0;overflow-x:auto;border-bottom:1px solid var(--border,#1e2026);}.ds-finance-tab{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border:1px solid transparent;border-radius:calc(var(--radius,.75rem));font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;transition:all 150ms cubic-bezier(.4,0,.2,1);font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;background:transparent;color:var(--foreground,#ececee);}.ds-finance-tab[aria-pressed=\"true\"]{background:var(--secondary,#18191e);}.ds-finance-tab:hover{background:var(--muted,#141518);}.ds-finance-tab:focus-visible{outline:none;border-color:var(--ring,#3b82f6);box-shadow:0 0 0 3px color-mix(in srgb,var(--ring,#3b82f6) 50%,transparent);}.ds-finance-tab:active{transform:translateY(1px);}@media(max-width:639px){.ds-finance-tab{min-height:44px;}}"
+    },
+    {
+      "name": "News Row",
+      "kind": "custom",
+      "refersTo": "finance-news-row",
+      "description": "来源与两种时间先于标题，摘要与反馈后置；预览标为字段结构，未填造新闻。",
+      "html": "<article class=\"ds-news-row\"><p class=\"ds-news-meta\">来源 · 作者 · 原文发布时间 · 首次发现时间</p><h3 class=\"ds-news-title\">新闻标题</h3><p class=\"ds-news-excerpt\">新闻摘要</p><p class=\"ds-news-reason\">推荐原因 · 内容版本</p></article>",
+      "css": ".ds-news-row{padding:20px 0;border-bottom:1px solid var(--border,#1e2026);color:var(--foreground,#ececee);font-family:\"Geist Variable\",ui-sans-serif,system-ui,sans-serif;}.ds-news-meta{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px;font-size:12px;line-height:24px;color:var(--muted-foreground,#85858a);}.ds-news-title{margin:0;max-width:65ch;font-size:16px;line-height:28px;font-weight:500;}.ds-news-excerpt{margin:12px 0 0;max-width:65ch;font-size:14px;line-height:28px;overflow-wrap:anywhere;}.ds-news-reason{margin:12px 0 0;max-width:65ch;font-size:12px;line-height:24px;color:var(--muted-foreground,#85858a);}"
+    }
+  ],
+  "narrative": {
+    "northStar": "金融工作台",
+    "overview": "采用项目的单色操作界面：Geist 文本、语义色、轻边界和渐进展开。界面让用户读取来源、检查状态并完成明确操作，视觉层级来自内容顺序、字重和留白。\n\n同一套 Web 页面服务浏览器与 Electron；金融工作台的窄屏 Web 保留相同内容层级。原生 Expo 使用共享颜色语义和系统控件，平台导航与触控规范在原生实现中决定，本文的 Web 尺寸不能直接移植为原生尺寸。",
+    "keyCharacteristics": [
+      "单色主操作与语义状态色。",
+      "行列表、分隔线和展开详情构成信息层级。",
+      "浅色、深色沿用同名语义 token。",
+      "金额、业务日期、来源和数据质量保留各自含义。"
+    ],
+    "rules": [
+      {
+        "name": "The Semantic Slot Rule",
+        "body": "相同 token 在 Web、Electron 和原生自定义表面保持相同用途，边框色不被拿来代替容器底色。",
+        "section": "colors"
+      },
+      {
+        "name": "The Financial Value Rule",
+        "body": "金额与数量直接呈现服务返回的十进制字符串，以等宽数字对齐并带币种；客户端不把不同币种相加。收益率、回撤和风险统计按派生指标呈现，样本不足时保留空值。百分比换算只用于标明比例的派生值。",
+        "section": "typography"
+      },
+      {
+        "name": "The State Depth Rule",
+        "body": "聚焦、展开和请求状态解释深度变化，金融内容本身保持可读。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 使用共享语义 token 和现有 Base UI 组件；新增金融页面继续遵循同一层级。",
+      "Do 让金额保持服务返回的十进制字符串，并显示币种、空值和精度状态。",
+      "Do 将新闻原文时间、首次发现时间、日报归档时间分开呈现；日报版本及覆盖窗口可检查。",
+      "Do 对读取失败保留上次内容并标示陈旧状态；关键操作提供结果查询与同一操作重试。",
+      "Do 在窄屏保留可阅读内容、触控高度和局部横向滚动；详情按需展开。"
+    ],
+    "donts": [
+      "Don't 以示例收益、持仓、研究报告或交易填满真实空账户。",
+      "Don't 用涨跌颜色替代买卖、拒绝、风险或服务状态的文字。",
+      "Don't 把未知价格、未知费用、缺失行情或样本不足的指标显示为零。",
+      "Don't 把关闭的新模拟入口或历史精度提示解读成所有账户同一种能力。",
+      "Don't 把推送已受理显示为设备已收到或用户已读。"
+    ]
+  }
+}

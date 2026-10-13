@@ -1,0 +1,438 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import { lookup } from "node:dns/promises";
+import type { LookupFunction } from "node:net";
+import { isIP } from "node:net";
+import type { ConnectorTool } from "@marketbot/adapter-kit";
+import { isCloudMetadataHost, isLocalMcpHost, isPrivateNetworkHost } from "@marketbot/contracts";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { Agent } from "undici";
+import { combineSignals } from "./connector-safety.js";
+import {
+  createAddressCheckedLookup,
+  isCloudMetadataAddress,
+  isLinkLocalAddress,
+  isLoopbackAddress,
+  isPrivateAddress,
+  isTailscaleAddress,
+  type ResolvedAddress,
+  type ResolveHostname,
+  withPinnedDnsLookup,
+} from "./network-address.js";
+import { dispatcherFetch, fetchPairedWithDispatcher } from "./undici-fetch.js";
+
+const MAX_MCP_TOOLS = 250;
+const MAX_MCP_PAGES = 20;
+const MCP_TIMEOUT_MS = 30_000;
+const MAX_RESULT_BYTES = 1_000_000;
+
+export type { ResolveHostname } from "./network-address.js";
+
+export interface RemoteUrlPolicy {
+  /** Deployment-owner escape for loopback / LAN / Docker-network endpoints. Default off. */
+  allowPrivateEndpoint?: boolean;
+}
+
+export interface RemoteTransportDependencies {
+  fetch?: typeof globalThis.fetch;
+  resolveHostname?: ResolveHostname;
+}
+
+export interface RemoteMcpOptions extends RemoteTransportDependencies, RemoteUrlPolicy {
+  endpoint: string;
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+}
+
+export interface SafeRemoteFetch {
+  (input: string | URL | Request, init?: RequestInit): Promise<Response>;
+  close(): Promise<void>;
+}
+
+const resolveHostname: ResolveHostname = (hostname) =>
+  lookup(hostname, { all: true, verbatim: true });
+
+export async function listRemoteMcpTools(options: RemoteMcpOptions): Promise<ConnectorTool[]> {
+  return withRemoteMcpClient(options, async (client, signal) => {
+    const tools: ConnectorTool[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < MAX_MCP_PAGES && tools.length < MAX_MCP_TOOLS; page += 1) {
+      const result = await client.listTools(cursor ? { cursor } : undefined, {
+        signal,
+        timeout: MCP_TIMEOUT_MS,
+      });
+      for (const tool of result.tools) {
+        if (tools.length >= MAX_MCP_TOOLS) break;
+        tools.push({
+          name: tool.name,
+          description: tool.description ?? tool.title ?? tool.name,
+          inputSchema: tool.inputSchema,
+          readOnly: tool.annotations?.readOnlyHint,
+        });
+      }
+      cursor = result.nextCursor;
+      if (!cursor) break;
+    }
+    return tools;
+  });
+}
+
+export async function callRemoteMcpTool(
+  options: RemoteMcpOptions,
+  toolName: string,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  return withRemoteMcpClient(options, async (client, signal) => {
+    const result = await client.callTool({ name: toolName, arguments: args }, undefined, {
+      signal,
+      timeout: MCP_TIMEOUT_MS,
+    });
+    return limitRemoteMcpPayload({
+      content: result.content,
+      structuredContent: result.structuredContent,
+      isError: result.isError ?? false,
+      _meta: result._meta,
+    });
+  });
+}
+
+async function withRemoteMcpClient<T>(
+  options: RemoteMcpOptions,
+  run: (client: Client, signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const policy = { allowPrivateEndpoint: options.allowPrivateEndpoint };
+  const endpoint = await assertSafeRemoteUrl(
+    options.endpoint,
+    options.resolveHostname ?? resolveHostname,
+    policy,
+  );
+  const signal = combineSignals(options.signal, AbortSignal.timeout(MCP_TIMEOUT_MS));
+  const safeFetch = createSafeRemoteFetch(
+    options.fetch,
+    options.resolveHostname ?? resolveHostname,
+    policy,
+  );
+  const transport = new StreamableHTTPClientTransport(endpoint, {
+    requestInit: {
+      headers: options.headers,
+      redirect: "manual",
+      signal,
+    },
+    fetch: safeFetch,
+  });
+  const client = new Client({ name: "marketbot", version: "0.1.0" }, { capabilities: {} });
+  try {
+    await client.connect(transport, { signal, timeout: MCP_TIMEOUT_MS });
+    return await run(client, signal);
+  } finally {
+    await client.close().catch(() => undefined);
+    await safeFetch.close().catch(() => undefined);
+  }
+}
+
+export async function assertSafeRemoteUrl(
+  value: string,
+  resolve: ResolveHostname = resolveHostname,
+  policy: RemoteUrlPolicy = {},
+): Promise<URL> {
+  return (await inspectSafeRemoteUrl(value, resolve, policy)).url;
+}
+
+async function inspectSafeRemoteUrl(
+  value: string,
+  resolve: ResolveHostname,
+  policy: RemoteUrlPolicy = {},
+): Promise<{ url: URL; addresses: ResolvedAddress[] }> {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Connector URL is invalid");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Connector URL must use HTTPS");
+  }
+  if (url.username || url.password) throw new Error("Connector URL must not contain credentials");
+  if (url.hash) throw new Error("Connector URL must not contain a fragment");
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  if (isBlockedRemoteHostname(hostname)) throw new Error("Connector URL targets a private host");
+  // Loopback is a private endpoint too: only the private-endpoint escape reaches it.
+  const allowPrivate = policy.allowPrivateEndpoint === true;
+  const privateHost = isPrivateRemoteMcpHostname(hostname);
+  if (url.protocol === "http:" && !allowPrivate) {
+    throw new Error("Connector URL must use HTTPS");
+  }
+  if (privateHost && !allowPrivate) {
+    throw new Error("Connector URL targets a private host");
+  }
+  const literal = literalAddresses(hostname);
+  if (url.protocol === "http:" && isLocalMcpHost(hostname)) {
+    return { url, addresses: literal ?? [] };
+  }
+  if (privateHost && literal) return { url, addresses: literal };
+  const addresses = await resolve(hostname);
+  assertAllowedAddresses(addresses, hostname, policy);
+  if (url.protocol === "http:" && addresses.some((entry) => !isPrivateAddress(entry.address))) {
+    throw new Error("Connector URL must use HTTPS");
+  }
+  return { url, addresses };
+}
+
+function requestInitWithHost(url: URL, init: RequestInit): RequestInit {
+  const headers = new Headers(init.headers);
+  headers.set("host", url.host);
+  return { ...init, headers };
+}
+
+function literalAddresses(hostname: string): ResolvedAddress[] | undefined {
+  const family = isIP(hostname);
+  if (family === 0) return undefined;
+  return [{ address: hostname, family }];
+}
+
+export function createSafeRemoteFetch(
+  baseFetch?: typeof globalThis.fetch,
+  resolve: ResolveHostname = resolveHostname,
+  policy: RemoteUrlPolicy = {},
+): SafeRemoteFetch {
+  const dispatcher = new Agent({ connect: { lookup: createSafeLookup(resolve, policy) } });
+  // Injected fetches are not given this Agent; they keep the original hostname
+  // for TLS/SNI and pin TCP to the already-validated address through dns.lookup.
+  const usePackageFetch = fetchPairedWithDispatcher(baseFetch) === dispatcherFetch;
+  const safeFetch = async (input: string | URL | Request, init?: RequestInit) => {
+    if (typeof input !== "string" && !(input instanceof URL)) {
+      throw new Error("Connector fetch requires a URL, not a Request");
+    }
+    const { url, addresses } = await inspectSafeRemoteUrl(String(input), resolve, policy);
+    let response: Response;
+    try {
+      const requestInit = { ...init, redirect: "manual" as const };
+      response = usePackageFetch
+        ? await dispatcherFetch(url, {
+            ...requestInit,
+            dispatcher,
+          } as RequestInit & { dispatcher: Agent })
+        : await withPinnedDnsLookup(url.hostname, addresses, () =>
+            baseFetch!(url, requestInitWithHost(url, requestInit)),
+          );
+    } catch (error) {
+      const detail = transportFailureDetail(error);
+      throw new Error(`Could not reach ${url.host}${detail ? `: ${detail}` : ""}`, {
+        cause: error,
+      });
+    }
+    if (response.status >= 300 && response.status < 400) {
+      throw new Error("Connector redirects are not allowed");
+    }
+    return response;
+  };
+  const result = safeFetch as SafeRemoteFetch;
+  result.close = () => dispatcher.close();
+  return result;
+}
+
+function assertPrivateAddresses(addresses: ResolvedAddress[]): void {
+  if (addresses.length === 0) {
+    throw new Error("Private fetch URL did not resolve to any address");
+  }
+  if (
+    addresses.some((entry) => {
+      // Normalise IPv4-mapped IPv6 forms (e.g. ::ffff:169.254.170.2) so the
+      // link-local and metadata checks cannot be bypassed by their mapped
+      // representation. Cloud metadata endpoints stay blocked.
+      const address = entry.address.replace(/^::ffff:/i, "");
+      if (isCloudMetadataAddress(address)) return true;
+      if (isLinkLocalAddress(address)) return true;
+      return !isPrivateAddress(address);
+    })
+  ) {
+    throw new Error("Private fetch URL resolved to a non-private address");
+  }
+}
+
+/** Same transport as `createSafeRemoteFetch`, inverted: the caller holds owner
+ * authorization to reach its own network, so every resolved address must be
+ * private (cloud metadata endpoints stay blocked) instead of public. */
+export function createPrivateNetworkFetch(
+  baseFetch?: typeof globalThis.fetch,
+  resolve: ResolveHostname = resolveHostname,
+): SafeRemoteFetch {
+  const dispatcher = new Agent({
+    connect: { lookup: createAddressCheckedLookup(resolve, assertPrivateAddresses) },
+  });
+  const usePackageFetch = fetchPairedWithDispatcher(baseFetch) === dispatcherFetch;
+  const privateFetch = async (input: string | URL | Request, init?: RequestInit) => {
+    if (typeof input !== "string" && !(input instanceof URL)) {
+      throw new Error("Connector fetch requires a URL, not a Request");
+    }
+    const url = new URL(String(input));
+    if (url.username || url.password || url.hash) {
+      throw new Error("Private fetch URL must not contain credentials or a fragment");
+    }
+    const addresses = await resolve(url.hostname.replace(/^\[|\]$/g, ""));
+    assertPrivateAddresses(addresses);
+    let response: Response;
+    try {
+      const requestInit = { ...init, redirect: "manual" as const };
+      response = usePackageFetch
+        ? await dispatcherFetch(url, {
+            ...requestInit,
+            dispatcher,
+          } as RequestInit & { dispatcher: Agent })
+        : await withPinnedDnsLookup(url.hostname, addresses, () =>
+            baseFetch!(url, requestInitWithHost(url, requestInit)),
+          );
+    } catch (error) {
+      const detail = transportFailureDetail(error);
+      throw new Error(`Could not reach ${url.host}${detail ? `: ${detail}` : ""}`, {
+        cause: error,
+      });
+    }
+    if (response.status >= 300 && response.status < 400) {
+      throw new Error("Private fetch redirects are not allowed");
+    }
+    return response;
+  };
+  const result = privateFetch as SafeRemoteFetch;
+  result.close = () => dispatcher.close();
+  return result;
+}
+
+const MAX_CAUSE_DEPTH = 5;
+
+/** undici reports refused ports, unreachable hosts, DNS misses and TLS errors
+ * alike as `TypeError: fetch failed` and keeps the actionable reason in `cause`
+ * (or in the per-address errors of a happy-eyeballs AggregateError). */
+function transportFailureDetail(error: unknown, depth = 0): string | undefined {
+  if (depth >= MAX_CAUSE_DEPTH || !(error instanceof Error)) return undefined;
+  if (error instanceof AggregateError) {
+    for (const inner of error.errors) {
+      const detail = transportFailureDetail(inner, depth + 1);
+      if (detail) return detail;
+    }
+  }
+  return (
+    transportFailureDetail(error.cause, depth + 1) ??
+    (error.message === "fetch failed" ? undefined : error.message)
+  );
+}
+
+export function createSafeLookup(
+  resolve: ResolveHostname = resolveHostname,
+  policy: RemoteUrlPolicy = {},
+): LookupFunction {
+  return createAddressCheckedLookup(resolve, (addresses, hostname) => {
+    if (policy.allowPrivateEndpoint === true && isLocalMcpHost(hostname.replace(/^\[|\]$/g, ""))) {
+      assertLoopbackAddresses(addresses);
+      return;
+    }
+    assertAllowedAddresses(addresses, hostname, policy);
+  });
+}
+
+/** Tailscale MagicDNS names (*.ts.net) are public DNS names, not private IP literals. */
+function isTailscaleMagicDnsHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/\.$/, "");
+  return normalized === "ts.net" || normalized.endsWith(".ts.net");
+}
+
+function isBlockedRemoteHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/\.$/, "");
+  if (isCloudMetadataHost(normalized)) return true;
+  // Mapped and embedded forms, including IMDS IPv6.
+  return isIP(normalized) !== 0 && isCloudMetadataAddress(normalized);
+}
+
+/** Loopback, RFC1918/ULA literals, Docker Desktop, and typical LAN DNS suffixes. */
+export function isPrivateRemoteMcpHostname(hostname: string): boolean {
+  const normalized = hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.$/, "");
+  if (isTailscaleMagicDnsHostname(normalized)) return false;
+  if (isPrivateNetworkHost(normalized)) return true;
+  return (
+    normalized === "host.docker.internal" ||
+    normalized.endsWith(".localhost") ||
+    normalized.endsWith(".internal") ||
+    (isIP(normalized) !== 0 && isPrivateAddress(normalized))
+  );
+}
+
+function assertLoopbackAddresses(addresses: ResolvedAddress[]): void {
+  if (addresses.length === 0 || addresses.some((entry) => !isLoopbackAddress(entry.address))) {
+    throw new Error("Connector URL resolves to a private address");
+  }
+}
+
+function assertAllowedAddresses(
+  addresses: ResolvedAddress[],
+  hostname: string | undefined,
+  policy: RemoteUrlPolicy,
+): void {
+  if (policy.allowPrivateEndpoint === true) {
+    assertUnmixedAddresses(addresses);
+    return;
+  }
+  assertPublicAddresses(addresses, hostname);
+}
+
+function assertUnmixedAddresses(addresses: ResolvedAddress[]): void {
+  if (addresses.length === 0) {
+    throw new Error("Connector URL resolves to a private address");
+  }
+  // Link-local stays blocked: that range holds cloud metadata, same as private credential fetches.
+  if (
+    addresses.some(
+      (entry) => isCloudMetadataAddress(entry.address) || isLinkLocalAddress(entry.address),
+    )
+  ) {
+    throw new Error("Connector URL resolves to a private address");
+  }
+  const hasPrivate = addresses.some((entry) => isPrivateAddress(entry.address));
+  const hasPublic = addresses.some((entry) => !isPrivateAddress(entry.address));
+  if (hasPrivate && hasPublic) {
+    throw new Error("Connector URL resolves to a private address");
+  }
+}
+
+function assertPublicAddresses(addresses: ResolvedAddress[], hostname?: string): void {
+  if (addresses.length === 0) {
+    throw new Error("Connector URL resolves to a private address");
+  }
+  const magicDns = hostname != null && isTailscaleMagicDnsHostname(hostname);
+  if (
+    addresses.some((entry) => {
+      if (isCloudMetadataAddress(entry.address)) return true;
+      if (!isPrivateAddress(entry.address)) return false;
+      // Allow only Tailscale ranges for MagicDNS; keep other private ranges blocked.
+      return !(magicDns && isTailscaleAddress(entry.address));
+    })
+  ) {
+    throw new Error("Connector URL resolves to a private address");
+  }
+}
+
+export function limitRemoteMcpPayload(value: unknown): unknown {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) return value;
+  const bytes = Buffer.from(serialized, "utf8");
+  if (bytes.byteLength <= MAX_RESULT_BYTES) return value;
+  return {
+    truncated: true,
+    content: decodeUtf8Prefix(bytes, MAX_RESULT_BYTES),
+  };
+}
+
+function decodeUtf8Prefix(bytes: Uint8Array, maxBytes: number): string {
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let end = Math.min(bytes.byteLength, maxBytes);
+  while (end > 0) {
+    try {
+      return decoder.decode(bytes.subarray(0, end));
+    } catch {
+      end -= 1;
+    }
+  }
+  return "";
+}

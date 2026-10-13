@@ -1,0 +1,324 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+name: marketbot-prod
+
+# Bounded container logs even on hosts without infra/compose/docker-daemon.json;
+# same driver and limits it installs, so both layers agree.
+x-logging: &logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16@sha256:e17e86066e5ef83e0952a9347f5c792b7ece00972e2aa787a6986f471b3dd3d5}
+    restart: unless-stopped
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 200
+    mem_limit: 2g
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-marketbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-marketbot}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-marketbot} -d ${POSTGRES_DB:-marketbot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    # The tag is what the updater moves. `docker compose pull` fetches it, `up -d` recreates onto
+    # it, and the previous tag stays in .env so a rollback is one redeploy rather than a rebuild.
+    #
+    # The default tag is `local`, which no registry serves, so a fresh install builds from the
+    # checkout via `up -d --build` instead of failing on a `pull` of an image that does not exist
+    # yet. Once a release is published, pin MARKETBOT_IMAGE_TAG to it and the pull path takes over.
+    image: ${MARKETBOT_IMAGE:-marketbot/app}:${MARKETBOT_IMAGE_TAG:-local}
+    pull_policy: ${MARKETBOT_PULL_POLICY:-build}
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+    restart: unless-stopped
+    command:
+      - bash
+      - -lc
+      - pnpm --filter @marketbot/db exec prisma migrate deploy && pnpm --filter @marketbot/api start
+    init: true
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: 1536m
+    env_file:
+      - ../../.env
+    environment:
+      SECRET_STORE: ${SECRET_STORE:-encrypted}
+      INFISICAL_URL: ${INFISICAL_URL:-}
+      INFISICAL_ALLOW_INSECURE_HTTP: ${INFISICAL_ALLOW_INSECURE_HTTP:-false}
+      INFISICAL_CLIENT_ID: ${INFISICAL_CLIENT_ID:-}
+      INFISICAL_CLIENT_SECRET: ${INFISICAL_CLIENT_SECRET:-}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_ENVIRONMENT: ${INFISICAL_ENVIRONMENT:-}
+      INFISICAL_FOLDER: ${INFISICAL_FOLDER:-}
+      NODE_ENV: production
+      API_HOST: "0.0.0.0"
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_NAME: ${OIDC_NAME:-SSO}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid email profile}
+      OIDC_ALLOW_SIGNUP_BYPASS: ${OIDC_ALLOW_SIGNUP_BYPASS:-false}
+      AUTH_PASSWORD_ENABLED: ${AUTH_PASSWORD_ENABLED:-true}
+      DATABASE_URL: postgres://${POSTGRES_USER:-marketbot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-marketbot}
+      DATA_DIR: /data
+      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-e2b}
+      CLOUD_AGENT_PROVIDER: ${CLOUD_AGENT_PROVIDER:-none}
+      CLOUD_AGENT_SPACE_ID: ${CLOUD_AGENT_SPACE_ID:-}
+      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
+      WAKEUP_DRIVER: graphile
+      AGENT_RUNTIME: pi
+      # Optional egress proxy (Mainland / corporate). Empty = unset; either case works.
+      HTTP_PROXY: ${HTTP_PROXY:-${http_proxy:-}}
+      HTTPS_PROXY: ${HTTPS_PROXY:-${https_proxy:-}}
+      NO_PROXY: ${NO_PROXY:-${no_proxy:-}}
+      http_proxy: ${http_proxy:-${HTTP_PROXY:-}}
+      https_proxy: ${https_proxy:-${HTTPS_PROXY:-}}
+      no_proxy: ${no_proxy:-${NO_PROXY:-}}
+      MARKETBOT_UPDATER_URL: http://updater:7092
+    expose:
+      - "3100"
+    volumes:
+      - appdata:/data
+    networks:
+      - app
+      - data
+      - control
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3100/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    image: ${MARKETBOT_IMAGE:-marketbot/app}:${MARKETBOT_IMAGE_TAG:-local}
+    pull_policy: ${MARKETBOT_PULL_POLICY:-build}
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+    restart: unless-stopped
+    command: ["pnpm", "--filter", "@marketbot/worker", "start"]
+    init: true
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 512
+    mem_limit: 2g
+    env_file:
+      - ../../.env
+    environment:
+      SECRET_STORE: ${SECRET_STORE:-encrypted}
+      INFISICAL_URL: ${INFISICAL_URL:-}
+      INFISICAL_ALLOW_INSECURE_HTTP: ${INFISICAL_ALLOW_INSECURE_HTTP:-false}
+      INFISICAL_CLIENT_ID: ${INFISICAL_CLIENT_ID:-}
+      INFISICAL_CLIENT_SECRET: ${INFISICAL_CLIENT_SECRET:-}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID:-}
+      INFISICAL_ENVIRONMENT: ${INFISICAL_ENVIRONMENT:-}
+      INFISICAL_FOLDER: ${INFISICAL_FOLDER:-}
+      BETTER_AUTH_SECRET: ""
+      OIDC_ISSUER: ""
+      OIDC_CLIENT_ID: ""
+      OIDC_CLIENT_SECRET: ""
+      AUTH_PASSWORD_ENABLED: "true"
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-marketbot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-marketbot}
+      DATA_DIR: /data
+      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-e2b}
+      CLOUD_AGENT_PROVIDER: ${CLOUD_AGENT_PROVIDER:-none}
+      CLOUD_AGENT_SPACE_ID: ${CLOUD_AGENT_SPACE_ID:-}
+      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
+      SCREEN_PROXY_SECRET: ""
+      WAKEUP_DRIVER: graphile
+      AGENT_RUNTIME: pi
+      # Optional egress proxy (Mainland / corporate). Empty = unset; either case works.
+      HTTP_PROXY: ${HTTP_PROXY:-${http_proxy:-}}
+      HTTPS_PROXY: ${HTTPS_PROXY:-${https_proxy:-}}
+      NO_PROXY: ${NO_PROXY:-${no_proxy:-}}
+      http_proxy: ${http_proxy:-${HTTP_PROXY:-}}
+      https_proxy: ${https_proxy:-${HTTPS_PROXY:-}}
+      no_proxy: ${no_proxy:-${NO_PROXY:-}}
+    volumes:
+      - appdata:/data
+    networks:
+      - app
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  web:
+    image: ${MARKETBOT_IMAGE:-marketbot/app}:${MARKETBOT_IMAGE_TAG:-local}
+    pull_policy: ${MARKETBOT_PULL_POLICY:-build}
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+    restart: unless-stopped
+    command: ["pnpm", "--filter", "@marketbot/web", "preview", "--host", "0.0.0.0", "--port", "5173"]
+    init: true
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 512m
+    environment:
+      NODE_ENV: production
+      API_PROXY_TARGET: http://api:3100
+      MARKETBOT_HOST: ${MARKETBOT_HOST:-app.example.com}
+      SCREEN_PROXY_SECRET: ${SCREEN_PROXY_SECRET:?Set SCREEN_PROXY_SECRET in .env}
+    expose:
+      - "5173"
+    networks:
+      - edge
+      - app
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # The updater holds the Docker socket, which is root-equivalent on the host, so it is opt-in and
+  # deliberately the narrowest service here: no `ports` (nothing on the host), only the dedicated
+  # `control` network shared with the API, and no `env_file` — secrets stay in the bind-mounted
+  # `.env` that Compose reads for interpolation, not in this process. Caddy has no route to it. The
+  # API reaches it as http://updater:7092 with the shared token. It is also the one service the
+  # update never recreates, because it is the process performing the update.
+  updater:
+    profiles: [updater]
+    # Pinned separately from the application image: the updater does not recreate itself, so moving
+    # its own version is an operator action, not something an update can do underneath itself.
+    image: ${MARKETBOT_UPDATER_IMAGE:-marketbot/updater}:${MARKETBOT_UPDATER_IMAGE_TAG:-local}
+    pull_policy: ${MARKETBOT_PULL_POLICY:-build}
+    build:
+      context: ../..
+      dockerfile: infra/updater/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+    restart: unless-stopped
+    init: true
+    logging: *logging
+    user: root
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+    environment:
+      NODE_ENV: production
+      # Keep interpolation optional so deployments that do not enable this profile need no token.
+      # resolveUpdaterConfig still refuses to start the sidecar without a dedicated secure value.
+      MARKETBOT_UPDATER_TOKEN: ${MARKETBOT_UPDATER_TOKEN:-}
+      MARKETBOT_UPDATER_HOST: "0.0.0.0"
+      MARKETBOT_UPDATER_PORT: "7092"
+      MARKETBOT_IMAGE: ${MARKETBOT_IMAGE:-marketbot/app}
+      # Only set after publishing your own matching registry images and source repository.
+      MARKETBOT_PUBLISHED_REPO_URL: ${MARKETBOT_PUBLISHED_REPO_URL:-}
+      # `-p` is available to Compose interpolation but is not injected into containers unless it is
+      # declared here. The sidecar must target the project the operator actually started.
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-marketbot-prod}
+      # Must equal the host path it is mounted from, or every relative bind mount in this file would
+      # resolve somewhere else. /srv/marketbot is the supported Linux production layout.
+      MARKETBOT_DEPLOY_DIR: ${MARKETBOT_DEPLOY_DIR:-/srv/marketbot}
+      # A deployment that layers an overlay has to be reconciled with the same file list and the
+      # same services the operator runs by hand, so these are read from the environment rather
+      # than pinned to the base stack. Defaults reproduce the previous behaviour exactly.
+      MARKETBOT_COMPOSE_FILE: ${MARKETBOT_COMPOSE_FILE:-infra/compose/docker-compose.prod.yml}
+      MARKETBOT_UPDATE_SERVICES: ${MARKETBOT_UPDATE_SERVICES:-}
+      COMPOSE_PATH_SEPARATOR: ${COMPOSE_PATH_SEPARATOR:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-}
+      AXIOM_TOKEN: ${AXIOM_TOKEN:-}
+      AXIOM_DATASET: ${AXIOM_DATASET:-}
+      AXIOM_EDGE: ${AXIOM_EDGE:-}
+      AXIOM_EDGE_URL: ${AXIOM_EDGE_URL:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${MARKETBOT_DEPLOY_DIR:-/srv/marketbot}:${MARKETBOT_DEPLOY_DIR:-/srv/marketbot}
+    networks:
+      - control
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:7092/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2@sha256:df7f1c2fb114453b951de51a98efc010db1655a92c2e86be6706714e2417a78d}
+    restart: unless-stopped
+    logging: *logging
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    pids_limit: 128
+    mem_limit: 256m
+    environment:
+      MARKETBOT_HOST: ${MARKETBOT_HOST:-app.example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ${CADDYFILE_PATH:-./Caddyfile.prod}:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    networks:
+      - edge
+      - app
+    tmpfs:
+      - /tmp
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  pgdata:
+  appdata:
+  caddydata:
+  caddyconfig:
+
+networks:
+  edge:
+  app:
+  control:
+  data:
+    internal: true

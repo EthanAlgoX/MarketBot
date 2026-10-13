@@ -1,1 +1,12 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
 * text=auto eol=lf
+
+*.sh text eol=lf
+infra/sandboxes/computer/marketbot-browser text eol=lf
+infra/sandboxes/computer/fluxbox.* text eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+
+# Preserve upstream context whitespace in the checksum-verified replay patch.
+integrations/financial-engine/overlay.patch -whitespace

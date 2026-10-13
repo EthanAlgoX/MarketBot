@@ -1,0 +1,582 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import { readBoundedResponseBytes } from "@marketbot/core";
+import { selectedSpaceId, withSpaceHeaders } from "./rpc.js";
+import { errorText } from "./user-error.js";
+
+export type DictationMode = "hold" | "endpoint";
+
+export type DictationSnapshot = {
+  status: "idle" | "listening" | "transcribing";
+  transcript: string;
+  error?: string;
+};
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: { resultIndex: number; results: SpeechRecognitionResultList }) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
+const IDLE: DictationSnapshot = { status: "idle", transcript: "" };
+/**
+ * Quiet gap that ends an utterance, measured on the page. Chrome's own end-of-speech
+ * fires on any pause, which cuts a caller off mid-sentence; a natural breath is well
+ * under this, a finished turn is well over it.
+ */
+const ENDPOINT_SILENCE_MS = 1200;
+const ENDPOINT_TICK_MS = 80;
+const SILENCE_RMS = 0.035;
+export const TRANSCRIPTION_RESPONSE_TIMEOUT_MS = 70_000;
+export const MAX_TRANSCRIPTION_RESPONSE_BYTES = 64 * 1024;
+const ENDPOINT_UNSUPPORTED =
+  "This browser can't detect when you stop talking. Use Chrome, the desktop app, or hold-to-talk in the composer.";
+/** Web Speech codes that mean the cloud recognizer cannot be used. */
+const WEB_SPEECH_SERVICE_ERRORS = new Set(["network", "service-not-allowed"]);
+
+export function webSpeechAvailable(): boolean {
+  return Boolean(speechRecognitionCtor()) && !electronSpeechHost();
+}
+
+/**
+ * Electron exposes webkitSpeechRecognition without a speech-service key, so
+ * recognition fails with `network`. Don't treat that API as available there.
+ */
+function electronSpeechHost(): boolean {
+  if (typeof window !== "undefined") {
+    const host = window as Window & { marketbotDesktop?: unknown };
+    if (host.marketbotDesktop) return true;
+  }
+  if (typeof navigator === "undefined") return false;
+  const agent = navigator.userAgent;
+  return typeof agent === "string" && agent.includes("Electron");
+}
+
+/** Connected server transcription should take over after Web Speech cannot run. */
+export function webSpeechNeedsServerFallback(
+  error: string | undefined,
+  transcribe: boolean,
+): boolean {
+  return transcribe && typeof error === "string" && WEB_SPEECH_SERVICE_ERRORS.has(error);
+}
+
+function normalizedTranscript(text: string): string {
+  return text.trim().replace(/\s+/g, " ");
+}
+
+function startsWithWholePrefix(serverText: string, prefix: string): boolean {
+  const head = prefix.toLowerCase();
+  const tail = serverText.toLowerCase();
+  if (!tail.startsWith(head)) return false;
+  // Index by code point. A supplementary-plane letter is two UTF-16 units, and
+  // the first half alone is not a letter.
+  const point = tail.codePointAt(head.length);
+  if (point === undefined) return true;
+  // Punctuation ends the retained word. Letters, numbers, and "_" continue it.
+  return !/[\p{L}\p{N}_]/u.test(String.fromCodePoint(point));
+}
+
+export function combineTranscript(prefix: string, serverText: string): string {
+  const head = normalizedTranscript(prefix);
+  const tail = serverText.trim();
+  if (!head) return tail;
+  if (!tail) return head;
+  if (startsWithWholePrefix(tail, head)) return tail;
+  return `${head} ${normalizedTranscript(tail)}`;
+}
+
+function speechRecognitionCtor(): SpeechRecognitionCtor | undefined {
+  if (typeof window === "undefined") return undefined;
+  const host = window as Window & {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  return host.SpeechRecognition ?? host.webkitSpeechRecognition;
+}
+
+function audioContextCtor(): (new () => AudioContext) | undefined {
+  if (typeof AudioContext === "function") return AudioContext;
+  if (typeof window === "undefined") return undefined;
+  const host = window as Window & { webkitAudioContext?: typeof AudioContext };
+  return host.webkitAudioContext;
+}
+
+export class Dictation {
+  private snapshot: DictationSnapshot = IDLE;
+  private watchers = new Set<(s: DictationSnapshot) => void>();
+  private recognition: SpeechRecognitionLike | null = null;
+  private media: MediaRecorder | null = null;
+  private chunks: Blob[] = [];
+  private token = 0;
+  private silenceTimer: ReturnType<typeof setTimeout> | undefined;
+  private transcribeAbort: AbortController | null = null;
+  private audioContext: AudioContext | null = null;
+  private vadTimer: ReturnType<typeof setInterval> | undefined;
+  private onFinal: ((text: string) => void) | null = null;
+
+  subscribe(fn: (s: DictationSnapshot) => void): () => void {
+    this.watchers.add(fn);
+    fn(this.snapshot);
+    return () => {
+      this.watchers.delete(fn);
+    };
+  }
+
+  get state(): DictationSnapshot {
+    return this.snapshot;
+  }
+
+  private set(next: DictationSnapshot) {
+    this.snapshot = next;
+    for (const watcher of [...this.watchers]) watcher(next);
+  }
+
+  stop(reason: "submit" | "cancel" | "replace" = "cancel") {
+    this.token += 1;
+    this.transcribeAbort?.abort();
+    this.transcribeAbort = null;
+    this.stopVad();
+    clearTimeout(this.silenceTimer);
+    this.silenceTimer = undefined;
+    const rec = this.recognition;
+    this.recognition = null;
+    if (rec) {
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      try {
+        if (reason === "submit") rec.stop();
+        else rec.abort();
+      } catch {
+        // already stopped
+      }
+    }
+    const media = this.media;
+    this.media = null;
+    if (media && media.state !== "inactive") {
+      try {
+        media.stop();
+      } catch {
+        // already stopped
+      }
+    }
+    this.chunks = [];
+    this.onFinal = null;
+    if (this.snapshot.status !== "idle" || this.snapshot.error) this.set(IDLE);
+  }
+
+  async listen(opts: {
+    mode: DictationMode;
+    transcribe?: boolean;
+    endpointMs?: number;
+    onFinal: (text: string) => void;
+  }): Promise<void> {
+    this.stop("replace");
+    const mine = this.token;
+    const spaceId = selectedSpaceId();
+    this.onFinal = opts.onFinal;
+    this.set({ status: "listening", transcript: "" });
+    const transcribe = Boolean(opts.transcribe);
+    if (webSpeechAvailable()) {
+      this.listenWebSpeech(
+        opts.mode,
+        opts.endpointMs ?? ENDPOINT_SILENCE_MS,
+        mine,
+        transcribe,
+        spaceId,
+      );
+      return;
+    }
+    if (transcribe) {
+      await this.listenRecorder(mine, opts.mode, opts.endpointMs ?? ENDPOINT_SILENCE_MS, spaceId);
+      return;
+    }
+    this.set({
+      ...IDLE,
+      error:
+        "This browser has no on-device dictation. Connect a voice provider with transcription, or use Chrome / the desktop app.",
+    });
+  }
+
+  private listenWebSpeech(
+    mode: DictationMode,
+    endpointMs: number,
+    mine: number,
+    transcribe: boolean,
+    spaceId: string | null,
+  ) {
+    const Ctor = speechRecognitionCtor();
+    if (!Ctor) return;
+    const rec = new Ctor();
+    let live = true;
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = navigator.language || "en-US";
+    // Chrome numbers results per session, so a restart starts over: keep the earlier text.
+    let carried = "";
+    rec.onresult = (event) => {
+      if (!live || this.token !== mine) return;
+      let session = "";
+      for (let i = 0; i < event.results.length; i += 1) {
+        session += event.results[i]?.[0]?.transcript ?? "";
+      }
+      const transcript = `${carried} ${session}`.trim();
+      this.set({ status: "listening", transcript });
+      if (mode !== "endpoint") return;
+      // Every result means the caller was just heard, so the quiet gap is measured from
+      // here. That includes Chrome finalising a phrase it already reported: its phrase
+      // boundary is a breath, and the words repeat, so a window tied to new text alone
+      // expires before Chrome opens its first interim for the rest of the sentence.
+      if (!transcript) return;
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = setTimeout(() => {
+        if (!live || this.token !== mine) return;
+        this.finish(this.snapshot.transcript, mine);
+      }, endpointMs);
+    };
+    rec.onerror = (event) => {
+      if (!live || this.token !== mine) return;
+      if (event.error === "aborted" || event.error === "no-speech") return;
+      if (webSpeechNeedsServerFallback(event.error, transcribe)) {
+        live = false;
+        this.fallbackToServer(rec, mine, mode, endpointMs, spaceId);
+        return;
+      }
+      live = false;
+      this.set({
+        ...IDLE,
+        error: event.error ? `Dictation failed: ${event.error}` : "Dictation failed.",
+      });
+    };
+    rec.onend = () => {
+      if (!live || this.token !== mine) return;
+      if (this.snapshot.status !== "listening") return;
+      if (mode === "hold") {
+        this.finish(this.snapshot.transcript, mine);
+        return;
+      }
+      // Chrome ends the session on its own — after a pause, or its ~60s cap — and that
+      // says nothing about whether the caller finished. Only the silence window above
+      // ends an utterance; here we just pick the microphone back up.
+      carried = this.snapshot.transcript;
+      try {
+        rec.start();
+      } catch {
+        this.set({ ...IDLE, error: "Dictation ended unexpectedly." });
+      }
+    };
+    this.recognition = rec;
+    try {
+      rec.start();
+    } catch {
+      if (!live || this.token !== mine) return;
+      if (transcribe) {
+        live = false;
+        this.fallbackToServer(rec, mine, mode, endpointMs, spaceId);
+        return;
+      }
+      live = false;
+      this.releaseRecognition(rec);
+      this.set({ ...IDLE, error: "Dictation failed." });
+    }
+  }
+
+  private fallbackToServer(
+    rec: SpeechRecognitionLike,
+    mine: number,
+    mode: DictationMode,
+    endpointMs: number,
+    spaceId: string | null,
+  ) {
+    const recognized = normalizedTranscript(this.snapshot.transcript);
+    this.releaseRecognition(rec);
+    clearTimeout(this.silenceTimer);
+    this.silenceTimer = undefined;
+    if (this.token !== mine) return;
+    this.set({ status: "listening", transcript: recognized });
+    void this.listenRecorder(mine, mode, endpointMs, spaceId);
+  }
+
+  private releaseRecognition(rec: SpeechRecognitionLike) {
+    rec.onresult = null;
+    rec.onerror = null;
+    rec.onend = null;
+    if (this.recognition === rec) this.recognition = null;
+    try {
+      rec.abort();
+    } catch {
+      // already stopped
+    }
+  }
+
+  private async listenRecorder(
+    mine: number,
+    mode: DictationMode,
+    endpointMs: number,
+    spaceId: string | null,
+  ) {
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+    } catch (error) {
+      this.failListening(mine, errorText(error, "Microphone failed"));
+      return;
+    }
+    if (this.token !== mine) {
+      for (const track of stream.getTracks()) track.stop();
+      return;
+    }
+    const keptSpeech = this.snapshot.transcript.trim().length > 0;
+    if (mode === "endpoint" && !this.armSilence(stream, mine, endpointMs, keptSpeech)) {
+      for (const track of stream.getTracks()) track.stop();
+      this.failListening(mine, ENDPOINT_UNSUPPORTED);
+      return;
+    }
+    let media: MediaRecorder | undefined;
+    try {
+      media = new MediaRecorder(stream);
+      this.media = media;
+      this.chunks = [];
+      media.ondataavailable = (event) => {
+        if (this.token !== mine) return;
+        if (event.data.size) this.chunks.push(event.data);
+      };
+      media.onstop = () => {
+        for (const track of stream.getTracks()) track.stop();
+        if (this.token !== mine) return;
+        this.stopVad();
+        void this.transcribeChunks(mine, spaceId);
+      };
+      media.start(mode === "endpoint" ? 250 : undefined);
+    } catch (error) {
+      if (media) {
+        media.ondataavailable = null;
+        media.onstop = null;
+      }
+      for (const track of stream.getTracks()) track.stop();
+      if (this.media === media) this.media = null;
+      if (this.token !== mine) return;
+      this.stopVad();
+      this.failListening(mine, errorText(error, "Dictation failed."));
+    }
+  }
+
+  private armSilence(
+    stream: MediaStream,
+    mine: number,
+    endpointMs: number,
+    alreadyHeard = false,
+  ): boolean {
+    const Ctor = audioContextCtor();
+    if (!Ctor) return false;
+    try {
+      const ctx = new Ctor();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+      this.audioContext = ctx;
+      if (ctx.state === "suspended") void ctx.resume();
+      const data = new Uint8Array(analyser.fftSize);
+      let heardSpeech = alreadyHeard;
+      let silentFor = 0;
+      this.vadTimer = setInterval(() => {
+        const media = this.media;
+        if (this.token !== mine || !media || media.state === "inactive") return;
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (const sample of data) {
+          const n = (sample - 128) / 128;
+          sum += n * n;
+        }
+        const rms = Math.sqrt(sum / data.length);
+        if (rms > SILENCE_RMS) {
+          heardSpeech = true;
+          silentFor = 0;
+          return;
+        }
+        if (!heardSpeech) return;
+        silentFor += ENDPOINT_TICK_MS;
+        if (silentFor < endpointMs) return;
+        this.stopVad();
+        try {
+          media.stop();
+        } catch {
+          // already stopped
+        }
+      }, ENDPOINT_TICK_MS);
+      return true;
+    } catch {
+      this.stopVad();
+      return false;
+    }
+  }
+
+  private stopVad() {
+    clearInterval(this.vadTimer);
+    this.vadTimer = undefined;
+    const ctx = this.audioContext;
+    this.audioContext = null;
+    if (ctx) void ctx.close().catch(() => undefined);
+  }
+
+  private async transcribeChunks(mine: number, spaceId: string | null) {
+    if (this.token !== mine) return;
+    const blob = new Blob(this.chunks, { type: this.chunks[0]?.type || "audio/webm" });
+    this.chunks = [];
+    if (!blob.size) {
+      const prefix = normalizedTranscript(this.snapshot.transcript);
+      if (!prefix) {
+        this.set(IDLE);
+        return;
+      }
+      this.finish(prefix, mine);
+      return;
+    }
+    this.set({ status: "transcribing", transcript: this.snapshot.transcript });
+    const abort = new AbortController();
+    this.transcribeAbort = abort;
+    const timer = setTimeout(
+      () => abort.abort(new Error("Transcription request timed out.")),
+      TRANSCRIPTION_RESPONSE_TIMEOUT_MS,
+    );
+    try {
+      const audioBase64 = await blobToBase64(blob);
+      if (this.token !== mine) return;
+      const res = await withAbort(
+        fetch("/api/voice/transcribe", {
+          method: "POST",
+          headers: withSpaceHeaders({ "content-type": "application/json" }, spaceId),
+          credentials: "include",
+          body: JSON.stringify({ audioBase64, mimeType: blob.type }),
+          signal: abort.signal,
+        }),
+        abort.signal,
+      );
+      if (this.token !== mine) {
+        cancelResponse(res);
+        return;
+      }
+      const body = await readTranscriptionBody(res, abort.signal);
+      if (this.token !== mine) return;
+      if (!res.ok) {
+        this.failListening(mine, body.error ?? "Could not transcribe that recording.");
+        return;
+      }
+      this.finish(combineTranscript(this.snapshot.transcript, body.text ?? ""), mine);
+    } catch (error) {
+      // User cancel bumps token in stop() before aborting, so a matching token
+      // means the deadline timer fired. Browsers may reject fetch as AbortError
+      // instead of signal.reason; surface the timeout either way.
+      if (this.token !== mine) return;
+      const timedOut =
+        (abort.signal.reason instanceof Error &&
+          abort.signal.reason.message === "Transcription request timed out.") ||
+        (error instanceof Error && error.message === "Transcription request timed out.");
+      if (timedOut || (error instanceof Error && error.name === "AbortError")) {
+        this.failListening(mine, "Transcription request timed out.");
+        return;
+      }
+      this.failListening(mine, errorText(error, "Could not transcribe that recording."));
+    } finally {
+      clearTimeout(timer);
+      if (this.transcribeAbort === abort) this.transcribeAbort = null;
+    }
+  }
+
+  submitHold() {
+    if (this.media && this.media.state !== "inactive") {
+      this.media.stop();
+      return;
+    }
+    this.finish(this.snapshot.transcript, this.token);
+  }
+
+  private failListening(mine: number, message: string) {
+    if (this.token !== mine) return;
+    const prefix = normalizedTranscript(this.snapshot.transcript);
+    if (prefix) {
+      this.finish(prefix, mine);
+      return;
+    }
+    this.set({ ...IDLE, error: message });
+  }
+
+  private finish(text: string, mine: number) {
+    if (this.token !== mine) return;
+    const trimmed = text.trim();
+    const onFinal = this.onFinal;
+    this.stop("submit");
+    if (trimmed) onFinal?.(trimmed);
+  }
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+async function readTranscriptionBody(
+  response: Response,
+  signal: AbortSignal,
+): Promise<{ text?: string; error?: string }> {
+  const declared = Number(response.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declared) && declared > MAX_TRANSCRIPTION_RESPONSE_BYTES) {
+    cancelResponse(response);
+    throw new Error("Transcription response is too large.");
+  }
+  const bytes = await readBoundedResponseBytes(response, {
+    maxBytes: MAX_TRANSCRIPTION_RESPONSE_BYTES,
+    tooLargeMessage: "Transcription response is too large.",
+    read: (operation) => withAbort(operation(), signal),
+  });
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+    return parsed && typeof parsed === "object"
+      ? (parsed as { text?: string; error?: string })
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason ?? new Error("Request aborted."));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason ?? new Error("Request aborted."));
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        // Prefer abort reason over a bare AbortError from fetch/read.
+        reject(signal.aborted ? (signal.reason ?? error) : error);
+      },
+    );
+  });
+}
+
+function cancelResponse(response: Response): void {
+  try {
+    void Promise.resolve(response.body?.cancel()).catch(() => undefined);
+  } catch {
+    // Response cleanup is best-effort.
+  }
+}
+
+export const dictation = new Dictation();

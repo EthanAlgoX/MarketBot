@@ -1,0 +1,30 @@
+{
+  "fill": "system-dark",
+  "groups": [
+    {
+      "layers": [
+        {
+          "glass": false,
+          "image-name": "market-mark.png",
+          "name": "market-mark"
+        }
+      ],
+      "position": {
+        "scale": 1,
+        "translation-in-points": [0, 0]
+      },
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 1
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": ["watchOS"],
+    "squares": "shared"
+  }
+}

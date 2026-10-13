@@ -1,0 +1,184 @@
+{
+  "formatVersion": 1,
+  "repository": "https://github.com/EthanAlgoX/AIStock.git",
+  "baseline": "cec0078ca75aeb76ced28ae8bb0f1e22481d22d1",
+  "patchSha256": "30e2971ee49a77b84605816a45c8f55778d43b691365b7e635f2a3b42237ad43",
+  "files": [
+    {
+      "path": ".env.example",
+      "sha256": "b11b537e40749e1ce2433ad45a3d5c0417c28996a39094cad54d57a4374cce24",
+      "mode": "100644"
+    },
+    {
+      "path": "api/app.py",
+      "sha256": "8e9afe772d547aad36d95f367b14613755cace0e9f4579714d83a450a5a3e7fa",
+      "mode": "100644"
+    },
+    {
+      "path": "api/internal/__init__.py",
+      "sha256": "e5061e6d64f98f15599d7948ba091a043ce7bdacb9f49d454c939fc5ce692060",
+      "mode": "100644"
+    },
+    {
+      "path": "api/internal/assistant_app.py",
+      "sha256": "3b640f43920185c777182a4e3d84f76a8eaf5c040c0f1bbd889a31ffa214eae2",
+      "mode": "100644"
+    },
+    {
+      "path": "api/internal/assistant_bridge.py",
+      "sha256": "a2a64bcd75d40b18584089da02fe8965fab1d5027437b54c44ff1bcdde276531",
+      "mode": "100644"
+    },
+    {
+      "path": "data_provider/base.py",
+      "sha256": "057777b6c9c751f12b657b9a89c262b879d61a226092fb79e46d5c7ae5cf7a95",
+      "mode": "100644"
+    },
+    {
+      "path": "data_provider/crypto_fetcher.py",
+      "sha256": "2e6a37ec25bc25fd33d536abd6123661404cbc23e2244c3968634df685bcc3e8",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/CHANGELOG.md",
+      "sha256": "dcdfe90f47cfb113f5a2d55bfc07bcc16992be538820654fbf49f029e0ea9fd1",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/assistant-bridge.md",
+      "sha256": "d2d485fea58b1057e9a555167d35ac7d309f217c60cba051040bfcbf93fe047f",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/assistant-finance-audit.md",
+      "sha256": "451eda41e917eaeae0eba923b5ec78b068ae1f5946af3597694025b309537601",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/assistant-manual-portfolio.md",
+      "sha256": "029a195876c6f56f5db05e1893a9e44e2bfc2cc92f2bd5d14caa99c8352b3b61",
+      "mode": "100644"
+    },
+    {
+      "path": "scripts/assistant_bridge.py",
+      "sha256": "a60745aa0298d709e42d205e456092c9923fcabfdaedb299d8e8c9c475de8bf3",
+      "mode": "100644"
+    },
+    {
+      "path": "src/agent/llm_adapter.py",
+      "sha256": "2dcc66bbff221333dbf97fde329cb8d59cfcefe874ae1056422701b691fa658b",
+      "mode": "100644"
+    },
+    {
+      "path": "src/analyzer.py",
+      "sha256": "b3aaf1f16f0147330f702671ff6f260ebcc62d275310b83841c2ca7aad536858",
+      "mode": "100644"
+    },
+    {
+      "path": "src/config.py",
+      "sha256": "d812a5eb72e950fc7fe55e94cec9d46edcfdf5e594064218e4ff11737b443d34",
+      "mode": "100644"
+    },
+    {
+      "path": "src/search_service.py",
+      "sha256": "4adacd8bbfaf2b190303e4c6cd3e946031ea15f3f65f3e826e72bcab4bec09b2",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/assistant_bridge_service.py",
+      "sha256": "7a5f208a50d1a3976285f9e2110a52644f8b9f791bce3082c0a6e9c201052822",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/assistant_finance_commands.py",
+      "sha256": "bbe7d5b6088e2bdc7156d435a2928c53ec6c6da7ecb152846e857a2590723353",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/assistant_manual_portfolio.py",
+      "sha256": "922dfb4662b7edb6cf5e212cb70c090c2bdb682f0f7bad19c3433ef55b51bc23",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/assistant_research.py",
+      "sha256": "16468e4fed5bb421530d907a3ff1389557b445241537eb6f2aabbde75294246d",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/assistant_simulation.py",
+      "sha256": "fdaa84c7e6ba7ea1b7696793903bbfb1fcdc695136a7685812f477f0f8acf812",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/assistant_simulation_scheduler.py",
+      "sha256": "0788b61c549a3eb159f2e22bda711d891710299fc2cba2dff64a75a546aad6d3",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/crypto_market_service.py",
+      "sha256": "29c6c7b3ab5eec1669d19baafb9b41bb67317a53040c390aa3067c7ecb6b72db",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/screening/ranker.py",
+      "sha256": "1206aa405869967b82d9d17ae027b048e83c41128d672c01961ead7b18c75387",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/screening/snapshot.py",
+      "sha256": "b10d76795a2922c49970cd8986c05f6076781ec0d51cb84defc32e99628fd4c2",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/simulation_decimal_ledger.py",
+      "sha256": "99d91cfcf97854f2c986bd6933f91e5481d1d9c0ebb6a547949c2578eaf45434",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/simulation_portfolio_engine.py",
+      "sha256": "87edf305656648f95e690bebb95035b468d117bc5de1389215ba5f3f23bc00dc",
+      "mode": "100644"
+    },
+    {
+      "path": "src/services/simulation_portfolio_service.py",
+      "sha256": "2ce89ca249f8ec9d7de53d00f3f9aedf135367fb74c3675f3dcc4f087b3cdb02",
+      "mode": "100644"
+    },
+    {
+      "path": "src/storage.py",
+      "sha256": "f60936ef3c4bda3fd260b27fc2b717638d59719bd88fc2b2180719510d313530",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/test_assistant_bridge.py",
+      "sha256": "0f15f0aa17f5b10de5e884e44b40d6642a9e81bd36338315cd6c58fadc45b7d5",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/test_assistant_finance_audit.py",
+      "sha256": "700189c70b7fd2a47aeb81c758f772d19b6c4522be878ac1999a10f8ab6be3d8",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/test_assistant_lifecycle.py",
+      "sha256": "79954bd949cee972acbbd8c550ad0ae53bef6c0680f7109e75884d52f4f718c8",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/test_assistant_manual_portfolio.py",
+      "sha256": "e1eae023166d8900f031d0547b3ba8418d708adf554fc771361054806c4dcf68",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/test_assistant_research.py",
+      "sha256": "e2e23d498102a8f094a1ef9325623a49c5572bae3b5ca9a9e119cc6946ec2e1c",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/test_assistant_simulation.py",
+      "sha256": "2a9209564821401878ff0851152fbbff06c110025e8463b382e1b0d8319a48c8",
+      "mode": "100644"
+    }
+  ],
+  "excluded": ["local environments", "credentials", "databases", "logs", "venvs", "node_modules"]
+}

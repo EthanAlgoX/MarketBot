@@ -1,0 +1,37 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { APP_URL } from "../site";
+---
+
+<BaseLayout title="开始使用 · 金融助手" description="打开已配置的金融助手工作台，或按本地开发文档启动个人投研环境。">
+  <Header />
+  <main id="main" class="reading-page container">
+    <a class="text-link" href="/">← 返回首页</a>
+    <h1>开始使用</h1>
+    {APP_URL ? (
+      <>
+        <p class="lead">工作台已配置。登录后创建金融工作区，添加你的自选标的。</p>
+        <a class="button" href={APP_URL}>打开工作台 <span aria-hidden="true">↗</span></a>
+      </>
+    ) : (
+      <>
+        <p class="lead">当前为可自行运行的开发版，暂无公共在线服务。</p>
+        <h2>在本机使用</h2>
+        <p>按项目中的本地开发文档启动服务，然后在同一台电脑上打开工作台：</p>
+        <p class="address"><a href="http://127.0.0.1:5181/app/finance">http://127.0.0.1:5181/app/finance <span aria-hidden="true">↗</span></a></p>
+        <p>首次注册后，创建金融工作区。你可以先添加自选标的、订阅新闻，再导入模板持仓记录或创建策略模拟。</p>
+        <details class="setup-details">
+          <summary>查看启动与部署配置</summary>
+          <div>
+            <p>完整步骤见项目文档 <code>LOCAL_DEVELOPMENT.md</code>，运行验收记录见 <code>LOCAL_RUNTIME_VERIFICATION.md</code>。</p>
+            <p>本站可以独立构建。部署时设置 <code>PUBLIC_APP_URL</code> 为自己的工作台地址；需要正式 canonical URL 时，再设置 <code>PUBLIC_SITE_URL</code>。两个值都应为 HTTP 或 HTTPS 的完整地址。</p>
+          </div>
+        </details>
+      </>
+    )}
+    <p class="reading-note">模型研究需要单独配置模型服务。当前策略操作仅用于模拟账户。</p>
+  </main>
+  <Footer />
+</BaseLayout>

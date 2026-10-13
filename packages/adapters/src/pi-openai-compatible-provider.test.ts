@@ -1,0 +1,457 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import { builtinModels } from "@earendil-works/pi-ai/providers/all";
+import { ModelConnectInputSchema, OPENAI_COMPATIBLE_PROVIDER_ID } from "@marketbot/contracts";
+import { fetch as undiciFetch } from "undici";
+import { describe, expect, it } from "vitest";
+import { buildModelConnectPlaintext } from "./model-connect.js";
+import { listPiCatalog } from "./pi-models.js";
+import { parseModelSecret, secretValuesToRedact, serializeModelSecret } from "./pi-oauth.js";
+import {
+  createOpenAiCompatibleFetch,
+  createOpenAiCompatibleLookup,
+  OPENAI_COMPATIBLE_CATALOG_MODEL_ID,
+  openAiCompatibleCatalogProvider,
+  prepareOpenAiCompatibleConnect,
+  probeOpenAiCompatibleModels,
+  registerOpenAiCompatibleRuntime,
+} from "./pi-openai-compatible-provider.js";
+
+describe("model connect", () => {
+  it("round-trips generic cache capabilities and preserves them when rotating credentials", () => {
+    const cacheCapabilities = {
+      scope: "connection" as const,
+      retentionMode: "short" as const,
+      retentionMs: 300000,
+      minimumTokens: 1024,
+      inputCostPerMillion: 1,
+      readCostPerMillion: 0.1,
+      writeCostPerMillion: 1.25,
+    };
+    const encoded = buildModelConnectPlaintext({
+      provider: "fixture",
+      apiKey: "fake-api-key",
+      cacheCapabilities,
+    });
+    expect(parseModelSecret(encoded)).toMatchObject({
+      kind: "api_key",
+      cacheCapabilities,
+    });
+    const rotated = buildModelConnectPlaintext(
+      { provider: "fixture", apiKey: "fake-next-key" },
+      encoded,
+    );
+    expect(parseModelSecret(rotated)).toMatchObject({
+      kind: "api_key",
+      cacheCapabilities,
+    });
+    expect(
+      ModelConnectInputSchema.safeParse({
+        provider: "fixture",
+        apiKey: "fake-api-key",
+        cacheCapabilities: { ...cacheCapabilities, retentionMode: "forever" },
+      }).success,
+    ).toBe(false);
+  });
+  it("stores generic limits with hosted credentials and preserves them when rotating the key", () => {
+    const plaintext = buildModelConnectPlaintext({
+      provider: "openrouter",
+      apiKey: "fake-api-key",
+      contextWindow: 1000000,
+      maxTokens: 4096,
+    });
+    expect(parseModelSecret(plaintext)).toEqual({
+      kind: "api_key",
+      key: "fake-api-key",
+      contextWindow: 1000000,
+      maxTokens: 4096,
+    });
+    expect(
+      parseModelSecret(
+        buildModelConnectPlaintext({ provider: "openrouter", apiKey: "fake-new-key" }, plaintext),
+      ),
+    ).toEqual({
+      kind: "api_key",
+      key: "fake-new-key",
+      contextWindow: 1000000,
+      maxTokens: 4096,
+    });
+  });
+  it("rejects invalid configured limits at the shared contract", () => {
+    expect(
+      ModelConnectInputSchema.safeParse({
+        provider: "fixture",
+        apiKey: "fake-api-key",
+        contextWindow: 2048,
+        maxTokens: 2048,
+      }).success,
+    ).toBe(false);
+    expect(
+      ModelConnectInputSchema.safeParse({
+        provider: "fixture",
+        apiKey: "fake-api-key",
+        contextWindow: -1,
+      }).success,
+    ).toBe(false);
+  });
+  it("serializes keyless openai-compatible credentials", () => {
+    const plaintext = buildModelConnectPlaintext({
+      provider: OPENAI_COMPATIBLE_PROVIDER_ID,
+      baseUrl: "http://127.0.0.1:8000",
+      modelId: "qwen3-4b",
+    });
+    const parsed = parseModelSecret(plaintext);
+    expect(parsed).toEqual({
+      kind: "openai_compatible",
+      baseUrl: "http://127.0.0.1:8000/v1",
+    });
+    expect(secretValuesToRedact(parsed)).toEqual([]);
+  });
+
+  it("still requires hosted providers to supply a real API key", () => {
+    expect(() => buildModelConnectPlaintext({ provider: "openrouter", apiKey: "short" })).toThrow(
+      /at least 8 characters/,
+    );
+  });
+
+  it("round-trips optional openai-compatible API keys", () => {
+    const secret = {
+      kind: "openai_compatible" as const,
+      baseUrl: "http://127.0.0.1:8000/v1",
+      apiKey: "local-secret",
+    };
+    const parsed = parseModelSecret(serializeModelSecret(secret));
+    expect(parsed).toEqual(secret);
+    expect(secretValuesToRedact(parsed)).toEqual(["local-secret"]);
+  });
+
+  it("keeps private http openai-compatible connects when an API key is set", () => {
+    const plaintext = buildModelConnectPlaintext({
+      provider: OPENAI_COMPATIBLE_PROVIDER_ID,
+      baseUrl: "http://127.0.0.1:8000",
+      modelId: "local-model",
+      apiKey: "local-secret",
+    });
+    expect(parseModelSecret(plaintext)).toEqual({
+      kind: "openai_compatible",
+      baseUrl: "http://127.0.0.1:8000/v1",
+      apiKey: "local-secret",
+    });
+  });
+
+  it("rejects public http openai-compatible connects when an API key is set", () => {
+    const previous = process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+    process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = "1";
+    try {
+      expect(() =>
+        prepareOpenAiCompatibleConnect({
+          provider: OPENAI_COMPATIBLE_PROVIDER_ID,
+          baseUrl: "http://api.example.com/v1",
+          modelId: "my-model-id",
+          apiKey: "secret-key",
+        }),
+      ).toThrow(/must use HTTPS/);
+      expect(() =>
+        buildModelConnectPlaintext({
+          provider: OPENAI_COMPATIBLE_PROVIDER_ID,
+          baseUrl: "http://api.example.com/v1",
+          modelId: "my-model-id",
+          apiKey: "secret-key",
+        }),
+      ).toThrow(/must use HTTPS/);
+    } finally {
+      if (previous === undefined) delete process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+      else process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = previous;
+    }
+  });
+
+  it("allows public https openai-compatible connects when an API key is set", () => {
+    const previous = process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+    process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = "1";
+    try {
+      const prepared = prepareOpenAiCompatibleConnect({
+        provider: OPENAI_COMPATIBLE_PROVIDER_ID,
+        baseUrl: "https://api.example.com/v1",
+        modelId: "my-model-id",
+        apiKey: "secret-key",
+      });
+      expect(prepared).toEqual({
+        baseUrl: "https://api.example.com/v1",
+        modelId: "my-model-id",
+        apiKey: "secret-key",
+      });
+    } finally {
+      if (previous === undefined) delete process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+      else process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = previous;
+    }
+  });
+});
+
+describe("openai-compatible provider", () => {
+  it("does not treat replaced Request Authorization as keyed for public http", async () => {
+    const previous = process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+    process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = "1";
+    try {
+      const request = new Request("http://api.example.com/v1/models", {
+        headers: { Authorization: "Bearer secret" },
+      });
+      const safeFetch = createOpenAiCompatibleFetch(
+        async () => new Response("{}", { status: 200 }),
+      );
+      await expect(
+        safeFetch(request, { headers: { Accept: "application/json" } }),
+      ).resolves.toMatchObject({ status: 200 });
+    } finally {
+      if (previous === undefined) delete process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+      else process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = previous;
+    }
+  });
+
+  it("drives the guarded dispatcher with a fetch from the same undici", async () => {
+    // See remote-mcp.test: failing inside the lookup proves the request was
+    // dispatched through the Agent rather than rejected by a mismatched fetch.
+    // Omitting fetch, passing the builtin, and passing a captured builtin must
+    // all use the package fetch that matches the Agent.
+    expect(undiciFetch).not.toBe(globalThis.fetch);
+    const captured = globalThis.fetch;
+    const previous = process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+    process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = "1";
+    try {
+      for (const injected of [undefined, globalThis.fetch, captured] as const) {
+        const safeFetch = createOpenAiCompatibleFetch(injected, async () => {
+          throw new Error("lookup reached");
+        });
+        await expect(safeFetch("https://models.example.test/v1/models")).rejects.toMatchObject({
+          cause: { message: "lookup reached" },
+        });
+      }
+    } finally {
+      if (previous === undefined) delete process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+      else process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = previous;
+    }
+  });
+
+  it("flattens a global Request so the package fetch can dispatch it", async () => {
+    // undici's fetch reads a foreign Request as "[object Request]"; reaching
+    // the lookup proves the request was dispatched with its URL instead.
+    const previous = process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+    process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = "1";
+    try {
+      const safeFetch = createOpenAiCompatibleFetch(undefined, async () => {
+        throw new Error("lookup reached");
+      });
+      const request = new Request("https://models.example.test/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: "local" }),
+      });
+      await expect(safeFetch(request)).rejects.toMatchObject({
+        cause: { message: "lookup reached" },
+      });
+    } finally {
+      if (previous === undefined) delete process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC;
+      else process.env.MARKETBOT_OPENAI_COMPAT_ALLOW_PUBLIC = previous;
+    }
+  });
+
+  it("carries a Request's method, headers and body through as init", async () => {
+    let seen: { url: string; init?: RequestInit } | undefined;
+    const safeFetch = createOpenAiCompatibleFetch(async (input, init) => {
+      seen = { url: String(input), init };
+      return new Response("{}", { status: 200 });
+    });
+    await safeFetch(
+      new Request("http://127.0.0.1:8000/v1/models", {
+        method: "POST",
+        headers: { "x-trace": "1" },
+        body: "payload",
+      }),
+      { headers: { "x-trace": "2" } },
+    );
+    expect(seen?.url).toBe("http://127.0.0.1:8000/v1/models");
+    expect(seen?.init?.method).toBe("POST");
+    expect(new Headers(seen?.init?.headers).get("x-trace")).toBe("2");
+    expect(Buffer.from(seen?.init?.body as ArrayBuffer).toString()).toBe("payload");
+  });
+
+  it("rejects public hostnames that resolve to private addresses", async () => {
+    const lookup = createOpenAiCompatibleLookup(
+      new URL("https://models.example.test/v1"),
+      async () => [{ address: "127.0.0.1", family: 4 }],
+    );
+    const error = await new Promise<Error | null>((resolve) => {
+      lookup("models.example.test", { family: 0, all: false }, (lookupError) => {
+        resolve(lookupError);
+      });
+    });
+    expect(error).toMatchObject({
+      message: "Public model server hostname resolved to a private address",
+    });
+  });
+
+  it("rejects local hostnames that resolve to link-local addresses", async () => {
+    const lookup = createOpenAiCompatibleLookup(new URL("http://localhost:8000/v1"), async () => [
+      { address: "169.254.1.1", family: 4 },
+    ]);
+    const error = await new Promise<Error | null>((resolve) => {
+      lookup("localhost", { family: 0, all: false }, (lookupError) => resolve(lookupError));
+    });
+    expect(error).toMatchObject({
+      message: "Local model server hostname resolved outside the private network",
+    });
+  });
+
+  it.each([
+    ["100.100.100.200", 4],
+    ["fd00:ec2::254", 6],
+  ])("rejects local hostnames that resolve to metadata address %s", async (address, family) => {
+    const lookup = createOpenAiCompatibleLookup(new URL("http://localhost:8000/v1"), async () => [
+      { address, family },
+    ]);
+    const error = await new Promise<Error | null>((resolve) => {
+      lookup("localhost", { family: 0, all: false }, (lookupError) => resolve(lookupError));
+    });
+    expect(error).toMatchObject({
+      message: "Model server hostname resolved to a blocked metadata address",
+    });
+  });
+
+  it("always exposes a catalog provider entry", () => {
+    const provider = openAiCompatibleCatalogProvider();
+    expect(provider.id).toBe(OPENAI_COMPATIBLE_PROVIDER_ID);
+    expect(provider.getModels()[0]?.id).toBe(OPENAI_COMPATIBLE_CATALOG_MODEL_ID);
+  });
+
+  it("registers runtime models at the stored base URL", () => {
+    const models = registerOpenAiCompatibleRuntime(builtinModels(), {
+      modelId: "rapid-mlx",
+      baseUrl: "http://127.0.0.1:8000/v1",
+      maxTokens: 8192,
+      contextWindow: 65536,
+    });
+    const model = models.getModel(OPENAI_COMPATIBLE_PROVIDER_ID, "rapid-mlx");
+    expect(model?.baseUrl).toBe("http://127.0.0.1:8000/v1");
+    expect(model?.api).toBe("openai-completions");
+    expect(model?.maxTokens).toBe(8192);
+    expect(model?.contextWindow).toBe(65536);
+  });
+
+  it("probes /v1/models with mocked fetch", async () => {
+    const fetchImpl = async () =>
+      new Response(JSON.stringify({ object: "list", data: [{ id: "a" }, { id: "b" }] }), {
+        status: 200,
+      });
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).resolves.toEqual(["a", "b"]);
+  });
+
+  it("still accepts legacy models[] probe responses", async () => {
+    const fetchImpl = async () =>
+      new Response(JSON.stringify({ models: [{ id: "legacy" }] }), {
+        status: 200,
+      });
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).resolves.toEqual(["legacy"]);
+  });
+
+  it("rejects redirect responses during probing", async () => {
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      expect(init?.redirect).toBe("error");
+      return new Response(null, {
+        status: 302,
+        headers: { location: "http://127.0.0.1:9/blocked" },
+      });
+    };
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).rejects.toThrow(/redirect.*explicit model id/is);
+  });
+
+  it("clarifies non-2xx probe failures with status and hand-fill hint", async () => {
+    const fetchImpl = async () => new Response("nope", { status: 404 });
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).rejects.toThrow(/returned 404.*You can still Connect with an explicit model id/s);
+  });
+
+  it("clarifies missing models list with hand-fill hint", async () => {
+    const fetchImpl = async () => new Response(JSON.stringify({ object: "list" }), { status: 200 });
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).rejects.toThrow(/did not include a models list.*explicit model id/s);
+  });
+
+  it("clarifies invalid JSON probe bodies with hand-fill hint", async () => {
+    const fetchImpl = async () => new Response("{not-json", { status: 200 });
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).rejects.toThrow(/invalid JSON.*explicit model id/s);
+  });
+
+  it("clarifies empty probe responses with hand-fill hint", async () => {
+    const fetchImpl = async () => new Response(null, { status: 200 });
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).rejects.toThrow(/empty response.*explicit model id/s);
+  });
+
+  it("rejects oversized model lists", async () => {
+    const fetchImpl = async () => new Response("x".repeat(64 * 1024 + 1));
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).rejects.toThrow(/too large.*explicit model id/is);
+  });
+
+  it("cancels model responses whose declared size exceeds the limit", async () => {
+    let cancelled = false;
+    const fetchImpl = async () =>
+      new Response(
+        new ReadableStream({
+          cancel() {
+            cancelled = true;
+          },
+        }),
+        { headers: { "content-length": String(64 * 1024 + 1) } },
+      );
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).rejects.toThrow(/too large.*explicit model id/is);
+    expect(cancelled).toBe(true);
+  });
+
+  it("clarifies probe timeouts with hand-fill hint", async () => {
+    const fetchImpl: typeof fetch = async (_input, init) =>
+      new Promise((_, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        });
+      });
+    await expect(
+      probeOpenAiCompatibleModels({ baseUrl: "http://127.0.0.1:8000/v1" }, fetchImpl),
+    ).rejects.toThrow(/timed out.*explicit model id/is);
+  });
+
+  it("preserves caller AbortError without rewriting as timeout", async () => {
+    const caller = new AbortController();
+    caller.abort();
+    const fetchImpl: typeof fetch = async () => {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    };
+    await expect(
+      probeOpenAiCompatibleModels(
+        { baseUrl: "http://127.0.0.1:8000/v1" },
+        fetchImpl,
+        caller.signal,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("lists openai-compatible in the catalog even without MARKETBOT_LOCAL_MODELS", () => {
+    delete process.env.MARKETBOT_LOCAL_MODELS;
+    const entries = listPiCatalog().filter(
+      (entry) => entry.provider === OPENAI_COMPATIBLE_PROVIDER_ID,
+    );
+    expect(entries.length).toBeGreaterThan(0);
+  });
+});

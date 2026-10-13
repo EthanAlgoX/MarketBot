@@ -1,0 +1,71 @@
+{
+  "name": "@marketbot/core",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./message-quote": {
+      "types": "./src/message-quote.ts",
+      "development": "./src/message-quote.ts",
+      "default": "./src/message-quote.ts"
+    },
+    "./node/load-root-env": {
+      "types": "./src/node/load-root-env.ts",
+      "development": "./src/node/load-root-env.ts",
+      "default": "./src/node/load-root-env.ts"
+    },
+    "./node/approval-effect-key": {
+      "types": "./src/approval-effect-key.ts",
+      "development": "./src/approval-effect-key.ts",
+      "default": "./src/approval-effect-key.ts"
+    },
+    "./node/screen-proxy-response": {
+      "types": "./src/node/screen-proxy-response.ts",
+      "development": "./src/node/screen-proxy-response.ts",
+      "default": "./src/node/screen-proxy-response.ts"
+    },
+    "./plot": {
+      "types": "./src/plot/plot-spec.ts",
+      "development": "./src/plot/plot-spec.ts",
+      "default": "./src/plot/plot-spec.ts"
+    },
+    "./node/desktop-runtime": {
+      "types": "./src/node/desktop-runtime.ts",
+      "development": "./src/node/desktop-runtime.ts",
+      "default": "./src/node/desktop-runtime.ts"
+    },
+    "./node/screen-capability": {
+      "types": "./src/node/screen-capability.ts",
+      "development": "./src/node/screen-capability.ts",
+      "default": "./src/node/screen-capability.ts"
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root ../.. packages/core/src"
+  },
+  "dependencies": {
+    "@observablehq/plot": "0.6.17",
+    "@marketbot/contracts": "workspace:*",
+    "croner": "10.0.1",
+    "d3-dsv": "3.0.1",
+    "dotenv": "17.4.2",
+    "hast-util-to-text": "4.0.2",
+    "mdast-util-to-hast": "13.2.1",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "unified": "11.0.5"
+  },
+  "devDependencies": {
+    "@types/d3-dsv": "3.0.7",
+    "fast-check": "4.10.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  },
+  "x-project-modifications": "Modified for marketbot on 2026-10-13; see MODIFICATIONS.md."
+}

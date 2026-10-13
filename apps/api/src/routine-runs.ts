@@ -1,0 +1,85 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+
+import type { Actor, RoutineHistory, RoutineRun, RoutineRunCursor } from "@marketbot/contracts";
+import type { PrismaClient } from "@marketbot/db";
+import { Prisma } from "@marketbot/db";
+import { ORPCError } from "@orpc/server";
+
+export async function listRoutineRuns(
+  prisma: PrismaClient,
+  actor: Actor,
+  routineId: string,
+  before?: RoutineRunCursor,
+): Promise<RoutineHistory> {
+  const routine = await prisma.routine.findFirst({
+    where: {
+      id: routineId,
+      spaceId: actor.spaceId,
+      userId: actor.userId,
+      bot: { archivedAt: null },
+    },
+    select: { botId: true },
+  });
+  if (!routine) throw new ORPCError("NOT_FOUND");
+
+  const rows = await prisma.run.findMany({
+    where: {
+      routineId,
+      botId: routine.botId,
+      spaceId: actor.spaceId,
+      userId: actor.userId,
+      ...(before
+        ? {
+            OR: [
+              { createdAt: { lt: new Date(before.createdAt) } },
+              { createdAt: new Date(before.createdAt), id: { lt: before.id } },
+            ],
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      botId: true,
+      threadId: true,
+      thread: { select: { groupId: true } },
+      status: true,
+      createdAt: true,
+      startedAt: true,
+      completedAt: true,
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 21,
+  });
+  const runs = rows.slice(0, 20);
+  const last = runs.at(-1);
+  const nextCursor =
+    rows.length > 20 && last ? { id: last.id, createdAt: last.createdAt.toISOString() } : null;
+  // Routine runs can finish silently. A chat link is offered only when a message exists.
+  const messages = runs.length
+    ? await prisma.$queryRaw<Array<{ id: string; runId: string; threadId: string }>>(Prisma.sql`
+        SELECT DISTINCT ON (m."runId") m.id, m."runId", m."threadId"
+        FROM messages m
+        INNER JOIN runs r ON r.id = m."runId" AND r."threadId" = m."threadId"
+        INNER JOIN threads t ON t.id = m."threadId"
+        WHERE r.id IN (${Prisma.join(runs.map((run) => run.id))})
+          AND r."spaceId" = ${actor.spaceId} AND r."userId" = ${actor.userId}
+          AND t."spaceId" = ${actor.spaceId} AND t."userId" = ${actor.userId}
+          AND m.role = 'bot'
+        ORDER BY m."runId", m."createdAt" DESC, m.id DESC
+      `)
+    : [];
+  const replyByRun = new Map(messages.map((message) => [message.runId, message.id]));
+  return {
+    nextCursor,
+    runs: runs.map((run) => ({
+      id: run.id,
+      botId: run.botId,
+      groupId: run.thread.groupId,
+      status: run.status as RoutineRun["status"],
+      createdAt: run.createdAt.toISOString(),
+      startedAt: run.startedAt?.toISOString() ?? null,
+      completedAt: run.completedAt?.toISOString() ?? null,
+      messageId: replyByRun.get(run.id) ?? null,
+    })),
+  };
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": ["COREPACK_ENABLE_DOWNLOAD_PROMPT"],
+  "tasks": {
+    "generate": {
+      "cache": false
+    },
+    "build": {
+      "dependsOn": ["^build", "^generate"],
+      "env": [
+        "BETTER_AUTH_SECRET",
+        "DATABASE_URL",
+        "ENCRYPTION_KEY",
+        "GIT_SHA",
+        "PUBLIC_POSTHOG_HOST",
+        "PUBLIC_POSTHOG_KEY"
+      ],
+      "outputs": ["dist/**", "src/generated/**"]
+    },
+    "check": {
+      "dependsOn": ["^check", "^generate", "generate"]
+    },
+    "test": {
+      "dependsOn": ["^generate"],
+      "outputs": ["coverage/**"]
+    },
+    "dev": {
+      "cache": false,
+      "env": ["PUBLIC_POSTHOG_HOST", "PUBLIC_POSTHOG_KEY"],
+      "persistent": true
+    }
+  }
+}

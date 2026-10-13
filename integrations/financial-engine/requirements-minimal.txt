@@ -1,0 +1,15 @@
+# Verified Python 3.12 bridge, public crypto source and deterministic rule runtime.
+# Full model/research/provider SDK requirements remain in the pinned upstream repo.
+fastapi==0.115.14
+sqlalchemy==2.0.54
+uvicorn==0.54.0
+python-dotenv==1.2.4
+pandas==3.0.6
+numpy==2.5.4
+httpx==0.28.1
+pytest==9.1.1
+requests==2.34.2
+fake-useragent==2.2.0
+tenacity==9.2.1
+PyYAML==6.0.3
+exchange-calendars==4.13.2

@@ -1,0 +1,95 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+name: Bug report
+description: Something is broken in MarketBot
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For **security vulnerabilities**, follow SECURITY.md in this checkout; do not disclose details in a public issue.
+
+  - type: checkboxes
+    id: not-security
+    attributes:
+      label: Confirmation
+      options:
+        - label: This is not a security vulnerability report
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What went wrong? Keep it concise.
+      placeholder: The bot computer pane stays blank after sending a message.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps from a clean local setup when possible.
+      placeholder: |
+        1. `pnpm dev`
+        2. Create a bot and send "hello"
+        3. Open the computer pane
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: MarketBot version or commit
+      placeholder: v0.1.0 or abc1234
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: sandbox
+    attributes:
+      label: SANDBOX_PROVIDER
+      description: If relevant (default is `docker`).
+      placeholder: docker
+
+  - type: input
+    id: runtime
+    attributes:
+      label: AGENT_RUNTIME
+      description: If relevant (default is `pi`).
+      placeholder: pi
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Redact secrets and tokens. Use placeholders instead of real keys.
+      render: shell

@@ -1,0 +1,33 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import { BOT_DESCRIPTION_MAX_LENGTH, BOT_INSTRUCTIONS_MAX_LENGTH } from "@marketbot/contracts";
+import { describe, expect, it } from "vitest";
+import { botProfilePatch } from "./bot-profile-patch.js";
+
+describe("bot profile patch", () => {
+  it("leaves instructions alone when the description field was not touched", () => {
+    const stored = "I".repeat(BOT_DESCRIPTION_MAX_LENGTH + 1500);
+    expect(botProfilePatch(stored, stored)).toEqual({});
+  });
+
+  it("treats whitespace around the stored description as untouched", () => {
+    const stored = "I".repeat(BOT_DESCRIPTION_MAX_LENGTH + 1500);
+    expect(botProfilePatch(`  ${stored}\n`, stored)).toEqual({});
+    expect(botProfilePatch(" Billing questions ", "Billing questions")).toEqual({});
+  });
+
+  it("sends both fields when the description is edited", () => {
+    const patch = botProfilePatch("Billing questions", "Invoices");
+    expect(patch).toEqual({ description: "Invoices", instructions: "Invoices" });
+  });
+
+  it("clamps an edited value to each field's own limit", () => {
+    const patch = botProfilePatch("short", "D".repeat(BOT_INSTRUCTIONS_MAX_LENGTH + 100));
+    expect(patch.description).toHaveLength(BOT_DESCRIPTION_MAX_LENGTH);
+    expect(patch.instructions).toHaveLength(BOT_INSTRUCTIONS_MAX_LENGTH);
+  });
+
+  it("still sends a cleared description", () => {
+    const patch = botProfilePatch("Invoices", "");
+    expect(patch).toEqual({ description: "", instructions: "" });
+  });
+});

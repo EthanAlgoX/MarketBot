@@ -1,0 +1,214 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("expo-localization", () => ({
+  getLocales: vi.fn(() => [{ languageTag: "en-US" }]),
+}));
+
+vi.mock("expo-secure-store", () => ({
+  getItemAsync: vi.fn(),
+  setItemAsync: vi.fn(),
+  deleteItemAsync: vi.fn(),
+}));
+
+vi.mock("./ui-direction", () => ({
+  applyMobileUiDirection: vi.fn(),
+}));
+
+/** Recursively collect source files used to validate mobile translation coverage. */
+function collectSourceFiles(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === "dist") continue;
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...collectSourceFiles(path));
+    else if (/\.(ts|tsx)$/.test(entry.name) && !entry.name.endsWith(".test.ts")) files.push(path);
+  }
+  return files;
+}
+
+describe("mobile i18n", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    const { getItemAsync, setItemAsync } = await import("expo-secure-store");
+    vi.mocked(getItemAsync).mockReset();
+    vi.mocked(setItemAsync).mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("falls back to the English source message when a translation is missing", async () => {
+    const { resetI18nForTests, t } = await import("./i18n");
+    resetI18nForTests("zh-CN");
+    expect(t("Not a real string")).toBe("Not a real string");
+  });
+
+  it("translates seeded Chinese chrome and keeps interpolations", async () => {
+    const { resetI18nForTests, t } = await import("./i18n");
+    resetI18nForTests("zh-CN");
+    expect(t("Account")).toBe("账户");
+    expect(t("Sign in to MarketBot")).toBe("登录金融助手");
+    expect(t("New bot")).toBe("新建 Bot");
+    expect(t("{runs} runs · {tokens} tokens", { runs: 3, tokens: 12 })).toBe(
+      "3 次运行 · 12 个 token",
+    );
+    expect(t("Delete {name}?", { name: "Scout" })).toBe("要删除 Scout 吗？");
+
+    resetI18nForTests("ru");
+    expect(t("Account")).toBe("Аккаунт");
+    expect(t("Sign in to MarketBot")).toBe("Войти в MarketBot");
+    expect(t("New bot")).toBe("Новый бот");
+    expect(t("{runs} runs · {tokens} tokens", { runs: 3, tokens: 12 })).toBe(
+      "Запусков: 3 · токенов: 12",
+    );
+    expect(t("Delete {name}?", { name: "Scout" })).toBe("Удалить Scout?");
+
+    resetI18nForTests("de");
+    expect(t("Account")).toBe("Konto");
+    expect(t("Sign in to MarketBot")).toBe("Bei MarketBot anmelden");
+    expect(t("New bot")).toBe("Neuer Bot");
+    expect(t("{runs} runs · {tokens} tokens", { runs: 3, tokens: 12 })).toBe(
+      "3 Ausführungen · 12 Token",
+    );
+    expect(t("Delete {name}?", { name: "Scout" })).toBe("Scout löschen?");
+  });
+
+  it("preserves interpolations in every non-English catalog", async () => {
+    const { ZH_MESSAGES } = await import("./locales/zh");
+    const { RU_MESSAGES } = await import("./locales/ru");
+    const { DE_MESSAGES } = await import("./locales/de");
+    for (const messages of [ZH_MESSAGES, RU_MESSAGES, DE_MESSAGES]) {
+      const empty = Object.entries(messages).filter(([, value]) => !value.trim());
+      const interpolationMismatches = Object.entries(messages).filter(([id, value]) => {
+        const tokens = (message: string) =>
+          [...message.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]).sort();
+        return JSON.stringify(tokens(id)) !== JSON.stringify(tokens(value));
+      });
+      expect(empty).toEqual([]);
+      expect(interpolationMismatches).toEqual([]);
+    }
+  });
+
+  it("covers chrome catalogs and separately records existing financial localization debt", async () => {
+    const { ZH_MESSAGES } = await import("./locales/zh");
+    const { RU_MESSAGES } = await import("./locales/ru");
+    const { DE_MESSAGES } = await import("./locales/de");
+    const { EMPTY_PLUGIN_CATALOG_MESSAGE, SLASH_ACTIONS } = await import("@marketbot/core");
+    const { OPENAI_COMPATIBLE_BASE_URL_HINT } = await import("@marketbot/contracts");
+    const mobileRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+    // Financial surfaces currently use Chinese source copy. This fixed debt list preserves
+    // that existing scope; every new message and all changed brand messages remain checked.
+    const pendingFinancialIds = new Set<string>(
+      JSON.parse(
+        readFileSync(
+          new URL("./fixtures/financial-source-i18n-pending.json", import.meta.url),
+          "utf8",
+        ),
+      ),
+    );
+    expect([...pendingFinancialIds].every((id) => /\p{Script=Han}/u.test(id))).toBe(true);
+    const ids = new Set<string>([
+      EMPTY_PLUGIN_CATALOG_MESSAGE,
+      OPENAI_COMPATIBLE_BASE_URL_HINT,
+      ...SLASH_ACTIONS.map((action) => action.label),
+      "Sign-in did not return a session",
+      "Sign-up did not return a session",
+      "{count} model",
+      "{count} models",
+      // Labels the t() literal scan cannot see: built from maps or ternaries.
+      "System",
+      "Light",
+      "Dark",
+      "Allow once",
+      "Always allow",
+      "Deny",
+    ]);
+    for (const file of collectSourceFiles(mobileRoot)) {
+      const source = readFileSync(file, "utf8");
+      for (const match of source.matchAll(/\bt\(\s*"((?:\\.|[^"\\])*)"/g)) {
+        ids.add(JSON.parse(`"${match[1]}"`) as string);
+      }
+    }
+    for (const messages of [ZH_MESSAGES, RU_MESSAGES, DE_MESSAGES]) {
+      const missing = [...ids]
+        .filter((id) => !messages[id]?.trim() && !pendingFinancialIds.has(id))
+        .sort();
+      expect(missing).toEqual([]);
+    }
+  });
+
+  it("prefers the stored locale, then activates and persists a new choice", async () => {
+    const { getItemAsync, setItemAsync } = await import("expo-secure-store");
+    vi.mocked(getItemAsync).mockResolvedValue("zh-CN");
+    const { applyMobileUiDirection } = await import("./ui-direction");
+    const { bootstrapI18n, getActiveUiLocale, setUiLocale, t } = await import("./i18n");
+
+    await expect(bootstrapI18n()).resolves.toBe("zh-CN");
+    expect(getActiveUiLocale()).toBe("zh-CN");
+    expect(t("Language")).toBe("语言");
+    expect(applyMobileUiDirection).toHaveBeenCalledWith("zh-CN");
+
+    await setUiLocale("en");
+    expect(getActiveUiLocale()).toBe("en");
+    expect(t("Language")).toBe("Language");
+    expect(setItemAsync).toHaveBeenCalledWith("marketbot.uiLocale", "en");
+    expect(applyMobileUiDirection).toHaveBeenCalledWith("en");
+  });
+
+  it("normalizes a regional Russian stored locale before activation", async () => {
+    const { getItemAsync } = await import("expo-secure-store");
+    vi.mocked(getItemAsync).mockResolvedValue("ru-RU");
+    const { bootstrapI18n, dateLocaleForUi, getActiveUiLocale, t } = await import("./i18n");
+
+    await expect(bootstrapI18n()).resolves.toBe("ru");
+    expect(getActiveUiLocale()).toBe("ru");
+    expect(t("Language")).toBe("Язык");
+    expect(dateLocaleForUi()).toBe("ru");
+  });
+
+  it("normalizes a regional German stored locale before activation", async () => {
+    const { getItemAsync } = await import("expo-secure-store");
+    vi.mocked(getItemAsync).mockResolvedValue("de-CH");
+    const { bootstrapI18n, dateLocaleForUi, getActiveUiLocale, t } = await import("./i18n");
+
+    await expect(bootstrapI18n()).resolves.toBe("de");
+    expect(getActiveUiLocale()).toBe("de");
+    expect(t("Language")).toBe("Sprache");
+    expect(dateLocaleForUi()).toBe("de");
+  });
+
+  it("keeps the last locale when rapid setUiLocale calls finish out of order", async () => {
+    const { setItemAsync } = await import("expo-secure-store");
+    const { applyMobileUiDirection } = await import("./ui-direction");
+    const { getActiveUiLocale, resetI18nForTests, setUiLocale } = await import("./i18n");
+    resetI18nForTests("en");
+
+    const gates = new Map<string, { release: () => void; wait: Promise<void> }>();
+    for (const locale of ["en", "zh-CN", "ru", "de"] as const) {
+      let release!: () => void;
+      const wait = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      gates.set(locale, { release, wait });
+    }
+    vi.mocked(setItemAsync).mockImplementation(async (_key, value) => {
+      await gates.get(String(value))?.wait;
+    });
+
+    const first = setUiLocale("en");
+    const second = setUiLocale("zh-CN");
+    // First write is slower to settle; second must still win after the queue drains.
+    queueMicrotask(() => gates.get("zh-CN")?.release());
+    queueMicrotask(() => gates.get("en")?.release());
+    await Promise.all([first, second]);
+
+    expect(getActiveUiLocale()).toBe("zh-CN");
+    expect(setItemAsync).toHaveBeenLastCalledWith("marketbot.uiLocale", "zh-CN");
+    expect(applyMobileUiDirection).toHaveBeenLastCalledWith("zh-CN");
+  });
+});

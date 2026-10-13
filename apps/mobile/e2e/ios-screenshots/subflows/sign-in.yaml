@@ -1,0 +1,30 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+appId: com.marketbot.app
+---
+- runFlow: launch-app.yaml
+- runFlow:
+    when:
+      visible: "Sign up for 金融助手"
+    commands:
+      - tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Sign in to 金融助手"
+    timeout: 15000
+- tapOn: "Email"
+- inputText: ${MARKETBOT_ACTIVE_EMAIL}
+- tapOn: "Password"
+- inputText: ${MARKETBOT_SCREENSHOT_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- tapOn:
+    text: "Not Now"
+    optional: true
+- tapOn:
+    text: "Don’t allow"
+    optional: true
+- tapOn:
+    text: "Don't allow"
+    optional: true
+- extendedWaitUntil:
+    visible: "Account"
+    timeout: 40000

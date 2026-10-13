@@ -1,0 +1,81 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+name: Self-host setup
+description: Cannot start MarketBot, run compose, migrate, or build the sandbox
+title: "[Self-host]: "
+labels:
+  - self-host
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For **security vulnerabilities**, follow SECURITY.md in this checkout; do not disclose details in a public issue.
+
+        Setup steps are in README.md in this checkout. Do not paste `.env` contents or API keys.
+
+  - type: dropdown
+    id: step
+    attributes:
+      label: Which step fails?
+      options:
+        - Docker Compose / Postgres
+        - pnpm install
+        - pnpm db:generate or db:migrate
+        - pnpm sandbox:build
+        - pnpm dev (API, worker, web, or supervisor)
+        - Health check / first login
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran
+      placeholder: pnpm sandbox:build
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output
+      description: Full terminal output or log excerpt. Redact secrets.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: MarketBot version or commit
+      placeholder: main @ abc1234
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: docker
+    attributes:
+      label: Docker version
+      placeholder: Docker Desktop 4.x / docker 27.x
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: v22.x
+    validations:
+      required: true

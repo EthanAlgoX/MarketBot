@@ -1,4 +1,0 @@
-interface:
-  display_name: "Panic Reversion Monitor"
-  short_description: "Track drawdown, selloff cause, event progress, and panic reversals."
-  default_prompt: "Use $panic-reversion-monitor to measure how far this symbol has fallen from its recent high, explain why it fell, track the event progress, and judge whether the selloff has turned into a staged panic-reversion buy window."

@@ -1,0 +1,15 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+---
+<BaseLayout title="页面不存在 · 金融助手" description="此地址没有对应的页面。" index={false}>
+  <Header />
+  <main id="main" class="reading-page container">
+    <p class="version">404</p>
+    <h1>页面不存在</h1>
+    <p class="lead">这个地址可能已经更新。请从首页继续。</p>
+    <a class="button" href="/">返回首页 <span aria-hidden="true">↗</span></a>
+  </main>
+  <Footer />
+</BaseLayout>

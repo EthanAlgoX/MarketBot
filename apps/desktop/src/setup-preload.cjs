@@ -1,0 +1,18 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("marketbotSetup", {
+  platform: process.platform,
+  state: () => ipcRenderer.invoke("desktop.setup.state"),
+  test: (url) => ipcRenderer.invoke("desktop.setup.test", url),
+  save: (setup) => ipcRenderer.invoke("desktop.setup.save", setup),
+  quit: () => ipcRenderer.invoke("desktop.setup.quit"),
+  openLink: (link) => ipcRenderer.invoke("desktop.setup.openLink", link),
+  stack: {
+    state: () => ipcRenderer.invoke("desktop.setup.stack.state"),
+    start: () => ipcRenderer.invoke("desktop.setup.stack.start"),
+    onChange: (listener) => {
+      ipcRenderer.on("desktop.setup.stack.changed", (_event, state) => listener(state));
+    },
+  },
+});

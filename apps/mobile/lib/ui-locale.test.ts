@@ -1,0 +1,108 @@
+import { describe, expect, it } from "vitest";
+import {
+  ACCOUNT_UI_LOCALES,
+  htmlLangForLocale,
+  isUiLocale,
+  normalizeUiLocale,
+  resolveUiLocale,
+  UI_LOCALE_LABELS,
+  UI_LOCALES,
+} from "./ui-locale";
+
+describe("UI_LOCALES", () => {
+  it("offers every locale with a mobile catalog", () => {
+    expect([...UI_LOCALES]).toEqual(["en", "zh-CN", "ru", "de"]);
+    expect(Object.keys(UI_LOCALE_LABELS).sort()).toEqual(["de", "en", "ru", "zh-CN"]);
+    expect(isUiLocale("ko")).toBe(false);
+    expect(isUiLocale("tr")).toBe(false);
+    expect(isUiLocale("hi")).toBe(false);
+    expect(isUiLocale("pt-BR")).toBe(false);
+    expect(isUiLocale("ru")).toBe(true);
+    expect(isUiLocale("de")).toBe(true);
+  });
+});
+
+describe("ACCOUNT_UI_LOCALES", () => {
+  it("limits the Account picker to English and Simplified Chinese", () => {
+    expect([...ACCOUNT_UI_LOCALES]).toEqual(["en", "zh-CN"]);
+    expect(ACCOUNT_UI_LOCALES).not.toContain("ru");
+    expect(ACCOUNT_UI_LOCALES).not.toContain("de");
+  });
+});
+
+describe("normalizeUiLocale", () => {
+  it("maps regional tags onto supported locales", () => {
+    expect(normalizeUiLocale("en-US")).toBe("en");
+    expect(normalizeUiLocale("zh-CN")).toBe("zh-CN");
+    expect(normalizeUiLocale("zh")).toBe("zh-CN");
+    expect(normalizeUiLocale("zh-Hans")).toBe("zh-CN");
+    expect(normalizeUiLocale("zh-SG")).toBe("zh-CN");
+    expect(normalizeUiLocale("ru-RU")).toBe("ru");
+    expect(normalizeUiLocale("ru_KZ")).toBe("ru");
+    expect(normalizeUiLocale("de")).toBe("de");
+    expect(normalizeUiLocale("de-DE")).toBe("de");
+    expect(normalizeUiLocale("de-CH")).toBe("de");
+    expect(normalizeUiLocale("de_AT")).toBe("de");
+  });
+
+  it("does not fold Traditional Chinese into Simplified", () => {
+    expect(normalizeUiLocale("zh-TW")).toBe("en");
+    expect(normalizeUiLocale("zh-HK")).toBe("en");
+    expect(normalizeUiLocale("zh-Hant")).toBe("en");
+  });
+
+  it("falls back to English for unknown locales and web-only languages", () => {
+    expect(normalizeUiLocale("fr-FR")).toBe("en");
+    expect(normalizeUiLocale("ko")).toBe("en");
+    expect(normalizeUiLocale("ko-KR")).toBe("en");
+    expect(normalizeUiLocale("tr")).toBe("en");
+    expect(normalizeUiLocale("hi")).toBe("en");
+    expect(normalizeUiLocale("pt")).toBe("en");
+    expect(normalizeUiLocale("pt-BR")).toBe("en");
+    expect(normalizeUiLocale("")).toBe("en");
+    expect(normalizeUiLocale(null)).toBe("en");
+  });
+});
+
+describe("htmlLangForLocale", () => {
+  it("keeps Simplified Chinese on zh-CN", () => {
+    expect(htmlLangForLocale("zh-CN")).toBe("zh-CN");
+    expect(htmlLangForLocale("en")).toBe("en");
+  });
+});
+
+describe("resolveUiLocale", () => {
+  it("prefers the saved choice over env and device language", () => {
+    expect(
+      resolveUiLocale({
+        stored: "zh-CN",
+        envDefault: "zh-CN",
+        deviceLanguage: "en-US",
+      }),
+    ).toBe("zh-CN");
+  });
+
+  it("uses the env default, then device language, then English", () => {
+    expect(
+      resolveUiLocale({
+        stored: null,
+        envDefault: "zh-CN",
+        deviceLanguage: "en-US",
+      }),
+    ).toBe("zh-CN");
+    expect(
+      resolveUiLocale({
+        stored: null,
+        envDefault: null,
+        deviceLanguage: "zh-CN",
+      }),
+    ).toBe("zh-CN");
+    expect(
+      resolveUiLocale({
+        stored: null,
+        envDefault: null,
+        deviceLanguage: null,
+      }),
+    ).toBe("en");
+  });
+});

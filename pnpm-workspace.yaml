@@ -1,0 +1,5 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "infra/sandboxes/supervisor"
+  - "infra/updater"

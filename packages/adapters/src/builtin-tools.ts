@@ -1,0 +1,1132 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import type { ConnectorTool } from "@marketbot/adapter-kit";
+import {
+  BotSecretName,
+  botSecretDestinationSchema,
+  SecretAskPurpose,
+  SecretHttpRequest,
+} from "@marketbot/contracts";
+import { z } from "zod";
+import { allowPrivateHttpSecretOrigins } from "./bot-secrets.js";
+
+// The owner flag can land in process.env after static imports run (loadRootEnv
+// parses .env once the entry module is already executing), so the model-facing
+// surface is built lazily on first tool access instead of at module scope.
+let secretAskSurface:
+  | {
+      description: string;
+      inputSchema: ConnectorTool["inputSchema"];
+    }
+  | undefined;
+function secretAskToolSurface() {
+  const allowPrivateHttpOrigins = allowPrivateHttpSecretOrigins();
+  secretAskSurface ??= {
+    description: `Collect a credential in a masked field. Supply credential to save a named API credential for this bot and user at one ${
+      allowPrivateHttpOrigins
+        ? "HTTPS origin, or an HTTP origin on a private LAN host"
+        : "HTTPS origin"
+    }, or connectionId for a one-use connector code. Credential names must start with a lowercase letter and use only lowercase letters, digits, hyphens, or underscores (max 64 characters). For a website login the user wants saved, use auth {type:"login"} with the sign-in page's HTTPS origin; the card asks for a username and password, and browser_act fill_secret types them. Existing named credentials are reused unless replace is true. For 2FA, CAPTCHA, passkeys, or anything else that needs the live desktop, call request_takeover instead.`,
+    inputSchema: {
+      oneOf: [
+        {
+          type: "object",
+          properties: {
+            label: { type: "string" },
+            purpose: { type: "string", enum: SecretAskPurpose.options },
+            credential: z.toJSONSchema(
+              botSecretDestinationSchema({ allowPrivateHttpOrigin: allowPrivateHttpOrigins }),
+            ),
+            replace: {
+              type: "boolean",
+              description: "Ask the user to replace an existing credential value.",
+            },
+          },
+          required: ["label", "purpose", "credential"],
+          additionalProperties: false,
+        },
+        {
+          type: "object",
+          properties: {
+            label: { type: "string" },
+            purpose: { type: "string", enum: SecretAskPurpose.options },
+            connectionId: { type: "string" },
+          },
+          required: ["label", "purpose", "connectionId"],
+          additionalProperties: false,
+        },
+      ],
+    },
+  };
+  return secretAskSurface;
+}
+
+export const DELEGATION_TOOL_NAMES = new Set([
+  "run_subagent",
+  "spawn_bot",
+  "archive_bot",
+  "delete_bot",
+  "handoff_to_bot",
+  "message_bot",
+]);
+
+const scheduleCreateProperties = {
+  name: { type: "string", description: "Short label shown in Routines." },
+  prompt: {
+    type: "string",
+    description:
+      "Concrete steps for when the schedule fires: name the connected plugin tools to call (e.g. GITHUB_LIST_RELEASES for owner/repo), what to extract, and how to report. Prefer plugin tools over computer browser or web search for app data.",
+  },
+  timezone: { type: "string", description: "IANA timezone (default UTC)." },
+};
+
+const scheduleTimingNames = [
+  "cron",
+  "every",
+  "unit",
+  "runAt",
+  "delayMinutes",
+  "delaySeconds",
+] as const;
+
+/**
+ * Model serializers often emit unused optional fields as null or "". Those are
+ * not a second timing method; a real value in another method still fails the branch.
+ */
+const blankScheduleTiming = {
+  anyOf: [{ type: "null" }, { type: "string", pattern: "^\\s*$" }],
+};
+
+const scheduleTimingSpecs = {
+  cron: { type: "string", description: "5-field cron for repeating schedules." },
+  every: { type: "number", description: "Repeat interval amount for repeating schedules." },
+  unit: {
+    type: "string",
+    enum: ["minutes", "hours", "days"],
+    description: "Unit for every (minimum 1 minute).",
+  },
+  runAt: { type: "string", description: "ISO datetime for a one-shot schedule." },
+  delayMinutes: {
+    type: "number",
+    description: "Minutes from now for a one-shot schedule.",
+  },
+  delaySeconds: {
+    type: "number",
+    description: "Seconds from now for a one-shot schedule (may be under one minute).",
+  },
+};
+
+function scheduleCreateBranch(active: readonly (keyof typeof scheduleTimingSpecs)[]) {
+  const activeNames = new Set<string>(active);
+  const properties: Record<string, unknown> = { ...scheduleCreateProperties };
+  for (const name of scheduleTimingNames) {
+    properties[name] = activeNames.has(name) ? scheduleTimingSpecs[name] : blankScheduleTiming;
+  }
+  return {
+    type: "object",
+    properties,
+    required: ["name", "prompt", ...active],
+    additionalProperties: false,
+  };
+}
+
+/** Exactly one timing method. Null or blank leftovers stay valid so callers can ignore them. */
+const scheduleCreateInputSchema = {
+  oneOf: [
+    scheduleCreateBranch(["cron"]),
+    scheduleCreateBranch(["every", "unit"]),
+    scheduleCreateBranch(["runAt"]),
+    scheduleCreateBranch(["delayMinutes"]),
+    scheduleCreateBranch(["delaySeconds"]),
+  ],
+};
+
+export const builtinAgentTools: ConnectorTool[] = [
+  {
+    name: "computer_observe",
+    description:
+      "Capture the current screen of this bot's computer. Returns frame metadata and an image. Observe before coordinate-based actions and whenever another actor may have changed the desktop.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "computer_act",
+    description:
+      "Perform up to 24 ordered desktop actions on this bot's computer and return the resulting screen. Batch only predictable actions; stop before an outcome you need to inspect. Action kinds: click, move, down, up, type, key, scroll, wait, focus (raises the application's window, launching it if absent).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        actions: {
+          type: "array",
+          items: {
+            oneOf: [
+              {
+                type: "object",
+                properties: {
+                  kind: { type: "string", enum: ["focus"] },
+                  application: { type: "string", minLength: 1, pattern: "\\S" },
+                  uri: { type: "string" },
+                },
+                required: ["kind", "application"],
+              },
+              {
+                type: "object",
+                properties: {
+                  kind: {
+                    type: "string",
+                    enum: ["click", "move", "down", "up", "type", "key", "scroll", "wait"],
+                  },
+                  x: { type: "number" },
+                  y: { type: "number" },
+                  button: { type: "string", enum: ["left", "right"] },
+                  double: { type: "boolean" },
+                  text: { type: "string" },
+                  key: { type: "string" },
+                  modifiers: { type: "array", items: { type: "string" } },
+                  direction: { type: "string", enum: ["up", "down"] },
+                  amount: { type: "number" },
+                  ms: { type: "number" },
+                  application: { type: "string" },
+                  uri: { type: "string" },
+                },
+                required: ["kind"],
+              },
+            ],
+          },
+        },
+        observe: { type: "boolean" },
+        settle_ms: { type: "number" },
+      },
+      required: ["actions"],
+    },
+  },
+
+  {
+    name: "browser_navigate",
+    description:
+      'Open a URL in the page browser on this bot\'s computer and return the document title. Prefer this over pixel clicks for web pages. If the result includes fallback:"computer_act", use computer_act on the desktop browser instead.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "http(s) URL to open." },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "browser_snapshot",
+    description:
+      "Capture an accessibility-style snapshot of the current page with element refs (e1, e2, …). Use refs with browser_act. Prefer this over computer_observe for web pages. If fallback is computer_act, use the desktop tools instead.",
+    inputSchema: { type: "object", properties: {} },
+    readOnly: true,
+  },
+  {
+    name: "browser_act",
+    description:
+      'Click or fill page elements by ref from browser_snapshot (kinds: click, fill, type, fill_secret). fill_secret types the username or password of a login saved with request_secret, only on the site it was saved for; you never see the value. Prefer this over computer_act for web pages. If the result includes fallback:"computer_act", use computer_act instead.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        actions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              kind: { type: "string", enum: ["click", "fill", "type", "fill_secret"] },
+              ref: { type: "string", description: "Element ref from browser_snapshot." },
+              text: { type: "string", description: "Text for fill or type." },
+              secret: { type: "string", description: "Saved login name for fill_secret." },
+              field: {
+                type: "string",
+                enum: ["username", "password"],
+                description: "Login field for fill_secret.",
+              },
+            },
+            required: ["kind", "ref"],
+          },
+        },
+      },
+      required: ["actions"],
+    },
+  },
+  {
+    name: "list_files",
+    description:
+      "List files and directories in this bot's home. On a Team Computer, relative paths use the bot folder; use shared/... for shared work or bots/... to inspect the Team root.",
+    inputSchema: {
+      type: "object",
+      properties: { path: { type: "string" } },
+    },
+  },
+  {
+    name: "read_file",
+    description:
+      "Read a UTF-8 text file from this bot's home. On a Team Computer, relative paths use the bot folder and shared/... accesses shared work. Open visual or binary files with open_path instead.",
+    inputSchema: {
+      type: "object",
+      properties: { path: { type: "string" } },
+      required: ["path"],
+    },
+  },
+  {
+    name: "write_file",
+    description:
+      "Write a UTF-8 file into this bot's home. On a Team Computer, relative paths use the bot folder; use shared/... only for work other bots should share.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string" },
+        content: { type: "string" },
+      },
+      required: ["path", "content"],
+    },
+  },
+  {
+    name: "attach_file",
+    description:
+      "Attach a workspace file from this bot's home to the chat thread as an image or common file. The file stays in place; users can open it from the message and from the Artifacts tab. For a self-contained HTML page, document, or anything else meant to be opened and viewed on its own (not just downloaded) — give it name and description: a short human-readable title and a one-line summary of what it is. Skip them for an ordinary attachment like a log file or export. To UPDATE something you already made, call this again with the exact same name — it becomes a new version of that same artifact (visible in a version switcher) instead of a separate one; a different name always starts a new artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string" },
+        name: { type: "string" },
+        description: { type: "string" },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "shell",
+    description:
+      "Run a command inside this bot's computer. cwd defaults to the bot's folder on a Team Computer and the workspace root on a Private Computer. Output can arrive while the command is still running; tell the user any one-time code or sign-in URL in that output.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        command: { type: "string" },
+        cwd: { type: "string" },
+      },
+      required: ["command"],
+    },
+  },
+  {
+    name: "open_path",
+    description:
+      "Open a workspace file or an http(s) URL in its default graphical application on this bot's computer and return the resulting screen.",
+    inputSchema: {
+      type: "object",
+      properties: { path: { type: "string" } },
+      required: ["path"],
+    },
+  },
+  {
+    name: "launch_app",
+    description:
+      "Launch an installed graphical application on this bot's computer, or raise its window if already open; optionally with a URI. Returns the resulting screen.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        application: { type: "string" },
+        uri: { type: "string" },
+      },
+      required: ["application"],
+    },
+  },
+  {
+    name: "request_takeover",
+    description:
+      "Ask the user to take over the computer screen for passwords, 2FA, CAPTCHA, payment, passkeys, or other protected input. Never ask the user to paste protected values in chat.",
+    inputSchema: {
+      type: "object",
+      properties: { reason: { type: "string" } },
+      required: ["reason"],
+    },
+  },
+  {
+    name: "ask_user",
+    description:
+      "Ask the user one short multiple-choice question with tappable options, then wait for their selection. Use this instead of asking them to type when two to four concise choices are enough.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        question: { type: "string", maxLength: 240 },
+        options: {
+          type: "array",
+          items: { type: "string", minLength: 1, maxLength: 80 },
+          minItems: 2,
+          maxItems: 4,
+          uniqueItems: true,
+        },
+      },
+      required: ["question", "options"],
+    },
+  },
+  {
+    name: "message_user",
+    description:
+      "Post a short progress update to the user in this chat immediately. Does not end your turn. Use sparingly during long work for high-signal beats (what you are checking, then a result). Do not dump tool logs, thinking, or a play-by-play of every call. HARD LIMIT: cut off silently at 500 characters, so never put your final answer, a report, or any long-form content here \u2014 it will arrive mangled and the user will never see the rest. Always write your complete final answer in your normal reply, not here.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          maxLength: 500,
+          description:
+            "Short user-visible update, not the final answer \u2014 longer text is silently truncated.",
+        },
+      },
+      required: ["message"],
+    },
+  },
+  {
+    name: "request_secret",
+    get description() {
+      return secretAskToolSurface().description;
+    },
+    // The original schema is credential XOR connectionId. The wire schema is one
+    // object, so a valid credential may also carry connectionId; the executor
+    // keeps that credential and uses connectionId only when no credential was sent.
+    get inputSchema() {
+      return secretAskToolSurface().inputSchema;
+    },
+  },
+  {
+    name: "list_secrets",
+    description:
+      "List saved credential names and destinations available to this bot and user. Values are never returned.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "secret_request",
+    description:
+      "Make an authenticated HTTPS request using a saved credential name. The backend injects authentication only at its saved origin. Redirects are rejected; response echoes of the credential are redacted. Use normal request URLs and bodies without secret placeholders.",
+    inputSchema: z.toJSONSchema(SecretHttpRequest, { io: "input" }),
+  },
+  {
+    name: "forget_secret",
+    description:
+      "Remove a saved credential for this bot and user, preventing future requests from using it.",
+    inputSchema: z.toJSONSchema(z.object({ name: BotSecretName })),
+  },
+  {
+    name: "render_plot",
+    description:
+      'Render a chart from tabular data as a PNG and attach it to the chat. Backed by Observable Plot: bar, line, area, scatter, histogram, heatmap, box plot, facets, and more via a declarative JSON spec. Call with {"charts": true} FIRST to list every chart type with a complete runnable example spec ({"charts": "<keyword>"} searches), then copy the closest example and substitute your rows and columns. {"help": true} returns the full guide. Pass rows inline as data, or data_path for a .csv/.tsv/.json file in your home.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        charts: {
+          description:
+            'true lists all chart types with runnable example specs; a keyword string (e.g. "distribution", "share", "trend") searches them.',
+        },
+        help: {
+          type: "boolean",
+          description: "Return the full render_plot skill guide instead of rendering.",
+        },
+        spec: {
+          type: "object",
+          description:
+            "Declarative Observable Plot spec: {title?, width?, height?, x?, y?, color?, fx?, fy?, marks: [{type, options, transform?, data?}]}.",
+        },
+        data: {
+          type: "array",
+          description: "Rows as objects, shared by marks without their own data.",
+        },
+        data_path: {
+          type: "string",
+          description:
+            "Workspace path of a .csv, .tsv, or .json rows file to load instead of inline data.",
+        },
+        path: {
+          type: "string",
+          description: "Output PNG path in this bot's home. Default charts/plot-<n>.png.",
+        },
+        attach: {
+          type: "boolean",
+          description: "Attach the rendered PNG to the chat (default true).",
+        },
+      },
+    },
+  },
+  {
+    name: "add_mcp_server",
+    description:
+      "Connect an MCP tool server to this Space when the user asks you to add one and provides the details (URL or command, optional token/headers/env). The server is created immediately and assigned to you. If it needs browser OAuth authorization, an approval card appears in the chat for the user to complete — tell them to click Authorize. Do not invent endpoints; only use details the user provided.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: 'Display name, e.g. "Brex".' },
+        transport: {
+          type: "string",
+          enum: ["streamable_http", "sse", "stdio"],
+          description:
+            "streamable_http for modern HTTP servers, sse for legacy HTTP servers, stdio for local commands.",
+        },
+        endpoint: {
+          type: "string",
+          description: "HTTPS URL of the remote MCP server (required unless transport is stdio).",
+        },
+        command: {
+          type: "string",
+          description:
+            "Executable path for stdio transport (required for stdio). Must be allowlisted by the deployment.",
+        },
+        args: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Arguments for the stdio command. A single space-separated string also works.",
+        },
+        env: {
+          type: "object",
+          description: 'Environment variables for stdio transport, e.g. {"API_KEY": "..."}.',
+        },
+        headers: {
+          type: "object",
+          description: 'HTTP headers for remote transports, e.g. {"Authorization": "Bearer ..."}.',
+        },
+        secret: {
+          type: "string",
+          description: "Static access token, equivalent to an Authorization: Bearer header.",
+        },
+        assign_to_self: {
+          type: "boolean",
+          description:
+            "Assign the server to you so its tools are usable in this conversation (default true).",
+        },
+      },
+      required: ["name", "transport"],
+    },
+  },
+  {
+    name: "remember",
+    description: "Store a durable fact in this bot's explicit memory.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: { type: "string" },
+        path: { type: "string" },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "save_shared_memory",
+    description:
+      "Save a Space shared memory document every bot reads. Replaces the full content, so include everything it should keep.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Document name, for example MEMORY.md." },
+        content: { type: "string", description: "The document's complete new content." },
+      },
+      required: ["path", "content"],
+    },
+  },
+  {
+    name: "web_search",
+    description:
+      "Search the public web. Returns titles, URLs, and snippets. Use when you need current information or links; follow with web_fetch to read a page. Does not need a computer.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query." },
+        maxResults: {
+          type: "number",
+          description: "Max results to return (default 5, max 10).",
+        },
+      },
+      required: ["query"],
+    },
+    readOnly: true,
+  },
+  {
+    name: "web_fetch",
+    description:
+      "Fetch a public http(s) page and return readable text (title + content). Read-only; no JavaScript. Use after web_search when you need the page itself.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "Page URL (http or https)." },
+        maxChars: {
+          type: "number",
+          description: "Max characters of body text (default 8000).",
+        },
+      },
+      required: ["url"],
+    },
+    readOnly: true,
+  },
+  {
+    name: "cloud_agent_launch",
+    description:
+      "Launch a remote cloud coding agent on a connected repository. Returns immediately with a tracking id and status; the agent link appears when launched. Opens a PR when openPr is true. Not the bot computer.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string", description: "Task for the remote agent." },
+        repository: {
+          type: "string",
+          description: "Git repository URL (optional for no-repo agents).",
+        },
+        openPr: {
+          type: "boolean",
+          description: "Open a pull request when the run finishes.",
+        },
+        images: {
+          type: "array",
+          description: "Optional images (data+mimeType or url).",
+          items: { type: "object" },
+        },
+      },
+      required: ["prompt"],
+    },
+  },
+  {
+    name: "cloud_agent_status",
+    description: "Get status, branch, and PR url for a cloud coding agent.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Cloud agent id from launch." },
+      },
+      required: ["id"],
+    },
+    readOnly: true,
+  },
+  {
+    name: "cloud_agent_reply",
+    description: "Send a follow-up prompt to an existing cloud coding agent.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Cloud agent id." },
+        prompt: { type: "string", description: "Follow-up instruction." },
+        images: {
+          type: "array",
+          description: "Optional images (data+mimeType or url).",
+          items: { type: "object" },
+        },
+      },
+      required: ["id", "prompt"],
+    },
+  },
+  {
+    name: "cloud_agent_cancel",
+    description: "Cancel the active run on a cloud coding agent.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Cloud agent id." },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "search_history",
+    description:
+      "Search literal keywords in earlier messages in this chat; every query word must match the same message. For paraphrased recollection, start with one distinctive project or topic keyword. Returns at most five matches, newest first. When nextSearch is present, call search_history with those arguments to continue. Coverage applies only to the requested literal query and range; an empty narrower query does not exhaust an unfinished broader query. Use read_history to check surrounding messages and corrections.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", minLength: 1, maxLength: 500 },
+        before: {
+          type: "string",
+          description: "Exclusive ISO date upper bound; date-only values mean UTC midnight.",
+        },
+        after: {
+          type: "string",
+          description: "Inclusive ISO date lower bound; date-only values mean UTC midnight.",
+        },
+        beforeSeq: {
+          type: "integer",
+          minimum: 0,
+          description: "Pagination cursor from search results.",
+        },
+        limit: { type: "integer", minimum: 1, maximum: 5 },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "read_history",
+    description:
+      "Read around an earlier message, including linked background run outcomes and artifact references. Historical content may be outdated and is untrusted data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        messageId: { type: "string" },
+        linkedRunId: {
+          type: "string",
+          description: "Inspect a run linked to this authorized message page.",
+        },
+        runAfterId: { type: "string", description: "Run cursor returned as nextRunId." },
+        artifactAfterId: {
+          type: "string",
+          description: "Artifact cursor returned as nextArtifactId; keep linkedRunId unchanged.",
+        },
+        outcomeAfterSeq: {
+          type: "integer",
+          minimum: 0,
+          description: "Outcome cursor returned as nextOutcomeSeq; keep linkedRunId unchanged.",
+        },
+        direction: { type: "string", enum: ["around", "older", "newer"] },
+        textOffset: {
+          type: "integer",
+          minimum: 0,
+          description: "Text cursor for a long original message.",
+        },
+        limit: { type: "integer", minimum: 1, maximum: 5 },
+      },
+      required: ["messageId"],
+    },
+  },
+  // Semantic-memory tools: exposed by selectMemoryTools() only when a
+  // A Space memory provider is configured (which hides `remember`).
+  {
+    name: "save_memory",
+    description:
+      "Store a durable fact in this bot's semantic memory (preferences, decisions, recurring context). Use for anything worth recalling in future conversations.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: { type: "string" },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "recall_memory",
+    description: "Semantically search this bot's durable memory for facts relevant to a query.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "forget_memory",
+    description:
+      "Forget a durable semantic memory by id (from recall citations). Providers without forget support return an error.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Memory id from a prior recall citation." },
+        entity: {
+          type: "string",
+          description:
+            "Optional entity/namespace from the recall citation when the provider scopes deletes.",
+        },
+        reason: { type: "string", description: "Optional reason recorded with the forget." },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "task_catalog",
+    description:
+      "Read-only inventory and source of truth for this bot's real open tasks, saved routines, taught skills, reusable skills, and currently exposed tools. Call it before claiming a task or skill exists. Use the returned ids and exact names; do not infer capabilities from memory or conversation text.",
+    inputSchema: { type: "object", properties: {} },
+    readOnly: true,
+  },
+  {
+    name: "scratchpad_list",
+    description:
+      "List this bot's scratchpad / open-work items (todos and parked work). By default omits completed items.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        includeDone: {
+          type: "boolean",
+          description: "When true, include completed items.",
+        },
+      },
+    },
+  },
+  {
+    name: "scratchpad_add",
+    description:
+      "Add an open-work item to this bot's scratchpad. Use for todos or parked work that should outlive this turn. Not a reminder or schedule.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Short title for the item." },
+        status: {
+          type: "string",
+          enum: ["open", "parked", "done"],
+          description: "Defaults to open.",
+        },
+        notes: { type: "string", description: "Optional notes." },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "scratchpad_update",
+    description: "Update a scratchpad item's title, status, or notes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string" },
+        title: { type: "string" },
+        status: { type: "string", enum: ["open", "parked", "done"] },
+        notes: { type: "string" },
+      },
+      required: ["itemId"],
+    },
+  },
+  {
+    name: "scratchpad_complete",
+    description: "Mark a scratchpad item done.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string" },
+      },
+      required: ["itemId"],
+    },
+  },
+  {
+    name: "scratchpad_remove",
+    description: "Permanently remove a scratchpad item.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        itemId: { type: "string" },
+      },
+      required: ["itemId"],
+    },
+  },
+  {
+    name: "schedule_create",
+    description:
+      'Create a reminder or recurring job for this bot. Use for "remind me in 10 minutes" or "every morning send a joke". Repeats: cron or every/unit (min 1 minute). One-shot: runAt, delayMinutes, or delaySeconds.',
+    inputSchema: scheduleCreateInputSchema,
+  },
+  {
+    name: "schedule_list",
+    description: "List this bot's active and inactive schedules (routines).",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "schedule_cancel",
+    description: "Cancel a schedule by routineId or exact name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        routineId: { type: "string" },
+        name: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "end_call",
+    description:
+      "End the current voice call. Call this when the user asks to hang up or end the call, or the conversation is clearly finished. Your farewell is spoken as the call ends, so do not also say goodbye in text; finish any remaining work in chat afterwards.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: 'What the call was about, 2-5 words, e.g. "AI stack flow". Max 40 chars.',
+        },
+        farewell: {
+          type: "string",
+          description: "One short sentence spoken as you hang up. Max 160 chars.",
+        },
+      },
+      required: ["title", "farewell"],
+    },
+  },
+  {
+    name: "skill_read",
+    description:
+      "Load a Claude Agent Skill (SKILL.md recipe) by exact name. Call this when a catalog skill matches the user's request, then follow it immediately.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Exact skill name from the catalog." },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "skill_create",
+    description:
+      "Create a reusable Claude Agent Skill (generic how-to SKILL.md) shared across assistants. The Pi runtime already understands this format; we persist and inject them. Use when a multi-step task is worth repeating or the user asks to save a skill. Do not include account names, channels, or inboxes — those belong in a routine.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Short skill name." },
+        description: {
+          type: "string",
+          description: "When to use this skill (shown in the / picker and used for auto-use).",
+        },
+        body: {
+          type: "string",
+          description: "Markdown steps and guidance after the frontmatter.",
+        },
+        content: {
+          type: "string",
+          description:
+            "Optional full SKILL.md (frontmatter + body) instead of name/description/body.",
+        },
+      },
+    },
+  },
+  {
+    name: "skill_update",
+    description:
+      "Update a user-created skill by name or id. Builtin and plugin skills are read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Current exact skill name." },
+        skillId: { type: "string" },
+        newName: { type: "string" },
+        description: { type: "string" },
+        body: { type: "string" },
+        content: { type: "string", description: "Optional full replacement SKILL.md." },
+      },
+    },
+  },
+  {
+    name: "skill_delete",
+    description:
+      "Delete a user-created skill by name or id. Builtin and plugin skills cannot be deleted.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        skillId: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "run_subagent",
+    description:
+      "Run a short-lived helper inside this turn only. It is not a bot: no list entry, no thread, no computer of its own, and it disappears when this turn ends. Never call this because the user asked to create a bot — that is spawn_bot, and spawn_bot alone.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Short label shown in the thread, e.g. scout or reviewer.",
+        },
+        task: { type: "string", description: "The work the helper should complete." },
+        instructions: {
+          type: "string",
+          description: "Optional extra system instructions for the helper.",
+        },
+        model_provider: {
+          type: "string",
+          description: "Optional connected model provider. Set together with model_id.",
+        },
+        model_id: {
+          type: "string",
+          description: "Optional connected model ID. Set together with model_provider.",
+        },
+      },
+      required: ["name", "task"],
+    },
+  },
+  {
+    name: "create_space",
+    description:
+      "Propose a new space in the current organization when the user asks for a separate data boundary. A space can contain many bots and groups, but its chats, files, memory, tools, and integrations stay isolated from other spaces. This always shows the user a confirmation card before creation. Creating the space is the whole action; do not create bots in it unless the user asks later.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          minLength: 1,
+          maxLength: 60,
+          description: 'Short display name, e.g. "Customer support".',
+        },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "spawn_bot",
+    description:
+      "Create a full, regular bot — the same kind the user creates from the + button. It gets its own thread, computer, and memory, and appears as a peer in the bot list. Do not also call run_subagent. Creating the bot is the whole action. Only set prompt if the user asked that new bot to start work immediately.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        title: { type: "string" },
+        instructions: { type: "string" },
+        prompt: {
+          type: "string",
+          description: "Optional first task to run in the new bot's thread.",
+        },
+        computer_mode: {
+          type: "string",
+          enum: ["team", "dedicated"],
+          description:
+            "Optional. team shares one screen with other Team bots; dedicated (Private) gets its own. Defaults to team.",
+        },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "update_bot",
+    description:
+      "Update this bot's own name (header and list label), title, description, avatar (profile picture or color/shape), or notifyOnFinish. Call this when the user asks you to rename yourself, change your title/description, change your profile picture, or turn finish notifications on or off. Do not claim you updated the profile without calling this tool.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Display name shown in the chat header and bot list.",
+        },
+        title: {
+          type: "string",
+          description: "Short role or headline shown in bot settings.",
+        },
+        description: {
+          type: "string",
+          description: "Longer blurb describing what this bot does.",
+        },
+        color: {
+          type: "string",
+          description:
+            "Avatar color or encoded shape, e.g. #8B5CF6 or #8B5CF6::shape_3. Do not pass http URLs.",
+        },
+        artifact_id: {
+          type: "string",
+          description:
+            "Image artifact in this space to use as the profile picture. Prefer an image the user attached in this chat.",
+        },
+        use_attached_image: {
+          type: "boolean",
+          description:
+            "If true, use the latest image attached on this user message as the profile picture.",
+        },
+        notifyOnFinish: {
+          type: "boolean",
+          description: "true notifies the user when this bot finishes a run; false silences that.",
+        },
+      },
+    },
+  },
+  {
+    name: "archive_bot",
+    description:
+      "Archive a bot this bot created. Archiving stops its work and routines, hides it from the active list, and preserves its conversation, memory, and files for the user to restore or delete later. confirm_name must exactly match its name. This cannot archive you, bots the user created, or bots another bot created.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        confirm_name: { type: "string", description: "Exact current name of the bot to archive." },
+        bot_id: {
+          type: "string",
+          description:
+            "Optional bot id. If omitted, the unique bot this bot created with confirm_name is archived.",
+        },
+      },
+      required: ["confirm_name"],
+    },
+  },
+  {
+    name: "message_bot",
+    description:
+      'Send a useful update, question, or result to another of the user\'s bots. You must call this tool to actually deliver it — writing the message in your own reply text (e.g. "[to Comms] ...") does not send anything and the recipient never sees it. Delivery is async and does not end your turn. Continue independent work; do not poll or send ack-only messages. Later updates only if they add something new.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        bot_id: { type: "string", description: "Target bot id from your teammate list." },
+        confirm_name: {
+          type: "string",
+          description: "Exact name of the target bot when bot_id is omitted.",
+        },
+        message: { type: "string", description: "What to send." },
+        intent: {
+          type: "string",
+          enum: ["request", "result", "question", "status", "fyi"],
+          description: "What the recipient should do with this message. Defaults to request.",
+        },
+      },
+      required: ["message"],
+    },
+  },
+  {
+    name: "handoff_to_bot",
+    description:
+      "In a group chat only: transfer a genuinely distinct next stage to another current member. Appends a visible handoff and starts that bot asynchronously. Do not hand a stage back merely to report or repeat the same work; post results in the shared thread.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bot_id: { type: "string", description: "Target member bot id." },
+        confirm_name: {
+          type: "string",
+          description: "Exact name of the target member when bot_id is omitted.",
+        },
+        message: { type: "string", description: "What the receiving bot should do next." },
+      },
+      required: ["message"],
+    },
+  },
+];
+
+/** Agent-connection tools, exposed only when the messaging surface is enabled. */
+export const agentConnectionTools: ConnectorTool[] = [
+  {
+    name: "connect_agent",
+    description:
+      "Request a standing connection to another person's agent by their owner's chat address. The other owner must approve before either agent can message the other. Only for agents whose owner messaged the deployment's chat line.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        address: {
+          type: "string",
+          description:
+            "The owner's address on the chat surface: an E.164 phone number (e.g. +15551234567) or platform user id.",
+        },
+      },
+      required: ["address"],
+    },
+  },
+  {
+    name: "respond_agent_connection",
+    description:
+      "Approve or decline the newest pending agent connection request addressed to you. Use only on your owner's explicit instruction.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        accept: { type: "boolean", description: "true to approve, false to decline." },
+      },
+      required: ["accept"],
+    },
+  },
+  {
+    name: "message_agent",
+    description:
+      "Send a useful update, question, or result to another person's agent over an approved connection. Delivery is async and does not end your turn. Continue independent work; do not poll or send ack-only messages.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        address: {
+          type: "string",
+          description:
+            "Chat address (phone number or platform user id) of the connected agent's owner.",
+        },
+        message: { type: "string", description: "What to send." },
+      },
+      required: ["address", "message"],
+    },
+  },
+];
+
+/** Shared documents are read by every bot, so a single save stays bounded. */
+export const MAX_SHARED_MEMORY_CHARS = 4_000;
+
+export function sharedMemorySaveError(args: Record<string, unknown>): string | undefined {
+  const path = String(args.path ?? "").trim();
+  if (!path) return "path is required";
+  const content = String(args.content ?? "");
+  if (content.length > MAX_SHARED_MEMORY_CHARS) {
+    return `content exceeds ${MAX_SHARED_MEMORY_CHARS} characters`;
+  }
+  return undefined;
+}

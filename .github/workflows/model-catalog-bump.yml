@@ -1,0 +1,152 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+name: Model catalog bump
+
+# The model catalog is compiled into the pinned @earendil-works/pi-* packages.
+# A weekly bump keeps new models (and dropped/renamed ones) flowing in as a
+# reviewable PR instead of a manual dependency chore.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+# The update job installs and runs unreviewed dependency code, so it gets no
+# repository-write credentials. Only the publish job — which never installs or
+# executes dependency code — may push the branch and open the PR.
+permissions: {}
+
+concurrency:
+  group: model-catalog-bump
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update pi packages and verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.changed.outputs.changed }}
+      ai_version: ${{ steps.changed.outputs.ai_version }}
+      core_version: ${{ steps.changed.outputs.core_version }}
+      old_ai_version: ${{ steps.before.outputs.ai_version }}
+      old_core_version: ${{ steps.before.outputs.core_version }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Record current catalog versions
+        id: before
+        run: |
+          pkg=packages/adapters/package.json
+          echo "ai_version=$(node -p "require('./$pkg').dependencies['@earendil-works/pi-ai']")" >> "$GITHUB_OUTPUT"
+          echo "core_version=$(node -p "require('./$pkg').dependencies['@earendil-works/pi-agent-core']")" >> "$GITHUB_OUTPUT"
+      - name: Update pi packages to latest
+        run: |
+          pnpm --filter @marketbot/adapters update "@earendil-works/pi-ai" "@earendil-works/pi-agent-core" --latest
+          pnpm install
+      - name: Check for changes
+        id: changed
+        run: |
+          if git diff --quiet packages/adapters/package.json pnpm-lock.yaml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            pkg=packages/adapters/package.json
+            echo "ai_version=$(node -p "require('./$pkg').dependencies['@earendil-works/pi-ai']")" >> "$GITHUB_OUTPUT"
+            echo "core_version=$(node -p "require('./$pkg').dependencies['@earendil-works/pi-agent-core']")" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Typecheck and test adapters
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          pnpm --filter @marketbot/adapters check
+          pnpm --filter @marketbot/adapters test
+      - name: Record bump patch
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          git add packages/adapters/package.json pnpm-lock.yaml
+          git diff --cached --binary > bump.patch
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.changed.outputs.changed == 'true'
+        with:
+          name: model-catalog-bump
+          path: bump.patch
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Open bump PR
+    needs: update
+    if: needs.update.outputs.changed == 'true' && vars.MODEL_CATALOG_WRITE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: model-catalog-bump
+      - name: Apply bump patch
+        run: git apply bump.patch
+      - name: Push branch and open PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OLD_AI: ${{ needs.update.outputs.old_ai_version }}
+          NEW_AI: ${{ needs.update.outputs.ai_version }}
+          OLD_CORE: ${{ needs.update.outputs.old_core_version }}
+          NEW_CORE: ${{ needs.update.outputs.core_version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          branch="deps/pi-catalog-ai-${NEW_AI}-core-${NEW_CORE}"
+          git checkout -B "$branch"
+          git add packages/adapters/package.json pnpm-lock.yaml
+          git commit -m "Bump model catalog packages to pi-ai ${NEW_AI} / pi-agent-core ${NEW_CORE}"
+          if gh pr list --state open --head "$branch" --json number --jq '.[0].number' | grep -q .; then
+            echo "PR already open for $branch; leaving it in place."
+            exit 0
+          fi
+          # A branch from a closed or superseded run may still exist. Only
+          # replace it when its tip is a commit this workflow pushed — never
+          # overwrite commits added after a closed PR.
+          if git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null 2>&1; then
+            git fetch origin "+refs/heads/$branch:refs/remotes/origin/$branch"
+            tip_author="$(git log -1 --format='%an' "origin/$branch")"
+            if [ "$tip_author" != "github-actions[bot]" ]; then
+              echo "Refusing to overwrite $branch: latest commit by $tip_author was not pushed by this workflow."
+              exit 1
+            fi
+          fi
+          git push --force-with-lease="refs/heads/$branch" -u origin "$branch"
+          while read -r pr head; do
+            [ "$head" = "$branch" ] && continue
+            gh pr close "$pr" --comment "Superseded by the pi-ai ${NEW_AI} / pi-agent-core ${NEW_CORE} catalog bump." || true
+          done < <(gh pr list --state open --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("deps/pi-catalog-")) | "\(.number) \(.headRefName)"')
+          gh pr create --title "Bump model catalog to pi-ai ${NEW_AI} / pi-agent-core ${NEW_CORE}" --body "$(cat <<EOF
+          ## Why
+
+          The model catalog is compiled into the pinned \`@earendil-works/pi-ai\` /
+          \`pi-agent-core\` packages, so provider models only appear after a bump.
+          This automated PR moves pi-ai from ${OLD_AI} to ${NEW_AI} and
+          pi-agent-core from ${OLD_CORE} to ${NEW_CORE}.
+
+          ## Tested
+
+          \`pnpm --filter @marketbot/adapters check\` and \`pnpm --filter @marketbot/adapters test\`
+          pass in the update job. Review the pi release notes for renamed or removed
+          models before merging.
+
+          Note: this PR is opened by GITHUB_TOKEN, so its checks do not start on
+          their own. Close and reopen the PR (or push a commit) to trigger CI.
+          EOF
+          )"

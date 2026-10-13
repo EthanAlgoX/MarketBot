@@ -1,0 +1,315 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import { createSlackAdapter } from "@chat-adapter/slack";
+import { createTelegramAdapter } from "@chat-adapter/telegram";
+import { createWhatsAppAdapter } from "@chat-adapter/whatsapp";
+import type { MessagingInboundMessage, MessagingOutboundStatus } from "@marketbot/adapter-kit";
+import type { Adapter } from "chat";
+import { createLarkAdapter, Domain } from "chat-adapter-lark";
+import { createSendblueAdapter } from "chat-adapter-sendblue";
+import type { MessagingPlatform } from "./chat-sdk-surface.js";
+import { isVitestRuntime } from "./test-runtime.js";
+
+/**
+ * Parsed platform credentials, filled from process.env at the composition
+ * roots. A platform mounts when its full credential set is present.
+ */
+export interface MessagingEnvironmentValues {
+  sendblueApiKeyId?: string | undefined;
+  sendblueApiSecret?: string | undefined;
+  sendblueSigningSecret?: string | undefined;
+  sendbluePhoneNumber?: string | undefined;
+  slackBotToken?: string | undefined;
+  slackSigningSecret?: string | undefined;
+  whatsappAccessToken?: string | undefined;
+  whatsappPhoneNumberId?: string | undefined;
+  whatsappAppSecret?: string | undefined;
+  whatsappVerifyToken?: string | undefined;
+  telegramBotToken?: string | undefined;
+  telegramWebhookSecret?: string | undefined;
+  larkAppId?: string | undefined;
+  larkAppSecret?: string | undefined;
+  larkVerificationToken?: string | undefined;
+  larkEncryptKey?: string | undefined;
+  larkDomain?: string | undefined;
+}
+
+export function messagingEnvFromProcess(
+  env: Record<string, string | undefined>,
+): MessagingEnvironmentValues {
+  // Same trim/empty-to-undefined normalization the API's env loader applies,
+  // so a credential with stray whitespace behaves identically in both roles.
+  const clean = (value: string | undefined) => value?.trim() || undefined;
+  return {
+    sendblueApiKeyId: clean(env.SENDBLUE_API_KEY_ID),
+    sendblueApiSecret: clean(env.SENDBLUE_API_SECRET),
+    sendblueSigningSecret: clean(env.SENDBLUE_SIGNING_SECRET),
+    sendbluePhoneNumber: clean(env.SENDBLUE_PHONE_NUMBER),
+    slackBotToken: clean(env.SLACK_BOT_TOKEN),
+    slackSigningSecret: clean(env.SLACK_SIGNING_SECRET),
+    whatsappAccessToken: clean(env.WHATSAPP_ACCESS_TOKEN),
+    whatsappPhoneNumberId: clean(env.WHATSAPP_PHONE_NUMBER_ID),
+    whatsappAppSecret: clean(env.WHATSAPP_APP_SECRET),
+    whatsappVerifyToken: clean(env.WHATSAPP_VERIFY_TOKEN),
+    telegramBotToken: clean(env.TELEGRAM_BOT_TOKEN),
+    telegramWebhookSecret: clean(env.TELEGRAM_WEBHOOK_SECRET_TOKEN),
+    larkAppId: clean(env.LARK_APP_ID),
+    larkAppSecret: clean(env.LARK_APP_SECRET),
+    larkVerificationToken: clean(env.LARK_VERIFICATION_TOKEN),
+    larkEncryptKey: clean(env.LARK_ENCRYPT_KEY),
+    larkDomain: clean(env.LARK_DOMAIN),
+  };
+}
+
+/**
+ * Build the platform list for every fully configured provider. Group
+ * conversations stay sendblue-only until channel semantics are mapped for
+ * the other platforms, so their capabilities say so instead of half-working.
+ *
+ * `pollInboundMessages` must be true only in the one process that also
+ * registers the inbound sink (messaging.onInbound — apps/api/src/app.ts).
+ * Telegram's "auto" mode starts a long-poll the moment anything calls
+ * chat.initialize() when no webhook is registered — and that includes a
+ * process that only ever meant to *send*: outbound delivery
+ * (sendToThread) lazily initializes too. A second process polling with no
+ * inbound sink attached doesn't just do nothing — it actively steals
+ * Telegram's single getUpdates slot away from the process that IS
+ * listening, so both sides spend every cycle losing a 409 Conflict to the
+ * other and messages stop arriving at all. Any caller that only sends
+ * (e.g. apps/worker/src/index.ts, for messaging.deliver jobs) must leave
+ * this false so Telegram mode resolves to "webhook" (passive — resolves
+ * bot identity for outbound calls, never polls, and no webhook route is
+ * mounted there for it to receive on anyway).
+ */
+export function messagingPlatformsFromEnv(
+  env: MessagingEnvironmentValues,
+  options: { pollInboundMessages?: boolean } = {},
+): MessagingPlatform[] {
+  const platforms: MessagingPlatform[] = [];
+
+  if (
+    env.sendblueApiKeyId &&
+    env.sendblueApiSecret &&
+    env.sendblueSigningSecret &&
+    env.sendbluePhoneNumber
+  ) {
+    const lineNumber = env.sendbluePhoneNumber;
+    const adapter = createSendblueAdapter({
+      apiKey: env.sendblueApiKeyId,
+      apiSecret: env.sendblueApiSecret,
+      defaultFromNumber: lineNumber,
+      webhookSecret: env.sendblueSigningSecret,
+      allowedServices: ["iMessage", "SMS", "RCS"],
+    });
+    // chat@4.39 derives thread.isDM solely from the optional Adapter.isDM
+    // hook, and chat-adapter-sendblue@0.2.0 omits it — without this every
+    // 1:1 message would route as a group. Derive it from the thread id.
+    Object.assign(adapter, {
+      isDM: (threadId: string) => !adapter.decodeThreadId(threadId).groupId,
+    } satisfies Pick<Adapter, "isDM">);
+    platforms.push({
+      provider: "sendblue",
+      capabilities: { direct: true, groups: true, typing: true },
+      adapter,
+      directThreadId: (address) =>
+        adapter.encodeThreadId({ fromNumber: lineNumber, contactNumber: address }),
+      peekStatus: (payload) => parseSendblueStatus(payload),
+      participants: (raw) => sendblueParticipants(raw, lineNumber),
+      channelName: (raw) => sendblueGroupName(raw),
+      transport: (raw) => sendblueTransport(raw),
+    });
+  }
+
+  if (env.slackBotToken && env.slackSigningSecret) {
+    platforms.push({
+      provider: "slack",
+      capabilities: { direct: true, groups: true, typing: false },
+      adapter: createSlackAdapter({
+        botToken: env.slackBotToken,
+        signingSecret: env.slackSigningSecret,
+      }),
+      enrichTeamRoom: enrichSlackTeamRoom,
+    });
+  }
+
+  if (
+    env.whatsappAccessToken &&
+    env.whatsappPhoneNumberId &&
+    env.whatsappAppSecret &&
+    env.whatsappVerifyToken
+  ) {
+    platforms.push({
+      provider: "whatsapp",
+      capabilities: { direct: true, groups: false, typing: false },
+      adapter: createWhatsAppAdapter({
+        accessToken: env.whatsappAccessToken,
+        phoneNumberId: env.whatsappPhoneNumberId,
+        appSecret: env.whatsappAppSecret,
+        verifyToken: env.whatsappVerifyToken,
+      }),
+    });
+  }
+
+  // Both required: without the secret token the adapter accepts unsigned
+  // webhook posts, so a forged update could reach inbound processing.
+  if (env.telegramBotToken && env.telegramWebhookSecret) {
+    platforms.push({
+      provider: "telegram",
+      capabilities: { direct: true, groups: false, typing: false },
+      // Auto mode: uses the webhook route when Telegram has one registered
+      // (checked via getWebhookInfo), and otherwise falls back to
+      // long-polling getUpdates. Self-hosted/local deployments typically
+      // have no public HTTPS endpoint for Telegram to push to, so the API
+      // process calls initialize() at startup (apps/api/src/app.ts) to
+      // start that polling loop immediately rather than waiting for the
+      // first inbound webhook or outbound send. It must be the API
+      // process specifically: that's where the inbound sink is registered,
+      // and Telegram allows only one live getUpdates connection per bot —
+      // a second poller elsewhere would just steal that slot and drop
+      // every message into the void.
+      adapter: createTelegramAdapter({
+        botToken: env.telegramBotToken,
+        secretToken: env.telegramWebhookSecret,
+        mode: options.pollInboundMessages ? "auto" : "webhook",
+      }),
+    });
+  }
+
+  // App ID, secret, and verification token are all required: without the
+  // token the adapter accepts unsigned webhook posts. Encrypt key and
+  // domain are optional (event encryption / open.feishu.cn vs open.larksuite.com).
+  if (env.larkAppId && env.larkAppSecret && env.larkVerificationToken) {
+    platforms.push({
+      provider: "lark",
+      capabilities: { direct: true, groups: false, typing: false },
+      // Webhook-only: ws/long-connection incoming would consume events so
+      // the HTTP webhook at /api/v1/messaging/webhook/lark never sees them.
+      adapter: createLarkAdapter({
+        appId: env.larkAppId,
+        appSecret: env.larkAppSecret,
+        verificationToken: env.larkVerificationToken,
+        incoming: { events: "webhook", callbacks: "webhook" },
+        // Explicit defaults prevent the adapter from rereading untrimmed process.env values.
+        encryptKey: env.larkEncryptKey ?? "",
+        domain: env.larkDomain?.toLowerCase() === "lark" ? Domain.Lark : Domain.Feishu,
+      }),
+    });
+  }
+
+  return platforms;
+}
+
+/** Never live under the test runner; tests build surfaces explicitly. */
+export function isMessagingEnabled(platforms: MessagingPlatform[]): boolean {
+  return platforms.length > 0 && !isVitestRuntime();
+}
+
+/**
+ * Linked users run on their own credentials, so linking-only deployments
+ * need no deployment key. Open signup provisions users with no credential
+ * of their own, so that mode requires the deployment model key — without
+ * it their runs cannot execute.
+ */
+export function isMessagingSurfaceEnabled(
+  platforms: MessagingPlatform[],
+  options: { deploymentModelKey: string | undefined; openSignup: boolean },
+): boolean {
+  if (!isMessagingEnabled(platforms)) return false;
+  return options.openSignup ? Boolean(options.deploymentModelKey) : true;
+}
+
+/** Sendblue reports outbound delivery as webhooks the Chat SDK ignores. */
+export function parseSendblueStatus(payload: unknown): MessagingOutboundStatus | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const body = payload as Record<string, unknown>;
+  if (body.is_outbound !== true) return null;
+  if (typeof body.message_handle !== "string" || !body.message_handle) return null;
+  return {
+    type: "status",
+    provider: "sendblue",
+    handle: body.message_handle,
+    status: typeof body.status === "string" ? body.status : "",
+  };
+}
+
+/** Pull Slack team-room fields the Chat SDK does not expose on Message. */
+export function enrichSlackTeamRoom(
+  raw: unknown,
+  base: MessagingInboundMessage,
+): Partial<MessagingInboundMessage> {
+  const root = asRecord(raw);
+  if (!root) return {};
+  const event = asRecord(root.event) ?? root;
+  const teamId =
+    stringField(root, "team_id") ?? stringField(event, "team") ?? stringField(event, "team_id");
+  const eventType = stringField(event, "type");
+  const botProfile = asRecord(event.bot_profile) ?? {};
+  const botId = stringField(event, "bot_id") ?? stringField(botProfile, "id");
+  const threadTs = stringField(event, "thread_ts");
+  const channel = stringField(event, "channel");
+  const enrichment: Partial<MessagingInboundMessage> = {};
+  if (teamId) enrichment.workspaceId = teamId;
+  if (channel) enrichment.conversationKey = channel;
+  if (botId) enrichment.senderIsBot = true;
+  else if (typeof event.bot_id === "string" || event.subtype === "bot_message") {
+    enrichment.senderIsBot = true;
+  }
+  if (threadTs) enrichment.replyThreadId = threadTs;
+  else enrichment.replyThreadId = null;
+  if (!base.isDirect) {
+    const text = stringField(event, "text") ?? base.content;
+    const botUserId = slackAuthorizedBotUserId(root);
+    // app_mention is Slack's bot-directed event. A bare <@U…> mention of
+    // someone else must stay ambient so listen policy still applies.
+    enrichment.kind =
+      eventType === "app_mention" || mentionsSlackBot(text, botUserId) ? "mention" : "ambient";
+  }
+  return enrichment;
+}
+
+/** Bot user id from Slack's event authorizations (the app that received the event). */
+function slackAuthorizedBotUserId(root: Record<string, unknown>): string | undefined {
+  const authorizations = root.authorizations;
+  if (!Array.isArray(authorizations)) return undefined;
+  for (const entry of authorizations) {
+    const record = asRecord(entry);
+    if (!record || record.is_bot !== true) continue;
+    const userId = stringField(record, "user_id");
+    if (userId) return userId;
+  }
+  return undefined;
+}
+
+function mentionsSlackBot(text: string, botUserId: string | undefined): boolean {
+  if (!botUserId) return false;
+  return text.includes(`<@${botUserId}>`);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function stringField(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === "string" && value ? value : undefined;
+}
+
+function sendblueParticipants(raw: unknown, lineNumber: string): string[] {
+  if (typeof raw !== "object" || raw === null) return [];
+  const participants = (raw as { participants?: unknown }).participants;
+  if (!Array.isArray(participants)) return [];
+  return participants.filter(
+    (entry): entry is string => typeof entry === "string" && entry !== lineNumber,
+  );
+}
+
+function sendblueGroupName(raw: unknown): string | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const name = (raw as { group_display_name?: unknown }).group_display_name;
+  return typeof name === "string" && name ? name : null;
+}
+
+function sendblueTransport(raw: unknown): string | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const service = (raw as { service?: unknown }).service;
+  return service === "iMessage" || service === "SMS" || service === "RCS" ? service : null;
+}

@@ -1,0 +1,54 @@
+/* Modified for marketbot on 2026-10-13; see MODIFICATIONS.md. */
+@import "tailwindcss";
+@import "@marketbot/ui-web/styles.css";
+@import "@fontsource-variable/geist/wght.css";
+
+@source "../../packages/ui-web/src/**/*.{ts,tsx}";
+@source "./src/**/*.{ts,tsx}";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+.rk-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.rk-scroll {
+  scrollbar-color: var(--scrollbar) transparent;
+  scrollbar-width: thin;
+}
+.rk-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.rk-scroll::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 3px;
+}
+.rk-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+
+.app-drag {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@keyframes rkPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

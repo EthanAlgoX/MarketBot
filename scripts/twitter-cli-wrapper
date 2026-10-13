@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Use the active Python environment, or select an explicit interpreter.
-twitter_python="${MARKETBOT_TWITTER_PYTHON:-python3}"
-if [[ -n "${MARKETBOT_TWITTER_CLI_ROOT:-}" ]]; then
-  export PYTHONPATH="${MARKETBOT_TWITTER_CLI_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
-fi
-exec "${twitter_python}" -m twitter_cli.cli "$@"

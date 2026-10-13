@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">金融助手</title>
+  <rect width="512" height="512" fill="#0b0c0e" />
+  <rect x="120" y="270" width="48" height="120" rx="12" fill="#ececee" />
+  <rect x="232" y="198" width="48" height="192" rx="12" fill="#ececee" />
+  <rect x="344" y="126" width="48" height="264" rx="12" fill="#ececee" />
+</svg>

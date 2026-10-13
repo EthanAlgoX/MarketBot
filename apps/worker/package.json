@@ -1,0 +1,25 @@
+{
+  "name": "@marketbot/worker",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/dev-watch.mjs src/index.ts",
+    "start": "tsx src/index.ts",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@marketbot/adapter-kit": "workspace:*",
+    "@marketbot/adapters": "workspace:*",
+    "@marketbot/core": "workspace:*",
+    "@marketbot/db": "workspace:*",
+    "@marketbot/logging": "workspace:*",
+    "@marketbot/memory": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  },
+  "x-project-modifications": "Modified for marketbot on 2026-10-13; see MODIFICATIONS.md."
+}

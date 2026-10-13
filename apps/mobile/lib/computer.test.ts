@@ -1,0 +1,250 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it, vi } from "vitest";
+import {
+  type ComputerStatus,
+  controlLabel,
+  embeddableScreenUrl,
+  previewPlaceholder,
+  readScreenUrl,
+  retainScreenSource,
+  SCREEN_URL_RENEW_MS,
+  screenRenewReadAt,
+  screenStreamKey,
+} from "./computer.js";
+
+function computer(overrides: Partial<ComputerStatus> = {}): ComputerStatus {
+  return {
+    botId: "bot-1",
+    mode: "team",
+    kind: "fake",
+    state: "running",
+    controlHolder: "none",
+    controlBotId: null,
+    takeoverRequested: false,
+    screenAvailable: true,
+    screenWidth: 1280,
+    screenHeight: 800,
+    homeRevision: null,
+    busyBotName: null,
+    canUpdate: true,
+    terminalAvailable: true,
+    ...overrides,
+  };
+}
+
+describe("embeddableScreenUrl", () => {
+  it("leaves a public stream URL alone", () => {
+    const url = "https://sandbox.e2b.app/stream?authKey=abc&view_only=true";
+    expect(embeddableScreenUrl(url, "https://api.marketbot.test")).toBe(url);
+  });
+
+  it("keeps loopback screens when the API is also loopback", () => {
+    const url = "http://127.0.0.1:16080/embed.html?view_only=true";
+    expect(embeddableScreenUrl(url, "http://127.0.0.1:3100")).toBe(url);
+    expect(embeddableScreenUrl(url, "http://localhost:3100")).toBe(url);
+  });
+
+  it("rewrites loopback screens onto the API host for a device or emulator", () => {
+    expect(
+      embeddableScreenUrl(
+        "http://127.0.0.1:16080/embed.html?view_only=false",
+        "http://10.0.2.2:3100",
+      ),
+    ).toBe("http://10.0.2.2:16080/embed.html?view_only=false");
+    expect(
+      embeddableScreenUrl("http://localhost:16080/embed.html", "http://192.168.1.20:3100"),
+    ).toBe("http://192.168.1.20:16080/embed.html");
+  });
+
+  it("returns null when there is no screen", () => {
+    expect(embeddableScreenUrl(null, "http://127.0.0.1:3100")).toBeNull();
+  });
+
+  it("does not send unsupported fixture URLs to the native WebView", () => {
+    expect(
+      embeddableScreenUrl("fake://screen/fake-team-home/researcher", "http://10.0.2.2:3100"),
+    ).toBeNull();
+    expect(embeddableScreenUrl("not a URL", "http://10.0.2.2:3100")).toBeNull();
+  });
+});
+
+describe("screen stream identity", () => {
+  const now = 1_710_000_000_000;
+  const view = (token: string, expiresAt = now + 60 * 60_000) =>
+    `https://app.example/novnc/session/view/${expiresAt}.${token}/embed.html?autoconnect=true&resize=scale&view_only=true&path=websockify`;
+  const control = (token: string, expiresAt = now + 60 * 60_000) =>
+    `https://app.example/novnc/session/control/${expiresAt}.${token}/embed.html?autoconnect=true&resize=scale&view_only=false&path=websockify`;
+
+  it("treats rotating capability tokens as the same running view stream", () => {
+    expect(screenStreamKey(view("aaaToken"))).toBe(screenStreamKey(view("bbbToken")));
+    expect(retainScreenSource(view("aaaToken"), view("bbbToken"), now)).toBe(view("aaaToken"));
+  });
+
+  it("adopts a same-stream URL once the held capability is in the renew window", () => {
+    const held = view("oldToken", now + 10 * 60_000);
+    const renewed = view("newToken", now + 60 * 60_000);
+    expect(screenStreamKey(held)).toBe(screenStreamKey(renewed));
+    expect(retainScreenSource(held, renewed, now)).toBe(renewed);
+    expect(retainScreenSource(view("oldToken"), view("newToken", now + 65 * 60_000), now)).toBe(
+      view("oldToken"),
+    );
+  });
+
+  it("reconnects when view vs control changes or the computer origin changes", () => {
+    expect(screenStreamKey(view("aaaToken"))).not.toBe(screenStreamKey(control("aaaToken")));
+    expect(retainScreenSource(view("aaaToken"), control("cccToken"), now)).toBe(
+      control("cccToken"),
+    );
+    expect(
+      retainScreenSource(
+        view("aaaToken"),
+        "https://other.example/novnc/session/view/1710000000000.aaaToken/embed.html",
+        now,
+      ),
+    ).toBe("https://other.example/novnc/session/view/1710000000000.aaaToken/embed.html");
+  });
+
+  it("renews a reused seal before its original expiry", () => {
+    const issuedAt = now;
+    const readAt = issuedAt + 20 * 60_000;
+    const expiresAt = issuedAt + 60 * 60_000;
+    const reused = view("reused", expiresAt);
+    const renewAt = screenRenewReadAt(reused, readAt) + SCREEN_URL_RENEW_MS;
+    expect(screenRenewReadAt(reused, readAt)).toBe(issuedAt);
+    expect(renewAt).toBe(expiresAt - 10 * 60_000);
+    expect(renewAt).toBeLessThan(expiresAt);
+    expect(readAt + SCREEN_URL_RENEW_MS).toBeGreaterThan(expiresAt);
+    const fresh = view("fresh", readAt + 60 * 60_000);
+    expect(screenRenewReadAt(fresh, readAt)).toBe(readAt);
+    expect(screenRenewReadAt("https://sandbox.example/stream?authKey=one", readAt)).toBe(readAt);
+    expect(screenRenewReadAt(null, readAt)).toBe(readAt);
+  });
+
+  it("keeps view vs control for provider URLs whose query token rotates", () => {
+    const held = "https://sandbox.example/stream?authKey=one&view_only=true";
+    const rotated = "https://sandbox.example/stream?authKey=two&view_only=true";
+    const takeover = "https://sandbox.example/stream?authKey=two&view_only=false";
+    expect(screenStreamKey(held)).toBe(screenStreamKey(rotated));
+    expect(retainScreenSource(held, rotated, now)).toBe(held);
+    expect(retainScreenSource(held, takeover, now)).toBe(takeover);
+  });
+});
+
+describe("computer copy", () => {
+  it("matches the web pane while booting, asleep, or in control", () => {
+    expect(previewPlaceholder("stopped", false, "Chief")).toBe("Computer is stopped");
+    expect(previewPlaceholder("suspended", false, "Chief")).toBe(
+      "Computer is asleep. Take control to wake it.",
+    );
+    expect(previewPlaceholder("running", true, "Chief")).toBe("Booting live desktop…");
+    expect(
+      controlLabel(
+        computer({
+          state: "running",
+          controlHolder: "user",
+          controlBotId: "bot-1",
+          takeoverRequested: true,
+        }),
+        "Chief",
+        "bot-1",
+      ),
+    ).toBe("You have control");
+    expect(
+      controlLabel(
+        computer({
+          state: "running",
+          controlHolder: "user",
+          controlBotId: "other-bot",
+        }),
+        "Chief",
+        "bot-1",
+      ),
+    ).toBe("Team Computer");
+    expect(
+      controlLabel(
+        computer({
+          state: "suspended",
+          controlHolder: "none",
+          controlBotId: null,
+          screenAvailable: false,
+        }),
+        "Chief",
+      ),
+    ).toBe("Asleep");
+  });
+});
+
+describe("readScreenUrl", () => {
+  it("returns the first URL without retrying", async () => {
+    const request = vi.fn().mockResolvedValue({ url: "https://screen.example/embed" });
+    await expect(readScreenUrl(request)).resolves.toBe("https://screen.example/embed");
+    expect(request).toHaveBeenCalledOnce();
+  });
+
+  it("retries thrown RPC failures until a URL arrives", async () => {
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("rpc computer/screenUrl failed"))
+      .mockResolvedValue({ url: "https://screen.example/embed" });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    await expect(readScreenUrl(request, { attempts: 3, delayMs: 25, sleep })).resolves.toBe(
+      "https://screen.example/embed",
+    );
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(25);
+  });
+
+  it("retries empty URLs until the screen is ready", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({ url: null })
+      .mockResolvedValueOnce({ url: "https://screen.example/embed" });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    await expect(readScreenUrl(request, { attempts: 3, sleep })).resolves.toBe(
+      "https://screen.example/embed",
+    );
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("rethrows the last RPC failure after the retry budget", async () => {
+    const error = new Error("rpc computer/screenUrl failed");
+    const request = vi.fn().mockRejectedValue(error);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    await expect(readScreenUrl(request, { attempts: 3, sleep })).rejects.toBe(error);
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns null when every attempt succeeds without a URL", async () => {
+    const request = vi.fn().mockResolvedValue({ url: null });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    await expect(readScreenUrl(request, { attempts: 2, sleep })).resolves.toBeNull();
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("mobile computer screen", () => {
+  it("boots, takes over, heartbeats, and releases like web", () => {
+    const src = readFileSync(
+      path.join(path.dirname(fileURLToPath(import.meta.url)), "../app/computer.tsx"),
+      "utf8",
+    );
+    expect(src).toContain("computer/boot");
+    expect(src).toContain("computer/takeover");
+    expect(src).toContain("computer/release");
+    expect(src).toContain("computer/heartbeat");
+    expect(src).toContain("Take control");
+    expect(src).toContain("Release");
+    expect(src).toContain("Close computer");
+    expect(src).toContain("currentApiBase()");
+    expect(src).toContain("SafeAreaProvider");
+    expect(src).toContain("readScreenUrl");
+    expect(src).toContain("SCREEN_URL_OPEN_ATTEMPTS");
+    expect(src).toContain("retainScreenSource");
+    expect(src).toContain("key={sourceUrl.current}");
+    expect(src).not.toContain("key={url}");
+  });
+});

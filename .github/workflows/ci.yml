@@ -1,52 +1,116 @@
-name: CI
-
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+name: ci
 on:
   push:
+    branches: [main]
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
 
-jobs:
-  python:
-    runs-on: ubuntu-latest
-    env:
-      UV_PYTHON: ${{ matrix.python-version }}
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.11', '3.12', '3.13']
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - uses: astral-sh/setup-uv@v6
-      - name: Install project and development dependencies
-        run: uv sync --extra dev
-      - name: Lint Python implementation and tests
-        run: uv run ruff check marketbot tests scripts/evaluate_finance.py scripts/evaluate_readme.py scripts/report_pytest_ci.py
-      - name: Test complete Python suite
-        run: uv run pytest -q --junitxml=.tmp/pytest-results.xml
-      - name: Publish test results and failure annotations
-        if: always()
-        run: uv run python scripts/report_pytest_ci.py .tmp/pytest-results.xml
-      - name: Evaluate financial workflows
-        run: uv run python scripts/evaluate_finance.py
-      - name: Replay documented workflows with local protocol fixtures
-        run: uv run python scripts/evaluate_readme.py --output .tmp/readme-evaluation.json
-      - name: Build distributions
-        run: uv build
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-  secrets:
+jobs:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
         with:
-          python-version: '3.12'
-      - name: Scan for credentials
-        run: |
-          python -m pip install detect-secrets==1.5.0
-          git ls-files -z | xargs -0 detect-secrets-hook --no-verify --baseline .secrets.baseline
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+  check:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+        env:
+          DATABASE_URL: postgres://marketbot:marketbot@127.0.0.1:5433/marketbot
+      - run: pnpm check
+
+  build:
+    name: Production builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+        env:
+          DATABASE_URL: postgres://marketbot:marketbot@127.0.0.1:5433/marketbot
+          BETTER_AUTH_SECRET: ci-build-auth-secret-at-least-32-characters
+          ENCRYPTION_KEY: ci-build-encryption-key-at-least-32-characters
+      - name: Electron smoke
+        run: xvfb-run --auto-servernum pnpm --filter @marketbot/desktop exec playwright test --config e2e/playwright.config.ts
+      - name: Upload desktop setup screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-e2e-screenshots
+          path: apps/desktop/e2e/screenshots
+          if-no-files-found: ignore
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+        env:
+          DATABASE_URL: postgres://marketbot:marketbot@127.0.0.1:5433/marketbot
+      - run: pnpm test
+
+  test-integration:
+    name: Postgres journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:integration
+
+  test-e2e:
+    name: Web E2E
+    uses: ./.github/workflows/playwright.yml
+    with:
+      upload_artifacts: true

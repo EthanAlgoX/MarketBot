@@ -1,0 +1,45 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+appId: com.marketbot.app
+name: Auth
+---
+- runFlow: ../subflows/launch-app.yaml
+- runFlow:
+    when:
+      visible: "Sign in to 金融助手"
+    commands:
+      - tapOn: "Sign up"
+- extendedWaitUntil:
+    visible: "Sign up for 金融助手"
+    timeout: 15000
+- takeScreenshot: 01-welcome
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Sign in to 金融助手"
+    timeout: 15000
+- takeScreenshot: 02-sign-in
+- tapOn: "Email"
+- inputText: ${MARKETBOT_SCREENSHOT_EMAIL}
+- tapOn: "Password"
+- inputText: "wrong-password"
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Invalid email or password|Invalid credentials|Could not sign in"
+    timeout: 20000
+- takeScreenshot: 03-sign-in-error
+- tapOn: "Use a custom server|Custom server"
+- extendedWaitUntil:
+    visible: "Server"
+    timeout: 10000
+- takeScreenshot: 04-custom-server
+- tapOn:
+    text: "http.*|https.*"
+    optional: true
+- eraseText: 80
+- inputText: "::::"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "That doesn.*look like a URL|Could not reach that server|That URL did not look like a MarketBot server|Enter a server URL"
+    timeout: 15000
+- takeScreenshot: 05-server-error
+- tapOn: "Cancel"

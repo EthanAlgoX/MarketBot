@@ -1,0 +1,39 @@
+---
+import "@marketbot/ui-tokens/css";
+import "../styles/global.css";
+import { SITE_NAME } from "../site";
+
+interface Props {
+  title?: string;
+  description?: string;
+  index?: boolean;
+}
+const {
+  title = SITE_NAME,
+  description = "把关注的市场新闻、个人持仓和策略模拟放在同一张工作台，保留每一次判断与操作的记录。",
+  index = true,
+} = Astro.props;
+const canonical = Astro.site && index ? new URL(Astro.url.pathname, Astro.site).toString() : undefined;
+---
+
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="robots" content={canonical ? "index, follow" : "noindex, nofollow"} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE_NAME} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    {canonical && <link rel="canonical" href={canonical} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <slot />
+  </body>
+</html>

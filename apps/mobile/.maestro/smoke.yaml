@@ -1,0 +1,53 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+appId: com.marketbot.app
+name: MarketBot mobile smoke
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "Sign in to MarketBot"
+- assertVisible: "Sign up"
+- tapOn: "Sign up"
+- assertVisible: "Sign up for MarketBot"
+- assertVisible: "Name"
+- tapOn: "Sign in"
+- assertVisible: "Sign in to MarketBot"
+- tapOn: "Email"
+- inputText: ${MARKETBOT_E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${MARKETBOT_E2E_PASSWORD}
+- tapOn: "Sign in to MarketBot"
+- tapOn: "Sign in"
+
+- extendedWaitUntil:
+    visible: "New bot"
+    timeout: 30000
+- tapOn: "New bot"
+- assertVisible: "Name this bot"
+- tapOn: "Name this bot"
+- inputText: ${MARKETBOT_E2E_BOT_NAME}
+- hideKeyboard
+- tapOn: "Create"
+
+- extendedWaitUntil:
+    visible: "Message…"
+    timeout: 30000
+- tapOn: "Message…"
+- inputText: ${MARKETBOT_E2E_MESSAGE}
+- pressKey: Enter
+- assertVisible: ${MARKETBOT_E2E_MESSAGE}
+
+- tapOn: "Bot actions"
+- tapOn: "Open computer"
+- extendedWaitUntil:
+    visible: "Open computer"
+    timeout: 30000
+- tapOn: "Open computer"
+- extendedWaitUntil:
+    visible: "You have control"
+    timeout: 90000
+- tapOn: "Close computer"
+- tapOn: "Release"
+- extendedWaitUntil:
+    visible: "Take control"
+    timeout: 30000

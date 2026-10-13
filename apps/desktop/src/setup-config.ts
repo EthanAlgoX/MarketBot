@@ -1,0 +1,310 @@
+// Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+import { createHash } from "node:crypto";
+import { isIP } from "node:net";
+import type { DesktopSetup, DesktopStackProbeResponse } from "@marketbot/contracts";
+
+/** Managed desktop origin; development keeps its usual web/API ports. */
+export const DEFAULT_LOCAL_WEB_URL = "http://127.0.0.1:45173";
+export const PROBE_RESPONSE_LIMIT_BYTES = 64 * 1024;
+
+export const SETUP_FILE_NAME = "setup.json";
+
+export type StartupTarget =
+  | { kind: "app"; url: string; source: "env" | "saved" }
+  | { kind: "setup" };
+
+const SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
+
+/**
+ * Accepts what a person would actually type ("localhost:5173", "marketbot.example.com")
+ * and returns a canonical http(s) origin, or null when the input can never
+ * securely address a MarketBot server.
+ */
+export function normalizeServerUrl(input: string): string | null {
+  const trimmed = input.trim();
+  if (trimmed === "") return null;
+
+  let url: URL;
+  try {
+    if (SCHEME.test(trimmed)) {
+      url = new URL(trimmed);
+    } else {
+      const candidate = new URL(`http://${trimmed}`);
+      url = isLocalNetworkHost(candidate.hostname) ? candidate : new URL(`https://${trimmed}`);
+    }
+  } catch {
+    return null;
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.hostname === "") return null;
+  // Embedded credentials would be written to disk in cleartext.
+  if (url.username !== "" || url.password !== "") return null;
+  // Public login cookies and API traffic must never cross a cleartext connection.
+  if (url.protocol === "http:" && !isLocalNetworkHost(url.hostname)) return null;
+
+  // MarketBot serves its renderer, RPC, and auth routes from one origin. Keeping a
+  // user-supplied path would make the setup probe and the loaded app disagree.
+  return url.origin;
+}
+
+/**
+ * Managed ("new") setups may only open the configured local stack origin.
+ * A saved or IPC URL that normalizes to a different loopback host/port is rejected.
+ */
+export function managedLocalOpenUrl(requestedUrl: string, localWebUrl: string): string | null {
+  const managed = normalizeServerUrl(localWebUrl);
+  const requested = normalizeServerUrl(requestedUrl);
+  if (managed === null || requested === null || requested !== managed) return null;
+  return managed;
+}
+
+/**
+ * The private managed-stack token may travel over HTTPS anywhere, or over HTTP
+ * only to loopback. Private-network and .local HTTP stay cleartext on a LAN, so
+ * they must not receive the token.
+ */
+export function maySendDesktopStackToken(serverUrl: string): boolean {
+  try {
+    const url = new URL(serverUrl);
+    if (url.protocol === "https:") return true;
+    if (url.protocol === "http:") return isLoopbackHost(url.hostname);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** Validates an untrusted value (saved file or IPC payload) into a usable setup. */
+export function parseSetupInput(value: unknown): DesktopSetup | null {
+  if (typeof value !== "object" || value === null) return null;
+
+  const { mode, serverUrl } = value as Record<string, unknown>;
+  if (mode !== "new" && mode !== "existing") return null;
+  if (typeof serverUrl !== "string") return null;
+
+  const normalized = normalizeServerUrl(serverUrl);
+  if (normalized === null) return null;
+  if (mode === "new" && !isLoopbackHost(new URL(normalized).hostname)) return null;
+  return { mode, serverUrl: normalized };
+}
+
+export function parseStoredSetup(raw: string): DesktopSetup | null {
+  try {
+    return parseSetupInput(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+export function serializeSetup(setup: DesktopSetup): string {
+  return `${JSON.stringify(setup, null, 2)}\n`;
+}
+
+/**
+ * Decides between the first-run setup window and the app window. An explicit
+ * `MARKETBOT_WEB_URL` still wins over saved configuration so test and performance
+ * harnesses can point the shell anywhere without touching a user's real setup.
+ */
+export function resolveStartupTarget(input: {
+  envUrl?: string;
+  saved?: DesktopSetup | null;
+  forceSetup?: boolean;
+}): StartupTarget {
+  if (input.forceSetup === true) return { kind: "setup" };
+
+  const envUrl = input.envUrl?.trim();
+  if (envUrl !== undefined && envUrl !== "") return { kind: "app", url: envUrl, source: "env" };
+
+  if (input.saved != null) {
+    const saved = parseSetupInput(input.saved);
+    if (saved !== null) return { kind: "app", url: saved.serverUrl, source: "saved" };
+  }
+  return { kind: "setup" };
+}
+
+/** Turns a network failure into something a person can act on. */
+export function probeFailureMessage(error: unknown): string {
+  const name = error instanceof Error ? error.name : "";
+  if (name === "TimeoutError" || name === "AbortError") {
+    return "Timed out reaching that address.";
+  }
+
+  const detail = error instanceof Error ? error.message : String(error);
+  if (detail.includes("CONNECTION_REFUSED") || detail.includes("ECONNREFUSED")) {
+    return "Nothing is listening at that address yet.";
+  }
+  if (detail.includes("NAME_NOT_RESOLVED") || detail.includes("ENOTFOUND")) {
+    return "That host could not be found.";
+  }
+  if (detail.includes("CERT_") || detail.includes("SSL")) {
+    return "The server's HTTPS certificate was rejected.";
+  }
+  return "Could not reach that address.";
+}
+
+/** Packaged shell overlays its web bundle only on the managed loopback stack. */
+export function servesBundledRenderer(targetUrl: string, managedLocalStack: boolean): boolean {
+  try {
+    if (!managedLocalStack) return false;
+    const url = new URL(targetUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    return isLoopbackHost(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** Each MarketBot origin gets its own persistent cookie and storage partition. */
+export function sessionPartitionForServerUrl(targetUrl: string): string | null {
+  try {
+    const url = new URL(targetUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    const digest = createHash("sha256").update(url.origin).digest("hex").slice(0, 24);
+    return `persist:marketbot-${digest}`;
+  } catch {
+    return null;
+  }
+}
+
+/** External pages are opened by the OS, never in a privileged Electron child window. */
+export function safeExternalUrl(targetUrl: string): string | null {
+  try {
+    const url = new URL(targetUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function isMarketBotHealth(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const json = (value as { json?: unknown }).json;
+  return (
+    typeof json === "object" &&
+    json !== null &&
+    (json as { ok?: unknown }).ok === true &&
+    typeof (json as { version?: unknown }).version === "string"
+  );
+}
+
+export function desktopStackImageTag(value: unknown): string | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { ok, imageTag } = value as Partial<DesktopStackProbeResponse>;
+  return ok === true && typeof imageTag === "string" && imageTag !== "" ? imageTag : null;
+}
+
+/** Reads a small probe response without letting an untrusted stream stall on cleanup. */
+export async function readProbeJson(response: Response): Promise<unknown> {
+  const declared = Number(response.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declared) && declared > PROBE_RESPONSE_LIMIT_BYTES) {
+    cancelResponse(response);
+    return null;
+  }
+  if (response.body === null) return null;
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > PROBE_RESPONSE_LIMIT_BYTES) {
+        cancelReader(reader);
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    cancelReader(reader);
+    throw error;
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // already cancelled or released
+    }
+  }
+
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(body));
+  } catch {
+    return null;
+  }
+}
+
+function cancelResponse(response: Response): void {
+  try {
+    void Promise.resolve(response.body?.cancel()).catch(() => undefined);
+  } catch {
+    // Probe cleanup is best-effort.
+  }
+}
+
+function cancelReader(reader: ReadableStreamDefaultReader<Uint8Array>): void {
+  try {
+    void Promise.resolve(reader.cancel()).catch(() => undefined);
+  } catch {
+    // Probe cleanup is best-effort.
+  }
+}
+
+export function isLoopbackHost(hostname: string) {
+  const host = unbracketedHost(hostname);
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  if (isIP(host) === 4) return host.startsWith("127.");
+  return isIP(host) === 6 && host === "::1";
+}
+
+/**
+ * Link-local addresses (IPv4 169.254/16, IPv6 fe80::/10) often host cloud
+ * metadata endpoints. Cleartext HTTP to them is never a legitimate MarketBot
+ * deploy target, so they stay out of the private-network HTTP allowlist.
+ */
+function isLinkLocalHost(hostname: string) {
+  const host = unbracketedHost(hostname);
+  if (isIP(host) === 4) {
+    const [first, second] = host.split(".").map(Number);
+    return first === 169 && second === 254;
+  }
+  if (isIP(host) === 6) {
+    const first = host.split(":", 1)[0] ?? "";
+    return /^fe[89ab]/.test(first);
+  }
+  return false;
+}
+
+function isLocalNetworkHost(hostname: string) {
+  const host = unbracketedHost(hostname);
+  if (isLoopbackHost(host) || host.endsWith(".local")) return true;
+  if (isLinkLocalHost(host)) return false;
+
+  if (isIP(host) === 4) {
+    const [first, second] = host.split(".").map(Number);
+    return (
+      first === 10 ||
+      (first === 172 && second !== undefined && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168)
+    );
+  }
+
+  if (isIP(host) === 6) {
+    const first = host.split(":", 1)[0] ?? "";
+    // Unique-local only (fc00::/7). Link-local is rejected above.
+    return /^f[cd]/.test(first);
+  }
+  return false;
+}
+
+function unbracketedHost(hostname: string) {
+  return hostname.replace(/^\[|\]$/g, "").toLowerCase();
+}

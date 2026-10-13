@@ -1,0 +1,5 @@
+# Modified for marketbot on 2026-10-13; see MODIFICATIONS.md.
+[begin] (MarketBot)
+  [exec] (Browser) {marketbot-browser}
+  [exec] (Terminal) {xterm -bg rgb:11/11/13 -fg rgb:e8/e8/ea -cr rgb:e8/e8/ea -title Terminal -xrm 'XTerm*selectToClipboard: true'}
+[end]
